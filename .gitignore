@@ -11,3 +11,7 @@ profile_*.csv
 venv/
 .DS_Store
 
+
+tests/*
+.gradle/*
+wps_scripts/bin/*

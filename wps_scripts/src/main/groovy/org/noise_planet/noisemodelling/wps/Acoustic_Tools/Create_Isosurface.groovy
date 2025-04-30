@@ -62,6 +62,22 @@ inputs = [
                 min        : 0, max: 1,
                 type       : String.class
         ],
+        resultTablePkField         : [
+                name       : 'PK field of result table',
+                title      : 'PK field of result table',
+                description: 'PK Field to join the result table and triangle table; Default value: IDRECEIVER',
+                min        : 0, max: 1,
+                type       : String.class
+        ],
+        triangleTable      : [
+                name       : 'Triangles table',
+                title      : 'Triangles table',
+                description: 'Name of the triangles table, generated from the scripts of "Receivers". (STRING)</br> </br>' +
+                             'It must have fields of THE_GEOM, PK_1, PK_2, PK_3 and CELL_ID' +
+                             'By default, TRIANGLES.',
+                min        : 0, max: 1,
+                type       : String.class
+        ],
         keepTriangles: [
                 name       : 'Keep triangles',
                 title      : 'Keep triangles',
@@ -150,7 +166,16 @@ def exec(Connection connection, Map input) {
         isoSurface.setSmoothCoefficient(0.5)
     }
 
-    isoSurface.createTable(connection, "IDRECEIVER")
+    if (input.containsKey("TriangleTable")) {
+        isoSurface.setTriangleTable(input['triangleTable'] as String)
+    }
+
+    String resultTablePK = "IDRECEIVER"
+    if(input.containsKey("resultTablePkField")) {
+        resultTablePK = input['resultTablePkField'] as String
+    }
+
+    isoSurface.createTable(connection, resultTablePK)
 
     resultString = "Table " + isoSurface.getOutputTable() + " created"
 
