@@ -33,6 +33,22 @@ import java.util.Map;
  * - Bridge geometry management through integrated components
  */
 public class Bridge extends Obstruction {
+
+    public enum GirderType {
+        STEEL_BOX,
+        STEEL_PLATE,
+        CONCRETE_BOX,
+        CONCRETE_PLATE,
+        CONCRETE_HOLLOW_SLAB
+    }
+
+    public enum SlabType {
+        CONCRETE,
+        STEEL
+    }
+
+    private GirderType girderType = null;
+    private SlabType slabType = null;
     
     /** Manager for bridge points collection and operations */
     private BridgePointManager pointManager;
@@ -54,13 +70,7 @@ public class Bridge extends Obstruction {
     
     /** Primary key of the bridge in the database. */
     private long primaryKey = -1;
-    
-    /** Reflection coefficient for back surface reflections. */
-    private double reflectionCoefficient = 0.8;
-    
-    /** Virtual source strength factor for structural noise. */
-    private double structuralNoiseFactor = 1.0;
-
+        
     /**
      * Create Bridge instances from a list of BridgePoints grouped by their bridgePrimaryKey.
      * This method groups the provided BridgePoints by their bridge primary key and creates
@@ -192,7 +202,7 @@ public class Bridge extends Obstruction {
      * @param profileBuilder Profile builder for ground height calculation
      * @return Created deck geometry polygon
      */
-    public Polygon createDeckGeometry(ProfileBuilder profileBuilder) {
+    public void createDeckGeometry(ProfileBuilder profileBuilder) {
         // Create deck geometry using the builder
         this.deckGeometry = geometryBuilder.createDeckGeometry(pointManager, profileBuilder);
         
@@ -211,8 +221,6 @@ public class Bridge extends Obstruction {
             // Update query helper with new geometry
             queryHelper.updateGeometry(deckGeometry, triangulation);
         }
-        
-        return deckGeometry;
     }
 
     /**
@@ -353,6 +361,20 @@ public class Bridge extends Obstruction {
         return queryHelper.isPointOnBridge(pointGeometry);
     }
 
+    /**
+     * Check if a point is within the bridge footprint (2D projection).
+     * Uses covers() instead of contains() to include boundary points.
+     * @param point Point to check
+     * @return true if point is within bridge footprint (including boundary)
+     */
+    public boolean isPointWithinBridgeFootprint(Coordinate point) {
+        return queryHelper.isPointWithinBridgeFootprint(point);
+    }
+
+    public boolean intersects(Geometry geom) {
+        return deckGeometry.intersects(geom);
+    }
+
 
     /**
      * Check if an edge can cause diffraction between source and receiver.
@@ -458,20 +480,21 @@ public class Bridge extends Obstruction {
         return !pointManager.isEmpty();
     }
 
-    public double getReflectionCoefficient() {
-        return reflectionCoefficient;
+
+    public GirderType getGirderType() {
+        return girderType;
     }
 
-    public void setReflectionCoefficient(double reflectionCoefficient) {
-        this.reflectionCoefficient = Math.max(0.0, Math.min(1.0, reflectionCoefficient));
+    public void setGirderType(GirderType girderType) {
+        this.girderType = girderType;
     }
 
-    public double getStructuralNoiseFactor() {
-        return structuralNoiseFactor;
+    public SlabType getSlabType() {
+        return slabType;
     }
 
-    public void setStructuralNoiseFactor(double structuralNoiseFactor) {
-        this.structuralNoiseFactor = Math.max(0.0, structuralNoiseFactor);
+    public void setSlabType(SlabType slabType) {
+        this.slabType = slabType;
     }
     
 

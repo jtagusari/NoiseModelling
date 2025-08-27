@@ -697,6 +697,15 @@ public class ProfileBuilder {
     }
 
     /**
+     * Retrieve the bridge with the given id (id is starting from 0).
+     * @param id Id of the bridge
+     * @return The bridge corresponding to the given id.
+     */
+    public Bridge getBridgeByPk(long pk) {
+        return bridges.stream().filter(bridge -> bridge.getPrimaryKey() == pk).findFirst().orElse(null);
+    }
+
+    /**
      * Clear the bridge list.
      */
     public void clearBridges() {
@@ -1204,7 +1213,7 @@ public class ProfileBuilder {
         // Get bridge information for diffraction calculation
         Bridge bridge = bridges.get(facetLine.getOriginId());
         double barrierHeight = bridge.getBarrierHeightAtPoint(intersection);
-        double deckThickness = bridge.getDeckThickness();
+        double deckThickness = bridge.getDeckThicknessAtPoint(intersection);
         
         // Bridge diffraction implementation:
         // 1. Sound source above bridge deck: zRayReceiverSource <= intersection.z + barrierHeight (IMPLEMENTED)

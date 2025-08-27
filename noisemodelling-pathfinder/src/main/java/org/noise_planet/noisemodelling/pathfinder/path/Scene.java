@@ -40,6 +40,9 @@ public class Scene {
     public static final String ROLL_DATABASE_FIELD = "ROLL";
     public static final String DIRECTIVITY_DATABASE_FIELD = "DIR_ID";
     public static final String GS_DATABASE_FIELD = "GS";
+    public static final String IS_ON_BRIDGE_DATABASE_FIELD = "ISONBRIDGE";
+    public static final String IS_VIRTUAL_SOURCE_DATABASE_FIELD = "ISVIRTUALSOURCE";
+    public static final String BRIDGE_PK_DATABASE_FIELD = "BRIDGEPK";
 
     public List<Long> receiversPk = new ArrayList<>();
     public List<Long> sourcesPk = new ArrayList<>();
