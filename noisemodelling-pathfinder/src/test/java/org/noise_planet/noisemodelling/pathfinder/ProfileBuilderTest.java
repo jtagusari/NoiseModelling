@@ -14,6 +14,7 @@ import org.locationtech.jts.geom.*;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
@@ -360,5 +361,138 @@ public class ProfileBuilderTest {
                 index.stream().mapToInt(Integer::intValue).toArray());
 
 
+    }
+
+    /**
+     * Test the bridge adding to a {@link ProfileBuilder}.
+     * @throws ParseException JTS WKT parsing exception.
+     */
+    @Test
+    public void bridgeAddingTest() throws ParseException {
+        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+        
+        // Create bridge polygons with Z coordinates representing deck height
+        Polygon bridge1 = (Polygon) READER.read("POLYGON((5 5 10, 15 5 10, 15 15 10, 5 15 10, 5 5 10))");
+        Polygon bridge2 = (Polygon) READER.read("POLYGON((20 20 15, 30 20 15, 30 30 15, 20 30 15, 20 20 15))");
+        
+        // Create Bridge objects with absorption coefficients
+        Bridge bridge1Obj = new Bridge(bridge1, Arrays.asList(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1), 1);
+        Bridge bridge2Obj = new Bridge(bridge2, Arrays.asList(0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2), 2);
+        
+        profileBuilder.addBridge(bridge1Obj);
+        profileBuilder.addBridge(bridge2Obj);
+        
+        profileBuilder.finishFeeding();
+
+        List<Bridge> list = profileBuilder.getBridges();
+        assertEquals(2, list.size());
+        // Check geometry coordinates directly instead of text representation
+        Coordinate[] coords1 = list.get(0).getGeometry().getCoordinates();
+        assertEquals(5.0, coords1[0].x, DELTA);
+        assertEquals(5.0, coords1[0].y, DELTA);
+        assertEquals(10.0, coords1[0].z, DELTA);
+        
+        
+        Coordinate[] coords2 = list.get(1).getGeometry().getCoordinates();
+        assertEquals(20.0, coords2[0].x, DELTA);
+        assertEquals(20.0, coords2[0].y, DELTA);
+        assertEquals(15.0, coords2[0].z, DELTA);
+        
+        assertNotNull(list.get(1)); // Should have valid bridge object
+    }
+
+    /**
+     * Test the finish of {@link ProfileBuilder} feeding with bridges.
+     * @throws ParseException JTS WKT parsing exception.
+     */
+    @Test
+    public void bridgeFeedingTest() throws ParseException {
+        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+        
+        Polygon bridge1 = (Polygon) READER.read("POLYGON((5 5 10, 15 5 10, 15 15 10, 5 15 10, 5 5 10))");
+        Bridge bridge1Obj = new Bridge(bridge1, Arrays.asList(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1), 1);
+        
+        profileBuilder.addBridge(bridge1Obj);
+        assertNotNull(profileBuilder.finishFeeding());
+        
+        // Add another bridge after finishFeeding - should not be included
+        Polygon bridge2 = (Polygon) READER.read("POLYGON((20 20 15, 30 20 15, 30 30 15, 20 30 15, 20 20 15))");
+        Bridge bridge2Obj = new Bridge(bridge2, Arrays.asList(0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2), 2);
+        profileBuilder.addBridge(bridge2Obj);
+
+        List<Bridge> list = profileBuilder.getBridges();
+        assertEquals(1, list.size());
+    }
+
+    /**
+     * Test the bridge count functionality.
+     * @throws ParseException JTS WKT parsing exception.
+     */
+    @Test
+    public void bridgeCountTest() throws ParseException {
+        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+        
+        assertEquals(0, profileBuilder.getBridgeCount());
+        
+        Polygon bridge1 = (Polygon) READER.read("POLYGON((5 5 10, 15 5 10, 15 15 10, 5 15 10, 5 5 10))");
+        Bridge bridge1Obj = new Bridge(bridge1, Arrays.asList(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1), 1);
+        profileBuilder.addBridge(bridge1Obj);
+        
+        assertEquals(1, profileBuilder.getBridgeCount());
+        
+        Polygon bridge2 = (Polygon) READER.read("POLYGON((20 20 15, 30 20 15, 30 30 15, 20 30 15, 20 20 15))");
+        Bridge bridge2Obj = new Bridge(bridge2, Arrays.asList(0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2), 2);
+        profileBuilder.addBridge(bridge2Obj);
+        
+        assertEquals(2, profileBuilder.getBridgeCount());
+        
+        profileBuilder.finishFeeding();
+        
+        assertEquals(2, profileBuilder.getBridgeCount());
+    }
+
+    /**
+     * Test the cut profile generation with all elements including bridges.
+     * @throws ParseException JTS WKT parsing exception.
+     */
+    @Test
+    public void allCutProfileTestWithBridges() throws Exception {
+        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+
+        profileBuilder.addBuilding(READER.read("POLYGON((2 2 10, 1 3 15, 2 4 10, 3 3 12, 2 2 10))"), 10);
+        profileBuilder.addBuilding(READER.read("POLYGON((4.5 7, 4.5 8.5, 6.5 8.5, 4.5 7))"), 3.3);
+        profileBuilder.addBuilding(READER.read("POLYGON((7 6, 10 6, 10 2, 7 2, 7 6))"), 5.6);
+
+        // Add bridges
+        Polygon bridge1 = (Polygon) READER.read("POLYGON((3 8 12, 4 8 12, 4 9 12, 3 9 12, 3 8 12))");
+        Bridge bridge1Obj = new Bridge(bridge1, Arrays.asList(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1), 1);
+        profileBuilder.addBridge(bridge1Obj);
+
+        profileBuilder.addTopographicLine((LineString) READER.read("LINESTRING (4 1 1.5, 5 7 1.0, 8 9 1.5)"));
+        profileBuilder.addTopographicPoint(new Coordinate(7, 9, 2.5));
+        profileBuilder.addTopographicPoint(new Coordinate(2, 4, 2.5));
+        profileBuilder.addTopographicPoint(new Coordinate(6, 1, 3.0));
+        profileBuilder.addTopographicPoint(new Coordinate(4, 4, 3.0));
+        profileBuilder.addTopographicPoint(new Coordinate(2, 5, 3.0));
+        profileBuilder.addTopographicPoint(new Coordinate(1, 9, 2.0));
+        profileBuilder.addTopographicPoint(new Coordinate(8, 2, 2.0));
+
+        profileBuilder.addGroundEffect(READER.read("POLYGON((-1 -1, -1 2, 2 2, 2 -1, -1 -1))"), 0.6);
+        profileBuilder.addGroundEffect(READER.read("POLYGON((-1 7, -0.5 8, 0 8.5, 1 9, 1.5 7, 2 6, 2.5 7, 3 9, 5.5 8.5, 7 7, 7 6, 5 5, 5 4, 4 2, 2 3, 1 5, 0 6, -1 7))"), 0.5);
+        profileBuilder.addGroundEffect(READER.read("POLYGON((8 1, 7 2, 7 4.5, 8 5, 9 4.5, 10 3.5, 9.5 2, 8 1))"), 0.25);
+        profileBuilder.finishFeeding();
+
+        CutProfile profile = profileBuilder.getProfile(new Coordinate(0, 1, 0.1), new Coordinate(8, 10, 0.3));
+
+        List<CutPoint> pts = profile.cutPoints;
+        assertEquals(0.0, pts.get(0).getCoordinate().x, DELTA);
+        assertEquals(1.0, pts.get(0).getCoordinate().y, DELTA);
+        assertEquals(0.1, pts.get(0).getCoordinate().z, DELTA);
+        assertEquals(8.0, pts.get(pts.size() - 1).getCoordinate().x, DELTA);
+        assertEquals(10.0, pts.get(pts.size() - 1).getCoordinate().y, DELTA);
+        assertEquals(0.3, pts.get(pts.size() - 1).getCoordinate().z, DELTA);
+
+        // Verify that bridges are included in the model
+        assertEquals(1, profileBuilder.getBridgeCount());
     }
 }

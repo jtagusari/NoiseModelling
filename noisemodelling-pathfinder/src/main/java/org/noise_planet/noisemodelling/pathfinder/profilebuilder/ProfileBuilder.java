@@ -71,6 +71,8 @@ public class ProfileBuilder {
     private List<Building> buildings = new ArrayList<>();
     /** List of walls. */
     private List<Wall> walls = new ArrayList<>();
+    /** List of bridges. */
+    private List<Bridge> bridges = new ArrayList<>();
     /** Building RTree. */
     private final STRtree buildingTree;
     /** Building RTree. */
@@ -379,6 +381,23 @@ public class ProfileBuilder {
     }
 
     /**
+     * Add the given Bridge object.
+     * @param bridge Bridge object to add.
+     * @return This ProfileBuilder instance for method chaining.
+     */
+    public ProfileBuilder addBridge(Bridge bridge) {
+        if (!isFeedingFinished) {
+            if (envelope == null) {
+                envelope = bridge.getGeometry().getEnvelopeInternal();
+            } else {
+                envelope.expandToInclude(bridge.getGeometry().getEnvelopeInternal());
+            }
+            this.bridges.add(bridge);
+        }
+        return this;
+    }
+
+    /**
      * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
      * @param geom   Wall footprint.
      * @param height Wall height.
@@ -629,6 +648,14 @@ public class ProfileBuilder {
     }
 
     /**
+     * Retrieve the bridge list.
+     * @return The bridge list.
+     */
+    public List<Bridge> getBridges() {
+        return bridges;
+    }
+
+    /**
      * Retrieve the count of wall add to this builder.
      * @return The count of wall.
      */
@@ -650,6 +677,30 @@ public class ProfileBuilder {
      */
     public void clearBuildings() {
         buildings.clear();
+    }
+
+    /**
+     * Retrieve the count of bridges added to this builder.
+     * @return The count of bridges.
+     */
+    public int getBridgeCount() {
+        return bridges.size();
+    }
+
+    /**
+     * Retrieve the bridge with the given id (id is starting from 0).
+     * @param id Id of the bridge
+     * @return The bridge corresponding to the given id.
+     */
+    public Bridge getBridge(int id) {
+        return bridges.get(id);
+    }
+
+    /**
+     * Clear the bridge list.
+     */
+    public void clearBridges() {
+        bridges.clear();
     }
 
     /**
@@ -818,6 +869,23 @@ public class ProfileBuilder {
             }
             building.setWalls(walls);
         }
+        //Process bridges
+        for (int j = 0; j < bridges.size(); j++) {
+            Bridge bridge = bridges.get(j);
+            // Add bridge edges to RTree as BRIDGE type for acoustic calculations
+            List<LineString> bridgeEdges = bridge.getEdges();
+            for (LineString edge : bridgeEdges) {
+                Coordinate[] coords = edge.getCoordinates();
+                for (int i = 0; i < coords.length - 1; i++) {
+                    LineSegment lineSegment = new LineSegment(coords[i], coords[i + 1]);
+                    Wall w = new Wall(lineSegment, j, IntersectionType.BRIDGE).setProcessedWallIndex(processedWalls.size());
+                    w.setPrimaryKey(bridge.getPrimaryKey());
+                    w.copyAlphas(bridge);
+                    processedWalls.add(w);
+                    rtree.insert(lineSegment.toGeometry(FACTORY).getEnvelopeInternal(), processedWalls.size()-1);
+                }
+            }
+        }
         for (int j = 0; j < walls.size(); j++) {
             Wall wall = walls.get(j);
             Coordinate[] coords = new Coordinate[]{wall.p0, wall.p1};
@@ -830,9 +898,10 @@ public class ProfileBuilder {
                 rtree.insert(lineSegment.toGeometry(FACTORY).getEnvelopeInternal(), processedWalls.size()-1);
             }
         }
-        // Set buildings and walls unmodifiable
+        // Set buildings, walls, and bridges unmodifiable
         this.buildings = Collections.unmodifiableList(this.buildings);
         this.walls = Collections.unmodifiableList(this.walls);
+        this.bridges = Collections.unmodifiableList(this.bridges);
         //Process the ground effects
         groundEffectsRtree = new STRtree(TREE_NODE_CAPACITY);
         for (int j = 0; j < groundAbsorptions.size(); j++) {
@@ -978,11 +1047,12 @@ public class ProfileBuilder {
             profile.getReceiver().zGround = 0.0;
         }
 
-        //Add Buildings/Walls and Ground effect transition points
+        //Add Buildings/Walls/Bridges and Ground effect transition points
         if(rtree != null) {
             LineSegment fullLine = new LineSegment(sourceCoordinate, receiverCoordinate);
-            addGroundBuildingCutPts(fullLine, profile, stopAtObstacleOverSourceReceiver);
-            if(stopAtObstacleOverSourceReceiver && profile.hasBuildingIntersection) {
+            addObstacleCutPts(fullLine, profile, stopAtObstacleOverSourceReceiver);
+            // Stop early if obstacle intersection is found and requested
+            if(stopAtObstacleOverSourceReceiver && (profile.hasBuildingIntersection || profile.hasBridgeIntersection)) {
                 return profile;
             }
         }
@@ -1107,6 +1177,59 @@ public class ProfileBuilder {
         }
     }
 
+    private boolean processBridge(int processedWallIndex, Coordinate intersection, Wall facetLine,
+                                 LineSegment fullLine, List<CutPoint> newCutPoints,
+                                 boolean stopAtObstacleOverSourceReceiver, CutProfile profile) {
+        // Bridge processing with bridge-specific acoustic considerations
+        CutPointWall bridgeCutPoint = new CutPointWall(processedWallIndex, intersection, facetLine.getLineSegment(),
+                facetLine.getAlphas());
+        if(facetLine.primaryKey >= 0) {
+            bridgeCutPoint.setPk(facetLine.primaryKey);
+        }
+        newCutPoints.add(bridgeCutPoint);
+        double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
+        
+        // For bridges, we treat the intersection as a diffraction edge
+        // The intersection type indicates whether we're entering or exiting the bridge area
+        Vector2D facetVector = Vector2D.create(facetLine.p0, facetLine.p1);
+        Vector2D exteriorVector = facetVector.rotate(LEFT_SIDE).normalize().multiply(MILLIMETER);
+        Coordinate exteriorPoint = exteriorVector.add(Vector2D.create(intersection)).toCoordinate();
+        
+        if(exteriorPoint.distance(fullLine.p0) < intersection.distance(fullLine.p0)) {
+            bridgeCutPoint.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER;
+        } else {
+            bridgeCutPoint.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT;
+        }
+
+        // Get bridge information for diffraction calculation
+        Bridge bridge = bridges.get(facetLine.getOriginId());
+        double barrierHeight = bridge.getBarrierHeightAtPoint(intersection);
+        double deckThickness = bridge.getDeckThickness();
+        
+        // Bridge diffraction implementation:
+        // 1. Sound source above bridge deck: zRayReceiverSource <= intersection.z + barrierHeight (IMPLEMENTED)
+        // 2. Sound source below bridge bottom: zRayReceiverSource >= intersection.z - deckThickness (NOT IMPLEMENTED YET)
+        
+        boolean bridgeDiffractionAboveDeck = zRayReceiverSource <= intersection.z + barrierHeight;
+        boolean bridgeDiffractionBelowBottom = zRayReceiverSource >= intersection.z - deckThickness;
+        
+        if (bridgeDiffractionAboveDeck) {
+            // Implemented: Treat bridge diffraction similar to building diffraction
+            profile.hasBridgeIntersection = true;
+            return !stopAtObstacleOverSourceReceiver;
+        } else if (bridgeDiffractionBelowBottom) {
+            // TODO: Implement bridge diffraction for sources below bridge bottom
+            // For now, we skip this case and treat it as no diffraction
+            // This needs to be implemented in the future to handle under-bridge acoustic effects
+            return true;
+        } else {
+            // Sound ray passes through the bridge structure (between deck bottom and deck top)
+            // This should not happen in normal cases, but we treat it as obstruction
+            profile.hasBridgeIntersection = true;
+            return !stopAtObstacleOverSourceReceiver;
+        }
+    }
+
 
     private boolean processGroundEffect(int processedWallIndex, Coordinate intersection, Wall facetLine,
                                     LineSegment fullLine, List<CutPoint> newCutPoints,
@@ -1151,13 +1274,15 @@ public class ProfileBuilder {
         return true;
     }
     /**
-     * Fetch intersection of a line segment with Buildings lines/Walls lines/Ground Effect lines
-     * @param fullLine P0 to P1 query for the profile of buildings
+     * Fetch intersection of a line segment with Buildings lines/Walls lines/Bridge lines/Ground Effect lines
+     * This method processes all obstacle types (Buildings, Walls, Bridges, Ground Effects) uniformly
+     * and adds appropriate CutPoints to the profile for acoustic calculations.
+     * @param fullLine P0 to P1 query for the profile of obstacles
      * @param profile Object to feed the results (out)
      * @param stopAtObstacleOverSourceReceiver If an obstacle is found higher than then segment sourceCoordinate
-     *                                        receiverCoordinate, stop computing and set #CutProfile.hasBuildingInter to buildings in profile data
+     *                                        receiverCoordinate, stop computing and set intersection flags in profile data
      */
-    private void addGroundBuildingCutPts(LineSegment fullLine, CutProfile profile, boolean stopAtObstacleOverSourceReceiver) {
+    private void addObstacleCutPts(LineSegment fullLine, CutProfile profile, boolean stopAtObstacleOverSourceReceiver) {
         // Collect all objects where envelope intersects all sub-segments of fullLine
         Set<Integer> processed = new HashSet<>();
 
@@ -1168,7 +1293,7 @@ public class ProfileBuilder {
         List<CutPoint> newCutPoints = new LinkedList<>();
         try {
             for (int j = 0; j < lines.size()
-                    && !(profile.hasBuildingIntersection && stopAtObstacleOverSourceReceiver); j++) {
+                    && !((profile.hasBuildingIntersection || profile.hasBridgeIntersection) && stopAtObstacleOverSourceReceiver); j++) {
                 LineSegment line = lines.get(j);
                 for (Object result : rtree.query(new Envelope(line.p0, line.p1))) {
                     if (!(result instanceof Integer) || processed.contains((Integer) result)) {
@@ -1190,13 +1315,22 @@ public class ProfileBuilder {
                         }
                         switch (facetLine.type) {
                             case BUILDING:
+                                // Process building intersection for diffraction calculation
                                 if (!processBuilding(i, intersection, facetLine, fullLine, newCutPoints,
                                         stopAtObstacleOverSourceReceiver, profile)) {
                                     return;
                                 }
                                 break;
                             case WALL:
+                                // Process thin wall intersection
                                 if (!processWall(i, intersection, facetLine, fullLine, newCutPoints,
+                                        stopAtObstacleOverSourceReceiver, profile)) {
+                                    return;
+                                }
+                                break;
+                            case BRIDGE:
+                                // Process bridge intersection for diffraction calculation (similar to buildings)
+                                if (!processBridge(i, intersection, facetLine, fullLine, newCutPoints,
                                         stopAtObstacleOverSourceReceiver, profile)) {
                                     return;
                                 }
@@ -1206,6 +1340,9 @@ public class ProfileBuilder {
                                         stopAtObstacleOverSourceReceiver, profile)) {
                                     return;
                                 }
+                                break;
+                            default:
+                                // Handle other intersection types that don't require specific processing
                                 break;
                         }
                     }
@@ -1578,7 +1715,7 @@ public class ProfileBuilder {
     /**
      * Different type of intersection.
      */
-    public enum IntersectionType {BUILDING, WALL, TOPOGRAPHY, GROUND_EFFECT, SOURCE, RECEIVER, REFLECTION, V_EDGE_DIFFRACTION}
+    public enum IntersectionType {BUILDING, WALL, BRIDGE, TOPOGRAPHY, GROUND_EFFECT, SOURCE, RECEIVER, REFLECTION, V_EDGE_DIFFRACTION}
 
     /**
      * Cutting profile containing all th cut points with there x,y,z position.
@@ -1664,9 +1801,5 @@ public class ProfileBuilder {
         }
     }
 
-
-    /**
-     * Hold two integers. Used to store unique triangle segments
-     */
 
 }

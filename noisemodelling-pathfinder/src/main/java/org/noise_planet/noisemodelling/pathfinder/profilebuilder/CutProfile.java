@@ -26,6 +26,8 @@ public class CutProfile {
 
     /** True if Source-Receiver linestring is below building intersection */
     public boolean hasBuildingIntersection = false;
+    /** True if Source-Receiver linestring intersects with bridge diffraction conditions */
+    public boolean hasBridgeIntersection = false;
     /** True if Source-Receiver linestring is below topography cutting point. */
     public boolean hasTopographyIntersection = false;
 
@@ -77,10 +79,11 @@ public class CutProfile {
      * compute the path between two points
      * @param p0
      * @param p1
+     * @param roofG Ground absorption coefficient for paths above obstacles (buildings/bridges)
      * @return the absorption coefficient of this path
      */
     @JsonIgnore
-    public double getGPath(CutPoint p0, CutPoint p1, double buildingRoofG) {
+    public double getGPath(CutPoint p0, CutPoint p1, double roofG) {
         double totalLength = 0;
         double rsLength = 0.0;
 
@@ -96,6 +99,7 @@ public class CutProfile {
             CutPoint current = cutPoints.get(index);
             if(current instanceof CutPointWall) {
                 CutPointWall currentWall = (CutPointWall) current;
+                // Handle both Building and Bridge obstacles in the same way for acoustic path calculation
                 if(!aboveRoof && currentWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER)) {
                     aboveRoof = true;
                 } else if(aboveRoof && currentWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
@@ -104,7 +108,7 @@ public class CutProfile {
             }
             if(index >= i0) {
                 double segmentLength = current.getCoordinate().distance(cutPoints.get(index + 1).getCoordinate());
-                rsLength += segmentLength * (aboveRoof ? buildingRoofG : current.getGroundCoefficient());
+                rsLength += segmentLength * (aboveRoof ? roofG : current.getGroundCoefficient());
                 totalLength += segmentLength;
             }
         }
@@ -126,7 +130,7 @@ public class CutProfile {
      */
     @JsonIgnore
     public boolean isFreeField() {
-        return !hasBuildingIntersection && !hasTopographyIntersection;
+        return !hasBuildingIntersection && !hasBridgeIntersection && !hasTopographyIntersection;
     }
 
 
@@ -135,6 +139,7 @@ public class CutProfile {
         return "CutProfile{" +
                 "pts=" + cutPoints +
                 ", hasBuildingIntersection=" + hasBuildingIntersection +
+                ", hasBridgeIntersection=" + hasBridgeIntersection +
                 ", hasTopographyIntersection=" + hasTopographyIntersection +
                 '}';
     }
@@ -186,6 +191,7 @@ public class CutProfile {
             return pts2D;
         }
         // keep track of the obstacle under our current position.
+        // Note: Both buildings and bridges are treated as obstacles in the same way
         boolean overArea = false;
         for (CutPoint cut : pts) {
             if (cut instanceof CutPointWall) {
@@ -205,8 +211,9 @@ public class CutProfile {
                 continue;
             }
             if (cut instanceof CutPointWall) {
-                // Z ground profile must add intermediate ground points before adding the top level of building/wall
+                // Z ground profile must add intermediate ground points before adding the top level of building/wall/bridge
                 CutPointWall cutPointWall = (CutPointWall) cut;
+                // Handle both Building and Bridge obstacles in the same way for ground profile calculation
                 if (cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER) ||
                         cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
                     pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
