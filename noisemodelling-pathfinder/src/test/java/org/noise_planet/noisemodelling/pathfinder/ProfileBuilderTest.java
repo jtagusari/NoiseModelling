@@ -45,11 +45,12 @@ public class ProfileBuilderTest {
     /**
      * Test the building adding to a {@link ProfileBuilder}.
      * Polygons are normalized according to ISO, outer ring must be CCW and inner rings are CW
+     * Verifies that buildings added via WKT are normalized and stored with the correct Z values.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void buildingAddingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addBuilding(READER.read("POLYGON((1 1,5 1,5 5,1 5,1 1))"), 10, -1);
         profileBuilder.addBuilding(READER.read("POLYGON((10 10,15 10,15 15,10 15,10 10))"), 23, -1);
         profileBuilder.addBuilding(READER.read("POLYGON((6 8,8 10,8 4,6 8))"), 56, -1);
@@ -68,11 +69,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the finish of {@link ProfileBuilder} feeding.
+     * Ensures that calling finishFeeding() returns a non-null result and that subsequent additions after finish are not included.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void finishBuildingFeedingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addBuilding(READER.read("POLYGON((1 1,5 1,5 5,1 5,1 1))"), 10);
         assertNotNull(profileBuilder.finishFeeding());
         profileBuilder.addBuilding(READER.read("POLYGON((10 10,15 10,15 15,10 15,10 10))"), 23);
@@ -84,11 +86,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the topographic adding to a {@link ProfileBuilder}.
+     * Confirms that topographic lines and points are triangulated into the expected number of triangles.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void topoAddingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addTopographicLine((LineString) READER.read("LINESTRING (4 1 1.5, 5 7 1.0, 8 9 1.5)"));
         profileBuilder.addTopographicPoint(new Coordinate(7, 9, 2.5));
         profileBuilder.addTopographicPoint(new Coordinate(2, 4, 2.5));
@@ -104,11 +107,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the finish of {@link ProfileBuilder} feeding.
+     * Verifies that finishFeeding() finalizes the current topography and further points added afterwards are ignored.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void topoBuildingFeedingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addTopographicLine((LineString) READER.read("LINESTRING (4 1 1.5, 5 7 1.0, 8 9 1.5)"));
         profileBuilder.addTopographicPoint(new Coordinate(7, 9, 2.5));
         profileBuilder.addTopographicPoint(new Coordinate(2, 4, 2.5));
@@ -125,11 +129,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the topographic cut profile generation.
+     * Builds a profile from topography and checks endpoints and heights of the generated cut profile.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void topoCutProfileTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addTopographicLine((LineString) READER.read("LINESTRING (4 1 1.5, 5 7 1.0, 8 9 1.5)"));
         profileBuilder.addTopographicPoint(new Coordinate(7, 9, 2.5));
         profileBuilder.addTopographicPoint(new Coordinate(2, 4, 2.5));
@@ -152,11 +157,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the ground adding to a {@link ProfileBuilder}.
+     * Verifies ground effect polygons are stored and counted correctly after feeding.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void groundAddingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addGroundEffect(READER.read("POLYGON((-1 7, -0.5 8, 0 8.5, 1 9, 1.5 7, 2 6, 2.5 7, 3 9, 5.5 8.5, 7 7, 7 6, 5 5, 5 4, 4 2, 2 3, 1 5, 0 6, -1 7))"), 0.5);
         profileBuilder.addGroundEffect(READER.read("POLYGON((8 1, 7 2, 7 4.5, 8 5, 9 4.5, 10 3.5, 9.5 2, 8 1))"), 0.25);
         profileBuilder.finishFeeding();
@@ -166,11 +172,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the finish of {@link ProfileBuilder} feeding.
+     * Ensures finishFeeding() locks in ground effects and prevents later additions from being included.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void groundBuildingFeedingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addGroundEffect(READER.read("POLYGON((-1 7, -0.5 8, 0 8.5, 1 9, 1.5 7, 2 6, 2.5 7, 3 9, 5.5 8.5, 7 7, 7 6, 5 5, 5 4, 4 2, 2 3, 1 5, 0 6, -1 7))"), 0.5);
         assertNotNull(profileBuilder.finishFeeding());
         profileBuilder.addGroundEffect(READER.read("POLYGON((8 1, 7 2, 7 4.5, 8 5, 9 4.5, 10 3.5, 9.5 2, 8 1))"), 0.25);
@@ -180,11 +187,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the ground cut profile generation.
+     * Generates a cut profile that includes ground effects and asserts the expected cut points and positions.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void groundCutProfileTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         profileBuilder.addGroundEffect(READER.read("POLYGON((-1 7, -0.5 8, 0 8.5, 1 9, 1.5 7, 2 6, 2.5 7, 3 9, 5.5 8.5, 7 7, 7 6, 5 5, 5 4, 4 2, 2 3, 1 5, 0 6, -1 7))"), 0.5);
         profileBuilder.addGroundEffect(READER.read("POLYGON((8 1, 7 2, 7 4.5, 8 5, 9 4.5, 10 3.5, 9.5 2, 8 1))"), 0.25);
         profileBuilder.finishFeeding();
@@ -204,11 +212,12 @@ public class ProfileBuilderTest {
 
     /**
      * Test the cut profile generation.
+     * Constructs a complex model (buildings, topography, ground) and checks that cut profile endpoints and heights match expectations.
      * @throws ParseException JTS WKT parsing exception.
      */
     @Test
     public void allCutProfileTest() throws Exception {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
 
         profileBuilder.addBuilding(READER.read("POLYGON((2 2 10, 1 3 15, 2 4 10, 3 3 12, 2 2 10))"), 10);
         profileBuilder.addBuilding(READER.read("POLYGON((4.5 7, 4.5 8.5, 6.5 8.5, 4.5 7))"), 3.3);
@@ -306,24 +315,27 @@ public class ProfileBuilderTest {
     public void test2DGroundProfile() {
 
         //Profile building (from TC15)
-        ProfileBuilder profileBuilder = new ProfileBuilder()
-                .addBuilding(new Coordinate[]{
-                        new Coordinate(55.0, 5.0, 8),
-                        new Coordinate(65.0, 5.0, 8),
-                        new Coordinate(65.0, 15.0, 8),
-                        new Coordinate(55.0, 15.0, 8),
-                })
-                .addBuilding(new Coordinate[]{
-                        new Coordinate(70.0, 14.5, 12),
-                        new Coordinate(80.0, 10.2, 12),
-                        new Coordinate(80.0, 20.2, 12),
-                })
-                .addBuilding(new Coordinate[]{
-                        new Coordinate(90.1, 19.5, 10),
-                        new Coordinate(93.3, 17.8, 10),
-                        new Coordinate(87.3, 6.6, 10),
-                        new Coordinate(84.1, 8.3, 10),
-                });
+    ProfileBuilder profileBuilder = new ProfileBuilder()
+        .addBuilding(new Coordinate[]{
+            new Coordinate(55.0, 5.0, 8),
+            new Coordinate(65.0, 5.0, 8),
+            new Coordinate(65.0, 15.0, 8),
+            new Coordinate(55.0, 15.0, 8),
+            new Coordinate(55.0, 5.0, 8)
+        })
+        .addBuilding(new Coordinate[]{
+            new Coordinate(70.0, 14.5, 12),
+            new Coordinate(80.0, 10.2, 12),
+            new Coordinate(80.0, 20.2, 12),
+            new Coordinate(70.0, 14.5, 12)
+        })
+        .addBuilding(new Coordinate[]{
+            new Coordinate(90.1, 19.5, 10),
+            new Coordinate(93.3, 17.8, 10),
+            new Coordinate(87.3, 6.6, 10),
+            new Coordinate(84.1, 8.3, 10),
+            new Coordinate(90.1, 19.5, 10)
+        });
         profileBuilder.addGroundEffect(0, 100, 0.0, 150, 0.5);
         profileBuilder.setzBuildings(true);
         profileBuilder.finishFeeding();
@@ -366,10 +378,11 @@ public class ProfileBuilderTest {
     /**
      * Test the bridge adding to a {@link ProfileBuilder}.
      * @throws ParseException JTS WKT parsing exception.
+     * Verifies that bridges with deck Z values are accepted and stored, and their geometries preserve Z coordinates.
      */
     @Test
     public void bridgeAddingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         
         // Create bridge polygons with Z coordinates representing deck height
         Polygon bridge1 = (Polygon) READER.read("POLYGON((5 5 10, 15 5 10, 15 15 10, 5 15 10, 5 5 10))");
@@ -387,13 +400,13 @@ public class ProfileBuilderTest {
         List<Bridge> list = profileBuilder.getBridges();
         assertEquals(2, list.size());
         // Check geometry coordinates directly instead of text representation
-        Coordinate[] coords1 = list.get(0).getGeometry().getCoordinates();
+    Coordinate[] coords1 = list.get(0).getDeckGeometry().getCoordinates();
         assertEquals(5.0, coords1[0].x, DELTA);
         assertEquals(5.0, coords1[0].y, DELTA);
         assertEquals(10.0, coords1[0].z, DELTA);
         
         
-        Coordinate[] coords2 = list.get(1).getGeometry().getCoordinates();
+    Coordinate[] coords2 = list.get(1).getDeckGeometry().getCoordinates();
         assertEquals(20.0, coords2[0].x, DELTA);
         assertEquals(20.0, coords2[0].y, DELTA);
         assertEquals(15.0, coords2[0].z, DELTA);
@@ -404,10 +417,11 @@ public class ProfileBuilderTest {
     /**
      * Test the finish of {@link ProfileBuilder} feeding with bridges.
      * @throws ParseException JTS WKT parsing exception.
+     * Ensures finishFeeding() properly finalizes bridges and blocks later bridge additions from being counted.
      */
     @Test
     public void bridgeFeedingTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         
         Polygon bridge1 = (Polygon) READER.read("POLYGON((5 5 10, 15 5 10, 15 15 10, 5 15 10, 5 5 10))");
         Bridge bridge1Obj = new Bridge(bridge1, Arrays.asList(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1), 1);
@@ -427,10 +441,11 @@ public class ProfileBuilderTest {
     /**
      * Test the bridge count functionality.
      * @throws ParseException JTS WKT parsing exception.
+     * Confirms bridge counting increments as bridges are added and remains stable after finishFeeding().
      */
     @Test
     public void bridgeCountTest() throws ParseException {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
         
         assertEquals(0, profileBuilder.getBridgeCount());
         
@@ -454,10 +469,11 @@ public class ProfileBuilderTest {
     /**
      * Test the cut profile generation with all elements including bridges.
      * @throws ParseException JTS WKT parsing exception.
+     * Builds a full scenario with buildings, bridges, topography and ground and validates the resulting cut profile bounds and that bridges are included.
      */
     @Test
     public void allCutProfileTestWithBridges() throws Exception {
-        ProfileBuilder profileBuilder = new ProfileBuilder(3, 3, 3, 2);
+    ProfileBuilder profileBuilder = new ProfileBuilder();
 
         profileBuilder.addBuilding(READER.read("POLYGON((2 2 10, 1 3 15, 2 4 10, 3 3 12, 2 2 10))"), 10);
         profileBuilder.addBuilding(READER.read("POLYGON((4.5 7, 4.5 8.5, 6.5 8.5, 4.5 7))"), 3.3);
@@ -494,5 +510,78 @@ public class ProfileBuilderTest {
 
         // Verify that bridges are included in the model
         assertEquals(1, profileBuilder.getBridgeCount());
+    }
+
+    /**
+     * Test finishing an empty ProfileBuilder: no elements should be present.
+     * Verifies that calling finishFeeding() on an empty builder results in empty collections for all element types.
+     */
+    @Test
+    public void emptyProfileTest() {
+    ProfileBuilder profileBuilder = new ProfileBuilder();
+        profileBuilder.finishFeeding();
+
+        assertEquals(0, profileBuilder.getBuildings().size());
+        assertEquals(0, profileBuilder.getBridges().size());
+        assertEquals(0, profileBuilder.getGroundEffects().size());
+        // No topography triangles should be created
+        assertEquals(0, profileBuilder.getTriangles().size());
+    }
+
+    /**
+     * Test adding a polygon with an inner ring (hole) as a building.
+     * Ensures inner ring is preserved.
+     * Checks that buildings with holes keep their interior rings and that Z values are preserved when enabled.
+     */
+    @Test
+    public void buildingWithHoleTest() throws ParseException {
+    ProfileBuilder profileBuilder = new ProfileBuilder();
+    // Outer square with an inner square hole, include absolute Z=14 on coordinates to test preservation
+    Polygon polyWithHole = (Polygon) READER.read("POLYGON Z ((0 0 14,10 0 14,10 10 14,0 10 14,0 0 14),(3 3 14,7 3 14,7 7 14,3 7 14,3 3 14))");
+    // Tell builder to respect Z values on building polygons
+    profileBuilder.setzBuildings(true);
+    profileBuilder.addBuilding(polyWithHole, 12);
+    profileBuilder.finishFeeding();
+
+    List<Building> list = profileBuilder.getBuildings();
+    assertEquals(1, list.size());
+    Polygon g = (Polygon) list.get(0).getGeometry();
+    // There should be one interior ring
+    assertEquals(1, g.getNumInteriorRing());
+    // Exterior ring should have 5 points (square closed)
+    assertEquals(5, g.getExteriorRing().getNumPoints());
+    // Interior ring (hole) should have 5 points as well
+    assertEquals(5, g.getInteriorRingN(0).getNumPoints());
+    // Check Z value on exterior ring first coordinate (should be height + minDEM = 14.0)
+    assertEquals(14.0, g.getExteriorRing().getCoordinateN(0).z, DELTA);
+    // Check Z value on interior ring first coordinate as well
+    assertEquals(14.0, g.getInteriorRingN(0).getCoordinateN(0).z, DELTA);
+    }
+
+    /**
+     * Test that bridge deck Z values are available on the stored bridge geometries.
+     * Ensures that bridge deck elevations are retained on the stored bridge geometries after feeding.
+     */
+    @Test
+    public void bridgesDeckZPreservedTest() throws ParseException {
+    ProfileBuilder profileBuilder = new ProfileBuilder();
+
+        Polygon bridge1 = (Polygon) READER.read("POLYGON((5 5 10, 15 5 10, 15 15 10, 5 15 10, 5 5 10))");
+        Polygon bridge2 = (Polygon) READER.read("POLYGON((20 20 15, 30 20 15, 30 30 15, 20 30 15, 20 20 15))");
+        Bridge b1 = new Bridge(bridge1, Arrays.asList(0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1), 1);
+        Bridge b2 = new Bridge(bridge2, Arrays.asList(0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2), 2);
+
+        profileBuilder.addBridge(b1);
+        profileBuilder.addBridge(b2);
+        profileBuilder.finishFeeding();
+
+        List<Bridge> list = profileBuilder.getBridges();
+        assertEquals(2, list.size());
+
+        Coordinate[] coords1 = list.get(0).getDeckGeometry().getCoordinates();
+        Coordinate[] coords2 = list.get(1).getDeckGeometry().getCoordinates();
+
+        assertEquals(10.0, coords1[0].z, DELTA);
+        assertEquals(15.0, coords2[0].z, DELTA);
     }
 }

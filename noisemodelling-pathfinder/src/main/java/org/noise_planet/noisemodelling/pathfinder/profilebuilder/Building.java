@@ -51,7 +51,7 @@ public class Building extends Obstruction {
      */
     public void poly2D_3D(){
 
-        GeometryFactory f = new GeometryFactory();
+    GeometryFactory f = GeometryFactoryProvider.SHARED;
 
         LinearRing shell2D = poly.getExteriorRing();
         Coordinate[] newCoordinate = new Coordinate[shell2D.getNumPoints()];

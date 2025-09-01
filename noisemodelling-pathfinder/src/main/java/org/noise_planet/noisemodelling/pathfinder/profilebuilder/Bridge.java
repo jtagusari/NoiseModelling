@@ -64,7 +64,9 @@ public class Bridge extends Obstruction {
     
     /** Bridge deck geometry polygon with Z coordinates */
     private Polygon deckGeometry;
-    
+
+
+
     /** List of bridge edges for diffraction calculations. */
     private List<LineString> edges = new ArrayList<>();
     
@@ -133,8 +135,10 @@ public class Bridge extends Obstruction {
         this.pointManager = new BridgePointManager(bridgePoints);
         this.geometryBuilder = new BridgeGeometryBuilder();
         this.triangulation = new BridgeTriangulation();
-        this.queryHelper = new BridgeQueryHelper(null, triangulation);
+        // Create query helper and provide builders so it can generate footprint when needed
+        this.queryHelper = new BridgeQueryHelper(null, null, triangulation, pointManager, geometryBuilder);
         
+
         // Set absorption coefficients
         if (alphas != null) {
             setAlpha(alphas);
@@ -156,7 +160,9 @@ public class Bridge extends Obstruction {
         this.pointManager = new BridgePointManager();
         this.geometryBuilder = new BridgeGeometryBuilder();
         this.triangulation = new BridgeTriangulation();
-        this.queryHelper = new BridgeQueryHelper(deckGeometry, triangulation);
+        
+        // Let BridgeQueryHelper generate 2D footprint from deckGeometry when needed
+        this.queryHelper = new BridgeQueryHelper(deckGeometry, null, triangulation);
         
         // Initialize edges if geometry is provided
         if (deckGeometry != null) {
@@ -218,10 +224,12 @@ public class Bridge extends Obstruction {
             // Create edges for acoustic calculations
             this.edges = geometryBuilder.createEdges(deckGeometry);
             
-            // Update query helper with new geometry
-            queryHelper.updateGeometry(deckGeometry, triangulation);
+            // Update query helper with new geometry; BridgeQueryHelper will generate 2D footprint
+            queryHelper.updateGeometry(deckGeometry, null, triangulation);
         }
     }
+
+    // ...removed removeZFromPolygon: footprint generation moved to BridgeQueryHelper
 
     /**
      * Calculate diffraction points at bridge edges for sources above the bridge.
@@ -387,10 +395,10 @@ public class Bridge extends Obstruction {
      */
     private boolean canCauseDiffraction(Coordinate source, Coordinate receiver, Coordinate edgeStart, Coordinate edgeEnd) {
         // Simplified geometric check - in practice would use more sophisticated fresnel zone analysis
-        GeometryFactory factory = new GeometryFactory();
+        GeometryFactory factory = GeometryFactoryProvider.SHARED;
         LineString directPath = factory.createLineString(new Coordinate[]{source, receiver});
         LineString edge = factory.createLineString(new Coordinate[]{edgeStart, edgeEnd});
-        
+
         return directPath.intersects(edge.buffer(1.0)); // 1 meter tolerance
     }
 
@@ -419,8 +427,22 @@ public class Bridge extends Obstruction {
         return queryHelper.getEnvelope2D();
     }
 
-    public Geometry getGeometry() {
-        return queryHelper.getGeometry();
+    /**
+     * Get the 3D deck geometry of the bridge (may be null if not created).
+     * @return deck geometry polygon (with Z) or null
+     */
+    public Geometry getDeckGeometry() {
+        return deckGeometry;
+    }
+
+    /**
+     * Get the 2D footprint geometry of the bridge (projection).
+     * If a footprint was explicitly created it is returned. Otherwise if a deck
+     * geometry exists a 2D copy without Z is produced and returned.
+     * @return footprint polygon (2D) or null
+     */
+    public Geometry getFootprintGeometry() {
+    return queryHelper.getFootprintGeometry();
     }
 
     /**

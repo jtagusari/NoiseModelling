@@ -41,7 +41,7 @@ public class BridgeGeometryBuilder {
      * Constructor.
      */
     public BridgeGeometryBuilder() {
-        this.geometryFactory = new GeometryFactory();
+    this.geometryFactory = GeometryFactoryProvider.SHARED;
     }
     
     /**
@@ -49,7 +49,7 @@ public class BridgeGeometryBuilder {
      * @param geometryFactory Custom geometry factory
      */
     public BridgeGeometryBuilder(GeometryFactory geometryFactory) {
-        this.geometryFactory = geometryFactory != null ? geometryFactory : new GeometryFactory();
+    this.geometryFactory = geometryFactory != null ? geometryFactory : GeometryFactoryProvider.SHARED;
     }
     
     public List<BridgePoint> createBridgeEdgePoints(BridgePointManager pointManager, ProfileBuilder profileBuilder, Direction direction) {
@@ -94,7 +94,23 @@ public class BridgeGeometryBuilder {
     }
 
     /**
-     * Create a bridge polygon from the bridge points.
+     * Create a bridge 2D footprint polygon from the bridge points.
+     * The polygon is created by:
+     * 1. Creating the center line from bridge points
+     * 2. Adding left and right width offsets
+     * @param pointManager Bridge point manager containing sorted bridge points
+     * @return Bridge polygon with Z coordinates
+     */
+    public Polygon createFootprintGeometry(BridgePointManager pointManager) {
+        if (pointManager == null) {
+            return null; // Cannot create geometry without point manager
+        }
+        ProfileBuilder nullProfileBuilder = new ProfileBuilder();
+        return createDeckGeometry(pointManager, nullProfileBuilder);
+    }
+    
+    /**
+     * Create a bridge deck 3D polygon from the bridge points.
      * The polygon is created by:
      * 1. Creating the center line from bridge points
      * 2. Adding left and right width offsets
@@ -254,6 +270,6 @@ public class BridgeGeometryBuilder {
      * @param geometryFactory New geometry factory
      */
     public void setGeometryFactory(GeometryFactory geometryFactory) {
-        this.geometryFactory = geometryFactory != null ? geometryFactory : new GeometryFactory();
+    this.geometryFactory = geometryFactory != null ? geometryFactory : GeometryFactoryProvider.SHARED;
     }
 }

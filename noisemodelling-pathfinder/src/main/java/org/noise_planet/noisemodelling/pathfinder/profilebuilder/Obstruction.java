@@ -19,7 +19,12 @@ public class Obstruction {
      * @param frequencyExact Exact frequency values
      */
     public void initialize(List<Double> frequencyExact) {
-        if(alphas.size() != frequencyExact.size()) {
+        if (frequencyExact == null) {
+            return;
+        }
+        // If alphas already provided by the caller, preserve them.
+        // Only generate a full-frequency default when no alphas are set.
+        if (alphas == null || alphas.isEmpty()) {
             alphas = new ArrayList<>();
             for (double freq : frequencyExact) {
                 alphas.add(WallAbsorption.getWallAlpha(g, freq));

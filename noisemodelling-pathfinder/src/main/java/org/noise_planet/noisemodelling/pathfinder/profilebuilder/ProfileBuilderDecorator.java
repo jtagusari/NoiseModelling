@@ -15,7 +15,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
 public class ProfileBuilderDecorator {
-    private static final GeometryFactory FACTORY = new GeometryFactory();
+    private static final GeometryFactory FACTORY = GeometryFactoryProvider.SHARED;
 
     private final Scene data;
 
