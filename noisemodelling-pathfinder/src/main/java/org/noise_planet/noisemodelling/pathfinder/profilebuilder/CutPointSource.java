@@ -15,6 +15,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 
 /**
  * Represents a sound source point in a vertical cut profile.
@@ -35,6 +36,9 @@ public class CutPointSource  extends CutPoint {
      */
     @JsonIgnore
     private int id = -1;
+
+    @JsonIgnore
+    private SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty();
 
     /**
      * Default constructor for deserialization.
@@ -84,6 +88,15 @@ public class CutPointSource  extends CutPoint {
         super(src);
     }
 
+    public CutPointSource migrateFromSourcePointInfo(SourcePointInfo sourcePointInfo) {
+        this.id = sourcePointInfo.getSourceIndex();
+        this.li = sourcePointInfo.getLineLength();
+        this.orientation = sourcePointInfo.getOrientation();
+        this.sourceBridgeProperty = sourcePointInfo.getSourceBridgeProperty();
+        this.sourcePk = sourcePointInfo.getSourcePk();
+        return this;
+    }
+
     /** Source line subdivision length (1.0 means a point is representing 1 meter of line sound source) */
     private double li = 1.0;
 
@@ -128,6 +141,15 @@ public class CutPointSource  extends CutPoint {
      */
     public void setSourcePk(long sourcePk) {
         this.sourcePk = sourcePk;
+    }
+
+
+    public SourceBridgeProperty getSourceBridgeProperty() {
+        return this.sourceBridgeProperty;
+    }
+
+    public void setSourceBridgeProperty(SourceBridgeProperty sourceBridgeProperty) {
+        this.sourceBridgeProperty = sourceBridgeProperty;
     }
 
     /**

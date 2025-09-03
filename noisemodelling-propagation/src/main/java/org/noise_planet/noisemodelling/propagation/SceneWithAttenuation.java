@@ -293,7 +293,7 @@ public class SceneWithAttenuation extends Scene {
     
     
     @Override
-    public SourceBridgeProperty getSourceBridgeProperty(long pk) {
+    public SourceBridgeProperty getSourceBridgePropertyByPk(long pk) {
         return super.getSourceBridgeProperty(pk);
     }
 

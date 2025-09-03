@@ -78,6 +78,13 @@ public class CutPointReceiver  extends CutPoint {
         this.receiverPk = receiverPk;
     }
 
+    
+    public CutPointReceiver migrateFromReceiverPointInfo(ReceiverPointInfo receiverPointInfo) {
+        this.id = receiverPointInfo.getReceiverIndex();
+        this.receiverPk = receiverPointInfo.getReceiverPk();
+        return this;
+    }
+
     /**
      * Get the receiver identifier in the subdomain.
      * 

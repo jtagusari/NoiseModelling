@@ -69,5 +69,22 @@ public class SourceBridgeProperty {
     public SourceType getSourceType() {
         return sourceType;
     }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+
+        SourceBridgeProperty that = (SourceBridgeProperty) o;
+        return bridgePkOn == that.getBridgePkOn() && bridgePkAbove == that.getBridgePkAbove() && sourceType == that.getSourceType();
+    }
+
+    
+    @Override
+    public int hashCode() {
+        int result = (int) (bridgePkOn ^ (bridgePkOn >>> 32));
+        result = 31 * result + (int) (bridgePkAbove ^ (bridgePkAbove >>> 32));
+        result = 31 * result + sourceType.hashCode();
+        return result;
+    }
 
 }

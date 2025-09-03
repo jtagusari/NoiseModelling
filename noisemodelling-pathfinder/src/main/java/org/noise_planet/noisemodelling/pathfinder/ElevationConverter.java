@@ -34,6 +34,7 @@ import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 public class ElevationConverter {
     Scene scene;
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+    private static final double MIN_INTERPOLATION_DISTANCE = 0.1;
     private static final double OFFSET = 0.05;
 
 
@@ -98,7 +99,7 @@ public class ElevationConverter {
      * @param sourcePk Primary key of the source to process
      */
     public void changeSourceGeometries(long sourcePk) {
-        SourceBridgeProperty sourceBridgeProperty = scene.getSourceBridgeProperty(sourcePk);
+        SourceBridgeProperty sourceBridgeProperty = scene.getSourceBridgePropertyByPk(sourcePk);
         if (sourceBridgeProperty == null) {
             throw new IllegalArgumentException("No bridge property found for source PK: " + sourcePk + 
                 ". Source must have associated bridge properties for elevation conversion.");
@@ -390,7 +391,7 @@ public class ElevationConverter {
      */
     private Geometry convertToAbsolute(Geometry geom) {
         if (geom instanceof LineString) {
-            return projectLineStringOntoDEM((LineString) geom, ProfileBuilder.MILLIMETER);
+            return projectLineStringOntoDEM((LineString) geom, MIN_INTERPOLATION_DISTANCE);
         } else if (geom instanceof MultiLineString) {
             return convertMultiLineStringToAbsolute((MultiLineString) geom);
         }
@@ -407,7 +408,7 @@ public class ElevationConverter {
         LineString[] newGeom = new LineString[multiLineString.getNumGeometries()];
         for (int idGeom = 0; idGeom < multiLineString.getNumGeometries(); idGeom++) {
             newGeom[idGeom] = projectLineStringOntoDEM(
-                (LineString) multiLineString.getGeometryN(idGeom), ProfileBuilder.MILLIMETER);
+                (LineString) multiLineString.getGeometryN(idGeom), MIN_INTERPOLATION_DISTANCE);
         }
         return GEOMETRY_FACTORY.createMultiLineString(newGeom);
     }

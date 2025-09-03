@@ -165,7 +165,10 @@ public class BridgeGeometryBuilder {
         Coordinate[] coords = exteriorRing.getCoordinates();
         
         for (int i = 0; i < coords.length - 1; i++) {
-            LineString edge = geometryFactory.createLineString(new Coordinate[]{coords[i], coords[i + 1]});
+            // Create 2D coordinates by removing Z component
+            Coordinate coord1 = new Coordinate(coords[i].x, coords[i].y);
+            Coordinate coord2 = new Coordinate(coords[i + 1].x, coords[i + 1].y);
+            LineString edge = geometryFactory.createLineString(new Coordinate[]{coord1, coord2});
             edges.add(edge);
         }
         

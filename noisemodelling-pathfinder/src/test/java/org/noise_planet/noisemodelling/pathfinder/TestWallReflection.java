@@ -94,9 +94,13 @@ public class TestWallReflection {
 
         DefaultCutPlaneVisitor defaultCutPlaneVisitor = new DefaultCutPlaneVisitor(true, inputData);
 
-        computeRays.computeReflexion(new ReceiverPointInfo(1, 1, receiver),
-                new SourcePointInfo(1, 1, inputData.getSourceGeometryByIndex(0).getCoordinate(), 1.0,
-                new Orientation()), receiverMirrorIndex, defaultCutPlaneVisitor, CutPlaneVisitor.PathSearchStrategy.CONTINUE);
+        computeRays.computeReflexion(
+                new ReceiverPointInfo(1, 1, receiver),
+                new SourcePointInfo(1, 1, inputData.getSourceGeometryByIndex(0).getCoordinate(), 1.0, new Orientation()), 
+                receiverMirrorIndex, 
+                defaultCutPlaneVisitor, 
+                CutPlaneVisitor.PathSearchStrategy.CONTINUE
+        );
 
         List<CutProfile> profiles = new ArrayList<>(defaultCutPlaneVisitor.cutProfiles);
         // Only one second order reflexion propagation path must be found
@@ -176,9 +180,13 @@ public class TestWallReflection {
 
         DefaultCutPlaneVisitor defaultCutPlaneVisitor = new DefaultCutPlaneVisitor(true, inputData);
 
-        computeRays.computeReflexion(new ReceiverPointInfo(1, 1, receiver),
-                new SourcePointInfo(1, 1, inputData.getSourceGeometryByIndex(0).getCoordinate(), 1.0,
-                        new Orientation()), receiverMirrorIndex, defaultCutPlaneVisitor, CutPlaneVisitor.PathSearchStrategy.CONTINUE);
+        computeRays.computeReflexion(
+                new ReceiverPointInfo(1, 1, receiver),
+                new SourcePointInfo(1, 1, inputData.getSourceGeometryByIndex(0).getCoordinate(), 1.0, new Orientation()),
+                receiverMirrorIndex,
+                defaultCutPlaneVisitor,
+                CutPlaneVisitor.PathSearchStrategy.CONTINUE
+        );
 
         List<CutProfile> profiles = new ArrayList<>(defaultCutPlaneVisitor.cutProfiles);
         // Only one second order reflexion propagation path must be found

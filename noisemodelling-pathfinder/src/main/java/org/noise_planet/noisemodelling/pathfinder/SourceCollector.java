@@ -81,7 +81,9 @@ public final class SourceCollector {
         if (sourceCoordinates.distance(receiverPointInfo.getCoordinate()) < scene.getMaxSrcDist()) {
             long sourcePk = scene.getSourcePkById(srcIndex);
             Orientation orientation = scene.getSourceOrientationByPk(sourcePk);
-            sourceList.add(new SourcePointInfo(srcIndex, sourcePk, sourceCoordinates, 1., orientation));
+            sourceList.add(
+                new SourcePointInfo(srcIndex, sourcePk, sourceCoordinates, 1., orientation, scene.getSourceBridgePropertyByPk(sourcePk))
+            );
         }
     }
 
@@ -168,7 +170,9 @@ public final class SourceCollector {
                     orientation = Orientation.fromVector(Orientation.rotate(new Orientation(0,0,0), orientationVector), 0);
                 }
                 long sourcePk = scene.getSourcePkById(srcIndex);
-                sourceList.add(new SourcePointInfo(srcIndex, sourcePk, pt, li, orientation));
+                sourceList.add(
+                    new SourcePointInfo(srcIndex, sourcePk, pt, li, orientation, scene.getSourceBridgePropertyByPk(sourcePk))
+                );
             }
         }
     }

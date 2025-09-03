@@ -18,28 +18,34 @@ import org.locationtech.jts.geom.LineSegment;
 import java.util.Collections;
 import java.util.List;
 
-public class CutPointWall  extends CutPoint {
+public class CutPointBridgeWall  extends CutPointWall {
+    
+    public enum WallDirection {
+        UPWARD,
+        DOWNWARD
+    }
 
+    private WallDirection wallDirection = WallDirection.UPWARD;
+    private boolean mirrorRelax;
+
+    public void setWallDirection(WallDirection wallDirection){
+        this.wallDirection = wallDirection;
+    }
+
+    public boolean getMirrorRelax() {
+        return mirrorRelax;
+    }
+
+    public void setMirrorRelax(boolean mirrorRelax) {
+        this.mirrorRelax = mirrorRelax;
+    }
+
+    /** This point encounter this kind of limit
+     * - We can enter or exit a polygon
+     * - pass a line (a wall without width) */
     public enum INTERSECTION_TYPE {BUILDING_ENTER, BUILDING_EXIT, THIN_WALL_ENTER_EXIT}
 
     public INTERSECTION_TYPE intersectionType = INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
-
-    /**
-     * x,y,z coordinates of the top segment of the wall that intersects the vertical cut plane
-     * z is altitude
-     */
-    public LineSegment wall;
-
-    /** Wall absorption coefficient per frequency band.*/
-    private List<Double> wallAlpha = Collections.emptyList();
-
-    /**
-     * Obstacle index in the subdomain
-     * @see ProfileBuilder#processedWalls
-     */
-    @JsonIgnore
-    public int processedWallIndex = -1;
-
 
     /** Database primary key value of the obstacle */
     private Long wallPk = null;
@@ -47,15 +53,14 @@ public class CutPointWall  extends CutPoint {
     /**
      * Empty constructor for deserialization
      */
-    public CutPointWall() {
+    public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha, WallDirection wallDirection) {
+        super(processedWallIndex, intersection, wallSegment, wallAlpha);
+        this.wallDirection = wallDirection;
     }
-
-    public CutPointWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha) {
-        this.wall = wallSegment;
-        this.coordinate = intersection;
-        this.processedWallIndex = processedWallIndex;
-        this.wallAlpha = wallAlpha;
-        this.intersectionType = INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
+    
+    public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha) {
+        super(processedWallIndex, intersection, wallSegment, wallAlpha);
+        this.wallDirection = WallDirection.UPWARD;
     }
 
     /**
@@ -63,7 +68,7 @@ public class CutPointWall  extends CutPoint {
      * @param pk External primary key value, will be updated if {@literal >=} 0
      * @return this
      */
-    public CutPointWall setPk(long pk) {
+    public CutPointBridgeWall setPk(long pk) {
         if(pk >= 0) {
             this.wallPk = pk;
         }
@@ -88,10 +93,6 @@ public class CutPointWall  extends CutPoint {
         return wallAlpha;
     }
 
-    @JsonIgnore
-    public INTERSECTION_TYPE getIntersectionType() {
-        return intersectionType;
-    }
     public void setWallAlpha(List<Double> wallAlpha) {
         this.wallAlpha = wallAlpha;
     }

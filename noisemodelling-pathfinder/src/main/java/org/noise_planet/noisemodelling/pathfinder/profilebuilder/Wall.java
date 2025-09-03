@@ -89,6 +89,10 @@ public class Wall extends Obstruction {
         return ls;
     }
 
+    public long getPrimaryKey() {
+        return primaryKey;
+    }
+
     /**
      * Retrieve the id or index of the source building or topographic triangle.
      * @return Id or index of the source building or topographic triangle.

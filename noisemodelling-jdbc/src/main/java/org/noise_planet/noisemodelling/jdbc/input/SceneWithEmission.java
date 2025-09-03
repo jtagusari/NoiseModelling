@@ -190,7 +190,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
     public List<Long> addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
         List<Long> returnedPks = super.addSourceDb(pk, geom, rs);
         for (long returnedPk : returnedPks) {
-            SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgeProperty(pk);
+            SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
             switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
                 case INPUT_MODE_TRAFFIC_FLOW_DEN:
                     if (sourceBridgeProperty.getSourceType() != SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
@@ -250,7 +250,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
      * @throws SQLException if reading from the result set fails
      */
     public void registerSourceEmission(Long pk, ResultSet rs) throws SQLException {
-        SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgeProperty(pk);
+        SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
         switch (sceneDatabaseInputSettings.inputMode) {
             case INPUT_MODE_TRAFFIC_FLOW:
                 if (sourceBridgeProperty.getSourceType() != SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {

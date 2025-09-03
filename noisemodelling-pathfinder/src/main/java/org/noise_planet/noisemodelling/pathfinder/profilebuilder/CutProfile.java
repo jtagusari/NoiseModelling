@@ -67,8 +67,11 @@ public class CutProfile {
      * @param cutPointsToInsert array of cut points to insert into the profile
      */
     public void insertCutPoint(boolean sortBySourcePosition, CutPoint... cutPointsToInsert) {
-        CutPointSource sourcePoint = getSource();
-        CutPointReceiver receiverPoint = getReceiver();
+        if (cutPoints.isEmpty() || !(cutPoints.get(0) instanceof CutPointSource) || !(cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver)) {
+            throw new IllegalStateException("No source or receiver point exists in the profile");
+        }
+        CutPointSource sourcePoint = (CutPointSource) cutPoints.get(0);
+        CutPointReceiver receiverPoint = (CutPointReceiver) cutPoints.get(cutPoints.size() - 1);
         cutPoints.addAll(1, Arrays.asList(cutPointsToInsert));
         if(sortBySourcePosition) {
             sort(sourcePoint.coordinate);
@@ -120,14 +123,8 @@ public class CutProfile {
         boolean aboveRoof = false;
         for(int index = 0; index < i1; index++) {
             CutPoint current = cutPoints.get(index);
-            if(current instanceof CutPointWall) {
-                CutPointWall currentWall = (CutPointWall) current;
-                // Handle both Building and Bridge obstacles in the same way for acoustic path calculation
-                if(!aboveRoof && currentWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER)) {
-                    aboveRoof = true;
-                } else if(aboveRoof && currentWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
-                    aboveRoof = false;
-                }
+            if(current instanceof CutPointWall || current instanceof CutPointBridgeWall) {
+                aboveRoof = checkAboveRoof((CutPointWall) current);
             }
             if(index >= i0) {
                 double segmentLength = current.getCoordinate().distance(cutPoints.get(index + 1).getCoordinate());
@@ -136,6 +133,22 @@ public class CutProfile {
             }
         }
         return rsLength / totalLength;
+    }
+
+    @JsonIgnore
+    private boolean checkAboveRoof(CutPointWall wall){
+        if(wall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER)) {
+            return true;
+        } else if(wall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
+            return false;
+        }
+        return false;
+    }
+
+    @JsonIgnore
+    private boolean checkAboveRoof(CutPointBridgeWall wall){
+        /* TODO implement bridge enter/exit logic */
+        return false;
     }
 
     /**
@@ -213,6 +226,10 @@ public class CutProfile {
         return computePts2DGround(0, index);
     }
 
+    private class ElevationProfile {
+
+    }
+
     /**
      * From the vertical plane cut, extract only the top elevation points
      * (buildings/walls top or ground if no buildings).
@@ -234,7 +251,7 @@ public class CutProfile {
         for (CutPoint cut : pts) {
             if (cut instanceof CutPointWall) {
                 CutPointWall cutPointWall = (CutPointWall) cut;
-                if (cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
+                if (cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
                     overArea = true;
                 } else {
                     break;
@@ -252,14 +269,14 @@ public class CutProfile {
                 // Z ground profile must add intermediate ground points before adding the top level of building/wall/bridge
                 CutPointWall cutPointWall = (CutPointWall) cut;
                 // Handle both Building and Bridge obstacles in the same way for ground profile calculation
-                if (cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER) ||
-                        cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
-                    pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
+                if (cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER) ||
+                        cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
+                    pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getCoordinate().z));
                     overArea = true;
                 }
                 pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getCoordinate().z));
-                if (cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT) ||
-                        cutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
+                if (cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT) ||
+                        cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
                     pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
                     overArea = false;
                 }
@@ -336,7 +353,7 @@ public class CutProfile {
     @JsonIgnore
     public CutPointSource getSource() {
         if (cutPoints.isEmpty() || !(cutPoints.get(0) instanceof CutPointSource)) {
-            return null;
+            throw new IllegalStateException("No source point exists in the profile");
         }
         CutPointSource original = (CutPointSource) cutPoints.get(0);
         return new CutPointSource(original);
@@ -350,7 +367,7 @@ public class CutProfile {
     @JsonIgnore
     public CutPointReceiver getReceiver() {
         if (cutPoints.isEmpty() || !(cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver)) {
-            return null;
+            throw new IllegalStateException("No receiver point exists in the profile");
         }
         CutPointReceiver original = (CutPointReceiver) cutPoints.get(cutPoints.size() - 1);
         return new CutPointReceiver(original);
@@ -371,6 +388,24 @@ public class CutProfile {
             cutPoints.set(0, new CutPointSource(source));
         } else {
             cutPoints.add(0, new CutPointSource(source));
+        }
+    }
+
+    /**
+     * Set the receiver point of the acoustic path.
+     * 
+     * @param receiver the new receiver point to set
+     * @throws IllegalArgumentException if receiver is null
+     */
+    @JsonIgnore
+    public void setReceiver(CutPointReceiver receiver) {
+        if (receiver == null) {
+            throw new IllegalArgumentException("Receiver cannot be null");
+        }
+        if (!cutPoints.isEmpty() && cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver) {
+            cutPoints.set(cutPoints.size() - 1, new CutPointReceiver(receiver));
+        } else {
+            cutPoints.add(new CutPointReceiver(receiver));
         }
     }
 
@@ -431,21 +466,4 @@ public class CutProfile {
         return hasBridgeIntersection;
     }
 
-    /**
-     * Set the receiver point of the acoustic path.
-     * 
-     * @param receiver the new receiver point to set
-     * @throws IllegalArgumentException if receiver is null
-     */
-    @JsonIgnore
-    public void setReceiver(CutPointReceiver receiver) {
-        if (receiver == null) {
-            throw new IllegalArgumentException("Receiver cannot be null");
-        }
-        if (!cutPoints.isEmpty() && cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver) {
-            cutPoints.set(cutPoints.size() - 1, new CutPointReceiver(receiver));
-        } else {
-            cutPoints.add(new CutPointReceiver(receiver));
-        }
-    }
 }

@@ -4,6 +4,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,6 @@ import org.slf4j.LoggerFactory;
  *</p>
  */
 public class ProfileRetriever {
-    private static final Logger logger = LoggerFactory.getLogger(ProfileRetriever.class);
     private ProfileRetriever() {}
 
     /**
@@ -79,7 +79,7 @@ public class ProfileRetriever {
             double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, double maxLineLength, 
             BuildingService buildingService, WallService wallService, BridgeService bridgeService, 
             TopographyService topographyService, GroundService groundService, 
-            ProcessedWallService processedWallService, GeometryFactory factory) {
+            ProcessedWallService processedWallService, GeometryFactory factory, SourcePointInfo sourcePointInfo) {
 
         Logger logger = LoggerFactory.getLogger(ProfileRetriever.class);
         logger.debug("ProfileRetriever.getProfile - Starting profile calculation");
@@ -93,7 +93,7 @@ public class ProfileRetriever {
 
         // Initialize the basic profile with source and receiver
         logger.debug("  Initializing profile...");
-        CutProfile profile = initializeProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, groundService, factory);
+        CutProfile profile = initializeProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, groundService, factory, sourcePointInfo);
 
         // Add topography cut points
         logger.debug("  Adding topography cut points...");
@@ -135,9 +135,9 @@ public class ProfileRetriever {
      * @return initialized CutProfile
      */
     private static CutProfile initializeProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate,
-            double defaultGroundAttenuation, GroundService groundService, GeometryFactory factory) {
-        
-        CutPointSource sourcePoint = new CutPointSource(sourceCoordinate);
+            double defaultGroundAttenuation, GroundService groundService, GeometryFactory factory, SourcePointInfo sourcePointInfo) {
+                
+        CutPointSource sourcePoint = new CutPointSource(sourceCoordinate).migrateFromSourcePointInfo(sourcePointInfo);
         CutPointReceiver receiverPoint = new CutPointReceiver(receiverCoordinate);
 
         // Set ground coefficient for source point
@@ -230,15 +230,16 @@ public class ProfileRetriever {
             BuildingService buildingService, WallService wallService, BridgeService bridgeService,
             GroundService groundService, ProcessedWallService processedWallService, GeometryFactory factory) {
         
-        if (processedWallService.getProcessedRtree() != null) {
-            LineSegment fullLine = new LineSegment(sourceCoordinate, receiverCoordinate);
-            ProfileUtils.addObstacleCutPts(fullLine, profile, stopAtObstacleOverSourceReceiver, maxLineLength, 
-                    buildingService, wallService, bridgeService, groundService, processedWallService, factory);
-            
-            // Stop early if obstacle intersection is found and requested
-            if (stopAtObstacleOverSourceReceiver && (profile.hasBuildingIntersection() || profile.hasBridgeIntersection())) {
-                return false; // Stop processing
-            }
+        if (processedWallService.getProcessedRtree() == null) {
+            throw new IllegalStateException("ProcessedWallService RTree is not initialized");
+        }
+        LineSegment fullLine = new LineSegment(sourceCoordinate, receiverCoordinate);
+        ProfileUtils.addObstacleCutPts(fullLine, profile, stopAtObstacleOverSourceReceiver, maxLineLength, 
+                buildingService, wallService, bridgeService, groundService, processedWallService, factory);
+        
+        // Stop early if obstacle intersection is found and requested
+        if (stopAtObstacleOverSourceReceiver && (profile.hasBuildingIntersection() || profile.hasBridgeIntersection())) {
+            return false; // Stop processing
         }
         return true; // Continue processing
     }

@@ -72,8 +72,8 @@ public final class ReflectionPathBuilder {
                                                                       CutPlaneVisitor.PathSearchStrategy initialStrategy,
                                                                       Scene scene) {
         // Delegate to instance processor for better testability and easier mocking
-        ReflectionPathProcessor processor = new ReflectionPathProcessor(scene.profileBuilder, new RobustLineIntersector());
-        return processor.process(rcv, src, receiverMirrorIndex, cutPlaneVisitor, initialStrategy, scene);
+        ReflectionPathProcessor processor = new ReflectionPathProcessor(scene, new RobustLineIntersector());
+        return processor.process(rcv, src, receiverMirrorIndex, cutPlaneVisitor, initialStrategy);
     }
 
     /**

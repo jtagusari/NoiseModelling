@@ -73,30 +73,16 @@ public final class DirectAndDiffractionEvaluator {
 
         // Build the direct acoustic propagation profile between source and receiver
         // This includes topography, building intersections, ground effects, and material properties
-        CutProfile cutProfile = scene.getProfile(src.getCoordinate(), rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !verticalDiffraction);
+        CutProfile cutProfile = scene.getProfile(src.getCoordinate(), rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !verticalDiffraction, src);
         
         // Enrich source point with metadata if profile was successfully created
         if(cutProfile.getSource() != null) {
-            CutPointSource cutPointSource = cutProfile.getSource();
-            // Set source identification and geometric properties
-            cutPointSource.setSourceId(src.getSourceIndex());
-            cutPointSource.setLineLength(src.getLineLength());
-            cutPointSource.setOrientation(src.getOrientation());
-
-            // Link to source database primary key if source index is valid
-            if(src.getSourceIndex() >= 0 && src.getSourceIndex() < scene.getSourceCount()) {
-                cutPointSource.setSourcePk(scene.getSourcePkById(src.getSourceIndex()));
-            }
-            cutProfile.setSource(cutPointSource);
+            cutProfile.setSource(cutProfile.getSource().migrateFromSourcePointInfo(src));
         }
 
         // Enrich receiver point with metadata if profile was successfully created
         if(cutProfile.getReceiver() != null) {
-            CutPointReceiver cutPointReceiver = cutProfile.getReceiver();
-            // Set receiver identification and database linkage
-            cutPointReceiver.setReceiverId(rcv.getReceiverIndex());
-            cutPointReceiver.setReceiverPk(rcv.getReceiverPk());
-            cutProfile.setReceiver(cutPointReceiver);
+            cutProfile.setReceiver(cutProfile.getReceiver().migrateFromReceiverPointInfo(rcv));
         }
 
         // Process vertical diffraction or free field direct path

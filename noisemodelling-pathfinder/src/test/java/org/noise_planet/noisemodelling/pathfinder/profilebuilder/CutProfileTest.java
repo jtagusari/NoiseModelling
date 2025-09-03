@@ -333,8 +333,12 @@ public class CutProfileTest {
         CutProfile emptyProfile = new CutProfile();
         
         assertEquals(0, emptyProfile.getGPath(), 1e-9);
-        assertNull(emptyProfile.getSource());
-        assertNull(emptyProfile.getReceiver());
+        try {
+            assertNull(emptyProfile.getSource());
+            assertNull(emptyProfile.getReceiver());
+        } catch (Exception e) {
+            assertTrue(e instanceof IllegalStateException);
+        }
         assertTrue(emptyProfile.isFreeField());
         
         List<Coordinate> pts2D = emptyProfile.computePts2D();

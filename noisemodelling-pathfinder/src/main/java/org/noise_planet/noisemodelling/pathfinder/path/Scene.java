@@ -13,6 +13,7 @@ import org.h2gis.utilities.SpatialResultSet;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Coordinates;
 import org.locationtech.jts.geom.Geometry;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.QueryGeometryStructure;
@@ -467,7 +468,7 @@ public class Scene {
      * @param pk Source primary key
      * @return Bridge properties or null if source is not on a bridge
      */
-    public SourceBridgeProperty getSourceBridgeProperty(long pk) {
+    public SourceBridgeProperty getSourceBridgePropertyByPk(long pk) {
         return sourceBridgeProperties.get(pk);
     }
 
@@ -480,12 +481,12 @@ public class Scene {
         return new ArrayList<>(sourceBridgeProperties.values());
     }
 
-    public CutProfile getProfile(Coordinate c0, Coordinate c1) {
-        return this.profileBuilder.getProfile(c0, c1, 0.0, false);
+    public CutProfile getProfile(Coordinate c0, Coordinate c1, SourcePointInfo sourcePointInfo) {
+        return this.profileBuilder.getProfile(c0, c1, 0.0, false, sourcePointInfo);
     }
 
-    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver) {
-        return this.profileBuilder.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver);
+    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
+        return this.profileBuilder.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, sourcePointInfo);
     }
 
     /**

@@ -20,19 +20,20 @@ import java.util.List;
  * encapsulates the reflection-related responsibilities that were part of
  * PathFinder's per-receiver workflow. Responsibilities include:
  * - Traversing mirror receiver graphs and assembling reflection ray paths
- * - Building cut profiles for reflection legs using the {@link ProfileBuilder}
+ * - Building cut profiles for reflection legs using the {@link Scene}
  * - Inserting reflection point attributes on cut points
  * - Returning path search strategies to the caller (e.g. skip receiver)
  *
- * It is written for testability: {@link ProfileBuilder} and {@link LineIntersector}
+ * It is written for testability: {@link Scene} and {@link LineIntersector}
  * are injected to allow unit testing without full geometry stack.
  */
 public class ReflectionPathProcessor {
-    private final ProfileBuilder profileBuilder;
+    private final Scene scene;
     private final LineIntersector lineIntersector;
+    private static final double MILLIMETER = 0.001;
 
-    public ReflectionPathProcessor(ProfileBuilder profileBuilder, LineIntersector lineIntersector) {
-        this.profileBuilder = profileBuilder;
+    public ReflectionPathProcessor(Scene scene, LineIntersector lineIntersector) {
+        this.scene = scene;
         this.lineIntersector = lineIntersector;
     }
 
@@ -51,8 +52,7 @@ public class ReflectionPathProcessor {
                                                       SourcePointInfo src,
                                                       MirrorReceiversCompute receiverMirrorIndex,
                                                       CutPlaneVisitor cutPlaneVisitor,
-                                                      CutPlaneVisitor.PathSearchStrategy initialStrategy,
-                                                      Scene scene) {
+                                                      CutPlaneVisitor.PathSearchStrategy initialStrategy) {
         CutPlaneVisitor.PathSearchStrategy strategy = initialStrategy;
         List<MirrorReceiver> mirrorResults = receiverMirrorIndex.findCloseMirrorReceivers(src.getCoordinate());
 
@@ -63,12 +63,12 @@ public class ReflectionPathProcessor {
                 continue;
             }
             
-            CutProfile mainProfile = buildReflectionProfile(src, rcv, rayPath, scene);
+            CutProfile mainProfile = buildReflectionProfile(src, rcv, rayPath);
             if (mainProfile == null) {
                 continue;
             }
             
-            configureProfileAttributes(mainProfile, src, rcv, scene);
+            configureProfileAttributes(mainProfile, src, rcv);
             
             strategy = cutPlaneVisitor.onNewCutPlane(mainProfile);
             if (isTerminalStrategy(strategy)) {
@@ -135,8 +135,8 @@ public class ReflectionPathProcessor {
         double length = vec_epsilon.distance(new Coordinate(0., 0., 0.));
         vec_epsilon.x /= length;
         vec_epsilon.y /= length;
-        vec_epsilon.x *= ProfileBuilder.MILLIMETER;
-        vec_epsilon.y *= ProfileBuilder.MILLIMETER;
+        vec_epsilon.x *= MILLIMETER;
+        vec_epsilon.y *= MILLIMETER;
         reflectionPt.x -= vec_epsilon.x;
         reflectionPt.y -= vec_epsilon.y;
         
@@ -157,25 +157,25 @@ public class ReflectionPathProcessor {
      * @return Complete reflection profile or null if invalid
      */
     private CutProfile buildReflectionProfile(SourcePointInfo src, ReceiverPointInfo rcv, 
-                                              List<MirrorReceiver> rayPath, Scene scene) {
+                                              List<MirrorReceiver> rayPath) {
         // Build initial profile from source to first reflection point
-        CutProfile cutProfile = profileBuilder.getProfile(src.getCoordinate(), rayPath.get(0).getReflectionPosition(),
-                scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction);
-        if (!isValidProfile(cutProfile, scene)) {
+        CutProfile cutProfile = scene.getProfile(src.getCoordinate(), rayPath.get(0).getReflectionPosition(),
+                scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
+        if (!isValidProfile(cutProfile)) {
             return null;
         }
 
         List<CutPoint> mainProfileCutPoints = new ArrayList<>(cutProfile.getCutPoints().subList(0, cutProfile.getCutPoints().size() - 1));
 
         // Process intermediate reflection legs
-        if (!buildIntermediateReflectionLegs(rayPath, mainProfileCutPoints, scene)) {
+        if (!buildIntermediateReflectionLegs(rayPath, mainProfileCutPoints, src)) {
             return null;
         }
 
         // Build final leg from last reflection point to receiver
-        cutProfile = profileBuilder.getProfile(rayPath.get(rayPath.size() - 1).getReflectionPosition(),
-                rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction);
-        if (!isValidProfile(cutProfile, scene)) {
+        cutProfile = scene.getProfile(rayPath.get(rayPath.size() - 1).getReflectionPosition(),
+                rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
+        if (!isValidProfile(cutProfile)) {
             return null;
         }
 
@@ -195,15 +195,15 @@ public class ReflectionPathProcessor {
      * @return true if all intermediate legs are valid, false otherwise
      */
     private boolean buildIntermediateReflectionLegs(List<MirrorReceiver> rayPath, 
-                                                    List<CutPoint> mainProfileCutPoints, Scene scene) {
+                                                    List<CutPoint> mainProfileCutPoints, SourcePointInfo src) {
         for (int idPt = 0; idPt < rayPath.size() - 1; idPt++) {
             MirrorReceiver firstPoint = rayPath.get(idPt);
             MirrorReceiver secondPoint = rayPath.get(idPt + 1);
             
-            CutProfile cutProfile = profileBuilder.getProfile(firstPoint.getReflectionPosition(),
-                    secondPoint.getReflectionPosition(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction);
+            CutProfile cutProfile = scene.getProfile(firstPoint.getReflectionPosition(),
+                    secondPoint.getReflectionPosition(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
             
-            if (!isValidProfile(cutProfile, scene)) {
+            if (!isValidProfile(cutProfile)) {
                 return false;
             }
 
@@ -221,7 +221,7 @@ public class ReflectionPathProcessor {
      * @param scene Scene configuration
      * @return true if profile is valid, false otherwise
      */
-    private boolean isValidProfile(CutProfile cutProfile, Scene scene) {
+    private boolean isValidProfile(CutProfile cutProfile) {
         return cutProfile.isFreeField() || scene.computeVerticalDiffraction;
     }
 
@@ -248,23 +248,9 @@ public class ReflectionPathProcessor {
      * @param scene Scene containing acoustic data
      */
     private void configureProfileAttributes(CutProfile mainProfile, SourcePointInfo src, 
-                                           ReceiverPointInfo rcv, Scene scene) {
-        CutPointSource cutPointSource = mainProfile.getSource();
-        CutPointReceiver cutPointReceiver = mainProfile.getReceiver();
-        
-        cutPointSource.setSourceId(src.getSourceIndex());
-        cutPointReceiver.setReceiverId(rcv.getReceiverIndex());
-        cutPointReceiver.setReceiverPk(rcv.getReceiverPk());
-
-        if (src.getSourceIndex() >= 0 && src.getSourceIndex() < scene.getSourceCount()) {
-            cutPointSource.setSourcePk(scene.getSourcePkById(src.getSourceIndex()));
-        }
-
-        cutPointSource.setOrientation(src.getOrientation());
-        cutPointSource.setLineLength(src.getLineLength());
-        
-        mainProfile.setSource(cutPointSource);
-        mainProfile.setReceiver(cutPointReceiver);
+                                           ReceiverPointInfo rcv) {        
+        mainProfile.setSource(mainProfile.getSource().migrateFromSourcePointInfo(src));
+        mainProfile.setReceiver(mainProfile.getReceiver().migrateFromReceiverPointInfo(rcv));
     }
 
     /**

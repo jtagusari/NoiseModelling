@@ -82,7 +82,7 @@ public final class DiffractionPathBuilder {
 
         for (int i = 0; i < coordinates.size() - 1; i++) {
             CutProfile profile = scene.getProfile(coordinates.get(i), coordinates.get(i + 1), 
-                    scene.getDefaultGroundAttenuation(), false);
+                    scene.getDefaultGroundAttenuation(), false, src);
 
             // Add source point (first segment) or diffraction point (subsequent segments)
             if (i > 0) {
@@ -126,36 +126,11 @@ public final class DiffractionPathBuilder {
         mainProfile.insertCutPoint(false,
                 cutPoints.subList(1, cutPoints.size() - 1).toArray(CutPoint[]::new));
 
-        // Configure source point
-        CutPointSource cutPointSource = mainProfile.getSource();
-        setSourcePointProperties(cutPointSource, src, scene);
-        mainProfile.setSource(cutPointSource);
-
-        // Configure receiver point
-        CutPointReceiver cutPointReceiver = mainProfile.getReceiver();
-        setReceiverPointProperties(cutPointReceiver, rcv);
-        mainProfile.setReceiver(cutPointReceiver);
+        // Configure source point / receiver point
+        mainProfile.setSource(mainProfile.getSource().migrateFromSourcePointInfo(src));
+        mainProfile.setReceiver(mainProfile.getReceiver().migrateFromReceiverPointInfo(rcv));
 
         return mainProfile;
-    }
-
-    /**
-     * Set properties for source cut point.
-     *
-     * @param cutPointSource source cut point to configure
-     * @param src source point information
-     * @param scene scene data
-     */
-    private static void setSourcePointProperties(CutPointSource cutPointSource, 
-            SourcePointInfo src, org.noise_planet.noisemodelling.pathfinder.path.Scene scene) {
-        
-        cutPointSource.setSourceId(src.getSourceIndex());
-        cutPointSource.setOrientation(src.getOrientation());
-        cutPointSource.setLineLength(src.getLineLength());
-
-        if (src.getSourceIndex() >= 0 && src.getSourceIndex() < scene.getSourceCount()) {
-            cutPointSource.setSourcePk(scene.getSourcePkById(src.getSourceIndex()));
-        }
     }
 
     /**
@@ -241,8 +216,15 @@ public final class DiffractionPathBuilder {
         Coordinate[] coordinates = new Coordinate[0];
         boolean convexHullIntersects = true;
         
-        // Add iteration limit to prevent infinite loops
-        int maxIterations = 100; // Maximum number of iterations to prevent performance issues
+        // Create visitor once and reuse it - this is critical to prevent infinite loops
+        // The visitor maintains state about already processed buildings/walls
+        Plane cutPlane = PathFinder.computeZeroRadPlane(p1, p2);
+        org.noise_planet.noisemodelling.pathfinder.profilebuilder.BuildingIntersectionPathVisitor visitor = 
+                new org.noise_planet.noisemodelling.pathfinder.profilebuilder.BuildingIntersectionPathVisitor(
+                        p1, p2, left, profileBuilder, input, cutPlane);
+        
+        // Add iteration limit to prevent infinite loops, but allow more iterations for complex cases
+        int maxIterations = 1000; 
         int iteration = 0;
 
         while (convexHullIntersects && iteration < maxIterations) {
@@ -270,10 +252,10 @@ public final class DiffractionPathBuilder {
                 return new ArrayList<>();
             }
 
-            // Check for new intersections
+            // Check for new intersections - reuse the same visitor to maintain state
             long intersectionStart = System.currentTimeMillis();
             HullIntersectionResult result = checkHullIntersections(coordinates, p1, p2, 
-                    profileBuilder, freeFieldSegments, input, left);
+                    profileBuilder, freeFieldSegments, input, left, visitor);
             
             long intersectionTime = System.currentTimeMillis() - intersectionStart;
             LOGGER.debug("Iteration {}: Intersection check completed in {}ms, hasIntersections={}", 
@@ -291,12 +273,13 @@ public final class DiffractionPathBuilder {
         
         long totalTime = System.currentTimeMillis() - startTime;
         
-        // If maximum iterations exceeded, log warning and return empty result
+        // If maximum iterations exceeded, return current best result instead of empty
         if (iteration >= maxIterations) {
             LOGGER.warn("computeIterativeConvexHull exceeded maximum iterations ({}) for source {} to receiver {} in {}ms. " +
-                "This may indicate a performance issue with high receiver positions.", 
-                maxIterations, p1, p2, totalTime);
-            return new ArrayList<>();
+                "Returning current best path with {} coordinates.", 
+                maxIterations, p1, p2, totalTime, coordinates.length);
+            // Return the current hull path instead of empty list
+            return extractFinalPath(coordinates, p1, p2, left);
         }
 
         LOGGER.debug("computeIterativeConvexHull completed successfully in {} iterations, {}ms total", iteration, totalTime);
@@ -384,7 +367,8 @@ public final class DiffractionPathBuilder {
      */
     private static HullIntersectionResult checkHullIntersections(Coordinate[] coordinates, 
             Coordinate p1, Coordinate p2, ProfileBuilder profileBuilder, 
-            Set<LineSegment> freeFieldSegments, List<Coordinate> input, boolean left) {
+            Set<LineSegment> freeFieldSegments, List<Coordinate> input, boolean left,
+            org.noise_planet.noisemodelling.pathfinder.profilebuilder.BuildingIntersectionPathVisitor visitor) {
         
         HullIntersectionResult result = new HullIntersectionResult();
         
@@ -397,17 +381,15 @@ public final class DiffractionPathBuilder {
         input.clear();
         input.addAll(Arrays.asList(coordinates));
 
-        Plane cutPlane = PathFinder.computeZeroRadPlane(p1, p2);
-        org.noise_planet.noisemodelling.pathfinder.profilebuilder.BuildingIntersectionPathVisitor visitor = 
-                new org.noise_planet.noisemodelling.pathfinder.profilebuilder.BuildingIntersectionPathVisitor(
-                        p1, p2, left, profileBuilder, input, cutPlane);
-
         for (int k = 0; k < coordinates.length - 1; k++) {
             LineSegment freeFieldTestSegment = new LineSegment(coordinates[k], coordinates[k + 1]);
 
             if (shouldTestSegment(k, indexp2, left)) {
                 if (!freeFieldSegments.contains(freeFieldTestSegment)) {
                     int inputPointsBefore = input.size();
+                    
+                    // Set the intersection line for this segment on the reused visitor
+                    visitor.setIntersectionLine(freeFieldTestSegment);
                     profileBuilder.getWallsOnPath(coordinates[k], coordinates[k + 1], visitor);
 
                     if (inputPointsBefore == input.size()) {

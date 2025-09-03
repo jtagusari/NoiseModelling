@@ -308,31 +308,22 @@ public class BuildingService implements FrequencyInitializable, ElevationComputa
                                    Coordinate intersection,
                                    Wall facetLine,
                                    LineSegment fullLine,
-                                   List<CutPoint> newCutPoints,
-                                   boolean stopAtObstacleOverSourceReceiver,
-                                   CutProfile profile) {
+                                   List<CutPoint> newCutPoints) {
         CutPointWall wallCutPoint = new CutPointWall(processedWallIndex, intersection, facetLine.getLineSegment(),
                 facetLine.getAlphas());
         if (facetLine.primaryKey >= 0) {
             wallCutPoint.setPk(facetLine.primaryKey);
         }
-        newCutPoints.add(wallCutPoint);
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
-        Vector2D facetVector = Vector2D.create(facetLine.p0, facetLine.p1);
-        Vector2D exteriorVector = facetVector.rotate(ProfileBuilder.LEFT_SIDE).normalize().multiply(ProfileBuilder.MILLIMETER);
-        Coordinate exteriorPoint = exteriorVector.add(Vector2D.create(intersection)).toCoordinate();
-        if (exteriorPoint.distance(fullLine.p0) < intersection.distance(fullLine.p0)) {
+        boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, facetLine);
+        if (isIntersectionEntry) {
             wallCutPoint.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER;
         } else {
             wallCutPoint.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT;
         }
-
-        if (zRayReceiverSource <= intersection.z) {
-            profile.hasBuildingIntersection(true);
-            return !stopAtObstacleOverSourceReceiver;
-        } else {
-            return true;
-        }
+        
+        newCutPoints.add(wallCutPoint);
+        return zRayReceiverSource <= intersection.z;
     }
     /**
      * Add a building from a raw {@link Geometry} with attributes. Accepts only

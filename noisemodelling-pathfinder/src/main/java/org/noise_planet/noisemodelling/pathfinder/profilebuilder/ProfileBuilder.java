@@ -14,6 +14,7 @@ import org.locationtech.jts.index.strtree.STRtree;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.Triangle;
 // ...existing imports...
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,7 +107,6 @@ public class ProfileBuilder {
 
     public static final double EPSILON = 1e-7;
     public static final double MILLIMETER = 0.001;
-    public static final double LEFT_SIDE = Math.PI / 2;
     private static final int DEFAULT_TREE_NODE_CAPACITY = 5;
 
     /** If true, no more data can be add. */
@@ -1076,8 +1076,8 @@ public class ProfileBuilder {
      *         walls, bridges and ground effects along the straight segment between
      *         the two coordinates.
      */
-    public CutProfile getProfile(Coordinate c0, Coordinate c1) {
-        return getProfile(c0, c1, 0.0, false);
+    public CutProfile getProfile(Coordinate c0, Coordinate c1, SourcePointInfo sourcePointInfo) {
+        return getProfile(c0, c1, 0.0, false, sourcePointInfo);
     }
 
 
@@ -1101,8 +1101,8 @@ public class ProfileBuilder {
      * @return Cutting profile assembled by querying building, wall, bridge,
      *         topography and ground services.
      */
-    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver) {
-        return ProfileRetriever.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, maxLineLength, buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, GeometryFactoryProvider.SHARED);
+    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
+        return ProfileRetriever.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, maxLineLength, buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, GeometryFactoryProvider.SHARED, sourcePointInfo);
     }
     /**
      * Fetch the first intersecting ground absorption object index that intersects

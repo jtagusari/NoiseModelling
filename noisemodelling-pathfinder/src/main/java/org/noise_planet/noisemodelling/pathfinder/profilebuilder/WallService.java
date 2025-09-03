@@ -115,8 +115,7 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
      * operates on processed walls.
      */
     public boolean createWallCutPointAndCheckObstruction(int processedWallIndex, Coordinate intersection, Wall facetLine,
-                                                         LineSegment fullLine, List<CutPoint> newCutPoints,
-                                                         boolean stopAtObstacleOverSourceReceiver, CutProfile profile) {
+                                                         LineSegment fullLine, List<CutPoint> newCutPoints) {
 
         CutPointWall cutPointWall = new CutPointWall(processedWallIndex,
                 intersection, facetLine.getLineSegment(), facetLine.getAlphas());
@@ -127,12 +126,7 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
         newCutPoints.add(cutPointWall);
 
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
-        if (zRayReceiverSource <= intersection.z) {
-            profile.hasBuildingIntersection(true);
-            return !stopAtObstacleOverSourceReceiver;
-        } else {
-            return true;
-        }
+        return zRayReceiverSource <= intersection.z;
     }
 
     /**

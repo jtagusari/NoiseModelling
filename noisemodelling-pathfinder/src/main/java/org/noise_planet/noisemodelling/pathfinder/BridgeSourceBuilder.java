@@ -52,7 +52,7 @@ public class BridgeSourceBuilder {
      * when using projected coordinates).
      */
     private final double minOverlapLengthMeters;
-    private static double MIN_OVERLAP_LENGTH = 1.0;
+    private static final double MIN_OVERLAP_LENGTH = 1.0;
 
     /**
      * A sentinel deck height used when no specific minimum deck height is
@@ -60,7 +60,8 @@ public class BridgeSourceBuilder {
      * bridges when MIN_DECK_HEIGHT is used as a lower bound. Consider making
      * this configurable if callers need a different default.
      */
-    private static double MIN_DECK_HEIGHT = -999.9;
+    private static final double MIN_DECK_HEIGHT = -999.9;
+    private static final double OFFSET = 0.01;
 
     // Output buffers populated by the public API variants
     private List<Geometry> splittedSegments;
@@ -372,7 +373,7 @@ public class BridgeSourceBuilder {
      * deck elevation is greater than {@code targetDeckHeight}.
      *
      * This method performs a discovery split with {@code targetDeckHeight +
-     * MILLIMETER} to find bridges strictly above the provided deck elevation
+     * OFFSET} to find bridges strictly above the provided deck elevation
      * and creates MIRROR_SOURCE entries for each matching fragment.
      *
      * @param lineString fragment to test for mirror creation
@@ -382,7 +383,7 @@ public class BridgeSourceBuilder {
         Map<Long, List<LineString>> linestringMap = splitLineStringWithBridge(
             -1L,
             (LineString) lineString,
-            targetDeckHeight + ProfileBuilder.MILLIMETER
+            targetDeckHeight + OFFSET
         );
 
         for (Map.Entry<Long, List<LineString>> entry : linestringMap.entrySet()) {
@@ -434,7 +435,7 @@ public class BridgeSourceBuilder {
         Map<Long, List<LineString>> lineStringMap = splitLineStringWithBridge(
             -1L,
             lineString,
-            profileBuilder.getBridgeByPk(bridgePk).getAverageAbsoluteDeckHeight() - ProfileBuilder.MILLIMETER
+            profileBuilder.getBridgeByPk(bridgePk).getAverageAbsoluteDeckHeight() - OFFSET
         );
 
         List<LineString> list = lineStringMap.get(bridgePk);

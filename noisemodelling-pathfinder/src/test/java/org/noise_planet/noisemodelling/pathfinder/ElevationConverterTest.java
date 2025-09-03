@@ -145,7 +145,7 @@ class ElevationConverterTest {
         }
 
         @Override
-        public SourceBridgeProperty getSourceBridgeProperty(long pk) {
+        public SourceBridgeProperty getSourceBridgePropertyByPk(long pk) {
             return sourceBridgeProperty;
         }
 

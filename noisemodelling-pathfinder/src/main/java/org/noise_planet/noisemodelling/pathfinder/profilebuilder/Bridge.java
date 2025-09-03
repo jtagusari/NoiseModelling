@@ -10,6 +10,7 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.*;
+import org.locationtech.jts.operation.distance.DistanceOp;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,6 +73,8 @@ public class Bridge extends Obstruction {
     
     /** Primary key of the bridge in the database. */
     private long primaryKey = -1;
+
+    private static final double OFFSET = 0.001;
         
     /**
      * Create Bridge instances from a list of BridgePoints grouped by their bridgePrimaryKey.
@@ -161,13 +164,20 @@ public class Bridge extends Obstruction {
         this.geometryBuilder = new BridgeGeometryBuilder();
         this.triangulation = new BridgeTriangulation();
         
-        // Let BridgeQueryHelper generate 2D footprint from deckGeometry when needed
-        this.queryHelper = new BridgeQueryHelper(deckGeometry, null, triangulation);
-        
-        // Initialize edges if geometry is provided
+        // Initialize triangulation with deck geometry if available
         if (deckGeometry != null) {
+            // Create bridge points from deck geometry coordinates for triangulation
+            List<BridgePoint> bridgePointsFromGeometry = createBridgePointsFromDeckGeometry(deckGeometry);
+            if (!bridgePointsFromGeometry.isEmpty()) {
+                triangulation.triangulateGeometry(bridgePointsFromGeometry);
+            }
+            
+            // Initialize edges 
             this.edges = geometryBuilder.createEdges(deckGeometry);
         }
+        
+        // Let BridgeQueryHelper generate 2D footprint from deckGeometry when needed
+        this.queryHelper = new BridgeQueryHelper(deckGeometry, null, triangulation);
         
         // Set absorption coefficients
         if (alphas != null) {
@@ -591,8 +601,8 @@ public class Bridge extends Obstruction {
         double deckHeight = getDeckHeightAtPoint(sourcePos);
         if (!Double.isNaN(deckHeight)) {
             // Place virtual source 1 millimeter below deck bottom (considering deck thickness)
-            double virtualSourceHeight = deckHeight - (getDeckThicknessAtPoint(sourcePos) + 0.001);
-            
+            double virtualSourceHeight = deckHeight - (getDeckThicknessAtPoint(sourcePos) + OFFSET);
+
             Coordinate virtualSource = new Coordinate(sourcePos.x, sourcePos.y, virtualSourceHeight);
             virtualSources.add(virtualSource);
         }
@@ -628,6 +638,46 @@ public class Bridge extends Obstruction {
         }
 
         return mirrorSources;
+    }
+
+    /**
+     * Create bridge points from deck geometry coordinates for triangulation.
+     * This is a helper method to initialize triangulation when only deck geometry is available.
+     * @param deckGeometry 3D bridge deck polygon
+     * @return List of bridge points created from deck geometry
+     */
+    private List<BridgePoint> createBridgePointsFromDeckGeometry(Polygon deckGeometry) {
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+        
+        if (deckGeometry == null) {
+            return bridgePoints;
+        }
+        
+        Coordinate[] coords = deckGeometry.getExteriorRing().getCoordinates();
+        
+        for (int i = 0; i < coords.length - 1; i++) { // -1 to skip duplicate closing coordinate
+            Coordinate coord = coords[i];
+            
+            // Create a basic bridge point with the coordinate and height information
+            BridgePoint bridgePoint = new BridgePoint(coord);
+            bridgePoint.setPrimaryKey(i + 1);
+            bridgePoint.setBridgePrimaryKey(primaryKey);
+            
+            // Set absolute deck height from Z coordinate
+            if (!Double.isNaN(coord.z)) {
+                bridgePoint.setAbsoluteDeckHeight(coord.z);
+            }
+            
+            // Set default values for other properties
+            bridgePoint.setDeckThickness(0.5); // Default thickness
+            bridgePoint.setPosition(BridgePoint.Position.CENTER);
+            bridgePoint.setLeftWidth(5.0);
+            bridgePoint.setRightWidth(5.0);
+            
+            bridgePoints.add(bridgePoint);
+        }
+        
+        return bridgePoints;
     }
 
 }

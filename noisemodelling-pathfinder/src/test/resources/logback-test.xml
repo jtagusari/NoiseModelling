@@ -43,9 +43,10 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <!-- Root logger set to INFO to avoid too much noise -->
-    <root level="INFO">
+    <!-- Root logger set to DEBUG to see all debug messages -->
+    <root level="DEBUG">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="DIFFRACTION_FILE"/>
     </root>
     
 </configuration>
