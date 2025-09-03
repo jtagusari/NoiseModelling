@@ -88,14 +88,14 @@ public class TestWallReflection {
 
         // Keep only mirror receivers potentially visible from the source(and its parents)
         List<MirrorReceiver> mirrorResults = receiverMirrorIndex.findCloseMirrorReceivers(inputData.
-                sourceGeometries.get(0).getCoordinate());
+                getSourceGeometryByIndex(0).getCoordinate());
 
         assertEquals(4, mirrorResults.size());
 
         DefaultCutPlaneVisitor defaultCutPlaneVisitor = new DefaultCutPlaneVisitor(true, inputData);
 
-        computeRays.computeReflexion(new PathFinder.ReceiverPointInfo(1, 1, receiver),
-                new PathFinder.SourcePointInfo(1, 1, inputData.sourceGeometries.get(0).getCoordinate(), 1.0,
+        computeRays.computeReflexion(new ReceiverPointInfo(1, 1, receiver),
+                new SourcePointInfo(1, 1, inputData.getSourceGeometryByIndex(0).getCoordinate(), 1.0,
                 new Orientation()), receiverMirrorIndex, defaultCutPlaneVisitor, CutPlaneVisitor.PathSearchStrategy.CONTINUE);
 
         List<CutProfile> profiles = new ArrayList<>(defaultCutPlaneVisitor.cutProfiles);
@@ -105,13 +105,13 @@ public class TestWallReflection {
         // Check expected values for the propagation path
         CutProfile firstPath = profiles.get(0);
         // S->Ref->Ref->R
-        assertEquals(4, firstPath.cutPoints.size());
-        var it = firstPath.cutPoints.iterator();
+        assertEquals(4, firstPath.getCutPoints().size());
+        var it = firstPath.getCutPoints().iterator();
         assertTrue(it.hasNext());
         CutPoint current = it.next();
         assertInstanceOf(CutPointSource.class, current);
         PathFinderTest.assert3DCoordinateEquals ("Source not equal",
-                inputData.sourceGeometries.get(0).getCoordinate(),
+                inputData.getSourceGeometryByIndex(0).getCoordinate(),
                 current.coordinate, 1e-12);
         current = it.next();
         assertInstanceOf(CutPointReflection.class, current);
@@ -170,14 +170,14 @@ public class TestWallReflection {
 
         // Keep only mirror receivers potentially visible from the source(and its parents)
         List<MirrorReceiver> mirrorResults = receiverMirrorIndex.findCloseMirrorReceivers(inputData.
-                sourceGeometries.get(0).getCoordinate());
+                getSourceGeometryByIndex(0).getCoordinate());
 
         assertEquals(4, mirrorResults.size());
 
         DefaultCutPlaneVisitor defaultCutPlaneVisitor = new DefaultCutPlaneVisitor(true, inputData);
 
-        computeRays.computeReflexion(new PathFinder.ReceiverPointInfo(1, 1, receiver),
-                new PathFinder.SourcePointInfo(1, 1, inputData.sourceGeometries.get(0).getCoordinate(), 1.0,
+        computeRays.computeReflexion(new ReceiverPointInfo(1, 1, receiver),
+                new SourcePointInfo(1, 1, inputData.getSourceGeometryByIndex(0).getCoordinate(), 1.0,
                         new Orientation()), receiverMirrorIndex, defaultCutPlaneVisitor, CutPlaneVisitor.PathSearchStrategy.CONTINUE);
 
         List<CutProfile> profiles = new ArrayList<>(defaultCutPlaneVisitor.cutProfiles);
@@ -187,13 +187,13 @@ public class TestWallReflection {
         // Check expected values for the propagation path
         CutProfile firstPath = profiles.get(0);
         // S->Ref->Ref->R
-        assertEquals(4, firstPath.cutPoints.size());
-        var it = firstPath.cutPoints.iterator();
+        assertEquals(4, firstPath.getCutPoints().size());
+        var it = firstPath.getCutPoints().iterator();
         assertTrue(it.hasNext());
         CutPoint current = it.next();
         assertInstanceOf(CutPointSource.class, current);
         PathFinderTest.assert3DCoordinateEquals ("Source not equal",
-                inputData.sourceGeometries.get(0).getCoordinate(),
+                inputData.getSourceGeometryByIndex(0).getCoordinate(),
                 current.coordinate, 1e-12);
         current = it.next();
         assertInstanceOf(CutPointReflection.class, current);

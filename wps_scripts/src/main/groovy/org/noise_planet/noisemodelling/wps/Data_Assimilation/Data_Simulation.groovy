@@ -21,6 +21,7 @@ import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.noise_planet.noisemodelling.emission.road.cnossos.RoadCnossos
 import org.noise_planet.noisemodelling.emission.road.cnossos.RoadCnossosParameters
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -169,7 +170,7 @@ def exec(Connection connection,input) {
 
                     // Compute emission sound level for each road segment
 
-                    List<Integer> roadOctaveFrequencyBands = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
+                    List<Integer> roadOctaveFrequencyBands = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
                     double[] lday = new double[roadOctaveFrequencyBands.size()]
                     for (int idFreq = 0; idFreq < roadOctaveFrequencyBands.size(); idFreq++) {
                         int freq = roadOctaveFrequencyBands.get(idFreq)

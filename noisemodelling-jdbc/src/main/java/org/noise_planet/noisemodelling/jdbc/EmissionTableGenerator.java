@@ -14,6 +14,7 @@ import org.noise_planet.noisemodelling.emission.utils.Utils;
 import org.noise_planet.noisemodelling.jdbc.railway.RailWayLWGeom;
 import org.noise_planet.noisemodelling.jdbc.railway.RailWayLWIterator;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 
 import java.io.IOException;
@@ -32,7 +33,7 @@ import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicator
  * Create emission table from traffic data (RAIL or ROADS)
  */
 public class EmissionTableGenerator {
-    public static final List<Integer> roadOctaveFrequencyBands = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
+    public static final List<Integer> roadOctaveFrequencyBands = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
     public static final String DEN_PERIOD = "DEN";
 
     public enum STANDARD_PERIOD {DAY, EVENING, NIGHT}
@@ -261,7 +262,7 @@ public class EmissionTableGenerator {
         StringBuilder insertIntoQuery = new StringBuilder("INSERT INTO "+outputTable+"(PK_SECTION, the_geom," +
                 " DIR_ID, GS");
         StringBuilder insertIntoValuesQuery = new StringBuilder("?,?,?,?");
-        for(int thirdOctave : ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
+        for(int thirdOctave : FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
             createTableQuery.append(", ").append(frequencyPrepend).append("D");
             createTableQuery.append(thirdOctave);
             createTableQuery.append(" double precision");
@@ -269,7 +270,7 @@ public class EmissionTableGenerator {
             insertIntoQuery.append(thirdOctave);
             insertIntoValuesQuery.append(", ?");
         }
-        for(int thirdOctave : ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
+        for(int thirdOctave : FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
             createTableQuery.append(", ").append(frequencyPrepend).append("E");
             createTableQuery.append(thirdOctave);
             createTableQuery.append(" double precision");
@@ -277,7 +278,7 @@ public class EmissionTableGenerator {
             insertIntoQuery.append(thirdOctave);
             insertIntoValuesQuery.append(", ?");
         }
-        for(int thirdOctave : ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
+        for(int thirdOctave : FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
             createTableQuery.append(", ").append(frequencyPrepend).append("N");
             createTableQuery.append(thirdOctave);
             createTableQuery.append(" double precision");
@@ -304,9 +305,9 @@ public class EmissionTableGenerator {
             List<LineString> geometries = railWayLWGeom.getRailWayLWGeometry();
 
             int pk = railWayLWGeom.getPK();
-            double[] LWDay = new double[ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
-            double[] LWEvening = new double[ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
-            double[] LWNight = new double[ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
+            double[] LWDay = new double[FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
+            double[] LWEvening = new double[FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
+            double[] LWNight = new double[FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
             Arrays.fill(LWDay, -99.00);
             Arrays.fill(LWEvening, -99.00);
             Arrays.fill(LWNight, -99.00);

@@ -36,7 +36,7 @@ public interface CutPlaneVisitor {
      * @param sourceList      All sources in the range of this receiver sorted by the distance from the receiver
      * @param cutProfileCount
      */
-    void startReceiver(PathFinder.ReceiverPointInfo receiver, Collection<PathFinder.SourcePointInfo> sourceList, AtomicInteger cutProfileCount);
+    void startReceiver(ReceiverPointInfo receiver, Collection<SourcePointInfo> sourceList, AtomicInteger cutProfileCount);
 
     enum PathSearchStrategy {
         /**
@@ -64,6 +64,6 @@ public interface CutPlaneVisitor {
      *
      * @param receiver
      */
-    void finalizeReceiver(PathFinder.ReceiverPointInfo receiver);
+    void finalizeReceiver(ReceiverPointInfo receiver);
 
 }

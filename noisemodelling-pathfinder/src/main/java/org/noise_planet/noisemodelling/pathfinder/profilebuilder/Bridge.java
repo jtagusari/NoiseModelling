@@ -462,6 +462,18 @@ public class Bridge extends Obstruction {
     }
 
     /**
+     * Calculate the average absolute deck height across bridge points at CENTER position.
+     * Delegates to the BridgePointManager which only considers CENTER points.
+     * @return average absolute deck height or Double.NaN if no valid CENTER values
+     */
+    public double getAverageAbsoluteDeckHeight() {
+        if (pointManager == null) {
+            return Double.NaN;
+        }
+        return pointManager.getAverageAbsoluteDeckHeight();
+    }
+
+    /**
      * Add a bridge point to the collection.
      * @param bridgePoint Bridge point to add
      */

@@ -48,7 +48,7 @@ public class DefaultCutPlaneVisitor implements CutPlaneVisitor, CutPlaneVisitorF
      * @param receiver
      */
     @Override
-    public void finalizeReceiver(PathFinder.ReceiverPointInfo receiver) {
+    public void finalizeReceiver(ReceiverPointInfo receiver) {
 
     }
 
@@ -67,7 +67,7 @@ public class DefaultCutPlaneVisitor implements CutPlaneVisitor, CutPlaneVisitorF
     }
 
     @Override
-    public void startReceiver(PathFinder.ReceiverPointInfo receiver, Collection<PathFinder.SourcePointInfo> sourceList, AtomicInteger cutProfileCount) {
+    public void startReceiver(ReceiverPointInfo receiver, Collection<SourcePointInfo> sourceList, AtomicInteger cutProfileCount) {
 
     }
 

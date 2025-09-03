@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File appender for diffraction debugging -->
+    <appender name="DIFFRACTION_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>target/diffraction-debug.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Set DEBUG level for pathfinder classes -->
+    <logger name="org.noise_planet.noisemodelling.pathfinder.profilebuilder.TopographyService" level="DEBUG" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+    
+    <logger name="org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileRetriever" level="DEBUG" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+    
+    <logger name="org.noise_planet.noisemodelling.pathfinder.profilebuilder" level="DEBUG" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+    
+    <!-- DEBUG level for diffraction analysis -->
+    <logger name="org.noise_planet.noisemodelling.pathfinder.DiffractionPathBuilder" level="DEBUG" additivity="false">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="DIFFRACTION_FILE"/>
+    </logger>
+    
+    <logger name="org.noise_planet.noisemodelling.pathfinder.DirectAndDiffractionEvaluator" level="DEBUG" additivity="false">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="DIFFRACTION_FILE"/>
+    </logger>
+    
+    <logger name="org.noise_planet.noisemodelling.pathfinder" level="INFO" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <!-- Root logger set to INFO to avoid too much noise -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+    
+</configuration>

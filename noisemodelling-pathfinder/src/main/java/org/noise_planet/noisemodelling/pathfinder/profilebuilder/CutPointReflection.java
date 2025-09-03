@@ -10,6 +10,8 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 
@@ -24,8 +26,7 @@ public class CutPointReflection extends CutPoint {
     public LineSegment wall;
 
     /** Unique external identifier of the wall. Could be the primary key of the related building in the database */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public Long wallPk = null;
+    private Long wallPk = null;
 
     /**
      * Empty constructor for deserialization
@@ -52,7 +53,7 @@ public class CutPointReflection extends CutPoint {
     }
 
     /** Wall absorption coefficient per frequency band.*/
-    public List<Double> wallAlpha = Collections.emptyList();
+    private List<Double> wallAlpha = Collections.emptyList();
 
 
     /**
@@ -60,6 +61,21 @@ public class CutPointReflection extends CutPoint {
      */
     public double[] alphaAsArray() {
         return wallAlpha.stream().mapToDouble(aDouble -> aDouble).toArray();
+    }
+
+    @JsonProperty("wallPk")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public Long getWallPk() {
+        return wallPk;
+    }
+
+    public void setWallPk(Long wallPk) {
+        this.wallPk = wallPk;
+    }
+
+    @JsonProperty("wallAlpha")
+    public List<Double> getWallAlpha() {
+        return wallAlpha;
     }
 
     /**

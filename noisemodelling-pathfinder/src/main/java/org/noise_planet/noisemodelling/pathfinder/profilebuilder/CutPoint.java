@@ -20,8 +20,14 @@ import org.noise_planet.noisemodelling.pathfinder.path.MirrorReceiver;
 import java.util.List;
 
 /**
- * On the vertical cut profile, this is one of the point
- * This abstract class is implemented with specific attributes depending on the intersection object
+ * Abstract base class representing a point on a vertical cut profile between source and receiver.
+ * This class serves as the foundation for different types of cut points encountered during
+ * acoustic path analysis, including sources, receivers, obstacles, and topographic features.
+ * 
+ * Each cut point contains coordinate information, ground elevation, and ground absorption
+ * coefficient properties that are essential for acoustic propagation calculations.
+ * 
+ * @author NoiseModelling contributors
  */
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -52,13 +58,28 @@ public abstract class CutPoint implements Comparable<CutPoint> {
      **/
     public double groundCoefficient = Double.NaN;
 
+    /**
+     * Default constructor for deserialization.
+     */
     public CutPoint() {
     }
 
+    /**
+     * Constructor with coordinate only.
+     * 
+     * @param coordinate the 3D coordinate of this cut point
+     */
     public CutPoint(Coordinate coordinate) {
         this.coordinate = coordinate;
     }
 
+    /**
+     * Constructor with all properties.
+     * 
+     * @param coordinate the 3D coordinate of this cut point
+     * @param zGround the topographic ground height
+     * @param groundCoefficient the ground absorption coefficient (0.0-1.0)
+     */
     public CutPoint(Coordinate coordinate, double zGround, double groundCoefficient) {
         this.coordinate = coordinate;
         this.zGround = zGround;
@@ -76,6 +97,11 @@ public abstract class CutPoint implements Comparable<CutPoint> {
         this.groundCoefficient = other.groundCoefficient;
     }
 
+    /**
+     * Sets the coordinate of this cut point.
+     * 
+     * @param coordinate the new coordinate to set
+     */
     public void setCoordinate(Coordinate coordinate) {
         this.coordinate = coordinate;
     }
@@ -122,13 +148,69 @@ public abstract class CutPoint implements Comparable<CutPoint> {
     }
 
     /**
-     *
-     * @param cutPoint the object to be compared.
-     * @return
+     * Compare this cut point with another based on coordinates.
+     * 
+     * @param cutPoint the object to be compared
+     * @return comparison result based on coordinate comparison
      */
     @Override
     public int compareTo(CutPoint cutPoint) {
         return this.coordinate.compareTo(cutPoint.coordinate);
+    }
+
+    /**
+     * Compares this cut point with another object for equality.
+     * Two cut points are considered equal if they have the same coordinate,
+     * ground height, and ground coefficient.
+     * 
+     * @param obj the object to compare with
+     * @return true if the objects are equal, false otherwise
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        
+        CutPoint cutPoint = (CutPoint) obj;
+        
+        // Compare coordinates
+        if (coordinate == null && cutPoint.coordinate != null) return false;
+        if (coordinate != null && !coordinate.equals(cutPoint.coordinate)) return false;
+        
+        // Compare zGround (handling NaN values)
+        if (Double.isNaN(zGround) && Double.isNaN(cutPoint.zGround)) {
+            // Both are NaN, consider equal
+        } else if (Double.compare(zGround, cutPoint.zGround) != 0) {
+            return false;
+        }
+        
+        // Compare groundCoefficient (handling NaN values)
+        if (Double.isNaN(groundCoefficient) && Double.isNaN(cutPoint.groundCoefficient)) {
+            // Both are NaN, consider equal
+        } else if (Double.compare(groundCoefficient, cutPoint.groundCoefficient) != 0) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * Returns a hash code for this cut point.
+     * 
+     * @return hash code based on coordinate, zGround, and groundCoefficient
+     */
+    @Override
+    public int hashCode() {
+        int result = coordinate != null ? coordinate.hashCode() : 0;
+        
+        // Handle NaN values in hash computation
+        long zGroundBits = Double.isNaN(zGround) ? 0L : Double.doubleToLongBits(zGround);
+        result = 31 * result + (int) (zGroundBits ^ (zGroundBits >>> 32));
+        
+        long groundCoeffBits = Double.isNaN(groundCoefficient) ? 0L : Double.doubleToLongBits(groundCoefficient);
+        result = 31 * result + (int) (groundCoeffBits ^ (groundCoeffBits >>> 32));
+        
+        return result;
     }
 
     @Override

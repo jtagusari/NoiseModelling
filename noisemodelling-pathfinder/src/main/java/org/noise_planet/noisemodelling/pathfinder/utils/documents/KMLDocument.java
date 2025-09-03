@@ -353,10 +353,10 @@ public class KMLDocument {
         xmlOut.writeCharacters(layerName);
         xmlOut.writeEndElement();//Name
 
-        Coordinate[] coordinates = new Coordinate[profile.cutPoints.size()];
+        Coordinate[] coordinates = new Coordinate[profile.getCutPoints().size()];
         int i=0;
 
-        for(CutPoint cutPoint : profile.cutPoints) {
+        for(CutPoint cutPoint : profile.getCutPoints()) {
 
             coordinates[i++] = copyCoord(cutPoint.getCoordinate());
         }

@@ -45,6 +45,10 @@ import static java.lang.Double.isNaN;
  *       computes topographic cut points used when building a {@link CutProfile}.</li>
  *   <li><b>GroundService</b> - manages ground absorption areas/effects, indexes ground facets
  *       and resolves ground absorption values for geometry queries.</li>
+ *   <li><b>FrequencyConfig</b> - manages frequency-dependent configuration including frequency
+ *       bands, exact frequency arrays, and frequency-dependent acoustic parameters used throughout
+ *       the noise modeling calculations. Provides frequency settings for absorption coefficients
+ *       and A-weighting computations.</li>
  *   <li><b>ProfileRetriever / ProfileUtils</b> - (consumer of the services) is responsible for
  *       assembling the {@link CutProfile} along a path by delegating spatial queries to the
  *       services above.</li>
@@ -98,14 +102,13 @@ public class ProfileBuilder {
 
     public enum IntersectionType {BUILDING, WALL, BRIDGE, TOPOGRAPHY, GROUND_EFFECT, SOURCE, RECEIVER, REFLECTION, V_EDGE_DIFFRACTION}
 
-    public static final double epsilon = 1e-7;
+
+
+    public static final double EPSILON = 1e-7;
     public static final double MILLIMETER = 0.001;
     public static final double LEFT_SIDE = Math.PI / 2;
     private static final int DEFAULT_TREE_NODE_CAPACITY = 5;
 
-    // Use shared GeometryFactory from provider for easier centralization
-    // (migrate callers to GeometryFactoryProvider.SHARED)
-    
     /** If true, no more data can be add. */
     private boolean isFeedingFinished = false;
 
@@ -115,105 +118,79 @@ public class ProfileBuilder {
      */
     private double maxLineLength = 60;
 
+    /** Services */
     private BuildingService buildingService;
     private WallService wallService;
     private BridgeService bridgeService;
     private TopographyService topographyService;
     private GroundService groundService;
     private ProcessedWallService processedWallService;
+    private FrequencyConfig frequencyConfig;
     
-
-    /** Receivers .*/
-    private final List<Coordinate> receivers = new ArrayList<>();
 
     /** Global envelope of the builder. */
     private Envelope envelope;
 
-
-    // Frequency configuration held in a dedicated instance for easier testing and encapsulation
-    public FrequencyConfig frequencyConfig = new FrequencyConfig();
-
-    // Backwards-compatible public fields (kept for callers that access profileBuilder.frequencyArray directly)
     /**
-     * Integer third-octave frequency indexes used by the builder (backwards-compatible).
-     * Prefer {@link #setFrequencyArray(Collection)} to reconfigure frequencies.
+     * Get the current frequency configuration object.
+     * @return The frequency configuration used by this builder
      */
-    public List<Integer> frequencyArray = frequencyConfig.getFrequencyArray();
-
+    public FrequencyConfig getFrequencyConfig() {
+        return frequencyConfig;
+    }
+    
     /**
-     * Exact (Hz) frequencies computed from {@link #frequencyArray}. Updated by
-     * {@link #setFrequencyArray(Collection)}. Consumers should treat this as
-     * read-only.
+     * Set the frequency configuration for this builder.
+     * @param frequencyConfig The frequency configuration to use
      */
-    public List<Double> exactFrequencyArray = frequencyConfig.getExactFrequencyArray();
+    public void setFrequencyConfig(FrequencyConfig frequencyConfig) {
+        this.frequencyConfig = frequencyConfig;
+    }
 
     /**
-     * A-weighting values corresponding to {@link #exactFrequencyArray}. Updated by
-     * {@link #setFrequencyArray(Collection)}. Provided for convenience/compatibility.
+     * Get the current frequency band configuration.
+     * @return The frequency band setting from the frequency configuration
      */
-    public List<Double> aWeightingArray = frequencyConfig.getAWeightingArray();
+    public FrequencyConfig.FrequencyBand getFrequencyBand() {
+        return frequencyConfig.getFrequencyBand();
+    }
+    
+    /**
+     * Set the frequency band configuration.
+     * @param frequencyBand The frequency band to use for calculations
+     */
+    public void setFrequencyBand(FrequencyConfig.FrequencyBand frequencyBand) {
+        frequencyConfig.setFrequencyBand(frequencyBand);
+    }
 
     /**
-     * Configure which center frequencies (third-octave indexes) will be used during
-     * acoustic computations. This method updates internal arrays used by walls and
-     * buildings and re-initializes any precomputed frequency-dependent data.
-     *
-     * <p>Side-effects:
-     * <ul>
-     *   <li>Recomputes {@link #exactFrequencyArray} and {@link #aWeightingArray} from
-     *       the provided integer frequency references.</li>
-     *   <li>Calls {@code initialize(...)} on processed and unprocessed walls and
-     *       on buildings so that frequency-dependent arrays are available at runtime.</li>
-     * </ul>
-     *
-     * @param frequencyArray Frequency used in the simulation (extracted from
-     *                       Scene.DEFAULT_FREQUENCIES_THIRD_OCTAVE). Must be non-null.
+     * Get the frequency array as integer values.
+     * @return List of frequency values in Hz
+     */
+    public List<Integer> getFrequencyArray() {
+        return frequencyConfig.getFrequencyArray();
+    }
+
+    /**
+     * Set the frequency array for acoustic calculations.
+     * @param frequencyArray Collection of frequency values in Hz
      */
     public void setFrequencyArray(Collection<Integer> frequencyArray) {
-        LOGGER.info("ProfileBuilder.setFrequencyArray: called with " + (frequencyArray == null ? "null" : ("size=" + frequencyArray.size() + " values=" + frequencyArray)));
-        if (frequencyArray == null) {
-            throw new IllegalArgumentException("frequencyArray must not be null");
-        }
         this.frequencyConfig.setFrequencyArray(frequencyArray);
-        this.frequencyArray = frequencyConfig.getFrequencyArray();
-        this.exactFrequencyArray = frequencyConfig.getExactFrequencyArray();
-        this.aWeightingArray = frequencyConfig.getAWeightingArray();
-        // NOTE: This call has side-effects: it initialises per-object
-        // frequency-dependent arrays (alphas, etc.) on walls, buildings and
-        // bridges. Callers that change frequencies at runtime should ensure
-        // services are already fed/available. This method preserves historic
-        // behaviour by delegating directly to services.
-        if (wallService != null) {
-            wallService.initializeFrequencyDependentData(this.exactFrequencyArray);
-        } else {
-            LOGGER.warn("setFrequencyArray: wallService is null, skipping wall initialization");
-        }
-        if (buildingService != null) {
-            buildingService.initializeFrequencyDependentData(this.exactFrequencyArray);
-        } else {
-            LOGGER.warn("setFrequencyArray: buildingService is null, skipping building initialization");
-        }
-        if (bridgeService != null) {
-            bridgeService.initializeFrequencyDependentData(this.exactFrequencyArray);
-        } else {
-            LOGGER.warn("setFrequencyArray: bridgeService is null, skipping bridge initialization");
-        }
-        if (processedWallService != null) {
-            processedWallService.initializeFrequencyDependentData(this.exactFrequencyArray);
-        } else {
-            LOGGER.warn("setFrequencyArray: processedWallService is null, skipping wall initialization");
-        }
-    }
-
-    public static void initializeFrequencyArrayFromReference(List<Integer> frequencyArray,
-                                                             List<Double> exactFrequencyArray,
-                                                             List<Double> aWeightingArray) {
-        FrequencyConfig.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
     }
 
     /**
+     * Get the exact frequency array as double values.
+     * @return List of exact frequency values in Hz
+     */
+    public List<Double> getExactFrequencyArray() {
+        return frequencyConfig.getExactFrequencyArray();
+    }
+
+    /**
+     * Configure whether to use Z-values from building polygon vertices.
      * @param zBuildings if true take into account z value on Buildings Polygons
-     * @return this
+     * @return this builder for method chaining
      */
     public ProfileBuilder setzBuildings(boolean zBuildings) {
         this.buildingService.setZBuildings(zBuildings);
@@ -235,29 +212,45 @@ public class ProfileBuilder {
         this.bridgeService = new BridgeService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);        
         this.groundService = new GroundService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
         this.processedWallService = new ProcessedWallService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
+        this.frequencyConfig = new FrequencyConfig();
     }
 
     /**
-     * Main empty constructor.
+     * Constructor with a frequency configuration.
      *
-     * Initializes services with default R-tree node capacities. Services are the
-     * primary holders of geometry and spatial indices; this constructor merely
-     * instantiates them so the builder can accept feature inputs.
+     * @param frequencyConfig Frequency configuration to use
+     */
+    
+    public ProfileBuilder(FrequencyConfig frequencyConfig) {
+        this.buildingService = new BuildingService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
+        this.topographyService = new TopographyService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
+        this.wallService = new WallService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
+        this.bridgeService = new BridgeService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);        
+        this.groundService = new GroundService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
+        this.processedWallService = new ProcessedWallService(DEFAULT_TREE_NODE_CAPACITY, GeometryFactoryProvider.SHARED);
+        this.frequencyConfig = frequencyConfig;
+    }
+
+    /**
+     * Constructor accepting all service dependencies for dependency injection.
+     * Allows external control over service instantiation and configuration.
+     *
      * @param buildingService BuildingService instance to use
      * @param topographyService TopographyService instance to use
      * @param wallService WallService instance to use
      * @param bridgeService BridgeService instance to use
      * @param groundService GroundService instance to use
      * @param processedWallService ProcessedWallService instance to use
-     * 
+     * @param frequencyConfig FrequencyConfig instance to use
      */
-    public ProfileBuilder(BuildingService buildingService, TopographyService topographyService, WallService wallService, BridgeService bridgeService, GroundService groundService, ProcessedWallService processedWallService) {
+    public ProfileBuilder(BuildingService buildingService, TopographyService topographyService, WallService wallService, BridgeService bridgeService, GroundService groundService, ProcessedWallService processedWallService, FrequencyConfig frequencyConfig) {
         this.buildingService = buildingService;
         this.topographyService = topographyService;
         this.wallService = wallService;
         this.bridgeService = bridgeService;        
         this.groundService = groundService;
         this.processedWallService = processedWallService;
+        this.frequencyConfig = frequencyConfig;
     }
 
     /**
@@ -267,16 +260,15 @@ public class ProfileBuilder {
      * @return this builder for chaining
      */
     public ProfileBuilder setTopographyService(TopographyService topographyService) {
-        if(topographyService != null) {
-            this.topographyService = topographyService;
-        }
+        this.topographyService = topographyService;
         return this;
     }
 
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param building Building.
+     * Add a building object to the model. Validates geometry and updates the global envelope.
+     * @param building Building object containing geometry and properties
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Building building) {
         if(building.poly == null || building.poly.isEmpty()) {
@@ -296,142 +288,158 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param geom   Building footprint.
+     * Add a building with default properties using geometry footprint.
+     * @param geom Building footprint geometry
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom) {
         return addBuilding(geom, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
+     * Add a building with default properties using coordinate array.
+     * @param coords Building footprint coordinates
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords) {
         return addBuilding(coords, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint and height as building.
-     * @param geom   Building footprint.
-     * @param height Building height.
+     * Add a building with specified height using geometry footprint.
+     * @param geom Building footprint geometry
+     * @param height Building height in meters
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, double height) {
         return addBuilding(geom, height, new ArrayList<>());
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
-     * @param height Building height.
+     * Add a building with specified height using coordinate array.
+     * @param coords Building footprint coordinates
+     * @param height Building height in meters
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, double height) {
         return addBuilding(coords, height, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param geom   Building footprint.
-     * @param id     Database primary key.
+     * Add a building with database ID using geometry footprint.
+     * @param geom Building footprint geometry
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, int id) {
         return addBuilding(geom, NaN, id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
-     * @param id     Database primary key.
+     * Add a building with database ID using coordinate array.
+     * @param coords Building footprint coordinates
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, int id) {
         return addBuilding(coords, NaN, id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as building.
-     * @param geom   Building footprint.
-     * @param height Building height.
-     * @param id     Database id.
+     * Add a building with height and database ID using geometry footprint.
+     * @param geom Building footprint geometry
+     * @param height Building height in meters
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, double height, int id) {
         return addBuilding(geom, height, new ArrayList<>(), id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
-     * @param height Building height.
-     * @param id     Database primary key.
+     * Add a building with height and database ID using coordinate array.
+     * @param coords Building footprint coordinates
+     * @param height Building height in meters
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, double height, int id) {
         return addBuilding(coords, height, new ArrayList<>(), id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height and alphas (absorption coefficients) as building.
-     * @param geom   Building footprint.
-     * @param height Building height.
-     * @param alphas Absorption coefficients.
+     * Add a building with height and absorption coefficients using geometry footprint.
+     * @param geom Building footprint geometry
+     * @param height Building height in meters
+     * @param alphas Sound absorption coefficients per frequency band
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, double height, List<Double> alphas) {
         return addBuilding(geom, height, alphas, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
-     * @param height Building height.
-     * @param alphas Absorption coefficients.
+     * Add a building with height and absorption coefficients using coordinate array.
+     * @param coords Building footprint coordinates
+     * @param height Building height in meters
+     * @param alphas Sound absorption coefficients per frequency band
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, double height, List<Double> alphas) {
         return addBuilding(coords, height, alphas, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height and alphas (absorption coefficients) as building.
-     * @param geom   Building footprint.
-     * @param alphas Absorption coefficients.
+     * Add a building with absorption coefficients using geometry footprint (default height).
+     * @param geom Building footprint geometry
+     * @param alphas Sound absorption coefficients per frequency band
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, List<Double> alphas) {
         return addBuilding(geom, NaN, alphas, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
-     * @param alphas Absorption coefficients.
+     * Add a building with absorption coefficients using coordinate array (default height).
+     * @param coords Building footprint coordinates
+     * @param alphas Sound absorption coefficients per frequency band
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, List<Double> alphas) {
         return addBuilding(coords, NaN, alphas, -1);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height and alphas (absorption coefficients) as building.
-     * @param geom   Building footprint.
-     * @param alphas Absorption coefficients.
-     * @param id     Database primary key.
+     * Add a building with absorption coefficients and database ID using geometry footprint.
+     * @param geom Building footprint geometry
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, List<Double> alphas, int id) {
         return addBuilding(geom, NaN, alphas, id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param coords Building footprint coordinates.
-     * @param alphas Absorption coefficients.
-     * @param id     Database primary key.
+     * Add a building with absorption coefficients and database ID using coordinate array.
+     * @param coords Building footprint coordinates
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, List<Double> alphas, int id) {
         return addBuilding(coords, NaN, alphas, id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database primary key
-     * as building.
-     * @param geom   Building footprint.
-     * @param height Building height.
-     * @param alphas Absorption coefficients.
-     * @param id     Database primary key.
+     * Add a building with complete properties specification (the main implementation method).
+     * Validates that geometry is a Polygon and adds building to the service if feeding is not finished.
+     *
+     * @param geom Building footprint geometry (must be Polygon)
+     * @param height Building height in meters (NaN for default)
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key (-1 for auto-generated)
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Geometry geom, double height, List<Double> alphas, int id) {
         if(!(geom instanceof Polygon)) {
@@ -448,10 +456,14 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the given {@link Geometry} footprint.
-     * @param height Building height.
-     * @param alphas Absorption coefficients.
-     * @param id     Database primary key.
+     * Add a building with complete properties using coordinate array (main implementation).
+     * Creates closed polygon if necessary and updates global envelope.
+     *
+     * @param coords Building footprint coordinates
+     * @param height Building height in meters (NaN for default)
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key (-1 for auto-generated)
+     * @return this builder for method chaining
      */
     public ProfileBuilder addBuilding(Coordinate[] coords, double height, List<Double> alphas, int id) {
         if(!isFeedingFinished) {
@@ -498,20 +510,22 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param geom   Wall footprint.
-     * @param height Wall height.
-     * @param id     Database key.
+     * Add a wall with specified height and database ID using LineString geometry.
+     * @param geom Wall geometry as LineString
+     * @param height Wall height in meters
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(LineString geom, double height, int id) {
         return addWall(geom, height, new ArrayList<>(), id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param coords Wall footprint coordinates.
-     * @param height Wall height.
-     * @param id     Database key.
+     * Add a wall with specified height and database ID using coordinate array.
+     * @param coords Wall coordinates
+     * @param height Wall height in meters
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(Coordinate[] coords, double height, int id) {
     return addWall(GeometryFactoryProvider.SHARED.createLineString(coords), height, new ArrayList<>(), id);
@@ -527,17 +541,19 @@ public class ProfileBuilder {
     }*/
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param coords Wall footprint coordinates.
-     * @param id     Database key.
+     * Add a wall with default height using coordinate array.
+     * @param coords Wall coordinates
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(Coordinate[] coords, int id) {
     return addWall(GeometryFactoryProvider.SHARED.createLineString(coords), 0.0, new ArrayList<>(), id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param wall
+     * Add a pre-constructed Wall object to the model.
+     * @param wall Wall object containing all properties
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(Wall wall) {
         wallService.addWall(wall);
@@ -545,11 +561,14 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param geom   Wall footprint.
-     * @param height Wall height.
-     * @param alphas Absorption coefficient.
-     * @param id     Database key.
+     * Add a wall with complete properties specification (main implementation method).
+     * Creates individual wall segments from LineString geometry and updates global envelope.
+     *
+     * @param geom Wall geometry as LineString
+     * @param height Wall height in meters
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(LineString geom, double height, List<Double> alphas, int id) {
         if(!isFeedingFinished) {
@@ -569,32 +588,40 @@ public class ProfileBuilder {
             return this;
         }
         else{
-            LOGGER.warn("Cannot add building, feeding is finished.");
+            LOGGER.warn("Cannot add wall, feeding is finished.");
             return this;
         }
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param coords Wall footprint coordinates.
-     * @param id     Database key.
+     * Add a wall using coordinate array with complete properties.
+     * @param coords Wall coordinates
+     * @param height Wall height in meters
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(Coordinate[] coords, double height, List<Double> alphas, int id) {
     return addWall(GeometryFactoryProvider.SHARED.createLineString(coords), height, alphas, id);
     }
 
     /**
-     * Add the given {@link Geometry} footprint, height, alphas (absorption coefficients) and a database id as wall.
-     * @param coords Wall footprint coordinates.
-     * @param id     Database key.
+     * Add a wall with absorption coefficients and default height using coordinate array.
+     * @param coords Wall coordinates
+     * @param alphas Sound absorption coefficients per frequency band
+     * @param id Database primary key
+     * @return this builder for method chaining
      */
     public ProfileBuilder addWall(Coordinate[] coords, List<Double> alphas, int id) {
     return addWall(GeometryFactoryProvider.SHARED.createLineString(coords), 0.0, alphas, id);
     }
 
     /**
-     * Add the topographic point in the data, to complete the topographic data.
-     * @param point Topographic point.
+     * Add a topographic point to complete the digital elevation model.
+     * Forces 3D coordinates and updates the global envelope.
+     *
+     * @param point Topographic point coordinate (Z value will be set to 0 if NaN)
+     * @return this builder for method chaining
      */
     public ProfileBuilder addTopographicPoint(Coordinate point) {
         if(!isFeedingFinished) {
@@ -614,7 +641,9 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the topographic line in the data, to complete the topographic data.
+     * Add a topographic line segment to the digital elevation model.
+     * @param segment Line segment containing two endpoints
+     * @return this builder for method chaining
      */
     public ProfileBuilder addTopographicLine(LineSegment segment) {
         addTopographicLine(segment.p0, segment.p1);
@@ -622,7 +651,10 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the topographic line in the data, to complete the topographic data.
+     * Add a topographic line between two coordinates to the digital elevation model.
+     * @param p0 First endpoint coordinate
+     * @param p1 Second endpoint coordinate
+     * @return this builder for method chaining
      */
     public ProfileBuilder addTopographicLine(Coordinate p0, Coordinate p1) {
         addTopographicLine(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
@@ -630,7 +662,14 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the topographic line in the data, to complete the topographic data.
+     * Add a topographic line using explicit coordinate values.
+     * @param x0 X coordinate of first point
+     * @param y0 Y coordinate of first point
+     * @param z0 Z coordinate of first point (elevation)
+     * @param x1 X coordinate of second point
+     * @param y1 Y coordinate of second point
+     * @param z1 Z coordinate of second point (elevation)
+     * @return this builder for method chaining
      */
     public ProfileBuilder addTopographicLine(double x0, double y0, double z0, double x1, double y1, double z1) {
         if(!isFeedingFinished) {
@@ -647,8 +686,11 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add the topographic line in the data, to complete the topographic data.
-     * @param lineSegment Topographic line.
+     * Add a topographic line using LineString geometry to the digital elevation model.
+     * Updates the global envelope and forwards to the topography service.
+     *
+     * @param lineSegment LineString representing the topographic line
+     * @return this builder for method chaining
      */
     public ProfileBuilder addTopographicLine(LineString lineSegment) {
         if(!isFeedingFinished) {
@@ -664,9 +706,12 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add a ground effect.
-     * @param geom        Ground effect area footprint.
-     * @param coefficient Ground effect coefficient.
+     * Add a ground absorption area with specified sound absorption coefficient.
+     * Updates the global envelope and adds to the ground service.
+     *
+     * @param geom Ground effect area geometry
+     * @param coefficient Sound absorption coefficient (0.0 to 1.0)
+     * @return this builder for method chaining
      */
     public ProfileBuilder addGroundEffect(Geometry geom, double coefficient) {
         if(!isFeedingFinished) {
@@ -682,12 +727,15 @@ public class ProfileBuilder {
     }
 
     /**
-     * Add a ground effect.
-     * @param minX        Ground effect minimum X.
-     * @param maxX        Ground effect maximum X.
-     * @param minY        Ground effect minimum Y.
-     * @param maxY        Ground effect maximum Y.
-     * @param coefficient Ground effect coefficient.
+     * Add a rectangular ground absorption area using bounding coordinates.
+     * Creates a polygon from the bounding box and adds it with the specified coefficient.
+     *
+     * @param minX Ground effect minimum X coordinate
+     * @param maxX Ground effect maximum X coordinate
+     * @param minY Ground effect minimum Y coordinate
+     * @param maxY Ground effect maximum Y coordinate
+     * @param coefficient Sound absorption coefficient (0.0 to 1.0)
+     * @return this builder for method chaining
      */
     public ProfileBuilder addGroundEffect(double minX, double maxX, double minY, double maxY, double coefficient) {
         if(!isFeedingFinished) {
@@ -709,143 +757,147 @@ public class ProfileBuilder {
         return this;
     }
 
+    /**
+     * Get the list of processed walls from the processed wall service.
+     * @return List of processed Wall objects
+     */
     public List<Wall> getProcessedWalls() {
         return processedWallService.getProcessedWalls();
     }
 
     /**
-     * Retrieve the building list.
-     * @return The building list.
+     * Retrieve the list of all buildings added to this builder.
+     * @return The complete list of Building objects
      */
     public List<Building> getBuildings() {
     return buildingService.getBuildings();
     }
 
     /**
-     * Retrieve the count of building add to this builder.
-     * @return The count of building.
+     * Retrieve the total count of buildings added to this builder.
+     * @return The number of buildings
      */
     public int getBuildingCount() {
     return buildingService.getBuildingCount();
     }
 
     /**
-     * Retrieve the building with the given id (id is starting from 1).
-     * @param id Id of the building
-     * @return The building corresponding to the given id.
+     * Retrieve a specific building by its index (0-based indexing).
+     * @param id Index of the building (0-based)
+     * @return The Building object at the specified index
      */
     public Building getBuilding(int id) {
     return buildingService.getBuilding(id);
     }
 
     /**
-     * Retrieve the wall list.
-     * @return The wall list.
+     * Retrieve the list of all walls added to this builder.
+     * @return The complete list of Wall objects
      */
     public List<Wall> getWalls() {
         return wallService.getWalls();
     }
 
     /**
-    /** Retrieve the bridge list.
-     * @return The bridge list.
+     * Retrieve the list of all bridges added to this builder.
+     * @return The complete list of Bridge objects
      */
     public List<Bridge> getBridges() {
         return bridgeService.getBridges();
     }
 
     /**
-     * Retrieve the count of wall add to this builder.
-     * @return The count of wall.
+     * Check if any bridges have been added to this builder.
+     * @return true if bridges are present, false otherwise
+     */
+    public boolean hasBridges() {
+        return getBridges().size() > 0;
+    }
+
+    /**
+     * Retrieve the total count of walls added to this builder.
+     * @return The number of walls
      */
     public int getWallCount() {
         return wallService.getWallCount();
     }
 
     /**
-     * Retrieve the wall with the given id (id is starting from 1).
-     * @param id Id of the wall
-     * @return The wall corresponding to the given id.
+     * Retrieve a specific wall by its index (0-based indexing).
+     * @param id Index of the wall (0-based)
+     * @return The Wall object at the specified index
      */
     public Wall getWall(int id) {
         return wallService.getWall(id);
     }
 
     /**
-     * Clear the building list.
+     * Clear all buildings from the building service.
      */
     public void clearBuildings() {
         buildingService.clear();
     }
 
     /**
-    /** Retrieve the count of bridges added to this builder.
-     * @return The count of bridges.
+     * Retrieve the total count of bridges added to this builder.
+     * @return The number of bridges
      */
     public int getBridgeCount() {
         return bridgeService.getBridgeCount();
     }
 
     /**
-    /** Retrieve the bridge with the given id (id is starting from 0).
-     * @param id Id of the bridge
-     * @return The bridge corresponding to the given id.
+     * Retrieve a specific bridge by its index (0-based indexing).
+     * @param id Index of the bridge (0-based)
+     * @return The Bridge object at the specified index
      */
     public Bridge getBridge(int id) {
         return bridgeService.getBridge(id);
     }
 
     /**
-    /** Retrieve the bridge with the given id (id is starting from 0).
-     * @param id Id of the bridge
-     * @return The bridge corresponding to the given id.
+     * Retrieve a bridge by its primary key identifier.
+     * @param pk Primary key of the bridge in the database
+     * @return The Bridge object with the specified primary key
      */
     public Bridge getBridgeByPk(long pk) {
         return bridgeService.getBridgeByPk(pk);
     }
 
     /**
-     * Clear the bridge list.
+     * Clear all bridges from the bridge service.
      */
     public void clearBridges() {
        bridgeService.clear();
     }
 
     /**
-     * Retrieve the global profile envelope.
-     * @return The global profile envelope.
+     * Get the global bounding envelope covering all added geometries.
+     * @return The envelope bounding all features in the model
      */
     public Envelope getMeshEnvelope() {
         return envelope;
     }
 
     /**
-     * Retrieve the topographic triangles.
-     * @return The topographic triangles.
+     * Retrieve the triangles from the digital elevation model (DEM).
+     * @return List of Triangle objects from the topographic mesh
      */
     public List<Triangle> getTriangles() {
     return topographyService.getTriangles();
     }
 
     /**
-     * Retrieve the topographic vertices.
-     * @return The topographic vertices.
+     * Retrieve the vertices from the digital elevation model (DEM).
+     * @return List of Coordinate objects representing mesh vertices
      */
     public List<Coordinate> getVertices() {
     return topographyService.getVertices();
     }
 
     /**
-     * Retrieve the receivers list.
-     * @return The receivers list.
-     */
-    public List<Coordinate> getReceivers() {
-        return receivers;
-    }
-
-    /**
-     * Retrieve the ground effects.
-     * @return The ground effects.
+     * Retrieve all ground absorption areas added to this builder.
+     * @return List of GroundAbsorption objects with their geometries and coefficients
      */
     public List<GroundAbsorption> getGroundEffects() {
     return groundService.getGroundAbsorptions();
@@ -885,22 +937,22 @@ public class ProfileBuilder {
 
         // High-level phased workflow. Each phase is extracted to a small helper
         // to make the intent and ordering explicit and easy to document/test.
-        LOGGER.info("finishFeeding: starting topography processing");
+        LOGGER.debug("finishFeeding: starting topography processing");
         processTopography();
 
-        LOGGER.info("finishFeeding: computing building/wall elevations");
+        LOGGER.debug("finishFeeding: computing building/wall elevations");
         computeElevations();
 
-        LOGGER.info("finishFeeding: indexing building/bridge facets into wall service");
+        LOGGER.debug("finishFeeding: indexing building/bridge facets into wall service");
         exportFacetsToProcessedWalls();
 
-        LOGGER.info("finishFeeding: finalizing processed walls and ground effects indexes");
+        LOGGER.debug("finishFeeding: finalizing processed walls and ground effects indexes");
         finalizeIndexes();
 
-        LOGGER.info("finishFeeding: initializing frequency dependent data");
+        LOGGER.debug("finishFeeding: initializing frequency dependent data");
         initializeFrequencyDependentData();
 
-        LOGGER.info("finishFeeding: completed");
+        LOGGER.info("finishFeeding completed");
         return this;
     }
 
@@ -963,9 +1015,22 @@ public class ProfileBuilder {
      * and related data) and must run after geometries and indices are final.
      */
     private void initializeFrequencyDependentData() {
-        setFrequencyArray(frequencyArray);
+        // Ensure frequency config is properly initialized
+        if (frequencyConfig.getExactFrequencyArray().isEmpty()) {
+            LOGGER.warn("FrequencyConfig has empty arrays, initializing with default ONE_THIRD_OCTAVE configuration");
+            frequencyConfig.setFrequencyArraysUsingBand(FrequencyConfig.FrequencyBand.ONE_THIRD_OCTAVE);
+        }
+        
+        // Log frequency configuration for debugging
+        LOGGER.info("ProfileBuilder.setFrequencyArray: called with size={} values={}", 
+                   frequencyConfig.getFrequencyArray().size(), 
+                   frequencyConfig.getFrequencyArray());
+        
+        wallService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
+        buildingService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
+        bridgeService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
+        processedWallService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
     }
-
 
     /**
      * Return the altitude (z) at the given coordinate. If the coordinate lies
@@ -981,7 +1046,7 @@ public class ProfileBuilder {
      *         available and building elevation cannot be determined, behavior is
      *         delegated to {@link TopographyService#getZGround(Coordinate)}.
      */
-    public double getZ(Coordinate coord) {
+    public double getZAtPoint(Coordinate coord) {
     List<Integer> ids = RTreeUtils.query(buildingService.getBuildingRtree(), new Envelope(coord));
         if(ids.isEmpty()) {
             return getZGround(coord);
@@ -1054,36 +1119,49 @@ public class ProfileBuilder {
         // Delegate to GroundService which owns the ground effects index
         return this.groundService.getIntersectingGroundAbsorption(query);
     }
+    
+    /**
+     * Get the coordinates of a triangle by its index.
+     * @param triIndex Index of the triangle in the topographic mesh
+     * @return Array of coordinates representing the triangle vertices
+     */
     public Coordinate[] getTriangle(int triIndex) {
         return topographyService.getTriangle(triIndex);
     }
 
 
     /**
-     * Get coordinates of triangle vertices (last point is first point)
-     * @param triIndex Index of triangle
-     * @return triangle vertices
+     * Get coordinates of triangle vertices with the last point being the first point (closed polygon).
+     * @param triIndex Index of triangle in the topographic mesh
+     * @return Array of coordinates forming a closed triangle
      */
     public Coordinate[] getClosedTriangle(int triIndex) {
         return topographyService.getClosedTriangle(triIndex);
     }
 
     /**
-     * Delegate to WallService.getWallsIn
-     * @param env envelope to query
-     * @return list of walls intersecting envelope
+     * Get all walls that intersect with the specified envelope.
+     * @param env Envelope to query for wall intersections
+     * @return List of walls intersecting the envelope
      */
     public List<Wall> getWallsIn(org.locationtech.jts.geom.Envelope env) {
         return processedWallService.getWallsIn(env);
     }
 
     /**
-     * Return the triangle id from a point coordinate inside the triangle
-     *
-     * @param pt Point test
-     * @return Triangle Id, Or -1 if no triangle has been found
+     * Get all bridges that intersect with the specified envelope.
+     * @param env Envelope to query for bridge intersections
+     * @return List of bridges intersecting the envelope
      */
-
+    public List<Bridge> getBridgesIn(org.locationtech.jts.geom.Envelope env) {
+        return bridgeService.getBridgesIn(env);
+    }
+    
+    /**
+     * Find the triangle ID that contains the given point coordinate.
+     * @param pt Point coordinate to test for triangle containment
+     * @return Triangle ID if found, or -1 if no triangle contains the point
+     */
     public int getTriangleIdByCoordinate(Coordinate pt) {
         return topographyService.getTriangleIdByCoordinate(pt);
     }
@@ -1131,7 +1209,8 @@ public class ProfileBuilder {
 
 
     /**
-     * @return True if digital elevation model has been added
+     * Check if a digital elevation model has been added to this builder.
+     * @return true if DEM triangles are available, false otherwise
      */
     public boolean hasDem() {
         STRtree tree = topographyService.getTopoRtree();
@@ -1139,48 +1218,51 @@ public class ProfileBuilder {
     }
 
     /**
-     * @return Mesh of digital elevation model
+     * Convert the digital elevation model to a MultiPolygon geometry.
+     * @return MultiPolygon representation of the DEM mesh
      */
     public MultiPolygon demAsMultiPolygon() {
         return this.topographyService.demAsMultiPolygon();
     }
 
-
     /**
-     * @return Altitude in meters from sea level
+     * Get the ground elevation at a specific coordinate from the DEM.
+     * @param coordinate X,Y coordinate to query for elevation
+     * @return Altitude in meters above sea level
      */
     public double getZGround(Coordinate coordinate) {
         return this.topographyService.getZGround(coordinate);
     }
 
     /**
-     * Fetch Altitude in meters from sea level at a location. You can use the triangle hint if you request a lot of
-     * positions in the same location
-     * @param coordinate X,Y coordinate to fetch
-     * @param triangleHint Triangle index hint (if {@literal >=} 0 will be checked, and will be updated with the triangle is found)
-     * @return Altitude in meters from sea level
+     * Get ground elevation with triangle optimization hint for repeated queries in same area.
+     * @param coordinate X,Y coordinate to query for elevation
+     * @param triangleHint Triangle index hint (if >= 0 will be checked first, updated with found triangle)
+     * @return Altitude in meters above sea level
      */
     public double getZGround(Coordinate coordinate, AtomicInteger triangleHint) {
         return this.topographyService.getZGround(coordinate, triangleHint);
     }
 
 
-    // Buffer around obstacles when computing diffraction (ISO / TR 17534-4 look like using this value)
+    // Buffer distance around obstacles when computing diffraction (ISO / TR 17534-4 standard)
     public static final double wideAngleTranslationEpsilon = 0.015;
 
     /**
-     * @param build 1-n based building identifier
-     * @return
+     * Get precomputed wide-angle diffraction points for a building.
+     * @param build Building identifier (1-based indexing)
+     * @return List of coordinates representing wide-angle diffraction points
      */
     public ArrayList<Coordinate> getPrecomputedWideAnglePoints(int build) {
     return buildingService.getPrecomputedWideAnglePoints(build);
     }
 
     /**
-     * @param linearRing Coordinates loop
-     * @param minAngle
-     * @param maxAngle
-     * @return
+     * Calculate wide-angle diffraction points on a polygon boundary within specified angle range.
+     * @param linearRing Coordinate ring defining the polygon boundary
+     * @param minAngle Minimum angle threshold for diffraction point detection
+     * @param maxAngle Maximum angle threshold for diffraction point detection
+     * @return List of coordinates representing wide-angle diffraction points
      */
     public ArrayList<Coordinate> getWideAnglePointsOnPolygon(LinearRing linearRing, double minAngle, double maxAngle) {
         // Delegate to BuildingService implementation
@@ -1203,6 +1285,5 @@ public class ProfileBuilder {
         // Delegate to WallService which owns processedRtree
         processedWallService.getWallsOnPath(p1, p2, visitor, maxLineLength);
     }
-
 
 }

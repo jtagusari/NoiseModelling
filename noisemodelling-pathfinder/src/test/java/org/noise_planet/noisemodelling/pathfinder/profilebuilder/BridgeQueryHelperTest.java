@@ -219,9 +219,12 @@ public class BridgeQueryHelperTest {
         Polygon newDeck = geometryFactory.createPolygon(newRing);
         BridgeTriangulation newTriangulation = createMockTriangulation();
         
-        queryHelper.updateGeometry(newDeck, newTriangulation);
-        
-        assertEquals(newDeck, queryHelper.getGeometry(), "Should update to new geometry");
+    // Update with explicit footprint = null to match current API
+    queryHelper.updateGeometry(newDeck, null, newTriangulation);
+    // Ensure footprint is generated from deck before testing footprint-related methods
+    queryHelper.getFootprintGeometry();
+
+    assertEquals(newDeck, queryHelper.getGeometry(), "Should update to new geometry");
         
         // Test with updated geometry
         assertTrue(queryHelper.isPointWithinBridgeFootprint(new Coordinate(10, 10)), 
@@ -577,9 +580,11 @@ public class BridgeQueryHelperTest {
         Polygon triangleDeck = geometryFactory.createPolygon(triangleRing);
         BridgeTriangulation newTriangulation = createMockTriangulation();
         
-        queryHelper.updateGeometry(triangleDeck, newTriangulation);
-        
-        // Test that old geometry is no longer valid
+    queryHelper.updateGeometry(triangleDeck, null, newTriangulation);
+    // Ensure footprint is generated from deck before testing footprint-related methods
+    queryHelper.getFootprintGeometry();
+
+    // Test that old geometry is no longer valid
         assertFalse(queryHelper.isPointWithinBridgeFootprint(new Coordinate(10, 5)), 
                    "Point in old geometry should no longer be valid");
         
@@ -596,7 +601,8 @@ public class BridgeQueryHelperTest {
     @Test
     public void testUpdateGeometryWithNullValues() {
         // Update with null values
-        queryHelper.updateGeometry(null, null);
+    // Update with nulls for deck and triangulation, footprint null as well
+    queryHelper.updateGeometry(null, null, null);
         
         assertFalse(queryHelper.isPointWithinBridgeFootprint(new Coordinate(10, 5)), 
                    "Should return false after updating to null geometry");

@@ -65,7 +65,7 @@ public final class ThreadPathFinder implements Callable<Boolean> {
                 if(idReceiver < data.receiversPk.size()) {
                     receiverPk = data.receiversPk.get(idReceiver);
                 }
-                PathFinder.ReceiverPointInfo rcv = new PathFinder.ReceiverPointInfo(idReceiver, receiverPk, data.receivers.get(idReceiver));
+                ReceiverPointInfo rcv = new ReceiverPointInfo(idReceiver, receiverPk, data.receivers.get(idReceiver));
 
 
                 propagationProcess.computeRaysAtPosition(rcv, dataOut, visitor);

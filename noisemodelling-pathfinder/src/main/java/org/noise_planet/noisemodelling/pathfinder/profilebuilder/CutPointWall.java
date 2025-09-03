@@ -10,6 +10,8 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 
@@ -24,7 +26,7 @@ public class CutPointWall  extends CutPoint {
     public LineSegment wall;
 
     /** Wall absorption coefficient per frequency band.*/
-    public List<Double> wallAlpha = Collections.emptyList();
+    private List<Double> wallAlpha = Collections.emptyList();
 
     /**
      * Obstacle index in the subdomain
@@ -41,8 +43,7 @@ public class CutPointWall  extends CutPoint {
     public INTERSECTION_TYPE intersectionType = INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
 
     /** Database primary key value of the obstacle */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public Long wallPk = null;
+    private Long wallPk = null;
 
     /**
      * Empty constructor for deserialization
@@ -74,6 +75,21 @@ public class CutPointWall  extends CutPoint {
      */
     public double[] alphaAsArray() {
         return wallAlpha.stream().mapToDouble(aDouble -> aDouble).toArray();
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty("wallPk")
+    public Long getWallPk() {
+        return wallPk;
+    }
+
+    @JsonProperty("wallAlpha")
+    public List<Double> getWallAlpha() {
+        return wallAlpha;
+    }
+
+    public void setWallAlpha(List<Double> wallAlpha) {
+        this.wallAlpha = wallAlpha;
     }
 
     @Override

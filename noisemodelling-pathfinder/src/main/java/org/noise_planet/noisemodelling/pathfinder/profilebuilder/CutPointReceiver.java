@@ -10,42 +10,109 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.pathfinder.PathFinder;
+import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 
+/**
+ * Represents a receiver point in a vertical cut profile.
+ * This class extends CutPoint to include receiver-specific properties such as
+ * receiver identification and external database references.
+ * 
+ * Receivers are typically positioned at 4 meters above ground level by default
+ * for noise level calculations.
+ * 
+ * @author NoiseModelling contributors
+ */
 public class CutPointReceiver  extends CutPoint {
 
     /**
      * External identifier of the receiver (from table)
      */
-    public long receiverPk = -1;
+    private long receiverPk = -1;
 
+    /**
+     * Default constructor for deserialization.
+     */
     public CutPointReceiver() {
 
     }
 
+    /**
+     * Constructor with location coordinate.
+     * 
+     * @param location the 3D coordinate of the receiver
+     */
     public CutPointReceiver(Coordinate location) {
         this.coordinate = location;
     }
 
-
+    /**
+     * Copy constructor.
+     * 
+     * @param receiver the receiver cut point to copy
+     */
     public CutPointReceiver(CutPoint receiver) {
         super(receiver);
     }
 
     /**
-     * Index in the subdomain
+     * Index in the subdomain.
      */
     @JsonIgnore
-    public int id = -1;
+    private int id = -1;
 
     /**
-     * Create default receiver information
+     * Get the external receiver primary key.
+     * 
+     * @return the receiver primary key
+     */
+    public long getReceiverPk() {
+        return receiverPk;
+    }
+    
+    /**
+     * Set the external receiver primary key.
+     * 
+     * @param receiverPk the receiver primary key to set
+     */
+    public void setReceiverPk(long receiverPk) {
+        this.receiverPk = receiverPk;
+    }
+
+    /**
+     * Get the receiver identifier in the subdomain.
+     * 
+     * @return the receiver ID
+     */
+    @JsonIgnore
+    public int getReceiverId() {
+        return id;
+    }
+
+    /**
+     * Set the receiver id
      * @param receiver
      */
-    public CutPointReceiver(PathFinder.ReceiverPointInfo receiver) {
-        super(receiver.position, receiver.position.z - 4.0, 0);
-        id = receiver.getId();
-        receiverPk = receiver.receiverPk;
+    public void setReceiverId(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Get the receiver id
+     * @return the receiver id
+     */
+    public int getId() {
+        return id;
+    }
+
+    /**
+     * Create default receiver information with 4 meters above ground level.
+     * 
+     * @param receiver receiver information containing coordinates and metadata
+     */
+    public CutPointReceiver(ReceiverPointInfo receiver) {
+        super(receiver.getCoordinate(), receiver.getCoordinate().z - 4.0, 0);
+        id = receiver.getReceiverIndex();
+        receiverPk = receiver.getReceiverPk();
     }
 
     @Override

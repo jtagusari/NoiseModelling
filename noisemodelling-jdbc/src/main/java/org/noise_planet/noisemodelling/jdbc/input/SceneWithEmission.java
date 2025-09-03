@@ -12,6 +12,7 @@ import org.h2gis.utilities.SpatialResultSet;
 import org.locationtech.jts.geom.Geometry;
 import org.noise_planet.noisemodelling.jdbc.BridgeStructuralEmissionCalculator;
 import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
@@ -36,75 +37,79 @@ import java.util.*;
  * - parse different input table layouts (traffic flow, precomputed LW/DEN)
  * - create virtual bridge sources when applicable
  */
-public class SceneWithEmission extends SceneWithAttenuation 
-    implements org.noise_planet.noisemodelling.pathfinder.BridgeInformationCollector.SceneSourceAccessor {
+public class SceneWithEmission extends SceneWithAttenuation {
     /** Old style DEN columns traffic period  */
     // Cache of column indexes (or presence) for emission-related fields in the
     // input SQL table. Keys are field names (e.g. "SLOPE", "LV_D1000") and
     // values typically hold the column index when available. Used to avoid
     // repeated lookups on ResultSet/SpatialResultSet.
-    public Map<String, Integer> sourceEmissionFieldsCache = new HashMap<>();
+    private Map<String, Integer> sourceEmissionFieldsCache = new HashMap<>();
 
     // For each source primary key store a list of PeriodEmission entries.
     // Each PeriodEmission links a period identifier (e.g. "D", "E", "N")
     // to a spectrum (array of powers for the frequencies defined in
-    // profileBuilder.frequencyArray).
-    public Map<Long, ArrayList<PeriodEmission>> wjSources = new HashMap<>();
+    // profileBuilder.getFrequencyArray()).
+    private Map<Long, ArrayList<PeriodEmission>> wjSources = new HashMap<>();
 
     // Settings that control how input is parsed (which fields, input mode,
     // coefficient versions, frequency field prefix, etc.). Populated from the
     // caller that prepares the scene.
-    public SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
+    private SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
 
     /**
-     * Construct with a ProfileBuilder and input settings.
-     * @param profileBuilder provides frequency array, bridges and other profiles
-     * @param sceneDatabaseInputSettings controls input parsing behavior
+    * Construct a scene with a configured {@link ProfileBuilder} and explicit
+    * {@link SceneDatabaseInputSettings}.
+    *
+    * @param profileBuilder provides frequency bands, bridge definitions and
+    *                       other profiles needed to build source spectra
+    * @param sceneDatabaseInputSettings controls how database fields are
+    *                                  interpreted when reading emissions
      */
     public SceneWithEmission(ProfileBuilder profileBuilder, SceneDatabaseInputSettings sceneDatabaseInputSettings) {
         super(profileBuilder);
         this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
     }
 
-    /** Construct with only a ProfileBuilder; settings can be set later. */
+    /**
+     * Construct a scene when only a {@link ProfileBuilder} is available.
+     *
+     * <p>The {@link SceneDatabaseInputSettings} can be provided later via the
+     * {@link #getSceneDatabaseInputSettings} accessor and modified by the
+     * caller before loading sources.
+     *
+     * @param profileBuilder the profile builder that defines frequency bands
+     */
     public SceneWithEmission(ProfileBuilder profileBuilder) {
         super(profileBuilder);
     }
 
-    /** Default constructor for frameworks that require it. */
+    /**
+     * Default no-arg constructor. Required by some frameworks/serializers.
+     *
+     * <p>After using this constructor callers should set a valid
+     * {@link ProfileBuilder} (via mutation) before attempting to register
+     * sources or compute emissions.
+     */
     public SceneWithEmission() {
     }
 
-    public void processTrafficFlowDEN(Long pk, SpatialResultSet rs) throws SQLException {
+    private void registerDENValuesUsingTrafficFlow(long pk, SpatialResultSet rs) throws SQLException {
         // Source table PK, GEOM, LV_D, LV_E, LV_N ...
         // Compute LW spectra for each standard period using the DEN-style
         // columns present in the SpatialResultSet (e.g. LV_D, LV_E, LV_N).
         double[][] lw = EmissionTableGenerator.computeLw(rs, sceneDatabaseInputSettings.coefficientVersion, sourceFieldNames);
         // Add a PeriodEmission for each standard period produced by computeLw
         for (EmissionTableGenerator.STANDARD_PERIOD period : EmissionTableGenerator.STANDARD_PERIOD.values()) {
-            addSourceEmission(pk, EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()], lw[period.ordinal()]);
+            registerSourceEmission(pk, EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()], lw[period.ordinal()]);
         }
     }
 
-    public void addBridgeVirtualSourceDEN(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
+    private void registerBridgeStructuralDENValues(Long pk, SpatialResultSet rs, Bridge bridge) throws SQLException {
         
-        List<Long> bridgeCandidates = getSourceBridgeCandidatePk(pk);
-        if (bridgeCandidates != null) {
-            long newPk = 1 + sourcesPk.stream().mapToLong(Long::longValue).max().orElse(0L);
-            for (int i = 0; i < bridgeCandidates.size(); i++) {
-                Bridge bridge = profileBuilder.getBridgeByPk(bridgeCandidates.get(i));
-                // Compute structural emissions for this bridge candidate.
-                double[][] lw = BridgeStructuralEmissionCalculator.computeStructuralLw(rs, bridge, sourceFieldNames);
-                // Create a new virtual source representing the bridge element
-                addSource(newPk, geom, rs);
-                setSourceIsVirtualSource(newPk, true);
-                setSourceBridgePk(newPk, bridge.getPrimaryKey());
-                // Attach computed spectra per standard period to the new virtual source
-                for (EmissionTableGenerator.STANDARD_PERIOD period : EmissionTableGenerator.STANDARD_PERIOD.values()) {
-                    addSourceEmission(newPk, EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()], lw[period.ordinal()]);
-                }
-                newPk = newPk + 1;
-            }
+        double[][] lw = BridgeStructuralEmissionCalculator.computeStructuralLw(rs, bridge, sourceFieldNames);
+        // Attach computed spectra per standard period to the new virtual source
+        for (EmissionTableGenerator.STANDARD_PERIOD period : EmissionTableGenerator.STANDARD_PERIOD.values()) {
+            registerSourceEmission(pk, EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()], lw[period.ordinal()]);
         }
     }
 
@@ -114,7 +119,7 @@ public class SceneWithEmission extends SceneWithAttenuation
      * @param rs Emission source table IDSOURCE, PERIOD, LV, HV ..
      * @throws SQLException
      */
-    public void processTrafficFlow(Long pk, ResultSet rs) throws SQLException {
+    private void registerPeriodValueUsingTrafficFlow(Long pk, ResultSet rs) throws SQLException {
         String period = rs.getString("PERIOD");
         // Use geometry as default slope (if field slope is not provided
         double defaultSlope = 0;
@@ -126,20 +131,23 @@ public class SceneWithEmission extends SceneWithAttenuation
         }
         // Read traffic table values and convert from dB to W for the frequency
         // bands. EmissionTableGenerator.getEmissionFromTrafficTable returns an
-        // array of dB values corresponding to profileBuilder.frequencyArray.
+        // array of dB values corresponding to profileBuilder.getFrequencyArray().
         double[] lw = AcousticIndicatorsFunctions.dBToW(
             EmissionTableGenerator.getEmissionFromTrafficTable(rs, "",
             defaultSlope,
             sceneDatabaseInputSettings.coefficientVersion, sourceEmissionFieldsCache));
-        addSourceEmission(pk, period, lw);
+        registerSourceEmission(pk, period, lw);
     }
 
 
-    public void addBridgeVirtualSourceEmission(Long pk, SpatialResultSet rs) throws SQLException {
-        // String period = rs.getString("PERIOD");
-    // This method is a placeholder for creating virtual bridge sources from
-    // traffic flow tables when needed. The implementation was commented
-    // out in the original code. Keep the placeholder for future use.
+    private void registerBridgeStructuralPeriodValues(Long pk, ResultSet rs, Bridge bridge) throws SQLException {
+        String period = rs.getString("PERIOD");
+        // Read traffic table values and convert from dB to W for the frequency
+        // bands. EmissionTableGenerator.getEmissionFromTrafficTable returns an
+        // array of dB values corresponding to profileBuilder.getFrequencyArray().
+        double[] lw = AcousticIndicatorsFunctions.dBToW(
+            BridgeStructuralEmissionCalculator.getStructuralEmissionFromTrafficTable(rs, "", bridge,sourceEmissionFieldsCache));
+        registerSourceEmission(pk, period, lw);
     }
 
     /**
@@ -147,9 +155,9 @@ public class SceneWithEmission extends SceneWithAttenuation
      * @param rs Emission source table IDSOURCE, PERIOD, LV, HV ..
      * @throws SQLException
      */
-    public void processEmission(Long pk, ResultSet rs) throws SQLException {
-        double[] lw = new double[profileBuilder.frequencyArray.size()];
-        List<Integer> frequencyArray = profileBuilder.frequencyArray;
+    public void registerPeriodValueUsingEmission(Long pk, ResultSet rs) throws SQLException {
+        double[] lw = new double[profileBuilder.getFrequencyArray().size()];
+        List<Integer> frequencyArray = profileBuilder.getFrequencyArray();
         for (int i = 0, frequencyArraySize = frequencyArray.size(); i < frequencyArraySize; i++) {
             Integer frequency = frequencyArray.get(i);
             // Directly read per-frequency dB levels from the ResultSet using
@@ -157,31 +165,57 @@ public class SceneWithEmission extends SceneWithAttenuation
             lw[i] = AcousticIndicatorsFunctions.dBToW(rs.getDouble(sceneDatabaseInputSettings.frequencyFieldPrepend +frequency));
         }
         String period = rs.getString("PERIOD");
-        addSourceEmission(pk, period, lw);
+        registerSourceEmission(pk, period, lw);
     }
 
+
+    /**
+     * Add a source to the scene using database values and register its
+     * associated emission spectra where available.
+     *
+     * <p>This method extends {@link SceneWithAttenuation#addSourceDb(Long, Geometry, SpatialResultSet)}
+     * by reading emission-related columns from the provided {@link SpatialResultSet}
+     * according to the active {@link SceneDatabaseInputSettings#inputMode} and
+     * storing per-period spectra in {@link #wjSources}.
+     *
+     * @param pk the primary key value read from the sources table (may be used
+     *           to identify virtual/bridge sources)
+     * @param geom the source geometry (can be null for some virtual sources)
+     * @param rs the spatial result set positioned on the source row
+     * @return a list of primary keys actually added to the scene (includes
+     *         virtual sources created while processing bridges)
+     * @throws SQLException forwarded when reading from the result set fails
+     */
     @Override
-    public void addSource(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
-        super.addSource(pk, geom, rs);
-        switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
-            case INPUT_MODE_TRAFFIC_FLOW_DEN:
-                processTrafficFlowDEN(pk, rs);
-                addBridgeVirtualSourceDEN(pk, geom, rs);
-                break;
-            case INPUT_MODE_LW_DEN:
-                processEmissionDEN(pk, rs);
-                break;
-            default:
-                // For input modes that don't carry emission data here, do nothing.
-                // This keeps the switch forward-compatible with new enum values.
-                break;
+    public List<Long> addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
+        List<Long> returnedPks = super.addSourceDb(pk, geom, rs);
+        for (long returnedPk : returnedPks) {
+            SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgeProperty(pk);
+            switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
+                case INPUT_MODE_TRAFFIC_FLOW_DEN:
+                    if (sourceBridgeProperty.getSourceType() != SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+                        registerDENValuesUsingTrafficFlow(returnedPk, rs);
+                    } else {
+                        Bridge bridge = profileBuilder.getBridgeByPk(sourceBridgeProperty.getBridgePkOn());
+                        registerBridgeStructuralDENValues(returnedPk, rs, bridge);
+                    }
+                    break;
+                case INPUT_MODE_LW_DEN:
+                    registerDENValuesUsingEmission(returnedPk, rs);
+                    break;
+                default:
+                    // For input modes that don't carry emission data here, do nothing.
+                    // This keeps the switch forward-compatible with new enum values.
+                    break;
+            }
         }
+        return returnedPks;
     }
 
-    private void processEmissionDEN(Long pk, SpatialResultSet rs) throws SQLException {
-        List<Integer> frequencyArray = profileBuilder.frequencyArray;
+    private void registerDENValuesUsingEmission(Long pk, SpatialResultSet rs) throws SQLException {
+        List<Integer> frequencyArray = profileBuilder.getFrequencyArray();
         for (EmissionTableGenerator.STANDARD_PERIOD period : EmissionTableGenerator.STANDARD_PERIOD.values()) {
-            double[] lw = new double[profileBuilder.frequencyArray.size()];
+            double[] lw = new double[profileBuilder.getFrequencyArray().size()];
             boolean missingField = false;
             String periodFieldName = EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()];
             for (int i = 0, frequencyArraySize = frequencyArray.size(); i < frequencyArraySize; i++) {
@@ -198,18 +232,36 @@ public class SceneWithEmission extends SceneWithAttenuation
                 }
             }
             if(!missingField) {
-                addSourceEmission(pk, periodFieldName, lw);
+                registerSourceEmission(pk, periodFieldName, lw);
             }
         }
     }
 
-    public void addSourceEmission(Long pk, ResultSet rs) throws SQLException {
+    /**
+     * Read per-frequency emission values from an emission table row and
+     * register them for the given source primary key.
+     *
+     * <p>The method interprets the current {@link SceneDatabaseInputSettings#inputMode}
+     * to decide how to read values (traffic flow vs direct LW) and converts
+     * the read dB values to Watts for internal storage.
+     *
+     * @param pk the source primary key to associate with the read spectra
+     * @param rs a {@link ResultSet} positioned on the emission row
+     * @throws SQLException if reading from the result set fails
+     */
+    public void registerSourceEmission(Long pk, ResultSet rs) throws SQLException {
+        SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgeProperty(pk);
         switch (sceneDatabaseInputSettings.inputMode) {
             case INPUT_MODE_TRAFFIC_FLOW:
-                processTrafficFlow(pk, rs);
+                if (sourceBridgeProperty.getSourceType() != SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+                    registerPeriodValueUsingTrafficFlow(pk, rs);
+                } else {
+                    Bridge bridge = profileBuilder.getBridgeByPk(sourceBridgeProperty.getBridgePkOn());
+                    registerBridgeStructuralPeriodValues(pk, rs, bridge);
+                }
                 break;
             case INPUT_MODE_LW:
-                processEmission(pk, rs);
+                registerPeriodValueUsingEmission(pk, rs);
                 break;
             default:
                 // Unknown or non-emission input modes: nothing to do.
@@ -218,12 +270,19 @@ public class SceneWithEmission extends SceneWithAttenuation
     }
 
     /**
-     * Link a source with a period and a spectrum
-     * @param sourcePrimaryKey
-     * @param period
-     * @param wj
+     * Register a precomputed emission spectrum for a source for a given period.
+     *
+     * <p>The provided spectrum array must match the frequency band ordering
+     * defined by the {@link ProfileBuilder} used to construct the scene.
+     * The method stores the spectrum (in Watts) and records the period in the
+     * internal period set when the period string is not empty.
+     *
+     * @param sourcePrimaryKey the primary key identifying the source
+     * @param period a period identifier (for example "D", "E", "N" or an
+     *               empty string for period-less spectra)
+     * @param wj spectrum of emitted powers (Watts) per frequency band
      */
-    public void addSourceEmission(Long sourcePrimaryKey, String period, double[] wj) {
+    public void registerSourceEmission(Long sourcePrimaryKey, String period, double[] wj) {
         ArrayList<PeriodEmission> sourceEmissions;
         if(wjSources.containsKey(sourcePrimaryKey)) {
             sourceEmissions = wjSources.get(sourcePrimaryKey);
@@ -238,31 +297,66 @@ public class SceneWithEmission extends SceneWithAttenuation
     }
 
     @Override
+    /**
+     * Remove all sources and associated emission data from the scene.
+     *
+     * <p>This overrides {@link SceneWithAttenuation#clearSources} and also
+     * clears emission-specific caches and the stored spectra map
+     * ({@link #wjSources}).
+     */
     public void clearSources() {
         super.clearSources(); // This clears all sources including virtual sources
         sourceEmissionFieldsCache.clear();
         wjSources.clear(); 
     }
 
+    public Map<Long, ArrayList<PeriodEmission>> getWjSources () {
+        /**
+         * Get the internal map of stored emission spectra.
+         *
+         * <p>Return value is the live internal map used by the scene. Callers
+         * should treat it as read-only to avoid corrupting internal state.
+         *
+         * @return map keyed by source primary key with a list of
+         *         {@link PeriodEmission} entries for each registered period
+         */
+        return this.wjSources;
+    }
+
+    public SceneDatabaseInputSettings getSceneDatabaseInputSettings() {
+        /**
+         * Access the {@link SceneDatabaseInputSettings} that controls how
+         * database fields are interpreted when reading emission data.
+         *
+         * @return the settings instance used by this scene
+         */
+        return this.sceneDatabaseInputSettings;
+    }
+
     public static class PeriodEmission {
+        /**
+         * Represents the emitted spectrum for a single period.
+         *
+         * <p>The {@code emission} array contains power values (Watts) for
+         * the frequency bands defined by the {@link ProfileBuilder} used to
+         * build the scene. The {@code period} field is a short identifier
+         * such as "D", "E" or "N" and may be empty when the spectrum is
+         * not period-specific.
+         */
         public final String period;
+        /** Power spectrum (Watts) per frequency band in the profile builder. */
         public final double[] emission;
 
+        /**
+         * Create a new PeriodEmission.
+         *
+         * @param period the period identifier (may be empty)
+         * @param emission the spectrum array (Watts) matching profile frequencies
+         */
         public PeriodEmission(String period, double[] emission) {
             this.period = period;
             this.emission = emission;
         }
     }
     
-
-    // Implementation of BridgeInformationCollector.SceneSourceAccessor interface
-    @Override
-    public int getSourceCount() {
-        return sourcesPk.size();
-    }
-
-    @Override
-    public Long getSourcePk(int index) {
-        return sourcesPk.get(index);
-    }
 }

@@ -22,10 +22,13 @@ import org.noise_planet.noisemodelling.jdbc.output.AttenuationOutputMultiThread;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.WallAbsorption;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
+import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -174,9 +177,10 @@ public class SceneWithEmissionTest {
         GeometryFactory factory = new GeometryFactory();
         WKTReader wktReader = new WKTReader(factory);
         LineString geomSource = (LineString)wktReader.read("LINESTRING (51 40.5 0.05, 51 55.5 0.05)");
+        FrequencyConfig frequencyConfig = new FrequencyConfig(FrequencyConfig.FrequencyBand.OCTAVE);
 
         //Create obstruction test object
-        ProfileBuilder builder = new ProfileBuilder();
+        ProfileBuilder builder = new ProfileBuilder(frequencyConfig);
 
         builder.addGroundEffect(factory.toGeometry(new Envelope(0, 50, -250, 250)), 0.9);
         builder.addGroundEffect(factory.toGeometry(new Envelope(50, 150, -250, 250)), 0.5);
@@ -199,14 +203,14 @@ public class SceneWithEmissionTest {
         for (long i = 0; i < srcPtsRef.size(); i++) {
             Coordinate srcPtRef = srcPtsRef.get((int) i);
             scene.addSource(i, factory.createPoint(srcPtRef));
-            scene.addSourceEmission(i, "", roadLvl);
+            scene.registerSourceEmission(i, "", roadLvl);
         }
 
         scene.setComputeHorizontalDiffraction(true);
         scene.setComputeVerticalDiffraction(true);
-        scene.maxSrcDist = 2000;
+        scene.setMaxSrcDist(2000);
 
-        AttenuationParameters attData = scene.defaultCnossosParameters;
+        AttenuationParameters attData = SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS;
         attData.setHumidity(70);
         attData.setTemperature(10);
 
@@ -221,7 +225,7 @@ public class SceneWithEmissionTest {
         // Second compute the same scene but with a line source
         scene.clearSources();
         scene.addSource(1L, geomSource);
-        scene.addSourceEmission(1L, "", roadLvl);
+        scene.registerSourceEmission(1L, "", roadLvl);
 
         AttenuationOutputMultiThread propDataOutTest = new AttenuationOutputMultiThread(scene);
         computeRays.run(propDataOutTest);
@@ -248,14 +252,13 @@ public class SceneWithEmissionTest {
     public void testReflexionConvergence() {
 
         //Profile building
-        List<Integer> alphaWallFrequencies = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(
-               ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
-        List<Double> alphaWall = new ArrayList<>(alphaWallFrequencies.size());
-        for(int frequency : alphaWallFrequencies) {
+        FrequencyConfig frequencyConfig = new FrequencyConfig(FrequencyConfig.FrequencyBand.ONE_THIRD_OCTAVE);
+        List<Double> alphaWall = new ArrayList<>(frequencyConfig.getFrequencyArray().size());
+        for(int frequency : frequencyConfig.getFrequencyArray()) {
             alphaWall.add(WallAbsorption.getWallAlpha(100000, frequency));
         }
 
-        ProfileBuilder profileBuilder = new ProfileBuilder()
+        ProfileBuilder profileBuilder = new ProfileBuilder(frequencyConfig)
                 .addWall(new Coordinate[]{
                         new Coordinate(6, 0, 4),
                         new Coordinate(-5, 12, 4),
@@ -268,21 +271,21 @@ public class SceneWithEmissionTest {
         profileBuilder.finishFeeding();
 
 
-        double[] sourcePower = new double[profileBuilder.frequencyArray.size()];
+        double[] sourcePower = new double[profileBuilder.getFrequencyArray().size()];
         Arrays.fill(sourcePower,  AcousticIndicatorsFunctions.dBToW(70.0));
 
         //Propagation data building
         SceneWithEmission scene = new SceneWithEmission(profileBuilder);
-        GeometryFactory f = new GeometryFactory();
-        scene.addSource(1L, f.createPoint(new Coordinate(8, 5.5, 0.1)));
+        GeometryFactory gf = new GeometryFactory();
+        scene.addSource(1L, gf.createPoint(new Coordinate(8, 5.5, 0.1)));
         scene.addReceiver(new Coordinate(4.5, 8, 1.6));
         scene.setDefaultGroundAttenuation(0.5);
-        scene.addSourceEmission(1L, "", sourcePower);
+        scene.registerSourceEmission(1L, "", sourcePower);
 
-        scene.maxSrcDist = 100*800;
+        scene.setMaxSrcDist(100*800);
         scene.maxRefDist = 100*800;
         //Propagation process path data building
-        AttenuationParameters attData = new AttenuationParameters();
+        AttenuationParameters attData = new AttenuationParameters(frequencyConfig);
         attData.setHumidity(HUMIDITY);
         attData.setTemperature(TEMPERATURE);
 
@@ -291,7 +294,7 @@ public class SceneWithEmissionTest {
 
             //Out and computation settings
             AttenuationOutputMultiThread propDataOut = new AttenuationOutputMultiThread(scene);
-            scene.reflexionOrder = i;
+            scene.setReflexionOrder(i);
             PathFinder computeRays = new PathFinder(scene);
             computeRays.setThreadCount(1);
 
@@ -321,10 +324,11 @@ public class SceneWithEmissionTest {
         GeometryFactory factory = new GeometryFactory();
         //Scene dimension
         Envelope cellEnvelope = new Envelope(new Coordinate(-1200, -1200, 0.), new Coordinate(1200, 1200, 0.));
+        FrequencyConfig frequencyConfig = new FrequencyConfig(FrequencyBand.OCTAVE);
 
         WKTReader wktReader = new WKTReader();
         //Create obstruction test object
-        ProfileBuilder builder = new ProfileBuilder();
+        ProfileBuilder builder = new ProfileBuilder(frequencyConfig);
 
         builder.addGroundEffect(factory.toGeometry(new Envelope(0, 50, -250, 250)), 0.9);
         builder.addGroundEffect(factory.toGeometry(new Envelope(50, 150, -250, 250)), 0.5);
@@ -341,12 +345,12 @@ public class SceneWithEmissionTest {
         scene.addSource(1L, factory.createPoint(new Coordinate(-150, 200, 1)));
         scene.setComputeHorizontalDiffraction(true);
         scene.setComputeVerticalDiffraction(true);
-        scene.addSourceEmission(1L, "", roadLvl);
+        scene.registerSourceEmission(1L, "", roadLvl);
 
-        scene.maxSrcDist = 2000;
+        scene.setMaxSrcDist(2000);
 
-        scene.defaultCnossosParameters.setHumidity(70);
-        scene.defaultCnossosParameters.setTemperature(10);
+        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS.setHumidity(70);
+        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS.setTemperature(10);
 
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);

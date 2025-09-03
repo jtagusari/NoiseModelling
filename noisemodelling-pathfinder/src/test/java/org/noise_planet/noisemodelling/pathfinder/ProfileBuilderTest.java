@@ -146,7 +146,7 @@ public class ProfileBuilderTest {
         profileBuilder.finishFeeding();
 
         CutProfile profile = profileBuilder.getProfile(new Coordinate(0, 1, 0.1), new Coordinate(8, 10, 0.3));
-        List<CutPoint> pts = profile.cutPoints;
+        List<CutPoint> pts = profile.getCutPoints();
         assertEquals(0.0, pts.get(0).getCoordinate().x, DELTA);
         assertEquals(1.0, pts.get(0).getCoordinate().y, DELTA);
         assertEquals(0.1, pts.get(0).getCoordinate().z, DELTA);
@@ -198,7 +198,7 @@ public class ProfileBuilderTest {
         profileBuilder.finishFeeding();
 
         CutProfile profile = profileBuilder.getProfile(new Coordinate(0, 1, 0.1), new Coordinate(8, 10, 0.3));
-        List<CutPoint> pts = profile.cutPoints;
+        List<CutPoint> pts = profile.getCutPoints();
         assertEquals(4, pts.size());
         assertEquals(0.0, pts.get(0).getCoordinate().x, DELTA);
         assertEquals(1.0, pts.get(0).getCoordinate().y, DELTA);
@@ -239,7 +239,7 @@ public class ProfileBuilderTest {
 
         CutProfile profile = profileBuilder.getProfile(new Coordinate(0, 1, 0.1), new Coordinate(8, 10, 0.3));
 
-        List<CutPoint> pts = profile.cutPoints;
+        List<CutPoint> pts = profile.getCutPoints();
         assertEquals(0.0, pts.get(0).getCoordinate().x, DELTA);
         assertEquals(1.0, pts.get(0).getCoordinate().y, DELTA);
         assertEquals(0.1, pts.get(0).getCoordinate().z, DELTA);
@@ -278,14 +278,14 @@ public class ProfileBuilderTest {
         Coordinate receiver = new Coordinate(200, 50, 14);
         Coordinate source = new Coordinate(10, 10, 1);
         CutProfile cutProfile = profileBuilder.getProfile(source, receiver, 0, false);
-        assertEquals(7, cutProfile.cutPoints.size());
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(10, 10, 1), cutProfile.cutPoints.get(0).getCoordinate(), 0.01);
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(50, 18.421, 0), cutProfile.cutPoints.get(1).getCoordinate(), 0.01);
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(120, 33.158, 0), cutProfile.cutPoints.get(2).getCoordinate(), 0.01);
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(150, 39.474, 4.616), cutProfile.cutPoints.get(3).getCoordinate(), 0.01);
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(176.83, 45.122, 16.634), cutProfile.cutPoints.get(4).getCoordinate(), 0.01);
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(185, 46.842, 10), cutProfile.cutPoints.get(5).getCoordinate(), 0.01);
-        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(200, 50, 14), cutProfile.cutPoints.get(6).getCoordinate(), 0.01);
+        assertEquals(7, cutProfile.getCutPoints().size());
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(10, 10, 1), cutProfile.getCutPoints().get(0).getCoordinate(), 0.01);
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(50, 18.421, 0), cutProfile.getCutPoints().get(1).getCoordinate(), 0.01);
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(120, 33.158, 0), cutProfile.getCutPoints().get(2).getCoordinate(), 0.01);
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(150, 39.474, 4.616), cutProfile.getCutPoints().get(3).getCoordinate(), 0.01);
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(176.83, 45.122, 16.634), cutProfile.getCutPoints().get(4).getCoordinate(), 0.01);
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(185, 46.842, 10), cutProfile.getCutPoints().get(5).getCoordinate(), 0.01);
+        PathFinderTest.assert3DCoordinateEquals("", new Coordinate(200, 50, 14), cutProfile.getCutPoints().get(6).getCoordinate(), 0.01);
     }
 
     @Test
@@ -298,16 +298,16 @@ public class ProfileBuilderTest {
         Geometry geometry = wktReader.read("MultiLineStringZ ((10 10 1, 200 50 1))");
         scene.addSource(1L, geometry);
         PathFinder pathFinder = new PathFinder(scene);
-        assertEquals(2, scene.sourceGeometries.get(0).getNumPoints());
+        assertEquals(2, scene.getSourceGeometryByIndex(0).getNumPoints());
         pathFinder.makeSourceRelativeZToAbsolute();
         // The source line should now be made of 4 points (2 points being created by the elevated DEM)
-        assertEquals(4, scene.sourceGeometries.get(0).getNumPoints());
+        assertEquals(4, scene.getSourceGeometryByIndex(0).getNumPoints());
         List<Coordinate> expectedProfile = Arrays.asList(
                 new Coordinate(10.0, 10.0, 1.0),
                 new Coordinate(120.0, 33.16, 1.0),
                 new Coordinate(185.0, 46.84, 11.0),
                 new Coordinate(200.0, 50.0, 11.0));
-        assertZProfil(expectedProfile, Arrays.asList(scene.sourceGeometries.get(0).getCoordinates()));
+        assertZProfil(expectedProfile, Arrays.asList(scene.getSourceGeometryByIndex(0).getCoordinates()));
     }
 
 
@@ -342,12 +342,12 @@ public class ProfileBuilderTest {
 
         CutProfile cutProfile = profileBuilder.getProfile(new Coordinate(50,10,1), new Coordinate(100, 15, 5));
 
-        assertEquals(9, cutProfile.cutPoints.size());
+        assertEquals(9, cutProfile.getCutPoints().size());
 
-        List<Integer> index = new ArrayList<>(cutProfile.cutPoints.size());
+        List<Integer> index = new ArrayList<>(cutProfile.getCutPoints().size());
         List<Coordinate> zProfile = cutProfile.computePts2DGround(index);
 
-        assertEquals(cutProfile.cutPoints.size(), index.size());
+        assertEquals(cutProfile.getCutPoints().size(), index.size());
 
         /* Table 148 */
         List<Coordinate> expectedZProfile = new ArrayList<>();
@@ -500,7 +500,7 @@ public class ProfileBuilderTest {
 
         CutProfile profile = profileBuilder.getProfile(new Coordinate(0, 1, 0.1), new Coordinate(8, 10, 0.3));
 
-        List<CutPoint> pts = profile.cutPoints;
+        List<CutPoint> pts = profile.getCutPoints();
         assertEquals(0.0, pts.get(0).getCoordinate().x, DELTA);
         assertEquals(1.0, pts.get(0).getCoordinate().y, DELTA);
         assertEquals(0.1, pts.get(0).getCoordinate().z, DELTA);

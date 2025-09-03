@@ -26,9 +26,12 @@ import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
+import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,9 +48,10 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
     NoiseMapByReceiverMaker noiseMapByReceiverMaker;
     // Soil areas are split by the provided size in order to reduce the propagation time
     protected double groundSurfaceSplitSideLength = 200;
-    public List<Integer> frequencyArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
-    public List<Double> exactFrequencyArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
-    public List<Double> aWeightingArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE));
+    // public List<Integer> frequencyArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
+    // public List<Double> exactFrequencyArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
+    // public List<Double> aWeightingArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE));
+    private FrequencyConfig frequencyConfig = new FrequencyConfig(FrequencyBand.OCTAVE);
     /**
      * Define attenuation settings to apply for each period
      */
@@ -123,10 +127,11 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
             if(frequencyValues.isEmpty()) {
                 throw new SQLException("Source emission table "+ noiseMapByReceiverMaker.getSourcesTableName()+" does not contains any frequency bands");
             }
-            frequencyArray = new ArrayList<>(frequencyValues);
-            exactFrequencyArray = new ArrayList<>();
-            aWeightingArray = new ArrayList<>();
-            ProfileBuilder.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
+            frequencyConfig.setFrequencyArray(frequencyValues);
+            // frequencyArray = new ArrayList<>(frequencyValues);
+            // exactFrequencyArray = new ArrayList<>();
+            // aWeightingArray = new ArrayList<>();
+            // FrequencyConfig.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
         } else if (inputSettings.inputMode == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN) {
             List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesTableName());
             Set<Integer> frequencySet = new HashSet<>();
@@ -134,19 +139,20 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                 String periodFieldName = EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()];
                 frequencySet.addAll(readFrequenciesFromLwTable(noiseMapByReceiverMaker.getFrequencyFieldPrepend()+periodFieldName, sourceFields));
             }
-            frequencyArray = new ArrayList<>(frequencySet);
-            exactFrequencyArray = new ArrayList<>();
-            aWeightingArray = new ArrayList<>();
-            ProfileBuilder.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
+            frequencyConfig.setFrequencyArray(frequencySet);
+            // frequencyArray = new ArrayList<>(frequencySet);
+            // exactFrequencyArray = new ArrayList<>();
+            // aWeightingArray = new ArrayList<>();
+            // FrequencyConfig.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
         }
-        defaultParameters.setFrequencies(frequencyArray);
+        defaultParameters.setFrequencies(frequencyConfig.getFrequencyArray());
         // Load atmospheric data from database
         if(!inputSettings.periodAtmosphericSettingsTableName.isEmpty()) {
             loadAtmosphericTableSettings(connection, inputSettings.periodAtmosphericSettingsTableName);
         }
         // apply expected frequency to each atmospheric data
         for(AttenuationParameters parameters : cnossosParametersPerPeriod.values()) {
-            parameters.setFrequencies(frequencyArray);
+            parameters.setFrequencies(frequencyConfig.getFrequencyArray());
         }
         // Load source directivity
         if(inputSettings.useTrainDirectivity) {
@@ -176,7 +182,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
      * @return a list of integers representing the frequency values in the array.
      */
     public List<Integer> getFrequencyArray() {
-        return frequencyArray;
+        return frequencyConfig.getFrequencyArray();
     }
 
     /**
@@ -185,7 +191,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
      * @return a list of doubles representing the exact frequency values in the array.
      */
     public List<Double> getExactFrequencyArray() {
-        return exactFrequencyArray;
+        return frequencyConfig.getExactFrequencyArray();
     }
 
     /**
@@ -196,7 +202,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
      * @return a list of doubles representing the A-weighting correction values.
      */
     public List<Double> getaWeightingArray() {
-        return aWeightingArray;
+        return frequencyConfig.getAWeightingArray();
     }
 
     /**
@@ -223,7 +229,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
             if (fieldName.toUpperCase(Locale.ROOT).startsWith(frequencyPrepend)) {
                 try {
                     int freq = Integer.parseInt(fieldName.substring(frequencyPrepend.length()));
-                    int index = Arrays.binarySearch(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE, freq);
+                    int index = Arrays.binarySearch(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE, freq);
                     if (index >= 0) {
                         frequencyValues.add(freq);
                     }
@@ -250,12 +256,12 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         // between subdomains
         expandedCellEnvelop.expandBy(maximumPropagationDistance + 2 * maximumReflectionDistance);
 
-        ProfileBuilder profileBuilder = new ProfileBuilder();
-        profileBuilder.setFrequencyArray(frequencyArray);
+        ProfileBuilder profileBuilder = new ProfileBuilder(frequencyConfig);
+        // profileBuilder.setFrequencyArray(frequencyArray);
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, noiseMapByReceiverMaker.getSceneInputSettings());
         scene.setDirectionAttributes(directionAttributes);
         scene.cnossosParametersPerPeriod = cnossosParametersPerPeriod;
-        scene.defaultCnossosParameters = defaultParameters;
+        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS = defaultParameters;
         scene.periodSet.addAll(cnossosParametersPerPeriod.keySet());
 
 
@@ -274,10 +280,10 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
 
         scene.profileBuilder.finishFeeding();
 
-        scene.reflexionOrder = noiseMapByReceiverMaker.getSoundReflectionOrder();
+        scene.setReflexionOrder(noiseMapByReceiverMaker.getSoundReflectionOrder());
         scene.setBodyBarrier(noiseMapByReceiverMaker.isBodyBarrier());
         scene.maxRefDist = maximumReflectionDistance;
-        scene.maxSrcDist = maximumPropagationDistance;
+        scene.setMaxSrcDist(maximumPropagationDistance);
         scene.setComputeVerticalDiffraction(noiseMapByReceiverMaker.isComputeVerticalDiffraction());
         scene.setComputeHorizontalDiffraction(noiseMapByReceiverMaker.isComputeHorizontalDiffraction());
 
@@ -743,7 +749,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                                             " You must specify X,Y,Z for each source");
                                 }
                             }
-                            scene.addSource(rs.getLong(pkIndex), geo, rs);
+                            List<Long> returnedPk = scene.addSourceDb(rs.getLong(pkIndex), geo, rs);
                         }
                     }
                 }
@@ -754,11 +760,11 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
             }
         }
         // Fetch emission table data for the sources in this area
-        String emissionTableName = scene.sceneDatabaseInputSettings.sourcesEmissionTableName;
+        String emissionTableName = scene.getSceneDatabaseInputSettings().sourcesEmissionTableName;
         if (!emissionTableName.isEmpty()) {
             try (PreparedStatement st = connection.prepareStatement("SELECT E.* FROM " + sourcesTableName +
                     " S INNER JOIN "+emissionTableName+" E ON S."+primaryKey.first()+" = E." +
-                    scene.sceneDatabaseInputSettings.sourceEmissionPrimaryKeyField+" WHERE S."
+                    scene.getSceneDatabaseInputSettings().sourceEmissionPrimaryKeyField+" WHERE S."
                     + TableLocation.quoteIdentifier(sourceGeomName) + " && ?::geometry")) {
                 st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
                 st.setFetchSize(fetchSize);
@@ -769,7 +775,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                 st.setFetchDirection(ResultSet.FETCH_FORWARD);
                 try (ResultSet rs = st.executeQuery()) {
                     while (rs.next()) {
-                        scene.addSourceEmission(rs.getLong(scene.sceneDatabaseInputSettings.sourceEmissionPrimaryKeyField), rs);
+                        scene.registerSourceEmission(rs.getLong(scene.getSceneDatabaseInputSettings().sourceEmissionPrimaryKeyField), rs);
                     }
                 } finally {
                     if (autoCommit) {

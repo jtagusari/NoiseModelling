@@ -1,6 +1,8 @@
 package org.noise_planet.noisemodelling.propagation;
 
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
+import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 
 /**
  * Attenuation or noise level value at receiver location
@@ -8,19 +10,35 @@ import org.noise_planet.noisemodelling.pathfinder.PathFinder;
  * May be linked with a period
  */
 public class ReceiverNoiseLevel {
-    public PathFinder.SourcePointInfo source = null;
-    public PathFinder.ReceiverPointInfo receiver = null;
-    public String period = "";
-    public double [] levels = new double[0];
+    private SourcePointInfo source = null;
+    private ReceiverPointInfo receiver = null;
+    private String period = "";
+    private double [] levels = new double[0];
 
-    public ReceiverNoiseLevel(PathFinder.SourcePointInfo source,
-                                PathFinder.ReceiverPointInfo receiver,
+    public ReceiverNoiseLevel(SourcePointInfo source,
+                                ReceiverPointInfo receiver,
                                 String period,
                                 double[] levels) {
         this.levels = levels;
         this.period = period;
         this.receiver = receiver;
         this.source = source;
+    }
+
+    public SourcePointInfo getSource() {
+        return source;
+    }
+
+    public ReceiverPointInfo getReceiver() {
+        return receiver;
+    }
+
+    public String getPeriod() {
+        return period;
+    }
+
+    public double[] getLevels() {
+        return levels;
     }
 
     public ReceiverNoiseLevel() {

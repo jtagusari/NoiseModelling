@@ -19,6 +19,7 @@ import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.utils.StringPreparedStatements;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.CoordinateMixin;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.LineSegmentMixin;
@@ -60,9 +61,9 @@ public class NoiseMapWriter implements Callable<Boolean> {
     Writer writer;
     ObjectWriter jsonWriter;
     int srid;
-    public List<Integer> frequencyArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
+    public List<Integer> frequencyArray = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
     public double[] aWeightingArray = Arrays.stream(
-                    asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE)).
+                    asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE)).
             mapToDouble(value -> value).toArray();
 
     /**
@@ -80,8 +81,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
         this.srid = noiseMapByReceiverMaker.getGeometryFactory().getSRID();
         if(noiseMapByReceiverMaker.getPropagationProcessDataFactory() instanceof DefaultTableLoader) {
             aWeightingArray = ((DefaultTableLoader)noiseMapByReceiverMaker.getPropagationProcessDataFactory()).
-                    aWeightingArray.stream().mapToDouble(value -> value).toArray();
-            frequencyArray = ((DefaultTableLoader)noiseMapByReceiverMaker.getPropagationProcessDataFactory()).frequencyArray;
+                    getaWeightingArray().stream().mapToDouble(value -> value).toArray();
+            frequencyArray = ((DefaultTableLoader)noiseMapByReceiverMaker.getPropagationProcessDataFactory()).getFrequencyArray();
         }
         this.exitWhenDone = exitWhenDone;
         this.aborted = aborted;
@@ -147,8 +148,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
             LineString lineString = row.asGeom();
             lineString.setSRID(srid);
             ps.setObject(parameterIndex++, lineString);
-            ps.setLong(parameterIndex++, row.getCutProfile().getReceiver().receiverPk);
-            ps.setLong(parameterIndex++, row.getCutProfile().getSource().sourcePk);
+            ps.setLong(parameterIndex++, row.getCutProfile().getReceiver().getReceiverPk());
+            ps.setLong(parameterIndex++, row.getCutProfile().getSource().getSourcePk());
             if(databaseParameters.exportCnossosPathWithAttenuation) {
                 String json = "";
                 try {
@@ -223,30 +224,30 @@ public class NoiseMapWriter implements Callable<Boolean> {
             ReceiverNoiseLevel row = stack.pop();
             resultsCache.queueSize.decrementAndGet();
             int parameterIndex = 1;
-            ps.setLong(parameterIndex++, row.receiver.receiverPk);
+            ps.setLong(parameterIndex++, row.getReceiver().getReceiverPk());
             if(!databaseParameters.mergeSources) {
-                ps.setLong(parameterIndex++, row.source.sourcePk);
+                ps.setLong(parameterIndex++, row.getSource().getSourcePk());
             }
             if(exportPeriod) {
-                ps.setString(parameterIndex++, row.period);
+                ps.setString(parameterIndex++, row.getPeriod());
             }
             if(databaseParameters.exportReceiverPosition) {
-                ps.setObject(parameterIndex++,  row.receiver.position != null ?
-                        factory.createPoint(row.receiver.position):
+                ps.setObject(parameterIndex++,  row.getReceiver().getCoordinate() != null ?
+                        factory.createPoint(row.getReceiver().getCoordinate()):
                         factory.createPoint());
             }
             if (!databaseParameters.computeLAEQOnly){
                 for(int idfreq = 0; idfreq < aWeightingArray.length; idfreq++) {
-                    double value = row.levels[idfreq];
+                    double value = row.getLevels()[idfreq];
                     if(!Double.isFinite(value)) {
                         value = -99.0;
-                        row.levels[idfreq] = value;
+                        row.getLevels()[idfreq] = value;
                     }
                     ps.setDouble(parameterIndex++, value);
                 }
             }
             // laeq value
-            double value = wToDb(sumArray(AcousticIndicatorsFunctions.dBToW(sumArray(row.levels, aWeightingArray))));
+            double value = wToDb(sumArray(AcousticIndicatorsFunctions.dBToW(sumArray(row.getLevels(), aWeightingArray))));
             if(!Double.isFinite(value)) {
                 value = -99;
             }
@@ -254,7 +255,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
 
             // leq value
             if (!databaseParameters.computeLAEQOnly) {
-                ps.setDouble(parameterIndex++, wToDb(sumArray(AcousticIndicatorsFunctions.dBToW(row.levels))));
+                ps.setDouble(parameterIndex++, wToDb(sumArray(AcousticIndicatorsFunctions.dBToW(row.getLevels()))));
             }
 
             ps.addBatch();

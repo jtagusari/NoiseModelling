@@ -14,8 +14,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.h2gis.api.EmptyProgressVisitor;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
+import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.AttenuationComputeOutput;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
@@ -38,7 +40,7 @@ import java.util.stream.IntStream;
 public class GenerateReferenceDeviation {
     private static final Logger LOGGER = LoggerFactory.getLogger(GenerateReferenceDeviation.class);
     private static final List<Integer> FREQ_LVL = Arrays.asList(
-            AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
+            AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
     private static final double[] SOUND_POWER_LEVELS = new double[]{93, 93, 93, 93, 93, 93, 93, 93};
     private static final double[] A_WEIGHTING = new double[]{-26.2, -16.1, -8.6, -3.2, 0.0, 1.2, 1.0, -1.1};
 
@@ -110,21 +112,21 @@ public class GenerateReferenceDeviation {
         attData.setHumidity(HUMIDITY);
         attData.setTemperature(TEMPERATURE);
 
-        scene.defaultCnossosParameters = attData;
+        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS = attData;
 
         //Out and computation settings
         AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);
 
         AttenuationVisitor attenuationVisitor = (AttenuationVisitor)propDataOut.subProcess(new EmptyProgressVisitor());
-        PathFinder.ReceiverPointInfo lastReceiver = new PathFinder.ReceiverPointInfo(-1,-1,new Coordinate());
+        ReceiverPointInfo lastReceiver = new ReceiverPointInfo(-1,-1,new Coordinate());
         for (String utName : utNames) {
             CutProfile cutProfile = loadCutProfile(utName);
             attenuationVisitor.onNewCutPlane(cutProfile);
-            if(lastReceiver.receiverPk != -1 && cutProfile.getReceiver().receiverPk != lastReceiver.receiverPk) {
+            if(lastReceiver.getReceiverPk() != -1 && cutProfile.getReceiver().getReceiverPk() != lastReceiver.getReceiverPk()) {
                 // merge attenuation per receiver
-                attenuationVisitor.finalizeReceiver(new PathFinder.ReceiverPointInfo(cutProfile.getReceiver()));
+                attenuationVisitor.finalizeReceiver(new ReceiverPointInfo(cutProfile.getReceiver()));
             }
-            lastReceiver = new PathFinder.ReceiverPointInfo(cutProfile.getReceiver());
+            lastReceiver = new ReceiverPointInfo(cutProfile.getReceiver());
         }
         // merge attenuation per receiver
         attenuationVisitor.finalizeReceiver(lastReceiver);
@@ -170,10 +172,10 @@ public class GenerateReferenceDeviation {
 
         double[] expectedLA = asArray(expectedValues.get("LA"));
         double[] expectedLAWithoutLateral = asArray(expectedValues.get("LA_WL"));
-        double[] actualLA = addArray(powerLevel, addArray(actual.receiversAttenuationLevels.getFirst().levels,
+        double[] actualLA = addArray(powerLevel, addArray(actual.receiversAttenuationLevels.getFirst().getLevels(),
                 A_WEIGHTING));
         double[] actualLAWithoutLateral = addArray(powerLevel,
-                addArray(actualWithoutLateral.receiversAttenuationLevels.getFirst().levels,
+                addArray(actualWithoutLateral.receiversAttenuationLevels.getFirst().getLevels(),
                 A_WEIGHTING));
         DeviationResult lADeviation = computeDeviation(expectedLA, actualLA);
         DeviationResult lADeviationWithoutLateral = computeDeviation(expectedLAWithoutLateral, actualLAWithoutLateral);

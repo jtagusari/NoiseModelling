@@ -59,7 +59,7 @@ public class Path {
 
     public Path(CutProfile cutProfile) {
         this.cutProfile = cutProfile;
-        setSourceOrientation(cutProfile.getSource().orientation);
+        setSourceOrientation(cutProfile.getSource().getOrientation());
     }
 
     public Path(Path other) {
@@ -83,7 +83,7 @@ public class Path {
         if(cutProfile == null) {
             return new ArrayList<>();
         } else {
-            return cutProfile.cutPoints;
+            return cutProfile.getCutPoints();
         }
     }
 

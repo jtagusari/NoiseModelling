@@ -120,15 +120,15 @@ public class GeoJSONDocument {
         jsonGenerator.writeFieldName("coordinates");
         jsonGenerator.writeStartArray();
 
-        for(CutPoint cutPoint : profile.cutPoints) {
+        for(CutPoint cutPoint : profile.getCutPoints()) {
             writeCoordinate(new Coordinate(cutPoint.getCoordinate()));
         }
         jsonGenerator.writeEndArray();
         jsonGenerator.writeEndObject(); // geometry
         // Write properties
         jsonGenerator.writeObjectFieldStart("properties");
-        jsonGenerator.writeNumberField("receiver", profile.getReceiver().receiverPk);
-        jsonGenerator.writeNumberField("source", profile.getSource().sourcePk);
+        jsonGenerator.writeNumberField("receiver", profile.getReceiver().getReceiverPk());
+        jsonGenerator.writeNumberField("source", profile.getSource().getSourcePk());
         jsonGenerator.writeEndObject(); // properties
         jsonGenerator.writeEndObject();
     }

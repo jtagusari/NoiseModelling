@@ -141,7 +141,7 @@ public class ProcessedWallService implements FrequencyInitializable{
             LOGGER.warn("ProcessedWallService.initializeFrequencyDependentData: exactFrequencyArray is null");
             return;
         }
-        LOGGER.info("ProcessedWallService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
+        LOGGER.debug("ProcessedWallService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
         for (Wall w : processedWalls) {
             w.initialize(exactFrequencyArray);
         }

@@ -10,6 +10,7 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
@@ -19,17 +20,27 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * CutProfile represents a vertical profile cut between a sound source and receiver.
+ * This class manages cut points that represent intersections with buildings, topography,
+ * and other obstacles along the propagation path.
+ * 
+ * The profile is used to calculate acoustic path properties including ground absorption
+ * coefficients and to determine if the path is in free field conditions.
+ * 
+ * @author NoiseModelling contributors
+ */
 public class CutProfile {
     /** List of cut points.
      * First point is source, last point is receiver */
-    public ArrayList<CutPoint> cutPoints = new ArrayList<>();
+    private ArrayList<CutPoint> cutPoints = new ArrayList<>();
 
     /** True if Source-Receiver linestring is below building intersection */
-    public boolean hasBuildingIntersection = false;
+    private boolean hasBuildingIntersection = false;
     /** True if Source-Receiver linestring intersects with bridge diffraction conditions */
-    public boolean hasBridgeIntersection = false;
+    private boolean hasBridgeIntersection = false;
     /** True if Source-Receiver linestring is below topography cutting point. */
-    public boolean hasTopographyIntersection = false;
+    private boolean hasTopographyIntersection = false;
 
     /**
      * Empty constructor for deserialization
@@ -37,15 +48,23 @@ public class CutProfile {
     public CutProfile() {
     }
 
+    /**
+     * Creates a new CutProfile with source and receiver points.
+     * 
+     * @param source the source point of the acoustic path
+     * @param receiver the receiver point of the acoustic path
+     */
     public CutProfile(CutPointSource source, CutPointReceiver receiver) {
         cutPoints.add(source);
         cutPoints.add(receiver);
     }
 
     /**
-     * Insert and sort cut points,
-     * @param sortBySourcePosition After inserting points, sort the by the distance from the source
-     * @param cutPointsToInsert
+     * Insert and sort cut points into the profile.
+     * The method ensures that the source remains the first point and the receiver remains the last point.
+     * 
+     * @param sortBySourcePosition if true, sort points by distance from the source after insertion
+     * @param cutPointsToInsert array of cut points to insert into the profile
      */
     public void insertCutPoint(boolean sortBySourcePosition, CutPoint... cutPointsToInsert) {
         CutPointSource sourcePoint = getSource();
@@ -69,18 +88,22 @@ public class CutProfile {
     }
 
     /**
-     * Sort the CutPoints by distance with c0
+     * Sort the CutPoints by distance from a reference coordinate.
+     * 
+     * @param c0 the reference coordinate to calculate distances from
      */
     public void sort(Coordinate c0) {
         cutPoints.sort(new CutPointDistanceComparator(c0));
     }
 
     /**
-     * compute the path between two points
-     * @param p0
-     * @param p1
-     * @param roofG Ground absorption coefficient for paths above obstacles (buildings/bridges)
-     * @return the absorption coefficient of this path
+     * Compute the weighted ground absorption coefficient for the path between two points.
+     * The method considers whether the path segment is above obstacles (roofs) or on ground.
+     * 
+     * @param p0 starting point of the path segment
+     * @param p1 ending point of the path segment  
+     * @param roofG ground absorption coefficient for paths above obstacles (buildings/bridges)
+     * @return the weighted absorption coefficient of this path segment
      */
     @JsonIgnore
     public double getGPath(CutPoint p0, CutPoint p1, double roofG) {
@@ -115,6 +138,12 @@ public class CutProfile {
         return rsLength / totalLength;
     }
 
+    /**
+     * Compute the weighted ground absorption coefficient for the entire path from source to receiver.
+     * Uses the default building absorption coefficient.
+     * 
+     * @return the weighted absorption coefficient for the complete path, or 0 if no points exist
+     */
     @JsonIgnore
     public double getGPath() {
         if(!cutPoints.isEmpty()) {
@@ -125,8 +154,11 @@ public class CutProfile {
     }
 
     /**
-     *
-     * @return
+     * Determines if the acoustic path is in free field conditions.
+     * A path is considered free field if it has no intersections with buildings,
+     * bridges, or significant topographic obstacles.
+     * 
+     * @return true if the path is in free field conditions, false otherwise
      */
     @JsonIgnore
     public boolean isFreeField() {
@@ -156,7 +188,10 @@ public class CutProfile {
 
 
     /**
-     * @return @return the computed coordinate list
+     * Convert all cut points to a 2D coordinate system.
+     * The coordinates are re-projected so that the first point is at x=0.
+     * 
+     * @return the computed 2D coordinate list of all cut points
      */
     public List<Coordinate> computePts2D() {
         List<Coordinate> pts2D = cutPoints.stream()
@@ -169,9 +204,10 @@ public class CutProfile {
     /**
      * From the vertical plane cut, extract only the top elevation points
      * (buildings/walls top or ground if no buildings) then re-project it into
-     * a 2d coordinate system. The first point is always x=0.
-     * @param index Corresponding index from parameter to return list items
-     * @return the computed 2D coordinate list of DEM
+     * a 2D coordinate system. The first point is always x=0.
+     * 
+     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @return the computed 2D coordinate list of DEM (Digital Elevation Model)
      */
     public List<Coordinate> computePts2DGround(List<Integer> index) {
         return computePts2DGround(0, index);
@@ -179,10 +215,12 @@ public class CutProfile {
 
     /**
      * From the vertical plane cut, extract only the top elevation points
-     * (buildings/walls top or ground if no buildings)
-     * @param pts Cut points
-     * @param index Corresponding index from parameter to return list items
-     * @return the computed coordinate list of the vertical cut
+     * (buildings/walls top or ground if no buildings).
+     * This static method processes a list of cut points to generate the ground profile.
+     * 
+     * @param pts list of cut points to process
+     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @return the computed coordinate list of the vertical cut representing the ground profile
      */
     public static List<Coordinate> computePtsGround(List<CutPoint> pts, List<Integer> index) {
 
@@ -246,12 +284,13 @@ public class CutProfile {
     /**
      * From the vertical plane cut, extract only the top elevation points
      * (buildings/walls top or ground if no buildings) then re-project it into
-     * a 2d coordinate system. The first point is always x=0.
-     * @param pts Cut points
-     * @param tolerance Simplify the point list by not adding points where the distance from the line segments
+     * a 2D coordinate system with line simplification. The first point is always x=0.
+     * 
+     * @param pts list of cut points to process
+     * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param index Corresponding index from parameter to return list items
-     * @return the computed 2D coordinate list of DEM
+     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @return the computed 2D coordinate list of DEM with simplified geometry
      */
     public static List<Coordinate> computePts2DGround(List<CutPoint> pts, double tolerance, List<Integer> index) {
         return JTSUtility.getNewCoordinateSystem(computePtsGround(pts, index), tolerance);
@@ -260,25 +299,153 @@ public class CutProfile {
     /**
      * From the vertical plane cut, extract only the top elevation points
      * (buildings/walls top or ground if no buildings) then re-project it into
-     * a 2d coordinate system. The first point is always x=0.
-     * @param tolerance Simplify the point list by not adding points where the distance from the line segments
+     * a 2D coordinate system with line simplification. The first point is always x=0.
+     * 
+     * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param index Corresponding index from parameter to return list items
-     * @return the computed 2D coordinate list of DEM
+     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @return the computed 2D coordinate list of DEM with simplified geometry
      */
     public List<Coordinate> computePts2DGround(double tolerance, List<Integer> index) {
         return computePts2DGround(this.cutPoints, tolerance, index);
     }
 
-    @JsonIgnore
-    public CutPointSource getSource() {
-        return !cutPoints.isEmpty() && cutPoints.get(0) instanceof CutPointSource ?
-                (CutPointSource) cutPoints.get(0) : null;
+    /**
+     * Get a copy of all cut points in the profile.
+     * 
+     * @return a new ArrayList containing copies of all cut points
+     */
+    public ArrayList<CutPoint> getCutPoints() {
+        return new ArrayList<>(cutPoints);
     }
 
+    /**
+     * Set the cut points for this profile.
+     * 
+     * @param cutPoints the cut points to set
+     */
+    public void setCutPoints(ArrayList<CutPoint> cutPoints) {
+        this.cutPoints = new ArrayList<>(cutPoints);
+    }
+
+    /**
+     * Get the source point of the acoustic path.
+     * 
+     * @return a copy of the source point, or null if no source exists
+     */
+    @JsonIgnore
+    public CutPointSource getSource() {
+        if (cutPoints.isEmpty() || !(cutPoints.get(0) instanceof CutPointSource)) {
+            return null;
+        }
+        CutPointSource original = (CutPointSource) cutPoints.get(0);
+        return new CutPointSource(original);
+    }
+
+    /**
+     * Get the receiver point of the acoustic path.
+     * 
+     * @return a copy of the receiver point, or null if no receiver exists
+     */
     @JsonIgnore
     public CutPointReceiver getReceiver() {
-        return !cutPoints.isEmpty() && cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver ?
-                (CutPointReceiver) cutPoints.get(cutPoints.size() - 1) : null;
+        if (cutPoints.isEmpty() || !(cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver)) {
+            return null;
+        }
+        CutPointReceiver original = (CutPointReceiver) cutPoints.get(cutPoints.size() - 1);
+        return new CutPointReceiver(original);
+    }
+
+    /**
+     * Set the source point of the acoustic path.
+     * 
+     * @param source the new source point to set
+     * @throws IllegalArgumentException if source is null
+     */
+    @JsonIgnore
+    public void setSource(CutPointSource source) {
+        if (source == null) {
+            throw new IllegalArgumentException("Source cannot be null");
+        }
+        if (!cutPoints.isEmpty() && cutPoints.get(0) instanceof CutPointSource) {
+            cutPoints.set(0, new CutPointSource(source));
+        } else {
+            cutPoints.add(0, new CutPointSource(source));
+        }
+    }
+
+    /**
+     * Set whether the path has topography intersection.
+     * 
+     * @param hasIntersection true if the path intersects with topographic obstacles
+     */
+    public void hasTopographyIntersection(boolean hasIntersection) {
+        this.hasTopographyIntersection = hasIntersection;
+    }
+
+    /**
+     * Check if the path has topography intersection.
+     * 
+     * @return true if the path intersects with topographic obstacles
+     */
+    @JsonProperty("hasTopographyIntersection")
+    public boolean hasTopographyIntersection() {
+        return hasTopographyIntersection;
+    }
+
+    /**
+     * Set whether the path has building intersection.
+     * 
+     * @param hasIntersection true if the path intersects with buildings
+     */
+    public void hasBuildingIntersection(boolean hasIntersection) {
+        this.hasBuildingIntersection = hasIntersection;
+    }
+
+    /**
+     * Check if the path has building intersection.
+     * 
+     * @return true if the path intersects with buildings
+     */
+    @JsonProperty("hasBuildingIntersection")
+    public boolean hasBuildingIntersection() {
+        return hasBuildingIntersection;
+    }
+
+    /**
+     * Set whether the path has bridge intersection.
+     * 
+     * @param hasIntersection true if the path intersects with bridges
+     */
+    public void hasBridgeIntersection(boolean hasIntersection) {
+        this.hasBridgeIntersection = hasIntersection;
+    }
+
+    /**
+     * Check if the path has bridge intersection.
+     * 
+     * @return true if the path intersects with bridges
+     */
+    @JsonProperty("hasBridgeIntersection")
+    public boolean hasBridgeIntersection() {
+        return hasBridgeIntersection;
+    }
+
+    /**
+     * Set the receiver point of the acoustic path.
+     * 
+     * @param receiver the new receiver point to set
+     * @throws IllegalArgumentException if receiver is null
+     */
+    @JsonIgnore
+    public void setReceiver(CutPointReceiver receiver) {
+        if (receiver == null) {
+            throw new IllegalArgumentException("Receiver cannot be null");
+        }
+        if (!cutPoints.isEmpty() && cutPoints.get(cutPoints.size() - 1) instanceof CutPointReceiver) {
+            cutPoints.set(cutPoints.size() - 1, new CutPointReceiver(receiver));
+        } else {
+            cutPoints.add(new CutPointReceiver(receiver));
+        }
     }
 }

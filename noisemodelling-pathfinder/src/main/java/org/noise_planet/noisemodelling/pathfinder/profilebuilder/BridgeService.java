@@ -1,7 +1,10 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
+import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
 import org.locationtech.jts.math.Vector2D;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -157,6 +160,23 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
     public STRtree getBridgeRtree() {
         return bridgeTree;
     }
+
+    /**
+     * Return processed walls that intersect the given envelope and are of type BUILDING or WALL.
+     *
+     * @param env query envelope
+     * @return list of processed walls intersecting the envelope
+     */
+    public List<Bridge> getBridgesIn(Envelope env) {
+        List<Bridge> list = new ArrayList<>();
+        List<Integer> indexes = RTreeUtils.query(getBridgeRtree(), env);
+        for (int i : indexes) {
+            Bridge b = getBridges().get(i);
+            list.add(b);
+        }
+        return list;
+    }
+
     /**
      * Compute or update bridge deck geometry (3D polygon) for all stored bridges.
      * <p>
@@ -185,7 +205,7 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             LOGGER.warn("BridgeService.initializeFrequencyDependentData: exactFrequencyArray is null");
             return;
         }
-        LOGGER.info("BridgeService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
+        LOGGER.debug("BridgeService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
         for (Bridge b : bridges) {
             b.initialize(exactFrequencyArray);
         }
@@ -242,12 +262,12 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         boolean bridgeDiffractionBelowBottom = zRayReceiverSource >= intersection.z - deckThickness;
 
         if (bridgeDiffractionAboveDeck) {
-            profile.hasBridgeIntersection = true;
+            profile.hasBridgeIntersection(true);
             return !stopAtObstacleOverSourceReceiver;
         } else if (bridgeDiffractionBelowBottom) {
             return true;
         } else {
-            profile.hasBridgeIntersection = true;
+            profile.hasBridgeIntersection(true);
             return !stopAtObstacleOverSourceReceiver;
         }
     }

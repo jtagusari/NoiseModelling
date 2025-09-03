@@ -229,7 +229,7 @@ public class BuildingService implements FrequencyInitializable, ElevationComputa
             LOGGER.warn("BuildingService.initializeFrequencyDependentData: exactFrequencyArray is null");
             return;
         }
-        LOGGER.info("BuildingService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
+        LOGGER.debug("BuildingService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
         for (Building b : buildings) {
             b.initialize(exactFrequencyArray);
         }
@@ -328,7 +328,7 @@ public class BuildingService implements FrequencyInitializable, ElevationComputa
         }
 
         if (zRayReceiverSource <= intersection.z) {
-            profile.hasBuildingIntersection = true;
+            profile.hasBuildingIntersection(true);
             return !stopAtObstacleOverSourceReceiver;
         } else {
             return true;

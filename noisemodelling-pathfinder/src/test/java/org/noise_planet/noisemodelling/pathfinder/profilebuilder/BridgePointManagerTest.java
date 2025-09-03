@@ -674,4 +674,29 @@ public class BridgePointManagerTest {
         assertEquals(Long.valueOf(3), keys.get(2), "Keys should be sorted");
         assertEquals(Long.valueOf(5), keys.get(3), "Keys should be sorted");
     }
+
+    @Test
+    public void testGetAverageAbsoluteDeckHeightCenterOnly() {
+        BridgePointManager manager = new BridgePointManager();
+
+        // CENTER points with heights 10 and 20
+        BridgePoint center1 = createTestPointWithAbsolute(1, 0.0, 0.0, 10.0);
+        center1.setPosition(BridgePoint.Position.CENTER);
+        BridgePoint center2 = createTestPointWithAbsolute(2, 10.0, 0.0, 20.0);
+        center2.setPosition(BridgePoint.Position.CENTER);
+
+        // LEFT and RIGHT points should be ignored
+        BridgePoint left = createTestPointWithAbsolute(3, 20.0, 0.0, 100.0);
+        left.setPosition(BridgePoint.Position.LEFT);
+        BridgePoint right = createTestPointWithAbsolute(4, 30.0, 0.0, 200.0);
+        right.setPosition(BridgePoint.Position.RIGHT);
+
+        manager.addBridgePoint(center1);
+        manager.addBridgePoint(left);
+        manager.addBridgePoint(center2);
+        manager.addBridgePoint(right);
+
+        double avg = manager.getAverageAbsoluteDeckHeight();
+        assertEquals(15.0, avg, 0.001, "Average should consider only CENTER points (10 and 20 -> 15)");
+    }
 }

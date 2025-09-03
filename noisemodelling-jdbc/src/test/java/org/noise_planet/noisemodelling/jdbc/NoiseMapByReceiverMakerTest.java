@@ -28,6 +28,7 @@ import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.RootProgressVisitor;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.GroundAbsorption;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 
@@ -81,9 +82,9 @@ public class NoiseMapByReceiverMakerTest {
                 for(GroundAbsorption soil : scene.profileBuilder.getGroundEffects()) {
                     assertTrue(soil.getGeometry().getArea() < expectedMaxArea);
                 }
-                assertEquals(3, scene.wjSources.size());
-                assertEquals(1, scene.wjSources.get(1L).size());
-                assertEquals("D", scene.wjSources.get(1L).get(0).period);
+                assertEquals(3, scene.getWjSources().size());
+                assertEquals(1, scene.getWjSources().get(1L).size());
+                assertEquals("D", scene.getWjSources().get(1L).get(0).period);
             }
         }
     }
@@ -101,7 +102,7 @@ public class NoiseMapByReceiverMakerTest {
         values.append(" ROLL, ");
         values.append(directivityId);
         values.append(" DIR_ID");
-        AttenuationParameters data = new AttenuationParameters(false);
+        AttenuationParameters data = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
         for(String period : new String[] {"D", "E", "N"}) {
             for (int freq : data.getFrequencies()) {
                 String fieldName = "HZ" + period + freq;
@@ -288,19 +289,19 @@ public class NoiseMapByReceiverMakerTest {
             }
             assertEquals(4 , pathsParameters.size());
             CnossosPath pathParameters = pathsParameters.remove(0);
-            assertEquals(1, pathParameters.getCutProfile().getReceiver().receiverPk);
+            assertEquals(1, pathParameters.getCutProfile().getReceiver().getReceiverPk());
             // receiver is front of source
             assertEquals(new Orientation(0, 0, 0), pathParameters.getRaySourceReceiverDirectivity());
             pathParameters = pathsParameters.remove(0);
-            assertEquals(2, pathParameters.getCutProfile().getReceiver().receiverPk);
+            assertEquals(2, pathParameters.getCutProfile().getReceiver().getReceiverPk());
             // receiver is behind of the source
             assertEquals(new Orientation(180, 0, 0), pathParameters.getRaySourceReceiverDirectivity());
             pathParameters = pathsParameters.remove(0);
-            assertEquals(3, pathParameters.getCutProfile().getReceiver().receiverPk);
+            assertEquals(3, pathParameters.getCutProfile().getReceiver().getReceiverPk());
             // receiver is on the right of the source
             assertEquals(new Orientation(90, 0, 0), pathParameters.getRaySourceReceiverDirectivity());
             pathParameters = pathsParameters.remove(0);
-            assertEquals(4, pathParameters.getCutProfile().getReceiver().receiverPk);
+            assertEquals(4, pathParameters.getCutProfile().getReceiver().getReceiverPk());
             // receiver is on the left of the source
             assertEquals(new Orientation(360-90, 0, 0), pathParameters.getRaySourceReceiverDirectivity());
 

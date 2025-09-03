@@ -332,7 +332,7 @@ public class TableLoaderTest {
 
         DefaultTableLoader loader = (DefaultTableLoader) noiseMapByReceiverMaker.getTableLoader();
 
-        List<String> frequenciesFields = loader.frequencyArray.stream()
+        List<String> frequenciesFields = loader.getFrequencyArray().stream()
                 .map(frequency -> noiseMapByReceiverMaker.getFrequencyFieldPrepend()+frequency)
                 .collect(Collectors.toList());
         double[] expected = new double[]{20.58, 22.12, 27.88, 26.74, 29.35, 31.23, 33.66, 31.61, 31.11, 32.4, 34.65,
@@ -396,9 +396,9 @@ public class TableLoaderTest {
 
         DefaultTableLoader tableLoader = (DefaultTableLoader)noiseMap.getTableLoader();
 
-        assertEquals(1, tableLoader.frequencyArray.size());
+        assertEquals(1, tableLoader.getFrequencyArray().size());
 
-        assertEquals(1000, (int) tableLoader.frequencyArray.get(0));
+        assertEquals(1000, (int) tableLoader.getFrequencyArray().get(0));
     }
 
 

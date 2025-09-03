@@ -11,6 +11,7 @@ package org.noise_planet.noisemodelling.propagation;
 import org.junit.jupiter.api.Test;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 
 import java.util.Arrays;
@@ -25,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AtmosphericAttenuationComputeOutputTest {
     private static final double EPSILON = 0.1;
     private static final List<Double> freq_lvl_exact = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(
-            ProfileBuilder.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
+            FrequencyConfig.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
 
     @Test
     public void atmoTestMinus20degree() {

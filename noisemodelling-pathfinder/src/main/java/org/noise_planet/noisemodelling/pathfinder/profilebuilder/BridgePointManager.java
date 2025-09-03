@@ -346,6 +346,35 @@ public class BridgePointManager {
         return Double.NaN;
     }
     
+    /**
+     * Calculate the average absolute deck height across all bridge points.
+     * Only points with a finite absolute deck height are considered.
+     * @return average absolute deck height or Double.NaN if no valid values
+     */
+    public double getAverageAbsoluteDeckHeight() {
+        if (bridgePoints.isEmpty()) {
+            return Double.NaN;
+        }
+
+        double sum = 0.0;
+        int count = 0;
+        for (BridgePoint point : bridgePoints) {
+            // consider only points that are in CENTER position
+            BridgePoint.Position pos = point.getPosition();
+            if (pos != BridgePoint.Position.CENTER) {
+                continue;
+            }
+
+            double h = point.getAbsoluteDeckHeight();
+            if (!Double.isNaN(h) && !Double.isInfinite(h)) {
+                sum += h;
+                count++;
+            }
+        }
+
+        return (count == 0) ? Double.NaN : (sum / count);
+    }
+    
     // Getters and Setters
     
     /**

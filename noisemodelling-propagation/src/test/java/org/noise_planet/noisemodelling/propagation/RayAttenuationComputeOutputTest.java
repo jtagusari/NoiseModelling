@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
 
 import java.io.IOException;
@@ -39,7 +40,7 @@ public class RayAttenuationComputeOutputTest {
                 RayAttenuationComputeOutputTest.class.getResourceAsStream("special_ray.json"),
                 CnossosPath.class
         );
-        AttenuationParameters attenuationCnossosParameters = new AttenuationParameters(false);
+        AttenuationParameters attenuationCnossosParameters = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
         double[] aBoundary = AttenuationCnossos.aBoundary(cnossosPath,attenuationCnossosParameters);
         for(double value : aBoundary) {
             assertFalse(Double.isNaN(value));

@@ -853,7 +853,7 @@ public class AttenuationCnossos {
         // cache frequencies
         double[] frequencies = new double[0];
         if(scene != null) {
-            frequencies =  scene.profileBuilder.frequencyArray.stream().mapToDouble(value -> value).toArray();
+            frequencies =  scene.profileBuilder.getFrequencyArray().stream().mapToDouble(value -> value).toArray();
         }
         // Compute receiver/source attenuation
         if(exportAttenuationMatrix) {
@@ -1033,8 +1033,8 @@ public class AttenuationCnossos {
         double[] aGlobalMeteoRay = sumArrayWithPonderation(aGlobalMeteoFav, aGlobalMeteoHom, data.getWindRose()[roseIndex]);
 
         // Apply attenuation due to sound direction
-        int sourceId = proPathParameters.getCutProfile().getSource().id;
-        double sourceLi = proPathParameters.getCutProfile().getSource().li;
+        int sourceId = proPathParameters.getCutProfile().getSource().getSourceId();
+        double sourceLi = proPathParameters.getCutProfile().getSource().getLineLength();
 
         if(scene != null && !scene.isOmnidirectional(sourceId)) {
             Orientation directivityToPick = proPathParameters.raySourceReceiverDirectivity;

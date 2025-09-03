@@ -23,10 +23,6 @@ import org.slf4j.LoggerFactory;
  * <ul>
  *   <li>Store raw wall definitions (edges) and expose basic accessors.</li>
  *   <li>Maintain a spatial index (`wallTree`) for raw walls to support fast lookup.</li>
- *   <li>Transform raw walls into "processed walls" (facets) used by profile
- *       intersection logic and index them into `processedRtree`.</li>
- *   <li>Provide query helpers to retrieve processed walls intersecting a
- *       profiling line (see {@link #getWallsOnPath} and {@link #getWallsIn}).</li>
  *   <li>Handle thin-wall intersection processing and produce cut-points for
  *       profile assembly ({@link #createWallCutPointAndCheckObstruction}).</li>
  *   <li>Update wall endpoints Z values from topography/DEM via
@@ -132,7 +128,7 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
 
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
         if (zRayReceiverSource <= intersection.z) {
-            profile.hasBuildingIntersection = true;
+            profile.hasBuildingIntersection(true);
             return !stopAtObstacleOverSourceReceiver;
         } else {
             return true;
@@ -203,7 +199,7 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
             LOGGER.warn("WallService.initializeFrequencyDependentData: exactFrequencyArray is null");
             return;
         }
-        LOGGER.info("WallService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
+        LOGGER.debug("WallService.initializeFrequencyDependentData: called with exactFrequencyArray.size={}", exactFrequencyArray.size());
         for (Wall w : walls) {
             w.initialize(exactFrequencyArray);
         }

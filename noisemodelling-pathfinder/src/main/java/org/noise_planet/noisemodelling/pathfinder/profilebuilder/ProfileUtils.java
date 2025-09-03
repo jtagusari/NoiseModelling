@@ -119,7 +119,7 @@ public final class ProfileUtils {
         List<CutPoint> newCutPoints = new LinkedList<>();
         try {
             for (int j = 0; j < lines.size()
-                    && !((profile.hasBuildingIntersection || profile.hasBridgeIntersection) && stopAtObstacleOverSourceReceiver); j++) {
+                    && !((profile.hasBuildingIntersection() || profile.hasBridgeIntersection()) && stopAtObstacleOverSourceReceiver); j++) {
                 LineSegment line = lines.get(j);
                 for (Object result : RTreeUtils.query(processedWallService.getProcessedRtree(), new org.locationtech.jts.geom.Envelope(line.p0, line.p1))) {
                     if (!(result instanceof Integer) || processed.contains((Integer) result)) {

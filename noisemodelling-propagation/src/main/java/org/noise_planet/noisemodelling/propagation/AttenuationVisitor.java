@@ -11,11 +11,14 @@ package org.noise_planet.noisemodelling.propagation;
 
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
+import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
+import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,9 +41,9 @@ public class AttenuationVisitor implements CutPlaneVisitor {
     public PathSearchStrategy onNewCutPlane(CutProfile cutProfile) {
         final SceneWithAttenuation scene = multiThreadParent.scene;
         // Source surface reflectivity
-        double gs = scene.sourceGs.getOrDefault(cutProfile.getSource().sourcePk, SceneWithAttenuation.DEFAULT_GS);
+        double gs = scene.sourceGs.getOrDefault(cutProfile.getSource().getSourcePk(), SceneWithAttenuation.DEFAULT_GS);
         CnossosPath cnossosPath = CnossosPathBuilder.computeCnossosPathFromCutProfile(cutProfile, scene.isBodyBarrier(),
-                scene.profileBuilder.exactFrequencyArray, gs);
+                scene.profileBuilder.getExactFrequencyArray(), gs);
         if(cnossosPath != null) {
             addPropagationPath(cnossosPath);
         }
@@ -48,7 +51,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
     }
 
     @Override
-    public void startReceiver(PathFinder.ReceiverPointInfo receiver, Collection<PathFinder.SourcePointInfo> sourceList, AtomicInteger cutProfileCount) {
+    public void startReceiver(ReceiverPointInfo receiver, Collection<SourcePointInfo> sourceList, AtomicInteger cutProfileCount) {
 
     }
 
@@ -61,8 +64,8 @@ public class AttenuationVisitor implements CutPlaneVisitor {
                 pathParameters.add(path);
             }
             receiverAttenuationLevels.add(new ReceiverNoiseLevel(
-                    new PathFinder.SourcePointInfo(path.getCutProfile().getSource()),
-                    new PathFinder.ReceiverPointInfo(path.getCutProfile().getReceiver()),
+                    new SourcePointInfo(path.getCutProfile().getSource()),
+                    new ReceiverPointInfo(path.getCutProfile().getReceiver()),
                     period, aGlobalMeteo));
         }
     }
@@ -78,7 +81,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
                 processPath(cnossosParametersEntry.getKey(), cnossosParametersEntry.getValue(), path);
             }
         } else {
-            processPath("", multiThreadParent.scene.defaultCnossosParameters, path);
+            processPath("", SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS, path);
         }
     }
 
@@ -88,7 +91,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
      * @param receiver
      */
     @Override
-    public void finalizeReceiver(PathFinder.ReceiverPointInfo receiver) {
+    public void finalizeReceiver(ReceiverPointInfo receiver) {
         if(keepRays && !pathParameters.isEmpty()) {
             multiThreadParent.pathParameters.addAll(this.pathParameters);
             multiThreadParent.propagationPathsSize.addAndGet(pathParameters.size());
@@ -97,18 +100,18 @@ public class AttenuationVisitor implements CutPlaneVisitor {
         if(multiThreadParent.receiversAttenuationLevels != null) {
             // Push merged sources into multi-thread parent
             // Merge levels for each receiver for lines sources
-            Map<PathFinder.SourcePointInfo, double[]> levelsPerSourceLines = new HashMap<>();
+            Map<SourcePointInfo, double[]> levelsPerSourceLines = new HashMap<>();
             for (ReceiverNoiseLevel lvl : receiverAttenuationLevels) {
-                if (!levelsPerSourceLines.containsKey(lvl.source)) {
-                    levelsPerSourceLines.put(lvl.source, lvl.levels);
+                if (!levelsPerSourceLines.containsKey(lvl.getSource())) {
+                    levelsPerSourceLines.put(lvl.getSource(), lvl.getLevels());
                 } else {
                     // merge
-                    levelsPerSourceLines.put(lvl.source,
-                            AcousticIndicatorsFunctions.sumDbArray(levelsPerSourceLines.get(lvl.source),
-                            lvl.levels));
+                    levelsPerSourceLines.put(lvl.getSource(),
+                            AcousticIndicatorsFunctions.sumDbArray(levelsPerSourceLines.get(lvl.getSource()),
+                            lvl.getLevels()));
                 }
             }
-            for (Map.Entry<PathFinder.SourcePointInfo, double[]> entry : levelsPerSourceLines.entrySet()) {
+            for (Map.Entry<SourcePointInfo, double[]> entry : levelsPerSourceLines.entrySet()) {
                 multiThreadParent.receiversAttenuationLevels.add(
                         new ReceiverNoiseLevel(entry.getKey(), receiver , "", entry.getValue()));
             }

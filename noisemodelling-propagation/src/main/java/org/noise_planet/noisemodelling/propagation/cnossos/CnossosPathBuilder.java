@@ -38,7 +38,7 @@ public class CnossosPathBuilder {
                                      LineSegment dSR, List<SegmentPath> segments, List<PointPath> points,
                                      List<Coordinate> pts2D, Coordinate[] pts2DGround, List<Integer> cut2DGroundIndex,
                                            List<Double> exactFrequencyArray) {
-        final List<CutPoint> cuts = cutProfile.cutPoints;
+        final List<CutPoint> cuts = cutProfile.getCutPoints();
 
         Coordinate src = pts2D.get(0);
         Coordinate rcv = pts2D.get(pts2D.size() - 1);
@@ -203,7 +203,7 @@ public class CnossosPathBuilder {
     public static CnossosPath computeCnossosPathFromCutProfile(CutProfile cutProfile , boolean bodyBarrier, List<Double> exactFrequencyArray, double gS) {
         List<SegmentPath> segments = new ArrayList<>();
         List<PointPath> points = new ArrayList<>();
-        final List<CutPoint> cutProfilePoints = cutProfile.cutPoints;
+        final List<CutPoint> cutProfilePoints = cutProfile.getCutPoints();
 
         List<Coordinate> pts2D = cutProfile.computePts2D();
         if(pts2D.size() != cutProfilePoints.size()) {
@@ -215,7 +215,7 @@ public class CnossosPathBuilder {
         double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(pts2DGround);
         Coordinate firstPts2D = pts2D.get(0);
         Coordinate lastPts2D = pts2D.get(pts2D.size()-1);
-        SegmentPath srPath = computeSegment(firstPts2D, lastPts2D, meanPlane, cutProfile.getGPath(), cutProfile.getSource().groundCoefficient);
+        SegmentPath srPath = computeSegment(firstPts2D, lastPts2D, meanPlane, cutProfile.getGPath(), cutProfile.getSource().getGroundCoefficient());
         srPath.setPoints2DGround(pts2DGround);
         srPath.dc = CGAlgorithms3D.distance(cutProfile.getReceiver().getCoordinate(),
                 cutProfile.getSource().getCoordinate());
@@ -345,7 +345,7 @@ public class CnossosPathBuilder {
                         break;
                     }
                 }
-                Orientation emissionDirection = computeOrientation(cutProfile.getSource().orientation,
+                Orientation emissionDirection = computeOrientation(cutProfile.getSource().getOrientation(),
                         cutProfilePoints.get(i0).getCoordinate(), targetPosition);
                 points.get(0).orientation = emissionDirection;
                 pathParameters.raySourceReceiverDirectivity = emissionDirection;
@@ -362,7 +362,7 @@ public class CnossosPathBuilder {
                     double wallAltitudeAtReflexionPoint = Vertex.interpolateZ(cutPointReflection.coordinate,
                             cutPointReflection.wall.p0, cutPointReflection.wall.p1);
                     PointPath reflectionPoint = new PointPath(pts2D.get(pointIndex),currentPoint.getzGround(),
-                            cutPointReflection.wallAlpha, REFL);
+                            cutPointReflection.getWallAlpha(), REFL);
                     reflectionPoint.obstacleZ = wallAltitudeAtReflexionPoint;
                     points.add(reflectionPoint);
                 } else if (currentPoint instanceof CutPointVEdgeDiffraction) {
@@ -400,7 +400,7 @@ public class CnossosPathBuilder {
             meanPlane = JTSUtility.getMeanPlaneCoefficients(segmentGroundPoints);
             SegmentPath path = computeSegment(pts2D.get(i0), pts2D.get(i1), meanPlane,
                     cutProfile.getGPath(cutProfilePoints.get(i0), cutProfilePoints.get(i1), Scene.DEFAULT_G_BUILDING),
-                    cutProfilePoints.get(i0).groundCoefficient);
+                    cutProfilePoints.get(i0).getGroundCoefficient());
             path.dc = cutPt0.getCoordinate().distance3D(cutPt1.getCoordinate());
             path.setPoints2DGround(segmentGroundPoints);
             segments.add(path);
@@ -409,7 +409,7 @@ public class CnossosPathBuilder {
                 pt.type = DIFH;
                 pt.bodyBarrier = bodyBarrier;
                 if(cutPt1 instanceof CutPointWall) {
-                    pt.alphaWall = ((CutPointWall) cutPt1).wallAlpha;
+                    pt.alphaWall = ((CutPointWall) cutPt1).getWallAlpha();
                 }
             }
         }
@@ -422,7 +422,7 @@ public class CnossosPathBuilder {
         PointPath p0 = points.stream().filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
         if(p0==null){
             // Direct propagation (no diffraction over obstructing objects)
-            boolean horizontalPlaneDiffraction = cutProfile.cutPoints.stream()
+            boolean horizontalPlaneDiffraction = cutProfile.getCutPoints().stream()
                     .anyMatch(
                             cutPoint -> cutPoint instanceof CutPointVEdgeDiffraction);
             List<SegmentPath> rayleighSegments = new ArrayList<>();

@@ -5,6 +5,8 @@ import org.locationtech.jts.algorithm.Angle;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 
 import java.sql.*;
@@ -28,9 +30,10 @@ public class AttenuationParameters {
     public static final  double K01 = 273.16;  // Isothermal temperature at the triple point (K)
     public static final double a8 = (2 * Math.PI / 35.0) * 10 * Math.log10(Math.pow(Math.exp(1),2));
     /** Frequency bands values, by third octave */
-    protected List<Integer> freq_lvl;
-    protected List<Double> freq_lvl_exact;
-    protected List<Double> freq_lvl_a_weighting;
+    private FrequencyConfig frequencyConfig = new FrequencyConfig();
+    // protected List<Integer> freq_lvl;
+    // protected List<Double> freq_lvl_exact;
+    // protected List<Double> freq_lvl_a_weighting;
     // Wind rose for each directions
     public static final double[] DEFAULT_WIND_ROSE = new double[]{0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5};
     /** Temperature in celsius */
@@ -62,22 +65,27 @@ public class AttenuationParameters {
     private static final double angle_section = (2 * Math.PI) / DEFAULT_WIND_ROSE.length;
 
     public AttenuationParameters() {
-        this(false);
+        this(FrequencyBand.OCTAVE);
+        frequencyConfig.setFrequencyBand(FrequencyBand.OCTAVE);
+        frequencyConfig.setFrequencyArraysUsingBand(FrequencyBand.OCTAVE);
     }
 
-
-    public AttenuationParameters(boolean thirdOctave) {
-        if(!thirdOctave) {
-            // Default frequencies are in octave bands
-            freq_lvl = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
-            freq_lvl_exact = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
-            freq_lvl_a_weighting = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(ProfileBuilder.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE));
-        } else {
-            // third octave bands
-            freq_lvl = Arrays.stream(ProfileBuilder.DEFAULT_FREQUENCIES_THIRD_OCTAVE).boxed().collect(Collectors.toList());
-            freq_lvl_exact = Arrays.asList(ProfileBuilder.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE);
-            freq_lvl_a_weighting = Arrays.asList(ProfileBuilder.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE);
-        }
+    public AttenuationParameters(FrequencyBand frequencyBand) {
+        frequencyConfig.setFrequencyBand(frequencyBand);
+        frequencyConfig.setFrequencyArraysUsingBand(frequencyBand);
+        // if(frequencyBand == FrequencyBand.OCTAVE) {
+        //     // Default frequencies are in octave bands
+            
+        //     // freq_lvl = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(frequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
+        //     // freq_lvl_exact = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
+        //     // freq_lvl_a_weighting = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE));
+        // } else {
+        //     frequencyConfig.setFrequencyOctaveBands(FrequencyBand.ONE_THIRD_OCTAVE);
+        //     // third octave bands
+        //     // freq_lvl = Arrays.stream(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE).boxed().collect(Collectors.toList());
+        //     // freq_lvl_exact = Arrays.asList(FrequencyConfig.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE);
+        //     // freq_lvl_a_weighting = Arrays.asList(FrequencyConfig.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE);
+        // }
         init();
     }
 
@@ -86,9 +94,10 @@ public class AttenuationParameters {
      * @param other
      */
     public AttenuationParameters(AttenuationParameters other) {
-        this.freq_lvl = other.freq_lvl;
-        this.freq_lvl_exact = other.freq_lvl_exact;
-        this.freq_lvl_a_weighting = other.freq_lvl_a_weighting;
+        this.frequencyConfig = other.frequencyConfig;
+        // this.freq_lvl = other.freq_lvl;
+        // this.freq_lvl_exact = other.freq_lvl_exact;
+        // this.freq_lvl_a_weighting = other.freq_lvl_a_weighting;
         this.temperature = other.temperature;
         this.celerity = other.celerity;
         this.humidity = other.humidity;
@@ -100,41 +109,64 @@ public class AttenuationParameters {
         this.windRose = other.windRose;
     }
 
+    // /**
+    //  * @param freq_lvl Frequency values for column names
+    //  * @param freq_lvl_exact Exact frequency values for computations
+    //  * @param freq_lvl_a_weighting A weighting values
+    //  */
+    // public AttenuationParameters(List<Integer> freq_lvl, List<Double> freq_lvl_exact,
+    //                              List<Double> freq_lvl_a_weighting) {
+    //     this.freq_lvl = Collections.unmodifiableList(freq_lvl);
+    //     this.freq_lvl_exact = Collections.unmodifiableList(freq_lvl_exact);
+    //     this.freq_lvl_a_weighting = Collections.unmodifiableList(freq_lvl_a_weighting);
+    //     init();
+    // }
+
+
     /**
-     * @param freq_lvl Frequency values for column names
-     * @param freq_lvl_exact Exact frequency values for computations
-     * @param freq_lvl_a_weighting A weighting values
+     * @param frequencyConfig Frequency configuration
      */
-    public AttenuationParameters(List<Integer> freq_lvl, List<Double> freq_lvl_exact,
-                                 List<Double> freq_lvl_a_weighting) {
-        this.freq_lvl = Collections.unmodifiableList(freq_lvl);
-        this.freq_lvl_exact = Collections.unmodifiableList(freq_lvl_exact);
-        this.freq_lvl_a_weighting = Collections.unmodifiableList(freq_lvl_a_weighting);
+    public AttenuationParameters(FrequencyConfig frequencyConfig) {
+        this.frequencyConfig = frequencyConfig;
+        // this.freq_lvl = frequencyConfig.getFrequencyArray();
+        // this.freq_lvl_exact = frequencyConfig.getExactFrequencyArray();
+        // this.freq_lvl_a_weighting = frequencyConfig.getAWeightingArray();
         init();
     }
-
     protected void init() {
         this.setTemperature(temperature);
     }
 
     public List<Integer> getFrequencies() {
-        return freq_lvl;
+        return frequencyConfig.getFrequencyArray();
+        // return freq_lvl;
+    }
+    public FrequencyBand getFrequencyBand() {
+        return frequencyConfig.getFrequencyBand();
     }
 
-    public void setFrequencies(List<Integer> freq_lvl) {
-        this.freq_lvl = freq_lvl;
-        freq_lvl_exact = new ArrayList<>();
-        freq_lvl_a_weighting = new ArrayList<>();
-        ProfileBuilder.initializeFrequencyArrayFromReference(freq_lvl, freq_lvl_exact, freq_lvl_a_weighting);
+    public void setFrequencyBand(FrequencyConfig.FrequencyBand frequencyBand) {
+        frequencyConfig.setFrequencyBand(frequencyBand);
+    }
+
+    public void setFrequencies(List<Integer> frequencyArray) {
+        frequencyConfig.setFrequencyArray(frequencyArray);
+        // Copy the provided list to avoid modifying external unmodifiable lists
+        // this.freq_lvl = new ArrayList<>(freq_lvl);
+        // freq_lvl_exact = new ArrayList<>();
+        // freq_lvl_a_weighting = new ArrayList<>();
+        // ProfileBuilder.initializeFrequencyArrayFromReference(new ArrayList<>(this.freq_lvl), freq_lvl_exact, freq_lvl_a_weighting);
         init();
     }
 
     public List<Double> getFrequenciesExact() {
-        return freq_lvl_exact;
+        return frequencyConfig.getExactFrequencyArray();
+        // return freq_lvl_exact;
     }
 
     public List<Double> getFrequenciesAWeighting() {
-        return freq_lvl_a_weighting;
+        return frequencyConfig.getAWeightingArray();
+        // return freq_lvl_a_weighting;
     }
 
     /**
@@ -144,16 +176,26 @@ public class AttenuationParameters {
     public AttenuationParameters setHumidity(double humidity) {
 
         this.humidity = humidity;
-        this.alpha_atmo = getAtmoCoeffArray(freq_lvl_exact,  temperature,  pressure,  humidity);
+        this.alpha_atmo = getAtmoCoeffArray(
+            frequencyConfig.getExactFrequencyArray(),  
+            temperature,  
+            pressure,  
+            humidity
+        );
         return this;
     }
 
- //   /**
-   //  * @param pressure Atmospheric pressure in pa. 1 atm is PropagationProcessData.Pref
-   //  */
+    /**
+     * @param pressure Atmospheric pressure in pa. 1 atm is PropagationProcessData.Pref
+     */
     public AttenuationParameters setPressure(double pressure) {
         this.pressure = pressure;
-        this.alpha_atmo = getAtmoCoeffArray(freq_lvl_exact,  temperature,  pressure,  humidity);
+        this.alpha_atmo = getAtmoCoeffArray(
+            frequencyConfig.getExactFrequencyArray(),  
+            temperature,  
+            pressure,  
+            humidity
+        );
         return this;
     }
 
@@ -228,16 +270,21 @@ public class AttenuationParameters {
     public AttenuationParameters setTemperature(double temperature) {
         this.temperature = temperature;
         this.celerity = computeCelerity(temperature + K_0);
-        this.alpha_atmo = getAtmoCoeffArray(freq_lvl_exact,  temperature,  pressure,  humidity);
+        this.alpha_atmo = getAtmoCoeffArray(
+            frequencyConfig.getExactFrequencyArray(),  
+            temperature,  
+            pressure,  
+            humidity
+        );
         return this;
     }
 
-    public static double[] getAtmoCoeffArray(List<Double> freq_lvl, double temperature, double pressure, double humidity){
+    public static double[] getAtmoCoeffArray(List<Double> frequencyArray, double temperature, double pressure, double humidity){
         double[] alpha_atmo;
         // Compute atmospheric alpha value by specified frequency band
-        alpha_atmo = new double[freq_lvl.size()];
-        for (int idfreq = 0; idfreq < freq_lvl.size(); idfreq++) {
-            alpha_atmo[idfreq] = getAlpha(freq_lvl.get(idfreq), temperature, pressure, humidity);
+        alpha_atmo = new double[frequencyArray.size()];
+        for (int idfreq = 0; idfreq < frequencyArray.size(); idfreq++) {
+            alpha_atmo[idfreq] = getAlpha(frequencyArray.get(idfreq), temperature, pressure, humidity);
         }
         return alpha_atmo;
     }

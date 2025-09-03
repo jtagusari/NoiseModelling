@@ -39,7 +39,7 @@ public final class BuildingIntersectionPathVisitor implements ItemVisitor {
     Plane cutPlane;
     List<Coordinate> input;
     LineSegment intersectionLine = new LineSegment();
-    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+    private static final GeometryFactory GEOMETRY_FACTORY = GeometryFactoryProvider.SHARED;
 
 
     public BuildingIntersectionPathVisitor(Coordinate p1, Coordinate p2, boolean left, ProfileBuilder profileBuilder,
@@ -74,7 +74,7 @@ public final class BuildingIntersectionPathVisitor implements ItemVisitor {
         if(!itemProcessed.contains(id)) {
             itemProcessed.add(id);
             Wall processedWall = profileBuilder.getProcessedWalls().get(id);
-            if(processedWall.getLineSegment().distance(intersectionLine) < ProfileBuilder.epsilon) {
+            if(processedWall.getLineSegment().distance(intersectionLine) < ProfileBuilder.EPSILON) {
                 addItem(id);
             }
         }
