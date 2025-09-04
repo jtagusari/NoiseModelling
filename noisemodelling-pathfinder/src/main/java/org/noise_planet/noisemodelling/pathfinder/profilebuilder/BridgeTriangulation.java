@@ -71,6 +71,11 @@ public class BridgeTriangulation {
         boolean contains(Coordinate point) {
             List<Double> weights = interpolateWeight(point);
             
+            // Check if weights list is empty (degenerate triangle)
+            if (weights.isEmpty()) {
+                return false;
+            }
+            
             // Small tolerance for numerical precision and boundary inclusion
             final double tolerance = 1e-8;
             return weights.get(0) >= -tolerance && weights.get(1) >= -tolerance && weights.get(2) >= -tolerance;
@@ -84,6 +89,11 @@ public class BridgeTriangulation {
          */
         boolean onOuterEdge(Coordinate point) {
             List<Double> weights = interpolateWeight(point);
+            
+            // Check if weights list is empty (degenerate triangle)
+            if (weights.isEmpty()) {
+                return false;
+            }
             
             // Small tolerance for numerical precision and boundary inclusion
             final double tolerance = 1e-3;
@@ -118,6 +128,11 @@ public class BridgeTriangulation {
 
             List<Double> weights = interpolateWeight(point);
             
+            // Check if weights list is empty (degenerate triangle)
+            if (weights.isEmpty()) {
+                return Double.NaN;
+            }
+            
             return weights.get(0) * deckHeight1 + weights.get(1) * deckHeight2 + weights.get(2) * deckHeight3;
         }
         
@@ -131,6 +146,11 @@ public class BridgeTriangulation {
             }
 
             List<Double> weights = interpolateWeight(point);
+
+            // Check if weights list is empty (degenerate triangle)
+            if (weights.isEmpty()) {
+                return Double.NaN;
+            }
 
             return weights.get(0) * deckThickness1 + weights.get(1) * deckThickness2 + weights.get(2) * deckThickness3;
 
@@ -172,6 +192,11 @@ public class BridgeTriangulation {
             }
             
             List<Double> weights = interpolateWeight(point);
+
+            // Check if weights list is empty (degenerate triangle)
+            if (weights.isEmpty()) {
+                return 0.0;
+            }
 
             return weights.get(0) * barrierHeight1 + weights.get(1) * barrierHeight2 + weights.get(2) * barrierHeight3;
         }
@@ -345,6 +370,7 @@ public class BridgeTriangulation {
         
         return 0.0;
     }
+
     
     /**
      * Get all triangles in the deck geometry.

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Timeout;
 import org.locationtech.jts.geom.Coordinate;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.*;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
@@ -341,7 +342,7 @@ class DiffractionPathBuilderTest {
         }
 
         @Override
-        public CutProfile getProfile(Coordinate source, Coordinate receiver, double groundAttenuation, boolean stopAtObstacle) {
+        public CutProfile getProfile(Coordinate source, Coordinate receiver, double groundAttenuation, boolean stopAtObstacle, SourcePointInfo sourcePointInfo) {
             return profileBuilder.createTestProfile(source, receiver);
         }
     }

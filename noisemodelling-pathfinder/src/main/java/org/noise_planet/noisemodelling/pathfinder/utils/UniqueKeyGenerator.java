@@ -27,7 +27,6 @@ public class UniqueKeyGenerator {
 
         // Fast-path: if the candidate is positive and not yet used, accept it immediately.
         if (!keyList.contains(keyCandidate) && keyCandidate > 0) {
-            keyList.add(keyCandidate);
             return keyCandidate;
         }
 
@@ -54,7 +53,6 @@ public class UniqueKeyGenerator {
         if (keyCandidate != candidate) {
             LOGGER.info("UniqueKeyGenerator: keyCandidate=" + keyCandidate + " adjusted to registeredKey=" + candidate);
         }
-        keyList.add(candidate);
         return candidate;
     }
 

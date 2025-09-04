@@ -54,21 +54,12 @@ public class PathFinderTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PathFinderTest.class);
 
-    /**
-     * Overwrite project resource expected test cases
-     */
     public boolean overwriteTestCase = false;
 
     public boolean outputCurrentCutProfile = false;
 
-    /**
-     *  Error for coordinates
-     */
     public static final double DELTA_COORDS = 0.1;
 
-    /**
-     *  Error for planes values
-     */
     public static final double DELTA_PLANES = 0.1;
 
     private void assertCutProfile(String utName, CutProfile cutProfile) throws IOException {
@@ -77,7 +68,7 @@ public class PathFinderTest {
             writeCutProfileJson(utName, cutProfile);
         }
         if(outputCurrentCutProfile){
-            writeCutProfileJson("tmp", cutProfile);
+            writeCutProfileJson("tmp_" + utName, cutProfile);
         }
         assertCutProfile(PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName),
                 cutProfile);

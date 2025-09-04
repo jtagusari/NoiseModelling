@@ -134,8 +134,7 @@ public class ProfileRetriever {
      * @param factory geometry factory
      * @return initialized CutProfile
      */
-    private static CutProfile initializeProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate,
-            double defaultGroundAttenuation, GroundService groundService, GeometryFactory factory, SourcePointInfo sourcePointInfo) {
+    private static CutProfile initializeProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, GroundService groundService, GeometryFactory factory, SourcePointInfo sourcePointInfo) {
                 
         CutPointSource sourcePoint = new CutPointSource(sourceCoordinate).migrateFromSourcePointInfo(sourcePointInfo);
         CutPointReceiver receiverPoint = new CutPointReceiver(receiverCoordinate);

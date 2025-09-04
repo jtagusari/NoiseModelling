@@ -112,7 +112,7 @@ public class BridgeTest {
         assertNotNull(bridge, "Bridge should be created");
         assertEquals(2L, bridge.getPrimaryKey(), "Primary key should be set");
         assertNotNull(bridge.getDeckGeometry(), "Deck geometry should be set");
-        assertFalse(bridge.getEdges().isEmpty(), "Edges should be created");
+        assertFalse(bridge.getEdge().isEmpty(), "Edge should be created");
     }
 
     @Test
@@ -200,7 +200,7 @@ public class BridgeTest {
         
         assertNotNull(bridge.getDeckGeometry(), "Deck geometry should be created");
         assertNotNull(bridge.getFootprintGeometry(), "Footprint geometry should be available");
-        assertFalse(bridge.getEdges().isEmpty(), "Edges should be created");
+        assertFalse(bridge.getEdge().isEmpty(), "Edge should be created");
     }
 
     // Point position tests
@@ -332,36 +332,16 @@ public class BridgeTest {
     }
 
     // Diffraction calculation tests
-
+    
     @Test
-    public void testCalculateDiffractionPoints() {
+    public void testDiffractionPointsNotImplemented() {
         Polygon deckGeometry = createTestDeckGeometry();
         bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
         
-        // Source above bridge, receiver below
-        Coordinate sourceAbove = new Coordinate(10, 5, 20.0);
-        Coordinate receiverBelow = new Coordinate(10, 15, 5.0);
-        
-        List<Coordinate> diffractionPoints = bridge.calculateDiffractionPoints(
-            sourceAbove, receiverBelow, createMockProfileBuilder(5.0));
-        
-        // Should have some diffraction points for this configuration
-        assertNotNull(diffractionPoints, "Diffraction points should not be null");
-    }
-
-    @Test
-    public void testCalculateDiffractionPointsSourceNotAbove() {
-        Polygon deckGeometry = createTestDeckGeometry();
-        bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
-        
-        // Source below bridge
-        Coordinate sourceBelow = new Coordinate(10, 5, 10.0);
-        Coordinate receiver = new Coordinate(10, 15, 5.0);
-        
-        List<Coordinate> diffractionPoints = bridge.calculateDiffractionPoints(
-            sourceBelow, receiver, createMockProfileBuilder(5.0));
-        
-        assertTrue(diffractionPoints.isEmpty(), "Should have no diffraction points when source not above bridge");
+        // Note: Diffraction calculation methods are currently commented out in the Bridge class
+        // This test serves as a placeholder for when the functionality is re-implemented
+        assertNotNull(bridge, "Bridge should be created successfully");
+        assertNotNull(bridge.getDeckGeometry(), "Bridge should have deck geometry");
     }
 
     // Mirror image source tests
@@ -374,7 +354,7 @@ public class BridgeTest {
         // Source below bridge
         Coordinate sourceBelow = new Coordinate(10, 5, 10.0);
         
-        List<Coordinate> mirrorSources = bridge.calculateMirrorImageSources(sourceBelow);
+        List<Coordinate> mirrorSources = bridge.generateMirrorImageSourcesByBridge(sourceBelow);
         
         assertNotNull(mirrorSources, "Mirror sources should not be null");
         if (!mirrorSources.isEmpty()) {
@@ -391,7 +371,7 @@ public class BridgeTest {
         // Source above bridge
         Coordinate sourceAbove = new Coordinate(10, 5, 20.0);
         
-        List<Coordinate> mirrorSources = bridge.calculateMirrorImageSources(sourceAbove);
+        List<Coordinate> mirrorSources = bridge.generateMirrorImageSourcesByBridge(sourceAbove);
         
         assertTrue(mirrorSources.isEmpty(), "Should have no mirror sources when source not below bridge");
     }
@@ -406,9 +386,11 @@ public class BridgeTest {
         // Source on bridge
         Coordinate sourceOnBridge = new Coordinate(10, 5, 15.5);
         
-        Coordinate virtualSource = bridge.generateVirtualSourceAtBridgeBottom(sourceOnBridge);
+        List<Coordinate> virtualSources = bridge.generateVirtualSourcesAtBridgeBottom(sourceOnBridge);
         
-        if (virtualSource != null) {
+        assertNotNull(virtualSources, "Virtual sources should not be null");
+        if (!virtualSources.isEmpty()) {
+            Coordinate virtualSource = virtualSources.get(0);
             assertTrue(virtualSource.z < sourceOnBridge.z, "Virtual source should be below original source");
         }
     }
@@ -421,9 +403,9 @@ public class BridgeTest {
         // Source not on bridge
         Coordinate sourceNotOnBridge = new Coordinate(30, 5, 15.5);
         
-        Coordinate virtualSource = bridge.generateVirtualSourceAtBridgeBottom(sourceNotOnBridge);
+        List<Coordinate> virtualSources = bridge.generateVirtualSourcesAtBridgeBottom(sourceNotOnBridge);
         
-        assertNull(virtualSource, "Should not generate virtual source when source not on bridge");
+        assertTrue(virtualSources.isEmpty(), "Should not generate virtual source when source not on bridge");
     }
 
     @Test
@@ -439,48 +421,17 @@ public class BridgeTest {
         assertNotNull(sourcesOnBridge, "Sources on bridge should not be null");
     }
 
+    // Reflection relevance tests - Currently commented out in Bridge class
+
     @Test
-    public void testGenerateVirtualSourcesAtBridgeBottom() {
+    public void testReflectionRelevanceNotImplemented() {
         Polygon deckGeometry = createTestDeckGeometry();
         bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
         
-        // Source on bridge
-        Coordinate sourceOnBridge = new Coordinate(10, 5, 15.5);
-        
-        List<Coordinate> virtualSources = bridge.generateVirtualSourcesAtBridgeBottom(sourceOnBridge);
-        
-        assertNotNull(virtualSources, "Virtual sources should not be null");
-    }
-
-    @Test
-    public void testGenerateMirrorImageSourcesByBridge() {
-        Polygon deckGeometry = createTestDeckGeometry();
-        bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
-        
-        // Source below bridge
-        Coordinate sourceBelow = new Coordinate(10, 5, 10.0);
-        
-        List<Coordinate> mirrorSources = bridge.generateMirrorImageSourcesByBridge(sourceBelow);
-        
-        assertNotNull(mirrorSources, "Mirror image sources should not be null");
-    }
-
-    // Reflection relevance tests
-
-    @Test
-    public void testIsRelevantForReflection() {
-        Polygon deckGeometry = createTestDeckGeometry();
-        bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
-        
-        Coordinate source = new Coordinate(5, 5, 10.0);
-        Coordinate receiver = new Coordinate(15, 8, 12.0);
-        double maxReflectionDistance = 50.0;
-        
-        boolean isRelevant = bridge.isRelevantForReflection(source, receiver, maxReflectionDistance);
-        
-        // The exact result depends on the implementation of BridgeQueryHelper
-        // We just verify that the method doesn't throw exceptions
-        assertNotNull(Boolean.valueOf(isRelevant), "Method should return a boolean value");
+        // Note: isRelevantForReflection method is currently commented out in the Bridge class
+        // This test serves as a placeholder for when the functionality is re-implemented
+        assertNotNull(bridge, "Bridge should be created successfully");
+        assertNotNull(bridge.getDeckGeometry(), "Bridge should have deck geometry");
     }
 
     // Geometry tests
@@ -555,18 +506,16 @@ public class BridgeTest {
     }
 
     @Test
-    public void testGetEdges() {
+    public void testGetEdge() {
         Polygon deckGeometry = createTestDeckGeometry();
         bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
         
-        List<LineString> edges = bridge.getEdges();
-        assertNotNull(edges, "Edges should not be null");
-        assertFalse(edges.isEmpty(), "Edges should be created for deck geometry");
+        Polygon edge = bridge.getEdge();
+        assertNotNull(edge, "Edge should not be null");
         
         // Verify that we get a copy (defensive copy)
-        int originalSize = edges.size();
-        edges.clear();
-        assertEquals(originalSize, bridge.getEdges().size(), "Original edges should be unchanged");
+        Polygon originalEdge = bridge.getEdge();
+        assertEquals(edge.getNumPoints(), originalEdge.getNumPoints(), "Copies should have same number of points");
     }
 
     // Edge case tests
@@ -577,7 +526,7 @@ public class BridgeTest {
         
         assertNotNull(bridge, "Bridge should be created even with null deck geometry");
         assertNull(bridge.getDeckGeometry(), "Deck geometry should be null");
-        assertTrue(bridge.getEdges().isEmpty(), "Edges should be empty for null deck geometry");
+        assertNull(bridge.getEdge(), "Edge should be null for null deck geometry");
     }
 
     @Test
@@ -632,17 +581,19 @@ public class BridgeTest {
         // Bridge constructed from Polygon should have the initial deck geometry
         assertNotNull(bridge.getDeckGeometry(), "Initial deck geometry should be set");
         
-        // createDeckGeometry may not work if pointManager is empty (depends on implementation)
-        // This is expected behavior for bridges created from Polygon
-        bridge.createDeckGeometry(profileBuilder);
-        
-        // The bridge should still function for basic operations
-        assertFalse(bridge.getEdges().isEmpty(), "Edges should be created from polygon");
+        // createDeckGeometry should throw an exception if pointManager is empty
+        // This is expected behavior for bridges created from Polygon without bridge points
+        assertThrows(IllegalArgumentException.class, () -> {
+            bridge.createDeckGeometry(profileBuilder);
+        }, "Should throw IllegalArgumentException when pointManager is empty");
         
         // Test that footprint operations work
         Coordinate testPoint = new Coordinate(10, 5);
         boolean isWithinFootprint = bridge.isPointWithinBridgeFootprint(testPoint);
         assertTrue(isWithinFootprint, "Point should be within bridge footprint");
+        
+        // The bridge should still function for basic operations with the original deck geometry
+        assertNotNull(bridge.getEdge(), "Edge should be created from polygon");
     }
 
     @Test
@@ -655,7 +606,7 @@ public class BridgeTest {
         assertNotNull(bridge.getDeckGeometry(), "Initial deck geometry should be set");
         
         // Test that basic geometry operations work
-        assertFalse(bridge.getEdges().isEmpty(), "Edges should be created from polygon");
+        assertNotNull(bridge.getEdge(), "Edge should be created from polygon");
         
         // Test that point operations work correctly
         Coordinate pointInside = new Coordinate(10, 5);
@@ -736,7 +687,7 @@ public class BridgeTest {
         // Verify bridge is properly initialized
         assertNotNull(bridge.getDeckGeometry(), "Deck geometry should be created");
         assertNotNull(bridge.getFootprintGeometry(), "Footprint should be available");
-        assertFalse(bridge.getEdges().isEmpty(), "Edges should be created");
+        assertNotNull(bridge.getEdge(), "Edge should be created");
         
         // Test point operations
         Coordinate testPoint = new Coordinate(10, 5);
@@ -755,15 +706,13 @@ public class BridgeTest {
         Coordinate sourceBelow = new Coordinate(10, 5, 10.0);
         Coordinate receiver = new Coordinate(10, 15, 12.0);
         
-        List<Coordinate> diffractionPoints = bridge.calculateDiffractionPoints(sourceAbove, receiver, profileBuilder);
-        assertNotNull(diffractionPoints, "Diffraction points should be calculated");
-        
-        List<Coordinate> mirrorSources = bridge.calculateMirrorImageSources(sourceBelow);
+        // Note: Diffraction calculation methods are currently commented out in the Bridge class
+        // Testing new available methods instead
+        List<Coordinate> mirrorSources = bridge.generateMirrorImageSourcesByBridge(sourceBelow);
         assertNotNull(mirrorSources, "Mirror sources should be calculated");
         
-        Coordinate virtualSource = bridge.generateVirtualSourceAtBridgeBottom(testPoint);
-        // Result may be null if conditions not met, but should not throw exception
-        assertNotNull(Boolean.valueOf(virtualSource != null), "Method should complete without throwing exception");
+        List<Coordinate> virtualSources = bridge.generateVirtualSourcesAtBridgeBottom(testPoint);
+        assertNotNull(virtualSources, "Virtual sources should be calculated");
         
         // Verify bridge properties
         assertEquals(1L, bridge.getPrimaryKey(), "Primary key should be preserved");
@@ -789,7 +738,7 @@ public class BridgeTest {
         
         // Test that bridge geometry operations work
         assertNotNull(bridge.getEnvelope2D(), "Bridge should have 2D envelope");
-        assertFalse(bridge.getEdges().isEmpty(), "Bridge should have edges");
+        assertNotNull(bridge.getEdge(), "Bridge should have edge");
     }
 
     @Test
@@ -797,19 +746,16 @@ public class BridgeTest {
         Polygon deckGeometry = createTestDeckGeometry();
         bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
         
-        List<LineString> edges = bridge.getEdges();
-        assertNotNull(edges, "Edges should not be null");
-        assertFalse(edges.isEmpty(), "Bridge should have edges");
+        Polygon bridgeEdge = bridge.getEdge();
+        assertNotNull(bridgeEdge, "Edge should not be null");
         
-        // Verify that edges are valid LineString geometries
-        for (LineString edge : edges) {
-            assertNotNull(edge, "Each edge should be a valid LineString");
-            assertTrue(edge.getNumPoints() >= 2, "Each edge should have at least 2 points");
-        }
+        // Verify that edge is a valid Polygon geometry
+        assertNotNull(bridgeEdge, "Bridge edge should be a valid Polygon");
+        assertTrue(bridgeEdge.getNumPoints() >= 4, "Bridge edge should have at least 4 points (triangle + closing point)");
         
         // Test defensive copy
-        List<LineString> edgesCopy = bridge.getEdges();
-        assertNotSame(edges, edgesCopy, "getEdges should return a defensive copy");
-        assertEquals(edges.size(), edgesCopy.size(), "Copies should have same size");
+        Polygon edgesCopy = bridge.getEdge();
+        assertNotSame(bridgeEdge, edgesCopy, "getEdge should return a defensive copy");
+        assertEquals(bridgeEdge.getNumPoints(), edgesCopy.getNumPoints(), "Copies should have same number of points");
     }
 }

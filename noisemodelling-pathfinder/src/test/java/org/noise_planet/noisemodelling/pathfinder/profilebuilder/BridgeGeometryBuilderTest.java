@@ -266,7 +266,7 @@ public class BridgeGeometryBuilderTest {
 
     @Test
     public void testCreateBridgeEdgePointsWithNullPointManager() {
-        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(null, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.RIGHT);
+        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(null, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
         assertNull(edgePoints, "Should return null when point manager is null");
     }
 
@@ -276,7 +276,7 @@ public class BridgeGeometryBuilderTest {
         BridgePoint point = createTestPoint(1, 100.0, 200.0, 10.0);
         pointManager.addBridgePoint(point);
 
-        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.RIGHT);
+        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
         assertNull(edgePoints, "Should return null when only one bridge point");
     }
 
@@ -289,7 +289,7 @@ public class BridgeGeometryBuilderTest {
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
 
-        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.RIGHT);
+        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
         assertNotNull(edgePoints, "Should create edge points");
         assertEquals(2, edgePoints.size(), "Should have 2 edge points");
         
@@ -308,7 +308,7 @@ public class BridgeGeometryBuilderTest {
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
 
-        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.LEFT);
+        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.LEFT, false);
         assertNotNull(edgePoints, "Should create edge points");
         assertEquals(2, edgePoints.size(), "Should have 2 edge points");
         
@@ -327,7 +327,7 @@ public class BridgeGeometryBuilderTest {
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
 
-        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.RIGHT);
+        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
         assertNotNull(edgePoints, "Should create edge points with NaN widths");
         assertEquals(2, edgePoints.size(), "Should have 2 edge points");
         
@@ -352,7 +352,7 @@ public class BridgeGeometryBuilderTest {
         pointManager.addBridgePoint(point2);
 
         // Test right direction (should offset in +Y direction for horizontal line)
-        List<BridgePoint> rightEdgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.RIGHT);
+        List<BridgePoint> rightEdgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
         assertNotNull(rightEdgePoints, "Should create right edge points");
         
         BridgePoint rightPoint1 = rightEdgePoints.get(0);
@@ -365,7 +365,7 @@ public class BridgeGeometryBuilderTest {
         assertEquals(5.0, rightPoint2.getCoordinate().y, 0.001, "Right point 2 Y should be offset +5.0");
 
         // Test left direction (should offset in -Y direction for horizontal line)
-        List<BridgePoint> leftEdgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgeGeometryBuilder.Direction.LEFT);
+        List<BridgePoint> leftEdgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.LEFT, false);
         assertNotNull(leftEdgePoints, "Should create left edge points");
         
         BridgePoint leftPoint1 = leftEdgePoints.get(0);

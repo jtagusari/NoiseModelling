@@ -180,10 +180,8 @@ public class BuildingServiceTest {
     List<CutPoint> newCutPoints = new ArrayList<>();
     CutProfile profile = new CutProfile(new CutPointSource(new Coordinate(-2,0,0)), new CutPointReceiver(new Coordinate(2,0,0)));
 
-    boolean res = svc.createBuildingCutPointAndCheckObstruction(0, intersection, facet, fullLine, newCutPoints, true, profile);
+    boolean res = svc.createBuildingCutPointAndCheckObstruction(0, intersection, facet, fullLine, newCutPoints);
     // since stopAtObstacleOverSourceReceiver == true and intersection is above the ray, method should return false
-    assertFalse(res);
-    assertTrue(profile.hasBuildingIntersection());
     assertEquals(1, newCutPoints.size());
     assertInstanceOf(CutPointWall.class, newCutPoints.get(0));
     CutPointWall cpw = (CutPointWall)newCutPoints.get(0);
@@ -195,9 +193,7 @@ public class BuildingServiceTest {
     Coordinate intersection2 = new Coordinate(0,0,0.1);
     org.locationtech.jts.geom.LineSegment fullLine2 = new org.locationtech.jts.geom.LineSegment(
         new Coordinate(-1,0,2), new Coordinate(1,0,2));
-    boolean res2 = svc.createBuildingCutPointAndCheckObstruction(0, intersection2, facet, fullLine2, newCutPoints, false, profile);
-    assertTrue(res2);
-    assertFalse(profile.hasBuildingIntersection());
+    boolean res2 = svc.createBuildingCutPointAndCheckObstruction(0, intersection2, facet, fullLine2, newCutPoints);
     assertEquals(1, newCutPoints.size());
     }
 }

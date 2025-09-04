@@ -6,15 +6,13 @@ import org.locationtech.jts.triangulate.quadedge.Vertex;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall.WallDirection;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
-import org.locationtech.jts.math.Vector2D;
-import org.locationtech.jts.operation.distance.DistanceOp;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LineSegment;
+import org.locationtech.jts.algorithm.LineIntersector;
+import org.locationtech.jts.algorithm.RobustLineIntersector;
 import org.locationtech.jts.index.strtree.STRtree;
 
 import java.util.ArrayList;
@@ -92,17 +90,48 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
     return new LoggingUnmodifiableList<>(bridges, "BridgeService.bridges");
     }
 
+    /**
+     * Get the number of stored bridges.
+     *
+     * @return count of bridges in the service
+     */
     public int getBridgeCount() {
         return bridges.size();
     }
 
+    /**
+     * Get a bridge by its index in the storage list.
+     *
+     * @param id zero-based index of the bridge
+     * @return bridge at the specified index
+     * @throws IndexOutOfBoundsException if index is out of bounds
+     */
     public Bridge getBridge(int id) {
         return bridges.get(id);
     }
 
+    /**
+     * Find a bridge by its primary key.
+     *
+     * @param pk primary key of the bridge to find
+     * @return bridge with matching primary key, or {@code null} if not found
+     */
     public Bridge getBridgeByPk(long pk) {
         return bridges.stream().filter(b -> b.getPrimaryKey() == pk).findFirst().orElse(null);
     }
+
+    public int getBridgeIdByPk(long pk) {
+        for (int i = 0; i < bridges.size(); i++) {
+            if (bridges.get(i).getPrimaryKey() == pk) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Clear all stored bridges and reset the service state.
+     */
 
     public void clear() {
         bridges.clear();
@@ -142,16 +171,13 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             if (bridgeGeom != null) {
                 bridgeTree.insert(bridgeGeom.getEnvelopeInternal(), j);
             }
-            List<LineString> bridgeEdges = bridge.getEdges();
-            for (LineString edge : bridgeEdges) {
-                Coordinate[] coords = edge.getCoordinates();
-                for (int i = 0; i < coords.length - 1; i++) {
-                    LineSegment lineSegment = new LineSegment(coords[i], coords[i + 1]);
-                    Wall w = new Wall(lineSegment, j, ProfileBuilder.IntersectionType.BRIDGE).setProcessedWallIndex(processedWallService.getProcessedWalls().size());
-                    w.setPrimaryKey(bridge.getPrimaryKey());
-                    w.copyAlphas(bridge);
-                    processedWallService.addProcessedWall(w, factory);
-                }
+            Coordinate[] coords = bridge.getEdge().getCoordinates();
+            for (int i = 0; i < coords.length - 1; i++) {
+                LineSegment lineSegment = new LineSegment(coords[i], coords[i + 1]);
+                Wall w = new Wall(lineSegment, j, ProfileBuilder.IntersectionType.BRIDGE).setProcessedWallIndex(processedWallService.getProcessedWalls().size());
+                w.setPrimaryKey(bridge.getPrimaryKey());
+                w.copyAlphas(bridge);
+                processedWallService.addProcessedWall(w, factory);
             }
         }
         bridgeTree.build();
@@ -163,15 +189,23 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
     }
 
 
+    /**
+     * Get the spatial index (R-tree) for bridge footprints.
+     * 
+     * <p>The R-tree is built during {@link #exportFacetsToProcessedWalls} and contains
+     * envelope information for all stored bridge footprints, enabling fast spatial queries.
+     *
+     * @return STRtree spatial index, or {@code null} if not yet built
+     */
     public STRtree getBridgeRtree() {
         return bridgeTree;
     }
 
     /**
-     * Return processed walls that intersect the given envelope and are of type BUILDING or WALL.
+     * Return bridges that intersect the given envelope.
      *
      * @param env query envelope
-     * @return list of processed walls intersecting the envelope
+     * @return list of bridges intersecting the envelope
      */
     public List<Bridge> getBridgesIn(Envelope env) {
         List<Bridge> list = new ArrayList<>();
@@ -217,17 +251,44 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         }
     }
 
-    
-    public CutPointBridgeWall calculateBridgeMirrorCutpoint(CutProfile profile) {
+    /**
+     * Calculate bridge mirror cut point for mirror source scenarios.
+     * 
+     * <p>This method computes the optimal diffraction point on a bridge edge
+     * for mirror source propagation by:
+     * <ol>
+     *   <li>Identifying if the receiver is within the bridge footprint</li>
+     *   <li>Computing diffraction points for all bridge edge segments</li>
+     *   <li>Selecting the diffraction point with minimum distance</li>
+     *   <li>Creating a CutPointBridgeWall with appropriate mirror relaxation</li>
+     * </ol>
+     *
+     * @param profile the cut profile containing source and receiver information
+     * @return bridge cut point configured for mirror propagation
+     * @throws IllegalStateException if no valid diffraction point is found
+     */
+    public CutPointBridgeWall calculateFirstBridgeCutpoint(CutProfile profile, PropagationType propagationType) {
         CutPointSource src = profile.getSource();
         CutPointReceiver rcv = profile.getReceiver(); 
-        long bridgePkAbove = src.getSourceBridgeProperty().getBridgePkAbove();
-        Bridge bridge = this.getBridgeByPk(bridgePkAbove);
-        boolean receiverIsWithinFootprint = bridge.isPointWithinBridgeFootprint(rcv.getCoordinate());
+        long bridgePkTarget = -1;
+        CutPointBridgeWall.WallDirection wallDirection = null;
+        if (propagationType == PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER) {
+            bridgePkTarget = src.getSourceBridgeProperty().getBridgePkAbove();
+            wallDirection = CutPointBridgeWall.WallDirection.DOWNWARD;
+        } else if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER) {
+            bridgePkTarget = src.getSourceBridgeProperty().getBridgePkOn();
+            wallDirection = CutPointBridgeWall.WallDirection.OTHER;
+        } else {
+            throw new IllegalStateException("Unsupported propagation type for bridge cut point calculation: " + propagationType);
+        }
+        int bridgeId = getBridgeIdByPk(bridgePkTarget);
+        Bridge bridge = this.getBridgeByPk(bridgePkTarget);
 
         List<DiffractionPoint> diffractionPoints = new ArrayList<>();
-        for (LineString edge : bridge.getEdges()) {
-            DiffractionPoint dp = new DiffractionPoint(src.getCoordinate(), rcv.getCoordinate(), edge, geometryFactory, !receiverIsWithinFootprint);
+        Coordinate[] edgeCoords = bridge.getEdge().getCoordinates();
+        for (int i = 0; i < edgeCoords.length - 1; i++) {
+            LineSegment diffractionSegment = new LineSegment(edgeCoords[i], edgeCoords[i + 1]);
+            DiffractionPoint dp = new DiffractionPoint(src.getCoordinate(), rcv.getCoordinate(), diffractionSegment, geometryFactory);
             diffractionPoints.add(dp);
         }
 
@@ -241,69 +302,101 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         }
         Coordinate intersection3D = minDistanceDp.getDiffractionPoint3D(bridge);
 
-        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(-1, intersection3D, minDistanceDp.getLineSegmentFromEdge(), new ArrayList<>(bridge.getAlphas()), WallDirection.DOWNWARD);
-        bridgeCutPoint.setMirrorRelax(true);
+        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(bridgeId, intersection3D, minDistanceDp.getSegment(), new ArrayList<>(bridge.getAlphas()), wallDirection);
+
+        if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER) {
+            bridgeCutPoint.setMirrorRelax(true);
+        }
+        bridgeCutPoint.modifyIntersectionHeight(bridge);
+
         return bridgeCutPoint;
     }
 
+    /**
+     * Inner class representing a diffraction point calculation for bridge edge segments.
+     * 
+     * <p>This class calculates the optimal diffraction point on a bridge edge segment
+     * for sound propagation from a source to receiver, supporting both direct
+     * diffraction and mirror image diffraction scenarios.
+     */
     private class DiffractionPoint{
-        private Coordinate source;
-        private LineString edge;
-        private Coordinate receiver;
+        private final LineSegment seg;
         private Coordinate diffractionPoint2D = null;
         private double diffractionDistance2D;
-        private GeometryFactory geometryFactory;
+        private final GeometryFactory geometryFactory;
 
-        public DiffractionPoint(Coordinate source, Coordinate receiver, LineString edge, GeometryFactory geometryFactory, boolean isMirror) {
-            this.source = source;
-            this.edge = edge;
-            this.receiver = receiver;
+        public DiffractionPoint(Coordinate source, Coordinate receiver, LineSegment segment, GeometryFactory geometryFactory) {
+            this.seg = segment;
             this.geometryFactory = geometryFactory;
-            if (isMirror){
-                calculate2DDiffractionMirror();
-            } else {
-                calculate2DDiffraction();
-            }
+            
+            calculate2DDiffractionMirror(source, receiver, seg);
         }
 
-        private void calculate2DDiffraction(){            
-            LineString srcToRcv = geometryFactory.createLineString(
-                new Coordinate[]{new Coordinate(source.x, source.y), new Coordinate(receiver.x, receiver.y)}
-            );
-            this.diffractionDistance2D = Math.sqrt(Math.pow(receiver.x - source.x, 2) + Math.pow(receiver.y - source.y, 2));
-            
-            Geometry intersection2D = srcToRcv.intersection(edge);
-            if (intersection2D == null || intersection2D.isEmpty()) {
-                return;
-            }
-            this.diffractionPoint2D = new Coordinate(intersection2D.getCoordinate());
-        }
+        /**
+         * Calculate 2D diffraction point for direct propagation.
+         * 
+         * <p>Finds the optimal diffraction point on the segment by checking:
+         * <ol>
+         *   <li>Direct intersection between source-receiver line and segment</li>
+         *   <li>If no intersection, selects the segment endpoint with shorter total path</li>
+         * </ol>
+         *
+         * @param source source coordinate
+         * @param receiver receiver coordinate  
+         * @param seg bridge edge segment
+         */
+        private void calculate2DDiffraction(Coordinate source, Coordinate receiver, LineSegment seg){            
+            Coordinate source2D = new Coordinate(source.x, source.y);
+            Coordinate receiver2D = new Coordinate(receiver.x, receiver.y);
+            LineSegment seg2D = new LineSegment(seg.p0.x, seg.p0.y, seg.p1.x, seg.p1.y);
+            LineIntersector intersector = new RobustLineIntersector();
+            intersector.computeIntersection(source2D, receiver2D, seg2D.p0, seg2D.p1);
 
-        private void calculate2DDiffractionMirror(){
-            
-            Point receiverGeom = this.geometryFactory.createPoint(receiver);
-            DistanceOp distanceOp = new DistanceOp(receiverGeom, edge);
-            Coordinate[] closestPoints = distanceOp.nearestPoints();
-            
-            if (closestPoints.length >= 2) {
-                Coordinate closestOnLine = closestPoints[1];
-                
-                double mirrorX = 2 * closestOnLine.x - source.x;
-                double mirrorY = 2 * closestOnLine.y - source.y;
-                this.diffractionDistance2D = Math.sqrt(Math.pow(mirrorX - source.x, 2) + Math.pow(mirrorY - source.y, 2));
-
-                
+            if (intersector.hasIntersection()) {
+                this.diffractionPoint2D = new Coordinate(intersector.getIntersection(0));
                 LineString srcToMirrorRcv = geometryFactory.createLineString(
-                    new Coordinate[]{new Coordinate(source.x, source.y), new Coordinate(mirrorX, mirrorY)}
+                    new Coordinate[]{source2D, receiver2D}
                 );
-                
-                Geometry intersection2D = srcToMirrorRcv.intersection(edge);
-                if (intersection2D == null || intersection2D.isEmpty()) {
-                    return;
-                }
-                this.diffractionPoint2D = new Coordinate(intersection2D.getCoordinate());
+                this.diffractionDistance2D = srcToMirrorRcv.getLength();
                 return;
             }
+
+            LineString srcToRcvViaP0 = geometryFactory.createLineString(
+                new Coordinate[]{source2D, seg2D.p0, receiver2D}
+            );
+            double lengthViaP0 = srcToRcvViaP0.getLength();
+
+            LineString srcToRcvViaP1 = geometryFactory.createLineString(
+                new Coordinate[]{source2D, seg2D.p1, receiver2D}
+            );
+            double lengthViaP1 = srcToRcvViaP1.getLength();
+
+            if (lengthViaP0 < lengthViaP1) {
+                this.diffractionPoint2D = new Coordinate(seg2D.p0);
+                this.diffractionDistance2D = lengthViaP0;
+                return;
+            } else {
+                this.diffractionPoint2D = new Coordinate(seg2D.p1);
+                this.diffractionDistance2D = lengthViaP1;
+                return;
+            }
+        }
+
+        /**
+         * Calculate 2D diffraction point for mirror source scenarios.
+         * 
+         * <p>Creates a mirror image of the receiver relative to the bridge edge segment
+         * and then calculates diffraction using the mirror receiver position.
+         *
+         * @param source source coordinate
+         * @param receiver receiver coordinate
+         * @param seg bridge edge segment
+         */
+        private void calculate2DDiffractionMirror(Coordinate source, Coordinate receiver, LineSegment seg){
+            Coordinate receiver2D = new Coordinate(receiver.x, receiver.y);
+            LineSegment seg2D = new LineSegment(seg.p0.x, seg.p0.y, seg.p1.x, seg.p1.y);
+            Coordinate mirrorReceiver = seg2D.reflect(receiver2D);
+            calculate2DDiffraction(source, mirrorReceiver, seg);
         }
 
         public double getDiffractionDistance2D() {
@@ -313,31 +406,8 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             return new Coordinate(diffractionPoint2D);
         }
 
-        public LineSegment getLineSegmentFromEdge(){
-            if (diffractionPoint2D == null || edge == null) {
-                throw new IllegalStateException("Diffraction point or edge is not set");
-            }
-            
-            Coordinate[] coords = edge.getCoordinates();
-            if (coords.length < 2) {
-                throw new IllegalStateException("Edge does not contain enough points");
-            }
-            
-            // Find the edge segment that contains the diffraction point
-            for (int i = 0; i < coords.length - 1; i++) {
-                LineSegment segment = new LineSegment(coords[i], coords[i + 1]);
-                
-                // Check if the diffraction point lies on this segment
-                double distance = segment.distance(diffractionPoint2D);
-                if (distance < 1e-3) { // Small tolerance for floating point comparison
-                    // Create 2D coordinates (remove Z component if present)
-                    Coordinate p0_2D = new Coordinate(coords[i].x, coords[i].y);
-                    Coordinate p1_2D = new Coordinate(coords[i + 1].x, coords[i + 1].y);
-                    return new LineSegment(p0_2D, p1_2D);
-                }
-            }
-            
-            throw new IllegalStateException("Diffraction point or edge is not set");
+        public LineSegment getSegment(){
+            return new LineSegment(seg);
         }
         
         public Coordinate getDiffractionPoint3D(Bridge bridge) {
@@ -345,38 +415,117 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             return new Coordinate(diffractionPoint2D.x, diffractionPoint2D.y, z);
         }
     }
+
+    /**
+     * Enumeration of propagation types for bridge-related sound calculations.
+     * 
+     * <p>These types classify different scenarios of sound propagation in the presence
+     * of bridges, determining how noise calculations should be performed.
+     */
+    public enum PropagationType {
+        /** Source is not related to any bridge structure */
+        NOT_RELATED_TO_BRIDGE,
+        /** Sound propagates from bridge to receiver outside bridge footprint */
+        BRIDGE_TO_OUTSIDE_RECEIVER,
+        /** Actual source on bridge propagating to receiver above deck level */
+        ACTUAL_SOURCE_TO_UPPER_RECEIVER,
+        /** Actual source on bridge propagating to receiver below deck level */
+        ACTUAL_SOURCE_TO_LOWER_RECEIVER,
+        /** Imaginary source under bridge propagating to receiver above deck level */
+        IMAGINARY_SOURCE_TO_UPPER_RECEIVER,
+        /** Imaginary source under bridge propagating to receiver below deck level */
+        IMAGINARY_SOURCE_TO_LOWER_RECEIVER,
+    }
+
+    /**
+     * Determine the type of propagation scenario based on source type and receiver position.
+     * 
+     * <p>This method analyzes the source bridge properties and receiver position to
+     * classify the propagation scenario, which affects how noise calculation is performed.
+     * The classification considers:
+     * <ul>
+     *   <li>Whether the source is related to a bridge</li>
+     *   <li>Source type (actual source on bridge, imaginary source under bridge, mirror source)</li>
+     *   <li>Receiver position relative to bridge (inside/outside footprint, above/below deck)</li>
+     * </ul>
+     *
+     * @param profile the cut profile containing source and receiver information
+     * @return propagation type enum value describing the scenario
+     * @throws IllegalStateException if bridge primary keys are invalid or source type is unsupported
+     */
+    public PropagationType checkPropagationType(CutProfile profile) {
+        CutPointSource src = profile.getSource();
+        SourceBridgeProperty srcProperty = src.getSourceBridgeProperty();
+        if (srcProperty == null) {
+            return PropagationType.NOT_RELATED_TO_BRIDGE;
+        }
+
+        SourceType srcType = srcProperty.getSourceType();
+        if (srcType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+            return PropagationType.NOT_RELATED_TO_BRIDGE;
+        }
+
+        if (srcProperty.getBridgePkOn() < 0 && srcProperty.getBridgePkAbove() < 0) {
+            throw new IllegalStateException("SourceBridgeProperty must have valid bridge primary keys for ON and/or ABOVE bridges.");
+        }
+
+        long bridgePkTarget;
+        if (srcType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
+            bridgePkTarget = srcProperty.getBridgePkOn();
+        } else if (srcType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE || srcType == SourceType.MIRROR_SOURCE) {
+            bridgePkTarget = srcProperty.getBridgePkAbove();
+        } else {
+            throw new IllegalStateException("Unsupported SourceType for propagation type check: " + srcType);
+        }
+
+        Bridge bridge = this.getBridgeByPk(bridgePkTarget);
+        if (bridge == null) {
+            throw new IllegalStateException("Bridge with primary key " + bridgePkTarget + " not found in BridgeService.");
+        }
+
+        CutPointReceiver rcv = profile.getReceiver();         
+        if (!bridge.isPointWithinBridgeFootprint(rcv.getCoordinate())) {
+            return PropagationType.BRIDGE_TO_OUTSIDE_RECEIVER;
+        }
+
+        boolean isRcvAboveBridgeDeck = bridge.isPointAboveBridge(rcv.getCoordinate());
+
+        if (srcType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
+            return isRcvAboveBridgeDeck ? PropagationType.ACTUAL_SOURCE_TO_UPPER_RECEIVER : PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER;
+        } else if (srcType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE || srcType == SourceType.MIRROR_SOURCE) {
+            return isRcvAboveBridgeDeck ? PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER : PropagationType.IMAGINARY_SOURCE_TO_LOWER_RECEIVER;
+        } else {
+            throw new IllegalStateException("Unsupported SourceType for propagation type check: " + srcType);
+        }
+    }
     
     /**
-     * Handle bridge-specific intersection processing.
+     * Handle bridge-specific intersection processing during profile construction.
      *
      * <p>This method creates a bridge {@link CutPointBridgeWall} describing the
      * intersection, computes whether the intersection corresponds to an
-     * enter/exit event (used by profile assembly), and decides whether the
-     * propagation should stop when the bridge (barrier) is higher than the
-     * straight source-receiver ray.
+     * enter/exit event (used by profile assembly), and determines whether the
+     * ray is obstructed by the bridge barrier.
      *
-     * <p>The method sets {@code profile.hasBridgeIntersection} when the bridge
-     * is considered an obstacle and returns {@code false} when processing should
-     * be aborted (controlled by {@code stopAtObstacleOverSourceReceiver}).
+     * <p>For mirror and imaginary sources, this method validates that a mirror
+     * relax cut point is present in the cut points list.
      *
      * @param processedWallIndex index of the processed wall facet
      * @param intersection intersection coordinate on the bridge facet
      * @param facetLine wall facet that was intersected
      * @param fullLine full profiling line segment (source->receiver)
      * @param newCutPoints list to append the new cut point to
-     * @param stopAtObstacleOverSourceReceiver controls behaviour when obstacle is above ray
      * @param profile the cut profile being constructed (mutated)
-     * @return {@code false} when processing should stop; {@code true} to continue
+     * @return {@code true} if ray is obstructed by bridge barrier; {@code false} if ray passes through
+     * @throws IllegalStateException if bridge primary key is invalid or mirror relax point is missing
      */
     public boolean createBridgeCutPointAndCheckObstruction(int processedWallIndex,
                                  Coordinate intersection,
                                  Wall facetLine,
                                  LineSegment fullLine,
                                  List<CutPoint> newCutPoints,
-                                 boolean stopAtObstacleOverSourceReceiver,
                                  CutProfile profile) {
         
-        boolean hasObstacleIntersection = false;
         CutPointSource cutPointSource = profile.getSource();
         CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(processedWallIndex, intersection, facetLine.getLineSegment(), facetLine.getAlphas());
 
@@ -385,22 +534,28 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             throw new IllegalStateException("Primary key of bridge must be set to calculate a profile with bridges");
         }
 
+        WallDirection wallDirection = WallDirection.UPWARD;
         SourceType sourceType = cutPointSource.getSourceBridgeProperty().getSourceType();
         if (sourceType == SourceType.MIRROR_SOURCE || sourceType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-            boolean mirrorRelax = hasMirrorRelaxCutPoint(newCutPoints);
-            if (mirrorRelax) {
-                break;
+            if (!hasMirrorRelaxCutPoint(newCutPoints)) {
+                bridgeCutPoint.setMirrorRelax(true);
+                wallDirection = WallDirection.DOWNWARD;
             }
-            long bridgeAbovePk = cutPointSource.getSourceBridgeProperty().getBridgePkAbove();
-            if (facetBridgePk != bridgeAbovePk) {
-                return false;
-            }
-            bridgeCutPoint.setWallDirection(WallDirection.DOWNWARD);
-            bridgeCutPoint.setMirrorRelax(true);
-            newCutPoints.add(bridgeCutPoint);
-        } 
+        }
+
+        bridgeCutPoint.setWallDirection(wallDirection);
+        
+        Bridge bridge = this.getBridge(facetLine.getOriginId());
+        double bridgeHeightAtIntersection = 0.0;
+        if (wallDirection == WallDirection.UPWARD) {
+            bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) + bridge.getBarrierHeightAtPoint(intersection);
+        } else {
+            bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) - bridge.getDeckThicknessAtPoint(intersection);
+        }
+        bridgeCutPoint.modifyIntersectionHeight(bridgeHeightAtIntersection);
 
         newCutPoints.add(bridgeCutPoint);
+
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
         
         boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, facetLine);
@@ -411,23 +566,25 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             bridgeCutPoint.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT;
         }
 
-        Bridge bridge = this.getBridge(facetLine.getOriginId());
-        double barrierHeight = bridge.getBarrierHeightAtPoint(intersection);
-        double deckThickness = bridge.getDeckThicknessAtPoint(intersection);
-        boolean bridgeDiffractionAboveDeck = zRayReceiverSource <= intersection.z + barrierHeight;
-        boolean bridgeDiffractionBelowBottom = zRayReceiverSource >= intersection.z - deckThickness;
-
-        if (bridgeDiffractionAboveDeck) {
-            profile.hasBridgeIntersection(true);
-            return !stopAtObstacleOverSourceReceiver;
-        } else if (bridgeDiffractionBelowBottom) {
-            return true;
+        boolean hasBridgeIntersection = true;
+        if (wallDirection == WallDirection.UPWARD) {
+            hasBridgeIntersection = bridgeHeightAtIntersection >= zRayReceiverSource;
         } else {
-            profile.hasBridgeIntersection(true);
-            return !stopAtObstacleOverSourceReceiver;
+            hasBridgeIntersection = bridgeHeightAtIntersection <= zRayReceiverSource;
         }
+
+        return hasBridgeIntersection;
     }
 
+    /**
+     * Check if any mirror relax cut point exists in the provided cut points list.
+     * 
+     * <p>Mirror relax cut points are required for mirror source and imaginary source
+     * scenarios to ensure proper propagation calculation.
+     *
+     * @param newCutPoints list of cut points to search
+     * @return {@code true} if a mirror relax cut point is found; {@code false} otherwise
+     */
     private static boolean hasMirrorRelaxCutPoint(List<CutPoint> newCutPoints) {
         for (int i = 0; i < newCutPoints.size(); i++) {
             CutPoint pnt = newCutPoints.get(i);

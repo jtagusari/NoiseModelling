@@ -42,6 +42,7 @@ public class BridgePoint {
         LEFT,
         RIGHT
     }
+
     /** 3D coordinate of the bridge point */
     private Coordinate coordinate;
     
@@ -118,6 +119,7 @@ public class BridgePoint {
         this.leftWidth = leftWidth;
         this.rightBarrierHeight = rightBarrierHeight;
         this.leftBarrierHeight = leftBarrierHeight;
+        this.position = Position.CENTER; // Default position
     }
 
     /**
@@ -220,6 +222,16 @@ public class BridgePoint {
         return leftWidth;
     }
 
+    public double getWidth(Position side) {
+        if(side == Position.LEFT) {
+            return getLeftWidth();
+        } else if(side == Position.RIGHT) {
+            return getRightWidth();
+        } else {
+            throw new IllegalArgumentException("LEFT or RIGHT must be specified to get bridge width");
+        }
+    }
+
     /**
      * Get the height of the right side barrier/parapet in meters.
      * @return The right barrier height, or NaN if not set
@@ -235,6 +247,17 @@ public class BridgePoint {
     public double getLeftBarrierHeight() {
         return leftBarrierHeight;
     }
+
+    public double getBarrierHeight(Position side) {
+        if(side == Position.LEFT) {
+            return getLeftBarrierHeight();
+        } else if(side == Position.RIGHT) {
+            return getRightBarrierHeight();
+        } else {
+            throw new IllegalArgumentException("LEFT or RIGHT must be specified to get bridge barrier height");
+        }
+    }
+
 
     // Setters
     

@@ -71,6 +71,14 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.sourceBridgeProperty = new SourceBridgeProperty();
     }
 
+    public SourcePointInfo(Coordinate coordinate){
+        this.sourceIndex = -1;
+        this.sourcePk = -1;
+        this.position = new Coordinate(coordinate);
+        this.li = 0;
+        this.orientation = new Orientation();
+        this.sourceBridgeProperty = new SourceBridgeProperty();
+    }
     public Orientation getOrientation() {
         return orientation;
     }

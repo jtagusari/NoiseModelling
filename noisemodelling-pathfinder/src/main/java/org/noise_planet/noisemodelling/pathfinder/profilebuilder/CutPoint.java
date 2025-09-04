@@ -37,6 +37,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = CutPointSource.class, name = "Source"),
         @JsonSubTypes.Type(value = CutPointReceiver.class, name = "Receiver"),
         @JsonSubTypes.Type(value = CutPointWall.class, name = "Wall"),
+        @JsonSubTypes.Type(value = CutPointBridgeWall.class, name = "BridgeWall"),
         @JsonSubTypes.Type(value = CutPointReflection.class, name = "Reflection"),
         @JsonSubTypes.Type(value = CutPointGroundEffect.class, name = "GroundEffect"),
         @JsonSubTypes.Type(value = CutPointTopography.class, name = "Topography"),

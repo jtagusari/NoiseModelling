@@ -8,21 +8,22 @@
  */
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 
-import java.util.Collections;
 import java.util.List;
 
+@JsonTypeName("CutPointBridgeWall")
 public class CutPointBridgeWall  extends CutPointWall {
     
     public enum WallDirection {
         UPWARD,
-        DOWNWARD
+        DOWNWARD,
+        OTHER
     }
 
     private WallDirection wallDirection = WallDirection.UPWARD;
@@ -53,6 +54,11 @@ public class CutPointBridgeWall  extends CutPointWall {
     /**
      * Empty constructor for deserialization
      */
+    public CutPointBridgeWall() {
+        super();
+        this.wallDirection = WallDirection.UPWARD;
+    }
+
     public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha, WallDirection wallDirection) {
         super(processedWallIndex, intersection, wallSegment, wallAlpha);
         this.wallDirection = wallDirection;
@@ -63,6 +69,15 @@ public class CutPointBridgeWall  extends CutPointWall {
         this.wallDirection = WallDirection.UPWARD;
     }
 
+    public WallDirection getWallDirection() {
+        return wallDirection;
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty("wallPk")
+    public Long getWallPk() {
+        return wallPk;
+    }
     /**
      *
      * @param pk External primary key value, will be updated if {@literal >=} 0
@@ -75,26 +90,21 @@ public class CutPointBridgeWall  extends CutPointWall {
         return this;
     }
 
-    /**
-     * @return Convert alpha values to a java array
-     */
-    public double[] alphaAsArray() {
-        return wallAlpha.stream().mapToDouble(aDouble -> aDouble).toArray();
+    public void modifyIntersectionHeight(Bridge bridge){
+        double newZ = 0.0;
+        if (this.wallDirection == WallDirection.UPWARD) {
+            newZ = bridge.getDeckHeightAtPoint(coordinate) + bridge.getBarrierHeightAtPoint(coordinate);
+        } else {
+            newZ = bridge.getDeckHeightAtPoint(coordinate) - bridge.getDeckThicknessAtPoint(coordinate);
+        }
+        modifyIntersectionHeight(newZ);
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonProperty("wallPk")
-    public Long getWallPk() {
-        return wallPk;
-    }
-
-    @JsonProperty("wallAlpha")
-    public List<Double> getWallAlpha() {
-        return wallAlpha;
-    }
-
-    public void setWallAlpha(List<Double> wallAlpha) {
-        this.wallAlpha = wallAlpha;
+    
+    public void modifyIntersectionHeight(double z){
+        this.coordinate = new Coordinate(coordinate.x, coordinate.y, z);
+        this.wall.p0 = new Coordinate(wall.p0.x, wall.p0.y, z);
+        this.wall.p1 = new Coordinate(wall.p1.x, wall.p1.y, z);
     }
 
     @Override
@@ -104,7 +114,7 @@ public class CutPointBridgeWall  extends CutPointWall {
                 ", zGround=" + zGround +
                 ", coordinate=" + coordinate +
                 ", processedWallIndex=" + processedWallIndex +
-                ", wallAlpha=" + wallAlpha +
+                ", wallAlpha=" + getWallAlpha() +
                 ", wall=" + wall +
                 '}';
     }

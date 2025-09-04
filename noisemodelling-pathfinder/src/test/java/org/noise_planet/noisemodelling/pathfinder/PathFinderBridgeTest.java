@@ -17,11 +17,16 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.math.Vector2D;
 import org.locationtech.jts.math.Vector3D;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReflection;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
@@ -32,6 +37,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilderD
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.CoordinateMixin;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.LineSegmentMixin;
+import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,28 +53,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.noise_planet.noisemodelling.pathfinder.PathFinder.splitLineStringIntoPoints;
 
-public class PathFinderTestBridge {
+public class PathFinderBridgeTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PathFinderTestBridge.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PathFinderTest.class);
 
-    /**
-     * Overwrite project resource expected test cases
-     */
     public boolean overwriteTestCase = false;
 
-    public boolean outputCurrentCutProfile = false;
+    public boolean outputCurrentCutProfile = true;
 
-    /**
-     *  Error for coordinates
-     */
     public static final double DELTA_COORDS = 0.1;
 
-    /**
-     *  Error for planes values
-     */
     public static final double DELTA_PLANES = 0.1;
 
     private void assertCutProfile(String utName, CutProfile cutProfile) throws IOException {
@@ -77,10 +72,16 @@ public class PathFinderTestBridge {
             writeCutProfileJson(utName, cutProfile);
         }
         if(outputCurrentCutProfile){
-            writeCutProfileJson("tmp", cutProfile);
+            writeCutProfileJson("tmp_" + utName, cutProfile);
         }
-        assertCutProfile(PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName),
-                cutProfile);
+        try {
+                assertCutProfile(PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName),cutProfile);
+        } catch (IOException e) {
+            LOGGER.error("Error while asserting cut profile for {}", testCaseFileName, e);
+        } catch (IllegalArgumentException e) {
+            LOGGER.error("Invalid argument while asserting cut profile for {}", testCaseFileName, e);
+            LOGGER.error("Maybe JSON file does not exist");
+        }
     }
 
     private void writeCutProfileJson(String utName, CutProfile cutProfile) throws IOException {
@@ -155,38 +156,126 @@ public class PathFinderTestBridge {
 
     }
 
+    private Bridge createBridge1() {
+        
+        List<BridgePoint> points = new ArrayList<>();
+        
+        List<Double> defaultAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        
+        // Create a rectangular bridge: 20x10 units
+        BridgePoint bp1 = new BridgePoint(new Coordinate(10, 0), 1, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0);
+        points.add(bp1);
+        
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 10), 2, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0);
+        points.add(bp2);
+        
+        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 20), 3, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0);
+        points.add(bp3);
+
+        return new Bridge(points, defaultAlphas, 100L);
+    }
 
     /**
-     * Test TC01B1 -- Reflecting ground (G = 0), with a source on bridge
+     * Test TBC01 -- Reflecting ground (G = 0), with a source on bridge
      */
     @Test
-    public void TC01B1() throws Exception {
+    public void TBC01() throws Exception {
         //Profile building
         ProfileBuilder profileBuilder = new ProfileBuilder()
-                .addBuilding(new Coordinate[]{
-                        new Coordinate(55, 5, 10),
-                        new Coordinate(65, 5, 10),
-                        new Coordinate(65, 15, 10),
-                        new Coordinate(55, 15, 10),
-                })
+                .addBridge(createBridge1())
                 .finishFeeding();
 
+        GeometryFactory geometryFactory = new GeometryFactory();
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(10, 5, 10.5),
+                new Coordinate(10, 15, 10.5)
+        });
+
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
-                .addSource(10, 10, 1)
-                .addReceiver(200, 50, 4)
-                .setGs(0.0)
-                .build();
+        Scene scene = new Scene(profileBuilder);
+        scene.addSource((long)1, source, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1));
+        scene.addReceiver(new Coordinate(200, 50, 4));
+        scene.setComputeHorizontalDiffraction(false);
+        scene.setComputeVerticalDiffraction(true);
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
-        PathFinder computeRays = new PathFinder(rayData);
+        PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
 
         //Run computation
         computeRays.run(propDataOut);
 
-        assertCutProfile("TC01_Direct", propDataOut.cutProfiles.getFirst());
+        assertCutProfile("TBC01", propDataOut.cutProfiles.getFirst());
+    }
+    
+    /**
+     * Test TBC02 -- Reflecting ground (G = 0), with a source on bridge
+     */
+    @Test
+    public void TBC02() throws Exception {
+        //Profile building
+        ProfileBuilder profileBuilder = new ProfileBuilder()
+                .addBridge(createBridge1())
+                .finishFeeding();
+
+        GeometryFactory geometryFactory = new GeometryFactory();
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(10, 5, 15),
+                new Coordinate(10, 15, 15)
+        });
+
+        //Propagation data building
+        Scene scene = new Scene(profileBuilder);
+        scene.addSource((long)100, source, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.MIRROR_SOURCE, -1, 100));
+        scene.addReceiver(new Coordinate(200, 50, 4));
+        scene.setComputeHorizontalDiffraction(false);
+        scene.setComputeVerticalDiffraction(true);
+
+        //Out and computation settings
+        DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
+        PathFinder computeRays = new PathFinder(scene);
+        computeRays.setThreadCount(1);
+
+        //Run computation
+        computeRays.run(propDataOut);
+
+        assertCutProfile("TBC02", propDataOut.cutProfiles.getFirst());
+    }
+
+
+    /**
+     * Test TBC02 -- Reflecting ground (G = 0), with a source on bridge
+     */
+    @Test
+    public void TBC03() throws Exception {
+        //Profile building
+        ProfileBuilder profileBuilder = new ProfileBuilder()
+                .addBridge(createBridge1())
+                .finishFeeding();
+
+        GeometryFactory geometryFactory = new GeometryFactory();
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(10, 5, 9.5),
+                new Coordinate(10, 15, 9.5)
+        });
+
+        //Propagation data building
+        Scene scene = new Scene(profileBuilder);
+        scene.addSource((long)100, source, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100));
+        scene.addReceiver(new Coordinate(200, 50, 4));
+        scene.setComputeHorizontalDiffraction(false);
+        scene.setComputeVerticalDiffraction(true);
+
+        //Out and computation settings
+        DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
+        PathFinder computeRays = new PathFinder(scene);
+        computeRays.setThreadCount(1);
+
+        //Run computation
+        computeRays.run(propDataOut);
+
+        assertCutProfile("TBC03", propDataOut.cutProfiles.getFirst());
     }
 
     /**

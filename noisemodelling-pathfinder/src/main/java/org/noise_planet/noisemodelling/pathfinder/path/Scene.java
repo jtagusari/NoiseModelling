@@ -155,11 +155,14 @@ public class Scene {
      * @param geom Source geometry (Point for point sources, LineString for linear sources)
      * @return Generated unique primary key for the source
      */
+    @Deprecated
     public long addSource(Geometry geom) {
         sourceGeometries.add(geom);
         sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
         // Add default primary key for consistency with getSourcePkById
-        return UniqueKeyGenerator.generateLongKey((long)(sourceGeometries.size() - 1), sourcesPk);
+        long registeredPk = UniqueKeyGenerator.generateLongKey((long)(sourceGeometries.size() - 1), sourcesPk); 
+        sourcesPk.add(registeredPk);
+        return registeredPk;
     }
 
     /**
@@ -171,8 +174,10 @@ public class Scene {
      * @return Actual registered primary key (may differ from requested pk if conflict occurred)
      */
     public long addSource(Long pk, Geometry geom) {
-        addSource(geom);
+        sourceGeometries.add(geom);
+        sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
         long registeredPk = UniqueKeyGenerator.generateLongKey(pk == null ? 0L : pk.longValue(), sourcesPk);
+        sourcesPk.add(registeredPk);
         return registeredPk;
     }
 

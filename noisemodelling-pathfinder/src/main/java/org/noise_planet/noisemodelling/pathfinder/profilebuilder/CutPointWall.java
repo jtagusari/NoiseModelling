@@ -87,6 +87,11 @@ public class CutPointWall  extends CutPoint {
     public List<Double> getWallAlpha() {
         return wallAlpha;
     }
+    
+    @JsonIgnore
+    public int getProcessedWallIndex() {
+        return processedWallIndex;
+    }
 
     @JsonIgnore
     public INTERSECTION_TYPE getIntersectionType() {

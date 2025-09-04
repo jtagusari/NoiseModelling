@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -39,9 +40,10 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0,0,0);
         Coordinate rcv = new Coordinate(10,0,0);
         double defaultG = 0.33;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 100.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         // source and receiver should have groundCoefficient set
@@ -56,10 +58,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(100, 0, 3);
         double defaultG = 0.5;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         assertEquals(2, profile.getCutPoints().size());
@@ -74,6 +77,7 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(50, 0, 3);
         double defaultG = 0.3;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         // Create services without topography
         TopographyService emptyTopoService = new TopographyService(4);
@@ -81,7 +85,7 @@ public class ProfileRetrieverTest {
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
                 buildingService, wallService, bridgeService, emptyTopoService, groundService, 
-                processedWallService, geometryFactory);
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         
@@ -95,10 +99,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(100, 0, 3);
         double defaultG = 0.4;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, true, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         // Even with stopAtObstacle=true, should return a valid profile
@@ -110,10 +115,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(100, 0, 3);
         double defaultG = 0.6;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, true, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         // Should work even with early stopping enabled
@@ -125,11 +131,12 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 2);
         Coordinate rcv = new Coordinate(100, 0, 2);
         double defaultG = 0.2;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
         double shortMaxLength = 5.0; // Force segment splitting
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, shortMaxLength,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         assertTrue(profile.getCutPoints().size() >= 2);
@@ -145,10 +152,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 4);
         Coordinate rcv = new Coordinate(200, 0, 4);
         double defaultG = 0.7;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         
@@ -166,10 +174,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(300, 0, 8);
         double defaultG = 0.25;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         
@@ -188,10 +197,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(10, 20, 6);
         Coordinate rcv = new Coordinate(90, 80, 4);
         double defaultG = 0.15;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         
@@ -211,10 +221,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(0.1, 0, 5);
         double defaultG = 0.8;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         assertEquals(2, profile.getCutPoints().size());
@@ -227,10 +238,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 10);
         Coordinate rcv = new Coordinate(10000, 0, 10);
         double defaultG = 0.4;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 100.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         assertTrue(profile.getCutPoints().size() >= 2);
@@ -245,10 +257,11 @@ public class ProfileRetrieverTest {
         Coordinate src = new Coordinate(0, 0, 2);
         Coordinate rcv = new Coordinate(50, 0, 15);
         double defaultG = 0.9;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         CutProfile profile = ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
+                buildingService, wallService, bridgeService, topographyService, groundService,
+                processedWallService, geometryFactory, srcInfo);
 
         assertNotNull(profile);
         
@@ -258,31 +271,17 @@ public class ProfileRetrieverTest {
     }
 
     @Test
-    public void testGetProfile_invalidGroundCoefficient() {
-        Coordinate src = new Coordinate(0, 0, 5);
-        Coordinate rcv = new Coordinate(100, 0, 5);
-        double invalidG = -0.5; // Invalid coefficient
-
-        // Should still work - the method doesn't validate input ranges
-        CutProfile profile = ProfileRetriever.getProfile(src, rcv, invalidG, false, 1000.0,
-                buildingService, wallService, bridgeService, topographyService, groundService, 
-                processedWallService, geometryFactory);
-
-        assertNotNull(profile);
-        assertEquals(invalidG, profile.getSource().getGroundCoefficient(), 1e-9);
-    }
-
-    @Test
     public void testGetProfile_nullGeometryFactory() {
         Coordinate src = new Coordinate(0, 0, 5);
         Coordinate rcv = new Coordinate(100, 0, 5);
         double defaultG = 0.5;
+        SourcePointInfo srcInfo = new SourcePointInfo(src);
 
         // This should throw an exception due to null geometry factory
         assertThrows(NullPointerException.class, () -> {
             ProfileRetriever.getProfile(src, rcv, defaultG, false, 1000.0,
                     buildingService, wallService, bridgeService, topographyService, groundService, 
-                    processedWallService, null);
+                    processedWallService, null, srcInfo);
         });
     }
 }

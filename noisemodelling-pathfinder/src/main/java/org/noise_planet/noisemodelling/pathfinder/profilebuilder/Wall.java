@@ -68,7 +68,7 @@ public class Wall extends Obstruction {
     public int getProcessedWallIndex() {
         return processedWallIndex;
     }
-
+    
     /**
      * @param processedWallIndex Index of this wall in the ProfileBuild list
      */

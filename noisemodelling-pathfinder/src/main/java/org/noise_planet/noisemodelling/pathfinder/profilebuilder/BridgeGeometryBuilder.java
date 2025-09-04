@@ -10,6 +10,7 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.*;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint.Position;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,10 +30,6 @@ import java.util.List;
  * - Spatial queries on constructed geometries (delegated to BridgeQueryHelper)
  */
 public class BridgeGeometryBuilder {
-    public enum Direction {
-      RIGHT,
-      LEFT
-    }
   
     /** Geometry factory for creating geometries */
     private GeometryFactory geometryFactory;
@@ -44,6 +41,7 @@ public class BridgeGeometryBuilder {
     this.geometryFactory = GeometryFactoryProvider.SHARED;
     }
     
+
     /**
      * Constructor with custom geometry factory.
      * @param geometryFactory Custom geometry factory
@@ -52,9 +50,9 @@ public class BridgeGeometryBuilder {
     this.geometryFactory = geometryFactory != null ? geometryFactory : GeometryFactoryProvider.SHARED;
     }
     
-    public List<BridgePoint> createBridgeEdgePoints(BridgePointManager pointManager, ProfileBuilder profileBuilder, Direction direction) {
+    public List<BridgePoint> createBridgeEdgePoints(BridgePointManager pointManager, ProfileBuilder profileBuilder, Position direction, boolean addBarrierHeight) {
         if (pointManager == null) {
-            return null; // Cannot create geometry without point manager
+            throw new IllegalArgumentException("Point manager is required to create bridge edge points");
         }
         
         List<BridgePoint> bridgeCenterPoints = pointManager.getBridgePoints();
@@ -68,30 +66,24 @@ public class BridgeGeometryBuilder {
         for (int i = 0; i < bridgeCenterPoints.size(); i++) {
             BridgePoint point = new BridgePoint(bridgeCenterPoints.get(i));
             Coordinate centerCoord = point.getCoordinate();
-            double width;
-            BridgePoint.Position side;
-            if (direction == Direction.LEFT) {
-              width = point.getLeftWidth();
-              side = BridgePoint.Position.LEFT;
-            } else {
-              width = point.getRightWidth();
-              side = BridgePoint.Position.RIGHT;
-            }
-            double effectiveHeight = pointManager.getEffectiveDeckHeight(point, i, profileBuilder);
+            double width = point.getWidth(direction);
+            double effectiveHeight = pointManager.getEffectiveDeckHeight(i, profileBuilder);
+            double barrierHeight = addBarrierHeight ? point.getBarrierHeight(direction) : 0.0;
 
             if (Double.isNaN(width)) {
                 width = 0.0; // Default to center line if width is not specified
             }
             
-            // Calculate right side coordinate
             Coordinate coord = calculateOffsetCoordinate(centerCoord, width, direction, i, bridgeCenterPoints);
-            coord.z = effectiveHeight;
+            coord.z = effectiveHeight + barrierHeight;
             point.setCoordinate(coord);
-            point.setPosition(side);
+            point.setPosition(direction);
             bridgeEdgePoints.add(point);
         }
         return bridgeEdgePoints;
     }
+
+    
 
     /**
      * Create a bridge 2D footprint polygon from the bridge points.
@@ -103,7 +95,7 @@ public class BridgeGeometryBuilder {
      */
     public Polygon createFootprintGeometry(BridgePointManager pointManager) {
         if (pointManager == null) {
-            return null; // Cannot create geometry without point manager
+            throw new IllegalArgumentException("Point manager is required to create footprint geometry");
         }
         ProfileBuilder nullProfileBuilder = new ProfileBuilder();
         return createDeckGeometry(pointManager, nullProfileBuilder);
@@ -120,22 +112,72 @@ public class BridgeGeometryBuilder {
      * @return Bridge polygon with Z coordinates
      */
     public Polygon createDeckGeometry(BridgePointManager pointManager, ProfileBuilder profileBuilder) {
-        if (pointManager == null) {
-            return null; // Cannot create geometry without point manager
+        if (pointManager == null || pointManager.size() < 2) {
+            throw new IllegalArgumentException("Point manager required to create bridge geometry is null or has insufficient points");
         }
         
-        BridgePointManager pointManagerForEdge = new BridgePointManager(BridgePointManager.SortOrder.COUNTER_CLOCKWISE);
-        pointManagerForEdge.addBridgePoints(createBridgeEdgePoints(pointManager, profileBuilder, Direction.RIGHT));
-        pointManagerForEdge.addBridgePoints(createBridgeEdgePoints(pointManager, profileBuilder, Direction.LEFT));
+        BridgePointManager pointManagerForEdge = new BridgePointManager(BridgePointManager.SortOrder.CLOCKWISE);
+        pointManagerForEdge.addBridgePoints(createBridgeEdgePoints(pointManager, profileBuilder, Position.RIGHT, false));
+        pointManagerForEdge.addBridgePoints(createBridgeEdgePoints(pointManager, profileBuilder, Position.LEFT, false));
 
         List<Coordinate> coordinates = new ArrayList<>();
         for (int i = 0; i < pointManagerForEdge.size(); i++) {
             coordinates.add(pointManagerForEdge.getBridgePointByIndex(i).getCoordinate());
         }
-
-        if (pointManagerForEdge.size() < 3) { // Minimum for a valid polygon
-          return null;
+        coordinates.add(new Coordinate(coordinates.get(0)));
+        
+        Coordinate[] coordArray = coordinates.toArray(new Coordinate[0]);
+        LinearRing ring = geometryFactory.createLinearRing(coordArray);
+        return geometryFactory.createPolygon(ring);
+    }
+    
+    
+    /**
+     * Initialize bridge edges for acoustic calculations.
+     * @param deckGeometry Bridge deck polygon geometry
+     * @return List of bridge edges as LineString geometries
+     */
+    public Polygon createEdge(BridgePointManager pointManager, ProfileBuilder profileBuilder) {
+        if (pointManager == null || pointManager.size() < 2) {
+            throw new IllegalArgumentException("Point manager required to create bridge geometry is null or has insufficient points");
         }
+        
+        BridgePointManager pointManagerForEdge = new BridgePointManager(BridgePointManager.SortOrder.CLOCKWISE);
+        List<BridgePoint> bridgeEdgePointsRight = createBridgeEdgePoints(pointManager, profileBuilder, Position.RIGHT, true);
+        List<BridgePoint> bridgeEdgePointsLeft = createBridgeEdgePoints(pointManager, profileBuilder, Position.LEFT, true);
+        pointManagerForEdge.addBridgePoints(bridgeEdgePointsRight);
+        pointManagerForEdge.addBridgePoints(bridgeEdgePointsLeft);
+
+        long origPointPk = pointManager.getBridgePointByIndex(0).getPrimaryKey();
+        double origPointHeight = pointManager.getEffectiveDeckHeight(0, profileBuilder);
+        List<BridgePoint> origBridgeEdgePoints = new ArrayList<>(List.of(
+            new BridgePoint(bridgeEdgePointsRight.get(0)),
+            new BridgePoint(bridgeEdgePointsLeft.get(0))
+        ));
+        for (BridgePoint p : origBridgeEdgePoints) {
+            p.setPrimaryKey(origPointPk - 1);
+            p.setCoordinate(new Coordinate(p.getCoordinate().x, p.getCoordinate().y, origPointHeight));
+        }
+        pointManagerForEdge.addBridgePoints(origBridgeEdgePoints);
+
+        long termPointPk = pointManager.getBridgePointByIndex(pointManager.size() - 1).getPrimaryKey();
+        double termPointHeight = pointManager.getEffectiveDeckHeight(pointManager.size() - 1, profileBuilder);
+        List<BridgePoint> termBridgeEdgePoints = new ArrayList<>(List.of(
+            new BridgePoint(bridgeEdgePointsRight.get(bridgeEdgePointsRight.size() - 1)),
+            new BridgePoint(bridgeEdgePointsLeft.get(bridgeEdgePointsLeft.size() - 1))
+        ));
+        for (BridgePoint p : termBridgeEdgePoints) {
+            p.setPrimaryKey(termPointPk + 1);
+            p.setCoordinate(new Coordinate(p.getCoordinate().x, p.getCoordinate().y, termPointHeight));
+        }
+        pointManagerForEdge.addBridgePoints(termBridgeEdgePoints);
+
+        List<Coordinate> coordinates = new ArrayList<>();
+        for (int i = 0; i < pointManagerForEdge.size(); i++) {
+            coordinates.add(pointManagerForEdge.getBridgePointByIndex(i).getCoordinate());
+        }
+        coordinates.add(new Coordinate(coordinates.get(0)));
+
 
         if (!coordinates.isEmpty()) {
             coordinates.add(new Coordinate(coordinates.get(0)));
@@ -145,6 +187,7 @@ public class BridgeGeometryBuilder {
         LinearRing ring = geometryFactory.createLinearRing(coordArray);
         return geometryFactory.createPolygon(ring);
     }
+
     
     /**
      * Initialize bridge edges for acoustic calculations.
@@ -166,9 +209,10 @@ public class BridgeGeometryBuilder {
         
         for (int i = 0; i < coords.length - 1; i++) {
             // Create 2D coordinates by removing Z component
-            Coordinate coord1 = new Coordinate(coords[i].x, coords[i].y);
-            Coordinate coord2 = new Coordinate(coords[i + 1].x, coords[i + 1].y);
-            LineString edge = geometryFactory.createLineString(new Coordinate[]{coord1, coord2});
+            // Coordinate coord1 = new Coordinate(coords[i].x, coords[i].y);
+            // Coordinate coord2 = new Coordinate(coords[i + 1].x, coords[i + 1].y);
+            // Coordinate coord1 = triangulation.getBarrierHeightAtPoint(null)
+            LineString edge = geometryFactory.createLineString(new Coordinate[]{coords[i], coords[i+1]});
             edges.add(edge);
         }
         
@@ -184,8 +228,7 @@ public class BridgeGeometryBuilder {
      * @param bridgeCenterPoints List of bridge points for direction calculation
      * @return Offset coordinate
      */
-    private Coordinate calculateOffsetCoordinate(Coordinate centerCoord, double width, Direction direction, 
-                                               int index, List<BridgePoint> bridgeCenterPoints) {
+    private Coordinate calculateOffsetCoordinate(Coordinate centerCoord, double width, BridgePoint.Position direction, int index, List<BridgePoint> bridgeCenterPoints) {
         if (width == 0.0) {
             return new Coordinate(centerCoord);
         }
@@ -194,8 +237,8 @@ public class BridgeGeometryBuilder {
         Coordinate directionVector = calculateDirection(index, bridgeCenterPoints);
         
         // Calculate perpendicular vector (90 degrees rotation)
-        double perpX = -directionVector.y; // Rotate 90 degrees counterclockwise
-        double perpY = directionVector.x;
+        double perpX = directionVector.y; // Rotate 90 degrees counterclockwise
+        double perpY = -directionVector.x;
 
         // Normalize the perpendicular vector
         double length = Math.sqrt(perpX * perpX + perpY * perpY);
@@ -205,7 +248,7 @@ public class BridgeGeometryBuilder {
         }
         
         // Apply right/left orientation
-        if (direction == Direction.LEFT) {
+        if (direction == BridgePoint.Position.LEFT) {
             perpX = -perpX;
             perpY = -perpY;
         }

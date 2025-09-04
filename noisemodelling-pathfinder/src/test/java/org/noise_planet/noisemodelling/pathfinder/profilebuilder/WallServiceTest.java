@@ -78,7 +78,7 @@ public class WallServiceTest {
         List<CutPoint> newCutPoints = new ArrayList<>();
         CutProfile profile = new CutProfile(new CutPointSource(new Coordinate(-2,0,0)), new CutPointReceiver(new Coordinate(2,0,0)));
 
-        boolean res = svc.createWallCutPointAndCheckObstruction(0, intersection, facet, fullLine, newCutPoints, true, profile);
+        boolean res = svc.createWallCutPointAndCheckObstruction(0, intersection, facet, fullLine, newCutPoints);
         assertFalse(res);
         assertTrue(profile.hasBuildingIntersection());
         assertEquals(1, newCutPoints.size());
@@ -89,7 +89,7 @@ public class WallServiceTest {
         profile = new CutProfile(new CutPointSource(new Coordinate(-2,0,1.5)), new CutPointReceiver(new Coordinate(2,0,1.5)));
         Coordinate intersection2 = new Coordinate(0,0,0.1);
         LineSegment fullLine2 = new LineSegment(new Coordinate(-1,0,2), new Coordinate(1,0,2));
-        boolean res2 = svc.createWallCutPointAndCheckObstruction(0, intersection2, facet, fullLine2, newCutPoints, false, profile);
+        boolean res2 = svc.createWallCutPointAndCheckObstruction(0, intersection2, facet, fullLine2, newCutPoints);
         assertTrue(res2);
         assertFalse(profile.hasBuildingIntersection());
         assertEquals(1, newCutPoints.size());

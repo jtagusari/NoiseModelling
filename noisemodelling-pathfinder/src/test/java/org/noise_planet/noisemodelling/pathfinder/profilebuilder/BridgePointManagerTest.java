@@ -121,7 +121,7 @@ public class BridgePointManagerTest {
         
         manager.addBridgePoint(point);
         
-        double height = manager.getEffectiveDeckHeight(point, 0, null);
+        double height = manager.getEffectiveDeckHeight(0, null);
         assertEquals(15.0, height, 0.001, "Should use absolute height");
     }
 
@@ -135,7 +135,7 @@ public class BridgePointManagerTest {
         // Create mock ProfileBuilder that returns ground height of 10.0
         ProfileBuilder profileBuilder = createMockProfileBuilder(10.0);
         
-        double height = manager.getEffectiveDeckHeight(point, 0, profileBuilder);
+        double height = manager.getEffectiveDeckHeight(0, profileBuilder);
         assertEquals(15.0, height, 0.001, "Should use relative height + ground");
     }
 
@@ -246,7 +246,7 @@ public class BridgePointManagerTest {
 
     @Test
     public void testConstructorWithSortOrder() {
-        BridgePointManager manager = new BridgePointManager(BridgePointManager.SortOrder.COUNTER_CLOCKWISE);
+        BridgePointManager manager = new BridgePointManager(BridgePointManager.SortOrder.CLOCKWISE);
         assertTrue(manager.isEmpty(), "Manager should be empty");
     }
 
@@ -283,7 +283,7 @@ public class BridgePointManagerTest {
 
     @Test
     public void testSortCounterClockwise() {
-        BridgePointManager manager = new BridgePointManager(BridgePointManager.SortOrder.COUNTER_CLOCKWISE);
+        BridgePointManager manager = new BridgePointManager(BridgePointManager.SortOrder.CLOCKWISE);
         
         // Add points with different positions
         BridgePoint rightPoint1 = createTestPoint(1, 100.0, 100.0, 10.0);
@@ -598,7 +598,7 @@ public class BridgePointManagerTest {
         
         ProfileBuilder profileBuilder = createMockProfileBuilder(10.0);
         
-        double height = manager.getEffectiveDeckHeight(point, 0, profileBuilder);
+        double height = manager.getEffectiveDeckHeight(0, profileBuilder);
         assertEquals(15.0, height, 0.001, "Should use absolute height, not relative");
     }
 
@@ -614,7 +614,7 @@ public class BridgePointManagerTest {
         manager.addBridgePoint(point2);
         manager.addBridgePoint(point3);
         
-        double height = manager.getEffectiveDeckHeight(point2, 1, null);
+        double height = manager.getEffectiveDeckHeight(1, null);
         assertEquals(15.0, height, 0.001, "Should fall back to interpolation");
     }
 

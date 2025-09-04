@@ -66,6 +66,15 @@ public class CutPointSource  extends CutPoint {
         this.li = li;
     }
 
+    public CutPointSource(CutPointSource cutPointSource) {
+        super(cutPointSource);
+        this.sourcePk = cutPointSource.sourcePk;
+        this.li = cutPointSource.li;
+        this.orientation = cutPointSource.orientation;
+        this.id = cutPointSource.id;
+        this.sourceBridgeProperty = cutPointSource.sourceBridgeProperty;
+    }
+
     /**
      * Generate default point source without information on DEM (source at 0.05 above ground level).
      * 

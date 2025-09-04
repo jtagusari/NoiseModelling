@@ -66,12 +66,12 @@ public class ProcessedWallService implements FrequencyInitializable{
     }
 
     public void addProcessedWall(Wall w, GeometryFactory factory) {
-    // Add a processed wall facet to the internal list and insert a reference
-    // into the STRtree. The STRtree stores the integer index pointing to
-    // the element in {@link #processedWalls} so callers may record the
-    // returned index (processedWalls.size()-1) as the facet identifier.
-    processedWalls.add(w);
-    processedRtree.insert(w.getLineSegment().toGeometry(factory).getEnvelopeInternal(), processedWalls.size() - 1);
+        // Add a processed wall facet to the internal list and insert a reference
+        // into the STRtree. The STRtree stores the integer index pointing to
+        // the element in {@link #processedWalls} so callers may record the
+        // returned index (processedWalls.size()-1) as the facet identifier.
+        processedWalls.add(w);
+        processedRtree.insert(w.getLineSegment().toGeometry(factory).getEnvelopeInternal(), processedWalls.size() - 1);
     }
 
     public void addProcessedWall(Wall w) {

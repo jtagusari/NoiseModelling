@@ -13,7 +13,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall.INTERSECTION_TYPE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -236,66 +239,101 @@ public class CutProfile {
      * This static method processes a list of cut points to generate the ground profile.
      * 
      * @param pts list of cut points to process
-     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @param pntIndexOfGroundEffect if provided, will contain corresponding indices from parameter to return list items
      * @return the computed coordinate list of the vertical cut representing the ground profile
      */
-    public static List<Coordinate> computePtsGround(List<CutPoint> pts, List<Integer> index) {
+    public static List<Coordinate> computePtsGround(List<CutPoint> pts, List<Integer> pntIndexOfGroundEffect) {
 
         List<Coordinate> pts2D = new ArrayList<>(pts.size());
         if(pts.isEmpty()) {
             return pts2D;
         }
         // keep track of the obstacle under our current position.
-        // Note: Both buildings and bridges are treated as obstacles in the same way
-        boolean overArea = false;
-        for (CutPoint cut : pts) {
-            if (cut instanceof CutPointWall) {
-                CutPointWall cutPointWall = (CutPointWall) cut;
-                if (cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
-                    overArea = true;
-                } else {
-                    break;
-                }
-            }
-        }
-        for (CutPoint cut : pts) {
-            if (cut instanceof CutPointGroundEffect) {
-                if (index != null) {
-                    index.add(pts2D.size() - 1);
+        boolean overArea = isFirstPointOverarea(pts);
+        boolean updateIndex = pntIndexOfGroundEffect != null;
+
+        for (CutPoint pnt : pts) {
+            if (pnt instanceof CutPointGroundEffect) {
+                if (updateIndex) {
+                    pntIndexOfGroundEffect.add(pts2D.size() - 1);
                 }
                 continue;
             }
-            if (cut instanceof CutPointWall) {
+            if (pnt instanceof CutPointWall) {
                 // Z ground profile must add intermediate ground points before adding the top level of building/wall/bridge
-                CutPointWall cutPointWall = (CutPointWall) cut;
-                // Handle both Building and Bridge obstacles in the same way for ground profile calculation
-                if (cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER) ||
-                        cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
-                    pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getCoordinate().z));
+                CutPointWall wallPoint = (CutPointWall) pnt;
+                
+                if (isEnteringPoint(wallPoint) || isWall(wallPoint)) {
+                    pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = true;
                 }
-                pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getCoordinate().z));
-                if (cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT) ||
-                        cutPointWall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
-                    pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
+
+                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
+
+                if (isExitingPoint(wallPoint) || isWall(wallPoint)) {
+                    pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = false;
                 }
-            } else if (cut instanceof CutPointReflection) {
+
+            } else if (pnt instanceof CutPointBridgeWall) {
+                /* TODO implement bridge wall logic */
+                /* Height of the path is required to determine if we are over or under the bridge */
+            } else if (pnt instanceof CutPointReflection) {
                 // Z ground profile is duplicated for reflection point before and after
-                pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
-                pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
-                pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
+                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
             } else {
                 // we will ignore topographic point if we are over a building
-                if (!(overArea && cut instanceof CutPointTopography)) {
-                    pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
+                if (!(overArea && pnt instanceof CutPointTopography)) {
+                    pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                 }
             }
-            if (index != null) {
-                index.add(pts2D.size() - 1);
+            if (pntIndexOfGroundEffect != null) {
+                pntIndexOfGroundEffect.add(pts2D.size() - 1);
             }
         }
         return pts2D;
+    }
+    
+
+    private static boolean isFirstPointOverarea(List<CutPoint> pts) {
+        if (pts.get(0) instanceof CutPointSource) {
+            CutPointSource source = (CutPointSource) pts.get(0);
+            SourceBridgeProperty property = source.getSourceBridgeProperty();
+            if (property == null) {property = new SourceBridgeProperty();}
+            if (property.getBridgePkOn() > 0) {
+                return true;
+            } else if (property.getBridgePkOn() < 0 && property.getBridgePkAbove() < 0) {
+                return false;
+            }
+        }
+        CutPointWall firstWallPoint = getFirstWallPoint(pts);
+        if (firstWallPoint == null) {
+            return false;
+        } else {
+            return firstWallPoint.getIntersectionType() == INTERSECTION_TYPE.BUILDING_ENTER ? false : true;
+        }
+    }
+
+    private static CutPointWall getFirstWallPoint(List<CutPoint> pts) {
+        for (CutPoint pnt : pts) {
+            if (pnt instanceof CutPointWall) {
+                return (CutPointWall) pnt;
+            }
+        }
+        return null;
+    }
+    private static boolean isEnteringPoint(CutPointWall wall) {
+        return wall.getIntersectionType() == INTERSECTION_TYPE.BUILDING_ENTER;
+    }
+    
+    private static boolean isExitingPoint(CutPointWall wall) {
+        return wall.getIntersectionType() == INTERSECTION_TYPE.BUILDING_EXIT;
+    }
+    
+    private static boolean isWall(CutPointWall wall) {
+        return wall.getIntersectionType() == INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
     }
 
     /**
@@ -306,11 +344,11 @@ public class CutProfile {
      * @param pts list of cut points to process
      * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @param pntIndexOfGroundEffect if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM with simplified geometry
      */
-    public static List<Coordinate> computePts2DGround(List<CutPoint> pts, double tolerance, List<Integer> index) {
-        return JTSUtility.getNewCoordinateSystem(computePtsGround(pts, index), tolerance);
+    public static List<Coordinate> computePts2DGround(List<CutPoint> pts, double tolerance, List<Integer> pntIndexOfGroundEffect) {
+        return JTSUtility.getNewCoordinateSystem(computePtsGround(pts, pntIndexOfGroundEffect), tolerance);
     }
 
     /**
@@ -320,11 +358,11 @@ public class CutProfile {
      * 
      * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param index if provided, will contain corresponding indices from parameter to return list items
+     * @param pntIndexOfGroundEffect if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM with simplified geometry
      */
-    public List<Coordinate> computePts2DGround(double tolerance, List<Integer> index) {
-        return computePts2DGround(this.cutPoints, tolerance, index);
+    public List<Coordinate> computePts2DGround(double tolerance, List<Integer> pntIndexOfGroundEffect) {
+        return computePts2DGround(this.cutPoints, tolerance, pntIndexOfGroundEffect);
     }
 
     /**

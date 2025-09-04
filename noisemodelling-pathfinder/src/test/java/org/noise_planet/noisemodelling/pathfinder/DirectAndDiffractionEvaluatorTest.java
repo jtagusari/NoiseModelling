@@ -8,6 +8,7 @@ import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
+import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -300,7 +301,7 @@ class DirectAndDiffractionEvaluatorTest {
         }
 
         @Override
-        public CutProfile getProfile(Coordinate source, Coordinate receiver, double groundAttenuation, boolean stopAtObstacle) {
+        public CutProfile getProfile(Coordinate source, Coordinate receiver, double groundAttenuation, boolean stopAtObstacle, SourcePointInfo sourcePointInfo) {
             CutProfile profile = new CutProfile();
             
             if (sourceInProfile) {

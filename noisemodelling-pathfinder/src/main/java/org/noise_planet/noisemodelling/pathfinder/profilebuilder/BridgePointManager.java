@@ -36,7 +36,7 @@ public class BridgePointManager {
   
     public enum SortOrder {
         BY_PRIMARY_KEY,
-        COUNTER_CLOCKWISE,
+        CLOCKWISE,
         SIDE_TO_SIDE
     }
   
@@ -122,8 +122,8 @@ public class BridgePointManager {
     private void sortBridgePoints() {
         if (sortOrder == SortOrder.BY_PRIMARY_KEY) {
             sortByPrimaryKey();
-        } else if (sortOrder == SortOrder.COUNTER_CLOCKWISE) {
-            sortCounterClockwise();
+        } else if (sortOrder == SortOrder.CLOCKWISE) {
+            sortClockwise();
         } else if (sortOrder == SortOrder.SIDE_TO_SIDE) {
             sortSideToSide();
         }
@@ -145,7 +145,7 @@ public class BridgePointManager {
      * with RIGHT points first (in ascending primary key order) followed by
      * LEFT points (in descending primary key order).
      */
-    private void sortCounterClockwise() {
+    private void sortClockwise() {
         bridgePoints = bridgePoints.stream()
             .filter(point -> {
                 BridgePoint.Position pos = point.getPosition();
@@ -153,9 +153,9 @@ public class BridgePointManager {
             })
             .sorted(Comparator
                 .<BridgePoint, Integer>comparing(point -> 
-                    point.getPosition() == BridgePoint.Position.RIGHT ? 0 : 1)
+                    point.getPosition() == BridgePoint.Position.LEFT ? 0 : 1)
                 .thenComparing(point -> 
-                    point.getPosition() == BridgePoint.Position.RIGHT ? 
+                    point.getPosition() == BridgePoint.Position.LEFT ? 
                         point.getPrimaryKey() : -point.getPrimaryKey()))
             .collect(java.util.stream.Collectors.toList());
     }
@@ -224,7 +224,8 @@ public class BridgePointManager {
      * @param profileBuilder Profile builder for ground height calculation
      * @return Effective height
      */
-    public double getEffectiveDeckHeight(BridgePoint point, int index, ProfileBuilder profileBuilder) {
+    public double getEffectiveDeckHeight(int index, ProfileBuilder profileBuilder) {
+        BridgePoint point = bridgePoints.get(index);
         double absoluteHeight = point.getAbsoluteDeckHeight();
         double relativeHeight = point.getRelativeDeckHeight();
         
@@ -254,7 +255,7 @@ public class BridgePointManager {
      */
     public double interpolateDeckHeight(int index, ProfileBuilder profileBuilder) {
         if (bridgePoints.isEmpty()) {
-            return 0.0;
+            throw new IllegalStateException("No bridge points available for interpolation");
         }
         
         // Find previous point with valid deck height
@@ -304,7 +305,7 @@ public class BridgePointManager {
             }
         } else {
             // No valid interpolation possible - return error value
-            return Double.NaN;
+            throw new IllegalStateException("No valid deck height available for interpolation");
         }
     }
     
