@@ -307,7 +307,7 @@ public class KMLDocument {
         wallWriter.setTesselate(true);
         wallWriter.setAltitudeMode(profileBuilder.hasDem() ? KMLWriter.ALTITUDE_MODE_ABSOLUTE : KMLWriter.ALTITUDE_MODE_RELATIVETOGROUND);
         for(Wall wall : walls) {
-            Coordinate[] original = new Coordinate[]{wall.p0,wall.p1};
+            Coordinate[] original = new Coordinate[]{wall.getP0(), wall.getP1()};
             Coordinate[] coordinates = new Coordinate[original.length];
             for(int i = 0; i < coordinates.length; i++) {
                 coordinates[i] = copyCoord(original[i]);

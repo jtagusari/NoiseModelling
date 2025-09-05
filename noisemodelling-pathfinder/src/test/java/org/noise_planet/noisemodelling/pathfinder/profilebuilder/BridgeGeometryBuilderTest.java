@@ -47,15 +47,17 @@ public class BridgeGeometryBuilderTest {
 
     @Test
     public void testCreateDeckGeometryWithNullPointManager() {
-        Polygon polygon = geometryBuilder.createDeckGeometry(null, null);
-        assertNull(polygon, "Should return null when point manager is null");
+        assertThrows(IllegalArgumentException.class, () -> {
+            geometryBuilder.createDeckGeometry(null, null);
+        }, "Should throw IllegalArgumentException when point manager is null");
     }
 
     @Test
     public void testCreateDeckGeometryWithEmptyPoints() {
         BridgePointManager pointManager = new BridgePointManager();
-        Polygon polygon = geometryBuilder.createDeckGeometry(pointManager, null);
-        assertNull(polygon, "Should return null when no bridge points");
+        assertThrows(IllegalArgumentException.class, () -> {
+            geometryBuilder.createDeckGeometry(pointManager, null);
+        }, "Should throw IllegalArgumentException when no bridge points");
     }
 
     @Test
@@ -64,8 +66,9 @@ public class BridgeGeometryBuilderTest {
         BridgePoint point = createTestPoint(1, 100.0, 200.0, 10.0);
         pointManager.addBridgePoint(point);
 
-        Polygon polygon = geometryBuilder.createDeckGeometry(pointManager, createMockProfileBuilder(5.0));
-        assertNull(polygon, "Should return null when only one bridge point");
+        assertThrows(IllegalArgumentException.class, () -> {
+            geometryBuilder.createDeckGeometry(pointManager, createMockProfileBuilder(5.0));
+        }, "Should throw IllegalArgumentException when only one bridge point");
     }
 
     @Test
@@ -266,8 +269,9 @@ public class BridgeGeometryBuilderTest {
 
     @Test
     public void testCreateBridgeEdgePointsWithNullPointManager() {
-        List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(null, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
-        assertNull(edgePoints, "Should return null when point manager is null");
+        assertThrows(IllegalArgumentException.class, () -> {
+            geometryBuilder.createBridgeEdgePoints(null, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
+        }, "Should throw IllegalArgumentException when point manager is null");
     }
 
     @Test
@@ -358,11 +362,11 @@ public class BridgeGeometryBuilderTest {
         BridgePoint rightPoint1 = rightEdgePoints.get(0);
         BridgePoint rightPoint2 = rightEdgePoints.get(1);
         
-        // For a horizontal line going east, right side should be in +Y direction
+        // For a horizontal line going east, right side should be in -Y direction (90 degrees clockwise from direction)
         assertEquals(0.0, rightPoint1.getCoordinate().x, 0.001, "Right point 1 X should match");
-        assertEquals(5.0, rightPoint1.getCoordinate().y, 0.001, "Right point 1 Y should be offset +5.0");
+        assertEquals(-5.0, rightPoint1.getCoordinate().y, 0.001, "Right point 1 Y should be offset -5.0");
         assertEquals(100.0, rightPoint2.getCoordinate().x, 0.001, "Right point 2 X should match");
-        assertEquals(5.0, rightPoint2.getCoordinate().y, 0.001, "Right point 2 Y should be offset +5.0");
+        assertEquals(-5.0, rightPoint2.getCoordinate().y, 0.001, "Right point 2 Y should be offset -5.0");
 
         // Test left direction (should offset in -Y direction for horizontal line)
         List<BridgePoint> leftEdgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.LEFT, false);
@@ -371,11 +375,11 @@ public class BridgeGeometryBuilderTest {
         BridgePoint leftPoint1 = leftEdgePoints.get(0);
         BridgePoint leftPoint2 = leftEdgePoints.get(1);
         
-        // For a horizontal line going east, left side should be in -Y direction
+        // For a horizontal line going east, left side should be in +Y direction (90 degrees counter-clockwise from direction)
         assertEquals(0.0, leftPoint1.getCoordinate().x, 0.001, "Left point 1 X should match");
-        assertEquals(-5.0, leftPoint1.getCoordinate().y, 0.001, "Left point 1 Y should be offset -5.0");
+        assertEquals(5.0, leftPoint1.getCoordinate().y, 0.001, "Left point 1 Y should be offset +5.0");
         assertEquals(100.0, leftPoint2.getCoordinate().x, 0.001, "Left point 2 X should match");
-        assertEquals(-5.0, leftPoint2.getCoordinate().y, 0.001, "Left point 2 Y should be offset -5.0");
+        assertEquals(5.0, leftPoint2.getCoordinate().y, 0.001, "Left point 2 Y should be offset +5.0");
     }
 
     // Test for edge cases and error conditions
@@ -386,8 +390,9 @@ public class BridgeGeometryBuilderTest {
         BridgePoint point = createTestPoint(1, 100.0, 200.0, 10.0);
         pointManager.addBridgePoint(point);
 
-        Polygon polygon = geometryBuilder.createDeckGeometry(pointManager, createMockProfileBuilder(5.0));
-        assertNull(polygon, "Should return null when insufficient points for polygon");
+        assertThrows(IllegalArgumentException.class, () -> {
+            geometryBuilder.createDeckGeometry(pointManager, createMockProfileBuilder(5.0));
+        }, "Should throw IllegalArgumentException when insufficient points for polygon");
     }
 
     @Test

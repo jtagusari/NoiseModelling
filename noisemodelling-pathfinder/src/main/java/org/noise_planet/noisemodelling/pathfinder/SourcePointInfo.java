@@ -59,7 +59,8 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.position = source.getCoordinate();
         this.li = source.getLineLength();
         this.orientation = source.getOrientation();
-        this.sourceBridgeProperty = source.getSourceBridgeProperty();
+        this.sourceBridgeProperty = source.getSourceBridgeProperty() != null ? 
+                                   source.getSourceBridgeProperty() : new SourceBridgeProperty();
     }
 
     public SourcePointInfo(){
@@ -116,13 +117,17 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         if (o == null || getClass() != o.getClass()) return false;
 
         SourcePointInfo that = (SourcePointInfo) o;
-        return sourceIndex == that.getSourceIndex() && position.equals(that.getCoordinate()) && sourceBridgeProperty.equals(that.getSourceBridgeProperty());
+        return sourceIndex == that.getSourceIndex() && 
+               position.equals(that.getCoordinate()) && 
+               (sourceBridgeProperty == null ? that.getSourceBridgeProperty() == null :
+                sourceBridgeProperty.equals(that.getSourceBridgeProperty()));
     }
 
     @Override
     public int hashCode() {
         int result = sourceIndex;
-        result = 31 * result + position.hashCode() + sourceBridgeProperty.hashCode();
+        result = 31 * result + position.hashCode() + 
+                 (sourceBridgeProperty != null ? sourceBridgeProperty.hashCode() : 0);
         return result;
     }
 }

@@ -261,7 +261,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, noiseMapByReceiverMaker.getSceneInputSettings());
         scene.setDirectionAttributes(directionAttributes);
         scene.cnossosParametersPerPeriod = cnossosParametersPerPeriod;
-        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS = defaultParameters;
+        scene.setAttenuationParameters(defaultParameters);
         scene.periodSet.addAll(cnossosParametersPerPeriod.keySet());
 
 

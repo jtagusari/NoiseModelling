@@ -217,7 +217,7 @@ public class MirrorReceiversCompute {
                     sb.append(",").append(res.getWall().getProcessedWallIndex());
                     sb.append(",").append(t).append("\n");
                     sb.append("\"");
-                    sb.append(wktWriter.write(factory.createLineString(new Coordinate[]{res.getWall().p0, res.getWall().p1}).
+                    sb.append(wktWriter.write(factory.createLineString(new Coordinate[]{res.getWall().getP0(), res.getWall().getP1()}).
                             buffer(0.05, 8, BufferParameters.CAP_SQUARE)));
                     sb.append("\",1");
                     sb.append(",").append(refIndex);

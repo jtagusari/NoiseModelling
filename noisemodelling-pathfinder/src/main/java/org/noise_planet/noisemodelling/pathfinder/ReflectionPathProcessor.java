@@ -91,7 +91,7 @@ public class ReflectionPathProcessor {
         Coordinate destinationPt = new Coordinate(sourceCoordinates);
         Wall seg = receiverReflection.getWall();
 
-        lineIntersector.computeIntersection(seg.p0, seg.p1,
+        lineIntersector.computeIntersection(seg.getP0(), seg.getP1(),
                 receiverReflection.getReceiverPos(),
                 destinationPt);
 
@@ -111,7 +111,7 @@ public class ReflectionPathProcessor {
                 destinationPt.setCoordinate(reflectionPt);
                 receiverReflectionCursor = receiverReflectionCursor.getParentMirror();
                 seg = receiverReflectionCursor.getWall();
-                lineIntersector.computeIntersection(seg.p0, seg.p1,
+                lineIntersector.computeIntersection(seg.getP0(), seg.getP1(),
                         receiverReflectionCursor.getReceiverPos(),
                         destinationPt);
             }

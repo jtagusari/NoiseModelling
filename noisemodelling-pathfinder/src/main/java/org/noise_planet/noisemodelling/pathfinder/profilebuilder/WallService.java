@@ -73,7 +73,7 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
      */
     public void addWall(Wall wall) {
         walls.add(wall);
-        wallTree.insert(new Envelope(wall.p0, wall.p1), walls.size());
+        wallTree.insert(new Envelope(wall.getP0(), wall.getP1()), walls.size());
     }
 
     /**
@@ -97,7 +97,7 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
     public void exportFacetsToProcessedWalls(ProcessedWallService processedWallService, GeometryFactory factory) {
         for (int j = 0; j < getWallCount(); j++) {
             Wall wall = getWall(j);
-            Coordinate[] coords = new Coordinate[]{wall.p0, wall.p1};
+            Coordinate[] coords = new Coordinate[]{wall.getP0(), wall.getP1()};
             for (int i = 0; i < coords.length - 1; i++) {
                 LineSegment lineSegment = new LineSegment(coords[i], coords[i + 1]);
                 Wall w = new Wall(lineSegment, j, IntersectionType.WALL).setProcessedWallIndex(processedWallService.getProcessedWalls().size());
@@ -174,11 +174,11 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
     @Override
     public void computeElevations(ProfileBuilder profileBuilder) {
         for (Wall w : walls) {
-            if (Double.isNaN(w.p0.z) || w.p0.z == 0.0) {
-                w.p0.z = w.height + profileBuilder.getZGround(w.p0);
+            if (Double.isNaN(w.getP0().z) || w.getP0().z == 0.0) {
+                w.getP0().z = w.height + profileBuilder.getZGround(w.getP0());
             }
-            if (Double.isNaN(w.p1.z) || w.p1.z == 0.0) {
-                w.p1.z = w.height + profileBuilder.getZGround(w.p1);
+            if (Double.isNaN(w.getP1().z) || w.getP1().z == 0.0) {
+                w.getP1().z = w.height + profileBuilder.getZGround(w.getP1());
             }
         }
     }

@@ -374,6 +374,14 @@ public class CutProfile {
         return new ArrayList<>(cutPoints);
     }
 
+    public CutPointWall.INTERSECTION_TYPE getWallIntersectionType(int index) {
+        CutPoint cp = cutPoints.get(index);
+        if (cp instanceof CutPointWall) {
+            return ((CutPointWall) cp).getIntersectionType();
+        }
+        throw new IllegalArgumentException("Cut point at index " + index + " is not a CutPointWall");
+    }
+
     /**
      * Set the cut points for this profile.
      * 

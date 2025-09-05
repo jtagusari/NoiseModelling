@@ -123,4 +123,8 @@ public class AttenuationComputeOutput implements CutPlaneVisitorFactory {
     public synchronized long getCellComputed() {
         return cellComputed.get();
     }
+
+    public AttenuationParameters getAttenuationParameters() {
+        return scene.getAttenuationParameters();
+    }
 }

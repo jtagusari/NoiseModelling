@@ -210,7 +210,7 @@ public class SceneWithEmissionTest {
         scene.setComputeVerticalDiffraction(true);
         scene.setMaxSrcDist(2000);
 
-        AttenuationParameters attData = SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS;
+        AttenuationParameters attData = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
         attData.setHumidity(70);
         attData.setTemperature(10);
 
@@ -348,10 +348,14 @@ public class SceneWithEmissionTest {
         scene.registerSourceEmission(1L, "", roadLvl);
 
         scene.setMaxSrcDist(2000);
+        
+        AttenuationParameters attData = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
+        attData.setHumidity(70);
+        attData.setTemperature(10);
+        scene.setAttenuationParameters(attData);
 
-        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS.setHumidity(70);
-        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS.setTemperature(10);
 
+        
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
         AttenuationOutputMultiThread outputMultiThread = new AttenuationOutputMultiThread(scene);

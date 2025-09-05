@@ -214,11 +214,11 @@ class DirectAndDiffractionEvaluatorTest {
         testScene.setSourceInProfile(false);
         testScene.setReceiverInProfile(false);
 
-        // Act & Assert
-        assertDoesNotThrow(() -> {
+        // Act & Assert - expect IllegalStateException when no source points exist
+        assertThrows(IllegalStateException.class, () -> {
             DirectAndDiffractionEvaluator.computeDirectPath(
                 testSourceInfo, testReceiverInfo, true, true, testCutPlaneVisitor, testScene);
-        }, "Should handle null cut profile components gracefully");
+        }, "Should throw IllegalStateException when no source point exists in the profile");
     }
 
     @Test

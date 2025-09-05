@@ -22,6 +22,7 @@ public class CutPointWall  extends CutPoint {
 
     public enum INTERSECTION_TYPE {BUILDING_ENTER, BUILDING_EXIT, THIN_WALL_ENTER_EXIT}
 
+    @JsonProperty("intersectionType")
     public INTERSECTION_TYPE intersectionType = INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
 
     /**
@@ -93,10 +94,14 @@ public class CutPointWall  extends CutPoint {
         return processedWallIndex;
     }
 
-    @JsonIgnore
     public INTERSECTION_TYPE getIntersectionType() {
         return intersectionType;
     }
+    
+    public void setIntersectionType(INTERSECTION_TYPE intersectionType) {
+        this.intersectionType = intersectionType;
+    }
+    
     public void setWallAlpha(List<Double> wallAlpha) {
         this.wallAlpha = wallAlpha;
     }

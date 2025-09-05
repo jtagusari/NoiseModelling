@@ -20,8 +20,8 @@ public class Wall extends Obstruction {
     public long primaryKey = -1;
     /** Wall height, if -1, use z coordinate. */
     public double height;
-    public Coordinate p0;
-    public Coordinate p1;
+    private Coordinate p0;
+    private Coordinate p1;
     public LineSegment ls;
     public int processedWallIndex;
 
@@ -91,6 +91,14 @@ public class Wall extends Obstruction {
 
     public long getPrimaryKey() {
         return primaryKey;
+    }
+
+    public Coordinate getP0() {
+        return p0;
+    }
+
+    public Coordinate getP1() {
+        return p1;
     }
 
     /**

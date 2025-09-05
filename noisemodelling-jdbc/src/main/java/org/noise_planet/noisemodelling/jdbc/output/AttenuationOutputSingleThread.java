@@ -23,6 +23,7 @@ import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
@@ -36,7 +37,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.DoubleStream;
 
 import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.*;
-import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.wToDb;
 
 
 /**
@@ -166,7 +166,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                         processNoiseLevel(receiverNoiseLevel);
                     }
                 } else {
-                    double[] attenuation = dBToW(processAndStoreAttenuation(SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS, cnossosPath, ""));
+                    double[] attenuation = dBToW(processAndStoreAttenuation(new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE), cnossosPath, ""));
                     ReceiverNoiseLevel receiverNoiseLevel =
                             new ReceiverNoiseLevel(new SourcePointInfo(source),
                                     new ReceiverPointInfo(receiver), "",
@@ -188,7 +188,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                         } else {
                             if(defaultAttenuation.length == 0) {
                                 // None ? ok fallback to default settings
-                                defaultAttenuation = dBToW(processAndStoreAttenuation(SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS,
+                                defaultAttenuation = dBToW(processAndStoreAttenuation(new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE),
                                         cnossosPath, ""));
                             }
                             attenuation = defaultAttenuation;
@@ -264,7 +264,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
 
             final SceneWithEmission scene = multiThread.sceneWithEmission;
             for (SourcePointInfo sourcePointInfo : sourceList) {
-                double[] attenuation = dBToW(computeFastAttenuation(sourcePointInfo, receiver, SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS));
+                double[] attenuation = dBToW(computeFastAttenuation(sourcePointInfo, receiver, new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE)));
                 if(scene.getWjSources().containsKey(sourcePointInfo.getSourcePk())) {
                     ArrayList<SceneWithEmission.PeriodEmission> emissions = scene.getWjSources().get(sourcePointInfo.getSourcePk());
                     for (SceneWithEmission.PeriodEmission periodEmission : emissions) {

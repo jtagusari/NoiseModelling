@@ -14,6 +14,7 @@ import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
@@ -81,7 +82,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
                 processPath(cnossosParametersEntry.getKey(), cnossosParametersEntry.getValue(), path);
             }
         } else {
-            processPath("", SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS, path);
+            processPath("", multiThreadParent.scene.getAttenuationParameters(), path);
         }
     }
 

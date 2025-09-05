@@ -113,12 +113,12 @@ public final class BuildingIntersectionPathVisitor implements ItemVisitor {
             }
             // Create the diffraction point outside the wall segment
             // Diffraction point must not intersect with wall
-            Vector2D translationVector = new Vector2D(processedWall.p0, processedWall.p1).normalize()
+            Vector2D translationVector = new Vector2D(processedWall.getP0(), processedWall.getP1()).normalize()
                     .multiply(ProfileBuilder.wideAngleTranslationEpsilon);
-            Coordinate extendedP0 = new Coordinate(processedWall.p0.x - translationVector.getX(),
-                    processedWall.p0.y - translationVector.getY(), processedWall.p0.z);
-            Coordinate extendedP1 = new Coordinate(processedWall.p1.x + translationVector.getX(),
-                    processedWall.p1.y + translationVector.getY(), processedWall.p1.z);
+            Coordinate extendedP0 = new Coordinate(processedWall.getP0().x - translationVector.getX(),
+                    processedWall.getP0().y - translationVector.getY(), processedWall.getP0().z);
+            Coordinate extendedP1 = new Coordinate(processedWall.getP1().x + translationVector.getX(),
+                    processedWall.getP1().y + translationVector.getY(), processedWall.getP1().z);
             List<Coordinate> roofPoints = Arrays.asList(extendedP0, extendedP1);
             // Create a cut of the building volume
             roofPoints = filterPointsBySide(p1Top2, left, cutRoofPointsWithPlane(cutPlane, roofPoints));

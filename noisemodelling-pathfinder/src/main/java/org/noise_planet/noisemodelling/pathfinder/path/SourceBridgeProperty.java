@@ -75,7 +75,10 @@ public class SourceBridgeProperty {
         if (o == null || getClass() != o.getClass()) return false;
 
         SourceBridgeProperty that = (SourceBridgeProperty) o;
-        return bridgePkOn == that.getBridgePkOn() && bridgePkAbove == that.getBridgePkAbove() && sourceType == that.getSourceType();
+        return bridgePkOn == that.getBridgePkOn() && 
+               bridgePkAbove == that.getBridgePkAbove() && 
+               (sourceType == that.getSourceType() || 
+                (sourceType != null && sourceType.equals(that.getSourceType())));
     }
 
     
@@ -83,7 +86,7 @@ public class SourceBridgeProperty {
     public int hashCode() {
         int result = (int) (bridgePkOn ^ (bridgePkOn >>> 32));
         result = 31 * result + (int) (bridgePkAbove ^ (bridgePkAbove >>> 32));
-        result = 31 * result + sourceType.hashCode();
+        result = 31 * result + (sourceType != null ? sourceType.hashCode() : 0);
         return result;
     }
 

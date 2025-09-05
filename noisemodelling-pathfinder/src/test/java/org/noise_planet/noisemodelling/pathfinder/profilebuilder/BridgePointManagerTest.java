@@ -163,8 +163,9 @@ public class BridgePointManagerTest {
         
         manager.addBridgePoint(point);
         
-        double interpolated = manager.interpolateDeckHeight(0, null);
-        assertTrue(Double.isNaN(interpolated), "Should return NaN when no valid points");
+        assertThrows(IllegalStateException.class, () -> {
+            manager.interpolateDeckHeight(0, null);
+        }, "Should throw IllegalStateException when no valid points");
     }
 
     @Test
@@ -306,15 +307,15 @@ public class BridgePointManagerTest {
         List<BridgePoint> points = manager.getBridgePoints();
         assertEquals(4, points.size(), "Should filter out CENTER position points");
         
-        // Expected order: RIGHT points in ascending order, then LEFT points in descending order
-        assertEquals(BridgePoint.Position.RIGHT, points.get(0).getPosition(), "First should be RIGHT");
-        assertEquals(1L, points.get(0).getPrimaryKey(), "First RIGHT should have PK 1");
-        assertEquals(BridgePoint.Position.RIGHT, points.get(1).getPosition(), "Second should be RIGHT");
-        assertEquals(2L, points.get(1).getPrimaryKey(), "Second RIGHT should have PK 2");
-        assertEquals(BridgePoint.Position.LEFT, points.get(2).getPosition(), "Third should be LEFT");
-        assertEquals(2L, points.get(2).getPrimaryKey(), "First LEFT should have PK 2 (descending)");
-        assertEquals(BridgePoint.Position.LEFT, points.get(3).getPosition(), "Fourth should be LEFT");
-        assertEquals(1L, points.get(3).getPrimaryKey(), "Second LEFT should have PK 1 (descending)");
+        // Expected order: LEFT points in ascending order, then RIGHT points in descending order
+        assertEquals(BridgePoint.Position.LEFT, points.get(0).getPosition(), "First should be LEFT");
+        assertEquals(1L, points.get(0).getPrimaryKey(), "First LEFT should have PK 1");
+        assertEquals(BridgePoint.Position.LEFT, points.get(1).getPosition(), "Second should be LEFT");
+        assertEquals(2L, points.get(1).getPrimaryKey(), "Second LEFT should have PK 2");
+        assertEquals(BridgePoint.Position.RIGHT, points.get(2).getPosition(), "Third should be RIGHT");
+        assertEquals(2L, points.get(2).getPrimaryKey(), "First RIGHT should have PK 2 (descending)");
+        assertEquals(BridgePoint.Position.RIGHT, points.get(3).getPosition(), "Fourth should be RIGHT");
+        assertEquals(1L, points.get(3).getPrimaryKey(), "Second RIGHT should have PK 1 (descending)");
     }
 
     @Test
@@ -505,8 +506,9 @@ public class BridgePointManagerTest {
         manager.addBridgePoint(point1);
         manager.addBridgePoint(point2);
         
-        double interpolated = manager.interpolateDeckHeight(1, null);
-        assertTrue(Double.isNaN(interpolated), "Should return NaN when only one neighboring point");
+        assertThrows(IllegalStateException.class, () -> {
+            manager.interpolateDeckHeight(1, null);
+        }, "Should throw IllegalStateException when only one neighboring point");
     }
 
     @Test
@@ -519,8 +521,9 @@ public class BridgePointManagerTest {
         manager.addBridgePoint(point1);
         manager.addBridgePoint(point2);
         
-        double interpolated = manager.interpolateDeckHeight(0, null);
-        assertTrue(Double.isNaN(interpolated), "Should return NaN when only one neighboring point");
+        assertThrows(IllegalStateException.class, () -> {
+            manager.interpolateDeckHeight(0, null);
+        }, "Should throw IllegalStateException when only one neighboring point");
     }
 
     @Test

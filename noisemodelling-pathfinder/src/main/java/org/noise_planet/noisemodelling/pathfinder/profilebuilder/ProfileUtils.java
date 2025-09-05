@@ -157,11 +157,11 @@ public final class ProfileUtils {
                 Coordinate intersection = fullLine.intersection(processedWall.getLineSegment());
                 if (intersection == null) {continue; }
                 intersection = new Coordinate(intersection);
-                if (!Double.isNaN(processedWall.p0.z) && !Double.isNaN(processedWall.p1.z)) {
-                    if (Double.compare(processedWall.p0.z, processedWall.p1.z) == 0) {
-                        intersection.z = processedWall.p0.z;
+                if (!Double.isNaN(processedWall.getP0().z) && !Double.isNaN(processedWall.getP1().z)) {
+                    if (Double.compare(processedWall.getP0().z, processedWall.getP1().z) == 0) {
+                        intersection.z = processedWall.getP0().z;
                     } else {
-                        intersection.z = Vertex.interpolateZ(intersection, processedWall.p0, processedWall.p1);
+                        intersection.z = Vertex.interpolateZ(intersection, processedWall.getP0(), processedWall.getP1());
                     }
                 }
                 boolean continueCalculation = createCutPointAndCheckObstruction(buildingService, wallService, bridgeService, groundService, processedWallService, processedWall.type, i, intersection, processedWall, seg, newCutPoints, stopAtObstacleOverSourceReceiver, profile, factory);

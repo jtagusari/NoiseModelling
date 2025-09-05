@@ -56,7 +56,7 @@ public class PathFinderTest {
 
     public boolean overwriteTestCase = false;
 
-    public boolean outputCurrentCutProfile = false;
+    public boolean outputCurrentCutProfile = true;
 
     public static final double DELTA_COORDS = 0.1;
 

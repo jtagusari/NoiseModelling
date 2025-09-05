@@ -112,7 +112,7 @@ public class GenerateReferenceDeviation {
         attData.setHumidity(HUMIDITY);
         attData.setTemperature(TEMPERATURE);
 
-        SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS = attData;
+        scene.setAttenuationParameters(attData);
 
         //Out and computation settings
         AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);

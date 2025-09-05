@@ -59,12 +59,15 @@ public class SceneWithAttenuation extends Scene {
      */
     public Map<String, Integer> sourceFieldNames = new HashMap<>();
 
-    /**
-     * Default attenuation parameters used when per-period parameters are
-     * not specified. The default frequencies are initialized in the
-     * constructor from the profileBuilder frequencyArray.
-     */
-    public static AttenuationParameters DEFAULT_CNOSSOS_PARAMETERS = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
+
+    private AttenuationParameters attenuationParameters = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
+    public void setAttenuationParameters(AttenuationParameters attenuationParameters) {
+        this.attenuationParameters = attenuationParameters;
+    }
+
+    public AttenuationParameters getAttenuationParameters() {
+        return attenuationParameters;
+    }
 
     /**
      * Per-period attenuation settings (keyed by period identifier). When
@@ -82,7 +85,7 @@ public class SceneWithAttenuation extends Scene {
 
     public SceneWithAttenuation(ProfileBuilder profileBuilder) {
         super(profileBuilder);
-        DEFAULT_CNOSSOS_PARAMETERS.setFrequencies(profileBuilder.getFrequencyArray());
+        attenuationParameters.setFrequencies(profileBuilder.getFrequencyArray());
     }
 
     public SceneWithAttenuation() {

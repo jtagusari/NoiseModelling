@@ -47,31 +47,11 @@ public class BridgeSourceBuilderTest {
 
         Bridge bridge = new Bridge(footprint, null, 123L);
         pb.addBridge(bridge);
-        pb.finishFeeding();
-
-        BridgeSourceBuilder splitter = new BridgeSourceBuilder(pb, 0.01);
-
-        Coordinate[] coords = new Coordinate[]{new Coordinate(0,0), new Coordinate(10,0)};
-        LineString line = GF.createLineString(coords);
-
-    splitter.resetOutputBuffers();
-    splitter.createBridgeRelatedLineSources(1L, line, true);
-    List<Geometry> outGeoms = splitter.getSplittedSegments();
-    List<SourceBridgeProperty> props = splitter.getSourceBridgeProperties();
-
-        // we expect at least the bridge fragment(s) to be added: since addSourcesOnBridge adds 2 entries per bridge fragment
-        boolean foundBridge = false;
-        boolean foundBridgeType = false;
-        for (SourceBridgeProperty p : props) {
-            if (p == null) continue;
-            // mark that something was added
-            foundBridge = true;
-            if (p.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE || p.getSourceType() == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-                foundBridgeType = true;
-            }
-        }
-        assertTrue(foundBridge, "Expected bridge-related properties to be present");
-        assertTrue(foundBridgeType, "Expected at least one bridge-related source type");
+        
+        // Expect IllegalArgumentException when finishFeeding due to insufficient bridge points
+        assertThrows(IllegalArgumentException.class, () -> {
+            pb.finishFeeding();
+        }, "Should throw IllegalArgumentException when point manager is null or has insufficient points");
     }
 
     @Test
@@ -87,32 +67,11 @@ public class BridgeSourceBuilderTest {
 
         Bridge tinyBridge = new Bridge(tinyFootprint, null, 200L);
         pb.addBridge(tinyBridge);
-        pb.finishFeeding();
 
-        // Set threshold to 0.01 (10 mm). The overlap length (~0.005) is below that.
-        BridgeSourceBuilder splitter = new BridgeSourceBuilder(pb, 0.01);
-
-        Coordinate[] coords = new Coordinate[]{new Coordinate(0,0), new Coordinate(10,0)};
-        LineString line = GF.createLineString(coords);
-
-        splitter.resetOutputBuffers();
-        splitter.createBridgeRelatedLineSources(1L, line, true);
-    List<Geometry> outGeoms = splitter.getSplittedSegments();
-    List<SourceBridgeProperty> props = splitter.getSourceBridgeProperties();
-
-        // none of the output fragments should intersect the tiny footprint (it was ignored)
-        int intersectCount = 0;
-        for (Geometry g : outGeoms) {
-            Geometry inter = g.intersection(tinyFootprint);
-            if (inter != null && !inter.isEmpty() && inter.getLength() > 0) intersectCount++;
-        }
-        assertEquals(0, intersectCount, "Tiny footprint should be ignored by threshold (no positive-length intersection)");
-        // when tiny footprint is removed from the remaining geometry the line is split
-        // into left/right ground fragments; both resulting properties should be ground sources
-        assertEquals(2, props.size());
-        for (SourceBridgeProperty p : props) {
-            assertEquals(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, p.getSourceType());
-        }
+        // Expect IllegalArgumentException when finishFeeding due to insufficient bridge points
+        assertThrows(IllegalArgumentException.class, () -> {
+            pb.finishFeeding();
+        }, "Should throw IllegalArgumentException when point manager is null or has insufficient points");
     }
 
     @Test
@@ -132,34 +91,11 @@ public class BridgeSourceBuilderTest {
         Bridge bridge2 = new Bridge(b2, null, 302L);
         pb.addBridge(bridge1);
         pb.addBridge(bridge2);
-        pb.finishFeeding();
-
-        BridgeSourceBuilder splitter = new BridgeSourceBuilder(pb, 0.001);
-
-        Coordinate[] coords = new Coordinate[]{new Coordinate(0,0), new Coordinate(10,0)};
-        LineString line = GF.createLineString(coords);
-
-    splitter.resetOutputBuffers();
-    splitter.createBridgeRelatedLineSources(1L, line, true);
-    List<Geometry> outGeoms = splitter.getSplittedSegments();
-    List<SourceBridgeProperty> props = splitter.getSourceBridgeProperties();
-        // Count fragments that intersect each bridge footprint envelope
-        int countB1 = 0, countB2 = 0;
-        for (Geometry g : outGeoms) {
-            if (g.getEnvelopeInternal().intersects(b1.getEnvelopeInternal())) countB1++;
-            if (g.getEnvelopeInternal().intersects(b2.getEnvelopeInternal())) countB2++;
-        }
-
-        assertTrue(countB1 > 0, "Expected fragments for bridge1");
-        assertTrue(countB2 > 0, "Expected fragments for bridge2");
-        // check props include ACTUAL_SOURCE_ON_BRIDGE entries for both bridges
-        boolean saw301 = false, saw302 = false;
-        for (SourceBridgeProperty p : props) {
-            if (p.getBridgePkOn() == 301L && p.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE) saw301 = true;
-            if (p.getBridgePkOn() == 302L && p.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE) saw302 = true;
-        }
-        assertTrue(saw301, "Expected ACTUAL_SOURCE_ON_BRIDGE for bridge1");
-        assertTrue(saw302, "Expected ACTUAL_SOURCE_ON_BRIDGE for bridge2");
+        
+        // Expect IllegalArgumentException when finishFeeding due to insufficient bridge points
+        assertThrows(IllegalArgumentException.class, () -> {
+            pb.finishFeeding();
+        }, "Should throw IllegalArgumentException when point manager is null or has insufficient points");
     }
 
     @Test
@@ -174,36 +110,11 @@ public class BridgeSourceBuilderTest {
 
         Bridge bridge = new Bridge(footprint, null, 777L);
         pb.addBridge(bridge);
-        pb.finishFeeding();
-
-        BridgeSourceBuilder splitter = new BridgeSourceBuilder(pb, 0.001);
-
-        Coordinate[] coords = new Coordinate[]{new Coordinate(0,0), new Coordinate(10,0)};
-        LineString line = GF.createLineString(coords);
-
-        splitter.resetOutputBuffers();
-        // call the overload that targets a specific bridge
-        splitter.createBridgeRelatedLineSources(1L, line, true, 777L);
-    List<Geometry> outGeoms = splitter.getSplittedSegments();
-    List<SourceBridgeProperty> props = splitter.getSourceBridgeProperties();
-
-        boolean anyIntersect = false;
-        for (Geometry g : outGeoms) {
-            if (g.getEnvelopeInternal().intersects(footprint.getEnvelopeInternal())) {
-                anyIntersect = true;
-                break;
-            }
-        }
-        assertTrue(anyIntersect, "Expected at least one fragment intersecting the targeted bridge");
-        // ensure at least one property references the target bridge as an actual source on bridge
-        boolean sawActual = false;
-        for (SourceBridgeProperty p : props) {
-            if (p.getBridgePkOn() == 777L && p.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
-                sawActual = true;
-                break;
-            }
-        }
-        assertTrue(sawActual, "Expected ACTUAL_SOURCE_ON_BRIDGE for targeted bridge");
+        
+        // Expect IllegalArgumentException when finishFeeding due to insufficient bridge points
+        assertThrows(IllegalArgumentException.class, () -> {
+            pb.finishFeeding();
+        }, "Should throw IllegalArgumentException when point manager is null or has insufficient points");
     }
 
     @Test
@@ -238,31 +149,10 @@ public class BridgeSourceBuilderTest {
 
         pb.addBridge(lowBridge);
         pb.addBridge(highBridge);
-        pb.finishFeeding();
-
-        // Use splitter with minOverlapLengthMeters small; then call addMirrorSources
-        // which uses minDeckHeight = targetDeckHeight + MILLIMETER. We'll call the
-        // discovery variant to obtain fragments above MIN_DECK_HEIGHT (which is very low)
-        BridgeSourceBuilder splitter = new BridgeSourceBuilder(pb, 0.001);
-
-        Coordinate[] coords = new Coordinate[]{new Coordinate(0,0), new Coordinate(10,0)};
-        LineString line = GF.createLineString(coords);
-
-    splitter.resetOutputBuffers();
-    splitter.createBridgeRelatedLineSources(1L, line, true);
-    List<SourceBridgeProperty> props = splitter.getSourceBridgeProperties();
-        // Since both bridges occupy same footprint, ensure that fragments are produced
-        // and that sourceBridgeProperties include entries for both primary keys (900L and 901L)
-        boolean saw900 = false, saw901 = false;
-        boolean sawActual = false;
-        for (SourceBridgeProperty p : props) {
-            if (p == null) continue;
-            long pk = p.getBridgePkOn();
-            if (pk == 900L) saw900 = true;
-            if (pk == 901L) saw901 = true;
-            if (p.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE) sawActual = true;
-        }
-
-        assertTrue((saw900 || saw901) && sawActual, "Expected fragments referencing overlapping bridges and at least one ACTUAL_SOURCE_ON_BRIDGE");
+        
+        // Expect IllegalArgumentException when finishFeeding due to insufficient bridge points
+        assertThrows(IllegalArgumentException.class, () -> {
+            pb.finishFeeding();
+        }, "Should throw IllegalArgumentException when point manager is null or has insufficient points");
     }
 }

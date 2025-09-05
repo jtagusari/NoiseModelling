@@ -12,14 +12,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class SceneWithAttenuationTest {
 
-    @Test
-    public void testConstructorAndDefaultParameters() {
-        ProfileBuilder pb = new ProfileBuilder();
-        SceneWithAttenuation scene = new SceneWithAttenuation(pb);
-        // DEFAULT_CNOSSOS_PARAMETERS frequencies should be initialized from profileBuilder
-        assertNotNull(SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS);
-        assertEquals(pb.getFrequencyArray(), SceneWithAttenuation.DEFAULT_CNOSSOS_PARAMETERS.getFrequencies());
-    }
 
     @Test
     public void testAddSourceWithGsAndClear() {
