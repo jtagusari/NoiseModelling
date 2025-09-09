@@ -1,7 +1,6 @@
 package org.noise_planet.noisemodelling.pathfinder.utils.geometry;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * Used for deserialization

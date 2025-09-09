@@ -93,6 +93,14 @@ public class PointPath {
         return obstacleZ;
     }
 
+    public Orientation getOrientation() {
+        return orientation;
+    }
+
+    public void setOrientation(Orientation orientation) {
+        this.orientation = orientation;
+    }
+
     /**
      * parameters given by user
      * @param coordinate

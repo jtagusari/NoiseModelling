@@ -1,7 +1,6 @@
 package org.noise_planet.nmtutorial01;
 
 import org.h2.value.ValueBoolean;
-import org.h2gis.api.EmptyProgressVisitor;
 import org.h2gis.functions.io.geojson.GeoJsonRead;
 import org.h2gis.functions.io.shp.SHPWrite;
 import org.h2gis.utilities.GeometryTableUtilities;
@@ -10,7 +9,6 @@ import org.h2gis.utilities.TableLocation;
 import org.h2gis.utilities.dbtypes.DBTypes;
 import org.h2gis.utilities.dbtypes.DBUtils;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
-import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.jdbc.DelaunayReceiversMaker;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
@@ -29,7 +27,6 @@ import java.sql.Statement;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 class Main {
     public final static int MAX_OUTPUT_PROPAGATION_PATHS = 50000;

@@ -18,11 +18,9 @@ import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.math.Vector2D;
 import org.locationtech.jts.math.Vector3D;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**

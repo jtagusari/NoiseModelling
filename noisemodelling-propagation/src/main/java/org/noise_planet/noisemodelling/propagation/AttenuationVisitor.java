@@ -10,16 +10,13 @@
 package org.noise_planet.noisemodelling.propagation;
 
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
-import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
-import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,8 +40,8 @@ public class AttenuationVisitor implements CutPlaneVisitor {
         final SceneWithAttenuation scene = multiThreadParent.scene;
         // Source surface reflectivity
         double gs = scene.sourceGs.getOrDefault(cutProfile.getSource().getSourcePk(), SceneWithAttenuation.DEFAULT_GS);
-        CnossosPath cnossosPath = CnossosPathBuilder.computeCnossosPathFromCutProfile(cutProfile, scene.isBodyBarrier(),
-                scene.profileBuilder.getExactFrequencyArray(), gs);
+        CnossosPathBuilder cnossosPathFromCutProfile = new CnossosPathBuilder(scene.profileBuilder.getExactFrequencyArray(), gs);
+        CnossosPath cnossosPath = cnossosPathFromCutProfile.main(cutProfile, scene.isBodyBarrier());
         if(cnossosPath != null) {
             addPropagationPath(cnossosPath);
         }

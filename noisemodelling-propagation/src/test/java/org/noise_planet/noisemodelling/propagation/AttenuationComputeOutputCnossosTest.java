@@ -26,7 +26,6 @@ import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 import org.noise_planet.noisemodelling.propagation.cnossos.*;
-import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -569,7 +568,7 @@ public class AttenuationComputeOutputCnossosTest {
         };
 
         //Assertion
-        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().computePts2DGround());
+        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().generateElevationProfile2D());
         assertPlanes(srMeanPlanes, propDataOut.getPropagationPaths().get(0).getSRSegment());
         assertPlanes(segmentsMeanPlanes, propDataOut.getPropagationPaths().get(0).getSegmentList());
 
@@ -898,7 +897,7 @@ public class AttenuationComputeOutputCnossosTest {
 
         //Assertion
 
-        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().computePts2DGround());
+        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().generateElevationProfile2D());
         assertPlanes(segmentsMeanPlanes0, propDataOut.getPropagationPaths().get(0).getSegmentList());
         assertPlanes(segmentsMeanPlanes1, propDataOut.getPropagationPaths().get(1).getSRSegment());
         assertPlanes(segmentsMeanPlanes2, propDataOut.getPropagationPaths().get(2).getSRSegment());
@@ -1697,13 +1696,13 @@ public class AttenuationComputeOutputCnossosTest {
         };
 
         //Assertion
-        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().computePts2DGround());
+        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().generateElevationProfile2D());
         assertPlanes(segmentsMeanPlanes0, propDataOut.getPropagationPaths().get(0).getSegmentList());
 
-        assertZProfil(expectedZProfileRight, propDataOut.getPropagationPaths().get(1).getCutProfile().computePts2DGround());
+        assertZProfil(expectedZProfileRight, propDataOut.getPropagationPaths().get(1).getCutProfile().generateElevationProfile2D());
         assertPlanes(segmentsMeanPlanes1, propDataOut.getPropagationPaths().get(1).getSRSegment());
 
-        assertZProfil(expectedZProfileLeft, propDataOut.getPropagationPaths().get(2).getCutProfile().computePts2DGround());
+        assertZProfil(expectedZProfileLeft, propDataOut.getPropagationPaths().get(2).getCutProfile().generateElevationProfile2D());
         assertPlanes(segmentsMeanPlanes2, propDataOut.getPropagationPaths().get(2).getSRSegment());
 
         //Expected values
@@ -2876,13 +2875,13 @@ public class AttenuationComputeOutputCnossosTest {
         //Assertion
 
         // Check SR direct line
-        List<Coordinate> result = propDataOut.getPropagationPaths().get(0).getCutProfile().computePts2DGround();
+        List<Coordinate> result = propDataOut.getPropagationPaths().get(0).getCutProfile().generateElevationProfile2D();
         assertZProfil(expectedZProfile,result);
         assertEquals(2, propDataOut.getPropagationPaths().size());
         assertPlanes(segmentsMeanPlanes0, propDataOut.getPropagationPaths().get(0).getSRSegment());
 
         // Check reflection path
-        result = propDataOut.getPropagationPaths().get(1).getCutProfile().computePts2DGround();
+        result = propDataOut.getPropagationPaths().get(1).getCutProfile().generateElevationProfile2D();
         assertZProfil(expectedZProfileReflection, result);
         assertPlanes(segmentsMeanPlanes1, propDataOut.getPropagationPaths().get(1).getSRSegment());
 
@@ -3227,7 +3226,7 @@ public class AttenuationComputeOutputCnossosTest {
         expectedZProfile.add(new Coordinate(194.16, 10));
 
         CutProfile cutProfile = propDataOut.getPropagationPaths().get(0).getCutProfile();
-        List<Coordinate> result = cutProfile.computePts2DGround();
+        List<Coordinate> result = cutProfile.generateElevationProfile2D();
         assertZProfil(expectedZProfile, result);
 
 
@@ -3515,12 +3514,12 @@ public class AttenuationComputeOutputCnossosTest {
         assertEquals(2, propDataOut.getPropagationPaths().size());
 
         //Assertion
-        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().computePts2DGround());
-        assertZProfil(expectedZProfileRight, propDataOut.getPropagationPaths().get(1).getCutProfile().computePts2DGround());
+        assertZProfil(expectedZProfile, propDataOut.getPropagationPaths().get(0).getCutProfile().generateElevationProfile2D());
+        assertZProfil(expectedZProfileRight, propDataOut.getPropagationPaths().get(1).getCutProfile().generateElevationProfile2D());
         // Error in ISO
         // The iso is making the ray do a diffraction on the horizontal edge of the building then a diffraction on
         // the last wall. The hull is ignoring the 12 meters building on the left side.
-        // assertZProfil(expectedZProfileLeft, propDataOut.getPropagationPaths().get(2).getCutProfile().computePts2DGround());
+        // assertZProfil(expectedZProfileLeft, propDataOut.getPropagationPaths().get(2).getCutProfile().generateElevationProfile2D());
 
         assertPlanes(segmentsMeanPlanes0, propDataOut.getPropagationPaths().get(0).getSegmentList());
         assertPlanes(segmentsMeanPlanes1, propDataOut.getPropagationPaths().get(1).getSRSegment());
@@ -3528,7 +3527,7 @@ public class AttenuationComputeOutputCnossosTest {
         // Error in ISO
         // The iso is making the ray do a diffraction on the horizontal edge of the building then a diffraction on
         // the last wall. The hull is ignoring the 12 meters building on the left side.
-        // assertZProfil(expectedZProfileLeft, propDataOut.getPropagationPaths().get(2).getCutProfile().computePts2DGround());
+        // assertZProfil(expectedZProfileLeft, propDataOut.getPropagationPaths().get(2).getCutProfile().generateElevationProfile2D());
         // assertPlanes(segmentsMeanPlanes2, propDataOut.getPropagationPaths().get(2).getSRSegment());
 
         //Expected values
@@ -4643,7 +4642,7 @@ public class AttenuationComputeOutputCnossosTest {
         expectedZProfileOR.add(new Coordinate(43.53, 0.0));
         expectedZProfileOR.add(new Coordinate(70.74, 0.0));
 
-        List<Coordinate> result = propDataOut.getPropagationPaths().get(0).getCutProfile().computePts2DGround();
+        List<Coordinate> result = propDataOut.getPropagationPaths().get(0).getCutProfile().generateElevationProfile2D();
         assertZProfil(expectedZProfile,result);
 
         /* Table 280 */

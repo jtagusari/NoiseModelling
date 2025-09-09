@@ -76,6 +76,10 @@ public class SegmentPath {
     public void setPoints2DGround(Coordinate[] points2DGround) {
         this.points2DGround = points2DGround;
     }
+    
+    public void setElevationProfile2D(Coordinate[] points2DGround) {
+        this.points2DGround = points2DGround;
+    }
 
     public void setDelta(Double delta) {
         this.delta = delta;
@@ -163,5 +167,16 @@ public class SegmentPath {
 
     public Double getZrPrime() {
         return zrF;
+    }
+
+    public double getWeightedGroundAbsorption() {
+        return gPath;
+    }
+    public void setWeightedGroundAbsorption(double weightedGroundAbsorption) {
+        this.gPath = weightedGroundAbsorption;
+    }
+
+    public void setDirectRayDistance(double d) {
+        this.dc = d;
     }
 }

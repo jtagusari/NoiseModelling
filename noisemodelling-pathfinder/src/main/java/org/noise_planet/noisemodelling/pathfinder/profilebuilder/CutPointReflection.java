@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import org.apache.commons.math3.geometry.euclidean.threed.Line;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 
@@ -67,6 +68,10 @@ public class CutPointReflection extends CutPoint {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public Long getWallPk() {
         return wallPk;
+    }
+
+    public LineSegment getWall() {
+        return wall;
     }
 
     public void setWallPk(Long wallPk) {

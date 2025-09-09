@@ -1,23 +1,5 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
-import org.locationtech.jts.algorithm.Intersection;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineSegment;
-import org.locationtech.jts.math.Vector2D;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
-import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgeService.PropagationType;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.triangulate.quadedge.Vertex;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-
 /**
  * Small helper utilities extracted from {@code ProfileBuilder} to centralize
  * line-splitting and obstacle query logic so {@code ProfileBuilder} can

@@ -141,7 +141,7 @@ public class CutProfileTest {
 
     @Test
     public void testGetGPathSimple() {
-        double gPath = cutProfile.getGPath();
+        double gPath = cutProfile.calculateWeightedGroundAbsorption();
         
         // Should calculate weighted average of ground coefficients
         // Expected: (0.5 * segmentLength) / totalLength
@@ -162,7 +162,7 @@ public class CutProfileTest {
         CutPoint src = points.get(0);
         CutPoint rcv = points.get(points.size() - 1);
         
-        double gPath = testProfile.getGPath(src, rcv, Scene.DEFAULT_G_BUILDING);
+        double gPath = testProfile.calculateWeightedGroundAbsorption(src, rcv, Scene.DEFAULT_G_BUILDING);
         assertTrue(gPath >= 0.0 && gPath <= 1.0);
     }
 
@@ -202,7 +202,7 @@ public class CutProfileTest {
 
     @Test
     public void testComputePts2D() {
-        List<Coordinate> pts2D = cutProfile.computePts2D();
+        List<Coordinate> pts2D = cutProfile.generateCutPointCoordinates2D();
         
         assertNotNull(pts2D);
         assertEquals(2, pts2D.size());
@@ -212,7 +212,7 @@ public class CutProfileTest {
 
     @Test
     public void testComputePts2DGround() {
-        List<Coordinate> groundPts = cutProfile.computePts2DGround();
+        List<Coordinate> groundPts = cutProfile.generateElevationProfile2D();
         
         assertNotNull(groundPts);
         assertEquals(2, groundPts.size());
@@ -222,7 +222,7 @@ public class CutProfileTest {
     @Test
     public void testComputePts2DGroundWithIndex() {
         List<Integer> indices = new ArrayList<>();
-        List<Coordinate> groundPts = cutProfile.computePts2DGround(indices);
+        List<Coordinate> groundPts = cutProfile.generateElevationProfile2D(indices);
         
         assertNotNull(groundPts);
         assertNotNull(indices);
@@ -241,7 +241,7 @@ public class CutProfileTest {
         testProfile.insertCutPoint(false, topo1, topo2);
         
         List<Integer> indices = new ArrayList<>();
-        List<Coordinate> groundPts = testProfile.computePts2DGround(0.1, indices);
+        List<Coordinate> groundPts = testProfile.generateElevationProfile2D(0.1, indices);
         
         assertNotNull(groundPts);
         // With tolerance, collinear points might be simplified
@@ -306,33 +306,12 @@ public class CutProfileTest {
         assertEquals(points1.size(), points2.size());
     }
 
-    @Test
-    public void testComputePtsGroundStatic() {
-        List<CutPoint> cutPoints = new ArrayList<>();
-        cutPoints.add(source);
-        
-        CutPointTopography topo = new CutPointTopography(new Coordinate(50, 0, 10));
-        topo.setZGround(2.0);
-        cutPoints.add(topo);
-        
-        cutPoints.add(receiver);
-        
-        List<Integer> indices = new ArrayList<>();
-        List<Coordinate> groundPts = CutProfile.computePtsGround(cutPoints, indices);
-        
-        assertNotNull(groundPts);
-        assertEquals(3, groundPts.size());
-        assertNotNull(indices);
-        
-        // Check that ground elevation is used
-        assertEquals(2.0, groundPts.get(1).z, 1e-9);
-    }
 
     @Test
     public void testEmptyProfileOperations() {
         CutProfile emptyProfile = new CutProfile();
         
-        assertEquals(0, emptyProfile.getGPath(), 1e-9);
+        assertEquals(0, emptyProfile.calculateWeightedGroundAbsorption(), 1e-9);
         try {
             assertNull(emptyProfile.getSource());
             assertNull(emptyProfile.getReceiver());
@@ -341,10 +320,10 @@ public class CutProfileTest {
         }
         assertTrue(emptyProfile.isFreeField());
         
-        List<Coordinate> pts2D = emptyProfile.computePts2D();
+        List<Coordinate> pts2D = emptyProfile.generateCutPointCoordinates2D();
         assertTrue(pts2D.isEmpty());
         
-        List<Coordinate> groundPts = emptyProfile.computePts2DGround();
+        List<Coordinate> groundPts = emptyProfile.generateElevationProfile2D();
         assertTrue(groundPts.isEmpty());
     }
 

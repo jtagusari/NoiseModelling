@@ -112,7 +112,7 @@ public class CutProfile {
      * @return the weighted absorption coefficient of this path segment
      */
     @JsonIgnore
-    public double getGPath(CutPoint p0, CutPoint p1, double roofG) {
+    public double calculateWeightedGroundAbsorption(CutPoint p0, CutPoint p1, double roofG) {
         double totalLength = 0;
         double rsLength = 0.0;
 
@@ -161,12 +161,17 @@ public class CutProfile {
      * @return the weighted absorption coefficient for the complete path, or 0 if no points exist
      */
     @JsonIgnore
-    public double getGPath() {
+    public double calculateWeightedGroundAbsorption() {
         if(!cutPoints.isEmpty()) {
-            return getGPath(cutPoints.get(0), cutPoints.get(cutPoints.size() - 1), Scene.DEFAULT_G_BUILDING);
+            return calculateWeightedGroundAbsorption(cutPoints.get(0), cutPoints.get(cutPoints.size() - 1), Scene.DEFAULT_G_BUILDING);
         } else {
             return 0;
         }
+    }
+
+    @JsonIgnore
+    public double getGroundAbsorptionAtSource() {
+        return getSource().getGroundCoefficient();
     }
 
     /**
@@ -198,8 +203,8 @@ public class CutProfile {
      * a 2d coordinate system. The first point is always x=0.
      * @return the computed 2D coordinate list of DEM
      */
-    public List<Coordinate> computePts2DGround() {
-        return computePts2DGround(0, null);
+    public List<Coordinate> generateElevationProfile2D() {
+        return generateElevationProfile2D(0, null);
     }
 
 
@@ -209,12 +214,12 @@ public class CutProfile {
      * 
      * @return the computed 2D coordinate list of all cut points
      */
-    public List<Coordinate> computePts2D() {
-        List<Coordinate> pts2D = cutPoints.stream()
+    public List<Coordinate> generateCutPointCoordinates2D() {
+        List<Coordinate> cutPointCoordinates = cutPoints.stream()
                 .map(CutPoint::getCoordinate)
                 .collect(Collectors.toList());
-        pts2D = JTSUtility.getNewCoordinateSystem(pts2D);
-        return pts2D;
+        List<Coordinate> cutPointCoordinates2D = JTSUtility.getNewCoordinateSystem(cutPointCoordinates);
+        return cutPointCoordinates2D;
     }
 
     /**
@@ -225,12 +230,8 @@ public class CutProfile {
      * @param index if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM (Digital Elevation Model)
      */
-    public List<Coordinate> computePts2DGround(List<Integer> index) {
-        return computePts2DGround(0, index);
-    }
-
-    private class ElevationProfile {
-
+    public List<Coordinate> generateElevationProfile2D(List<Integer> index) {
+        return generateElevationProfile2D(0, index);
     }
 
     /**
@@ -238,24 +239,27 @@ public class CutProfile {
      * (buildings/walls top or ground if no buildings).
      * This static method processes a list of cut points to generate the ground profile.
      * 
-     * @param pts list of cut points to process
-     * @param pntIndexOfGroundEffect if provided, will contain corresponding indices from parameter to return list items
+     * @param cutPoints list of cut points to process
+     * @param groundEffectPointIndices if provided, will contain corresponding indices from parameter to return list items
      * @return the computed coordinate list of the vertical cut representing the ground profile
      */
-    public static List<Coordinate> computePtsGround(List<CutPoint> pts, List<Integer> pntIndexOfGroundEffect) {
+    private static List<Coordinate> expandCutPointsToElevationProfile(List<CutPoint> cutPoints, List<Integer> groundEffectPointIndices) {
 
-        List<Coordinate> pts2D = new ArrayList<>(pts.size());
-        if(pts.isEmpty()) {
-            return pts2D;
+        List<Coordinate> expandedGroundCoordinates = new ArrayList<>(cutPoints.size());
+        if(cutPoints.isEmpty()) {
+            return expandedGroundCoordinates;
         }
         // keep track of the obstacle under our current position.
-        boolean overArea = isFirstPointOverarea(pts);
-        boolean updateIndex = pntIndexOfGroundEffect != null;
+        boolean overArea = isFirstPointOverarea(cutPoints);
+        boolean updateIndex = groundEffectPointIndices != null;
+        if (updateIndex && groundEffectPointIndices.size() > 0) {
+            throw new IllegalArgumentException("groundEffectPointIndices must be empty if provided");
+        }
 
-        for (CutPoint pnt : pts) {
+        for (CutPoint pnt : cutPoints) {
             if (pnt instanceof CutPointGroundEffect) {
                 if (updateIndex) {
-                    pntIndexOfGroundEffect.add(pts2D.size() - 1);
+                    groundEffectPointIndices.add(expandedGroundCoordinates.size() - 1);
                 }
                 continue;
             }
@@ -264,14 +268,14 @@ public class CutProfile {
                 CutPointWall wallPoint = (CutPointWall) pnt;
                 
                 if (isEnteringPoint(wallPoint) || isWall(wallPoint)) {
-                    pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = true;
                 }
 
-                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
+                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
 
                 if (isExitingPoint(wallPoint) || isWall(wallPoint)) {
-                    pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = false;
                 }
 
@@ -280,26 +284,26 @@ public class CutProfile {
                 /* Height of the path is required to determine if we are over or under the bridge */
             } else if (pnt instanceof CutPointReflection) {
                 // Z ground profile is duplicated for reflection point before and after
-                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
-                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
-                pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
             } else {
                 // we will ignore topographic point if we are over a building
                 if (!(overArea && pnt instanceof CutPointTopography)) {
-                    pts2D.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                 }
             }
-            if (pntIndexOfGroundEffect != null) {
-                pntIndexOfGroundEffect.add(pts2D.size() - 1);
+            if (groundEffectPointIndices != null) {
+                groundEffectPointIndices.add(expandedGroundCoordinates.size() - 1);
             }
         }
-        return pts2D;
+        return expandedGroundCoordinates;
     }
     
 
-    private static boolean isFirstPointOverarea(List<CutPoint> pts) {
-        if (pts.get(0) instanceof CutPointSource) {
-            CutPointSource source = (CutPointSource) pts.get(0);
+    private static boolean isFirstPointOverarea(List<CutPoint> cutPoints) {
+        if (cutPoints.get(0) instanceof CutPointSource) {
+            CutPointSource source = (CutPointSource) cutPoints.get(0);
             SourceBridgeProperty property = source.getSourceBridgeProperty();
             if (property == null) {property = new SourceBridgeProperty();}
             if (property.getBridgePkOn() > 0) {
@@ -308,7 +312,7 @@ public class CutProfile {
                 return false;
             }
         }
-        CutPointWall firstWallPoint = getFirstWallPoint(pts);
+        CutPointWall firstWallPoint = getFirstWallPoint(cutPoints);
         if (firstWallPoint == null) {
             return false;
         } else {
@@ -316,8 +320,8 @@ public class CutProfile {
         }
     }
 
-    private static CutPointWall getFirstWallPoint(List<CutPoint> pts) {
-        for (CutPoint pnt : pts) {
+    private static CutPointWall getFirstWallPoint(List<CutPoint> cutPoints) {
+        for (CutPoint pnt : cutPoints) {
             if (pnt instanceof CutPointWall) {
                 return (CutPointWall) pnt;
             }
@@ -341,14 +345,14 @@ public class CutProfile {
      * (buildings/walls top or ground if no buildings) then re-project it into
      * a 2D coordinate system with line simplification. The first point is always x=0.
      * 
-     * @param pts list of cut points to process
+     * @param cutPoints list of cut points to process
      * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param pntIndexOfGroundEffect if provided, will contain corresponding indices from parameter to return list items
+     * @param groundEffectPointIndices if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM with simplified geometry
      */
-    public static List<Coordinate> computePts2DGround(List<CutPoint> pts, double tolerance, List<Integer> pntIndexOfGroundEffect) {
-        return JTSUtility.getNewCoordinateSystem(computePtsGround(pts, pntIndexOfGroundEffect), tolerance);
+    public static List<Coordinate> generateElevationProfile2D(List<CutPoint> cutPoints, double tolerance, List<Integer> groundEffectPointIndices) {
+        return JTSUtility.getNewCoordinateSystem(expandCutPointsToElevationProfile(cutPoints, groundEffectPointIndices), tolerance);
     }
 
     /**
@@ -358,11 +362,11 @@ public class CutProfile {
      * 
      * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param pntIndexOfGroundEffect if provided, will contain corresponding indices from parameter to return list items
+     * @param groundEffectPointIndices if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM with simplified geometry
      */
-    public List<Coordinate> computePts2DGround(double tolerance, List<Integer> pntIndexOfGroundEffect) {
-        return computePts2DGround(this.cutPoints, tolerance, pntIndexOfGroundEffect);
+    public List<Coordinate> generateElevationProfile2D(double tolerance, List<Integer> groundEffectPointIndices) {
+        return generateElevationProfile2D(this.cutPoints, tolerance, groundEffectPointIndices);
     }
 
     /**

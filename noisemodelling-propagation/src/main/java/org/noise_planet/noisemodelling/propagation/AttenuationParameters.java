@@ -3,15 +3,11 @@ package org.noise_planet.noisemodelling.propagation;
 
 import org.locationtech.jts.algorithm.Angle;
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
-import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 
 import java.sql.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Data input for a propagation Path process.

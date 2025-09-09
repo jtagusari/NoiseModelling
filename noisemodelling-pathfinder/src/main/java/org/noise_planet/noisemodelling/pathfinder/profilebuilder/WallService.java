@@ -6,9 +6,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
-// Vertex is no longer used here (delegated to ProcessedWallService)
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
-import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
 
 import java.util.ArrayList;
 import java.util.List;

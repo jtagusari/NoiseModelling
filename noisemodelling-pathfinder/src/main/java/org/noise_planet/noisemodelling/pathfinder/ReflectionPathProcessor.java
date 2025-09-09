@@ -10,7 +10,6 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceive
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import java.util.ArrayList;
 import java.util.List;

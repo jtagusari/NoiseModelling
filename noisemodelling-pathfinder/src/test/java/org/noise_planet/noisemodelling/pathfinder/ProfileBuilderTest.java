@@ -16,17 +16,13 @@ import org.locationtech.jts.io.WKTReader;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.noise_planet.noisemodelling.pathfinder.PathFinderTest.assertZProfil;
@@ -345,7 +341,7 @@ public class ProfileBuilderTest {
     //     assertEquals(9, cutProfile.getCutPoints().size());
 
     //     List<Integer> index = new ArrayList<>(cutProfile.getCutPoints().size());
-    //     List<Coordinate> zProfile = cutProfile.computePts2DGround(index);
+    //     List<Coordinate> zProfile = cutProfile.generateElevationProfile2D(index);
 
     //     assertEquals(cutProfile.getCutPoints().size(), index.size());
 

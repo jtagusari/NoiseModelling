@@ -159,6 +159,10 @@ public abstract class CutPoint implements Comparable<CutPoint> {
         return this.coordinate.compareTo(cutPoint.coordinate);
     }
 
+    public boolean hasObstacle() {
+        return  Double.compare(getCoordinate().z, getzGround()) != 0;
+    }
+
     /**
      * Compares this cut point with another object for equality.
      * Two cut points are considered equal if they have the same coordinate,

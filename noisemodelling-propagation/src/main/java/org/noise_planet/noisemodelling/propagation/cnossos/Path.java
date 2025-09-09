@@ -8,7 +8,6 @@
  */
 
 package org.noise_planet.noisemodelling.propagation.cnossos;
-import org.locationtech.jts.algorithm.Angle;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
@@ -16,15 +15,10 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.math.Vector3D;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
-import org.noise_planet.noisemodelling.pathfinder.utils.documents.GeoJSONDocument;
-import org.noise_planet.noisemodelling.pathfinder.utils.geometry.CoordinateMixin;
-import org.noise_planet.noisemodelling.pathfinder.utils.geometry.LineSegmentMixin;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,6 +49,11 @@ public class Path {
     public boolean keepAbsorption = false;
 
     public Path() {
+    }
+
+    public Path(List<PointPath> pointList, List<SegmentPath> segmentList) {
+        this.pointList = pointList;
+        this.segmentList = segmentList;
     }
 
     public Path(CutProfile cutProfile) {
@@ -208,6 +207,59 @@ public class Path {
 
     public void setFavorable(boolean favorable) {
         this.favorable =  favorable;
+    }
+    
+    /**
+     * Add a point to the path.
+     * Initializes the point list if it doesn't exist.
+     * 
+     * @param point The point to add to the path
+     */
+    public void addPoint(PointPath point) {
+        if (pointList == null) {
+            pointList = new ArrayList<>();
+        }
+        pointList.add(point);
+    }
+    
+    /**
+     * Add a segment to the path.
+     * Initializes the segment list if it doesn't exist.
+     * 
+     * @param segment The segment to add to the path
+     */
+    public void addSegment(SegmentPath segment) {
+        if (segmentList == null) {
+            segmentList = new ArrayList<>();
+        }
+        segmentList.add(segment);
+    }
+    
+    /**
+     * Get the number of points in the path.
+     * 
+     * @return The number of points, or 0 if the point list is null
+     */
+    public int getPointCount() {
+        return pointList == null ? 0 : pointList.size();
+    }
+    
+    /**
+     * Get the number of segments in the path.
+     * 
+     * @return The number of segments, or 0 if the segment list is null
+     */
+    public int getSegmentCount() {
+        return segmentList == null ? 0 : segmentList.size();
+    }
+    
+    /**
+     * Check if the path has no points.
+     * 
+     * @return true if the path has no points, false otherwise
+     */
+    public boolean hasNoPoints() {
+        return pointList == null || pointList.isEmpty();
     }
 
     double computeZs(SegmentPath segmentPath) {

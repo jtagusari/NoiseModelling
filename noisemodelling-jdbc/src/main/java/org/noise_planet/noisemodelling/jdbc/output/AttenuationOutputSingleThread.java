@@ -29,6 +29,7 @@ import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
+import org.noise_planet.noisemodelling.propagation.cnossos.CnossosSegmentComputer;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
 
 import java.util.*;
@@ -136,8 +137,9 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         cutProfileCount.addAndGet(1);
         PathSearchStrategy strategy = PathSearchStrategy.CONTINUE;
         final SceneWithEmission scene = multiThread.sceneWithEmission;
-        CnossosPath cnossosPath = CnossosPathBuilder.computeCnossosPathFromCutProfile(cutProfile, scene.isBodyBarrier(),
-                scene.profileBuilder.getExactFrequencyArray(), scene.getDefaultGroundAttenuation());
+        CnossosPathBuilder cnossosPathFromCutProfile = new CnossosPathBuilder(scene.profileBuilder.getExactFrequencyArray(), scene.getDefaultGroundAttenuation());
+        CnossosPath cnossosPath = cnossosPathFromCutProfile.main(cutProfile, scene.isBodyBarrier()
+                );
         if(cnossosPath != null) {
             multiThread.cnossosPathCount.addAndGet(1);
             CutPointSource source = cutProfile.getSource();

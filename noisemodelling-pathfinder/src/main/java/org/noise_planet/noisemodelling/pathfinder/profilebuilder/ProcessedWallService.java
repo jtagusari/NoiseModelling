@@ -5,7 +5,6 @@ import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.locationtech.jts.triangulate.quadedge.Vertex;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
 import org.slf4j.Logger;
