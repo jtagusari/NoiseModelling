@@ -40,16 +40,19 @@ import static java.lang.Math.max;
  * @return true if direct propagation was processed successfully
  */
 public class DirectPropagationProcessor {
+    
     private final AcousticPathConfiguration pathConfiguration;
+    public static final double ALPHA0 = 2e-4;
+    private static final double SOUND_SPEED = 340.0;
+    private final CnossosPath directPropagationPath;
+
     public DirectPropagationProcessor(AcousticPathConfiguration pathConfiguration) {
         this.pathConfiguration = pathConfiguration;
+        this.directPropagationPath = new CnossosPath(pathConfiguration.getCutProfile());
     }
 
-    public boolean processDirectPropagation(SegmentPath sourceToReceiverPath,List<SegmentPath> segments, List<PointPath> points) {
-        
-        
+    public CnossosPath processDirectPropagation(SegmentPath sourceToReceiverPath,List<SegmentPath> segments, List<PointPath> points) {
         CnossosPath pathParameters = pathConfiguration.getPathParameters();
-
     
         // Direct propagation (no diffraction over obstructing objects)
         boolean horizontalPlaneDiffraction = pathConfiguration.getCutProfilePoints().stream()
@@ -57,20 +60,34 @@ public class DirectPropagationProcessor {
         
         List<SegmentPath> rayleighSegments = new ArrayList<>();
         List<PointPath> rayleighPoints = new ArrayList<>();
+        int beforeSegmentCount = segments.size();
+        if (!segments.isEmpty()) {
+            for (SegmentPath segment : segments) {
+                this.directPropagationPath.addSegment(segment);
+            }
+        }
+        if (!points.isEmpty()) {
+            for (PointPath point : points) {
+                this.directPropagationPath.addPoint(point);
+            }
+            
+            List<PointPath> diffractionPoints = points.stream().filter(pointPath -> pointPath.type != REFL).collect(Collectors.toList());
+        }
         
         // do not check for rayleigh if the path is not direct between R and S
         if(!horizontalPlaneDiffraction) {
             // Check for Rayleigh criterion for segments computation
             LineSegment sourceToReceiverDistance = new LineSegment(pathConfiguration.getSourceCoordinate2D(), pathConfiguration.getReceiverCoordinate2D());
             // Look for diffraction over edge on free field (frequency dependent)
-            computeRayleighDiff(sourceToReceiverPath, 
-                    sourceToReceiverDistance, rayleighSegments, rayleighPoints);
+            computeRayleighDiff(sourceToReceiverPath, sourceToReceiverDistance, rayleighSegments, rayleighPoints);
         }
         
-        if(rayleighSegments.isEmpty()) {
+        // if(rayleighSegments.isEmpty()) {
+        if(this.directPropagationPath.getSegmentCount() == beforeSegmentCount) {
             // We don't have a Rayleigh diffraction over DEM. Only direct SR path
             if(segments.isEmpty()) {
                 segments.add(pathParameters.getSRSegment());
+                this.directPropagationPath.addSegment(pathParameters.getSRSegment());
             }
             // Compute cumulated distance between the first diffraction and the last diffraction point
             pathParameters.e = 0;
@@ -87,12 +104,10 @@ public class DirectPropagationProcessor {
             segments.addAll(rayleighSegments);
             points.addAll(1, rayleighPoints);
         }
-        return true;  // Direct propagation processing completed
+        return this.directPropagationPath;  // Direct propagation processing completed
     }
 
     
-    public static final double ALPHA0 = 2e-4;
-    private static final double SOUND_SPEED = 340.0;
 
     /**
      * Main method to compute Rayleigh diffraction effects.
@@ -103,15 +118,13 @@ public class DirectPropagationProcessor {
         
         CnossosPath pathParameters = pathConfiguration.getPathParameters();
         
-        // Initialize basic coordinates and cut points
-        
         // Process each potential diffraction point
         for (int cutIndex = 1; cutIndex < pathConfiguration.getCutProfilePoints().size() - 1; cutIndex++) {
             int groundIndex = pathConfiguration.getGroundEffectPointIndices().get(cutIndex);
             Coordinate diffractionPoint = pathConfiguration.getElevationProfile2D()[groundIndex];
             
             // Calculate basic path differences
-            double deltaH = calculatePathDifference(pathConfiguration.getSourceCoordinate2D(), pathConfiguration.getReceiverCoordinate2D(), diffractionPoint, sourceToReceiverDistance, sourceToReceiverSegment.d);
+            double deltaH = calculatePathDistanceDifference(pathConfiguration.getSourceCoordinate2D(), pathConfiguration.getReceiverCoordinate2D(), diffractionPoint, sourceToReceiverDistance, sourceToReceiverSegment.d);
             
             // First criterion: frequency-based screening
             if (!passesFrequencyScreening(deltaH)) {
@@ -137,7 +150,7 @@ public class DirectPropagationProcessor {
     /**
      * Calculate the basic path difference for diffraction screening.
      */
-    private static double calculatePathDifference(Coordinate sourceCoordinate2D, Coordinate receiverCoordinate2D, Coordinate diffractionPoint, LineSegment sourceToReceiverSegment, double directDistance) {
+    private static double calculatePathDistanceDifference(Coordinate sourceCoordinate2D, Coordinate receiverCoordinate2D, Coordinate diffractionPoint, LineSegment sourceToReceiverSegment, double directDistance) {
         double sourceToObstacleDistance = sourceCoordinate2D.distance(diffractionPoint);
         double obstacleToReceiverDistance = diffractionPoint.distance(receiverCoordinate2D);
         return sourceToReceiverSegment.orientationIndex(diffractionPoint) * (sourceToObstacleDistance + obstacleToReceiverDistance - directDistance);
@@ -247,13 +260,13 @@ public class DirectPropagationProcessor {
     /**
      * Add validated diffraction point to the acoustic path.
      */
-    private void addDiffractionPointToPath(int cutIndex, DiffractionCalculation calc, double deltaH, CnossosPath pathParameters, SegmentPath sourceToReceiverSegment, LineSegment sourceToReceiverDistance, List<SegmentPath> segments, List<PointPath> points) {
+    private void addDiffractionPointToPath(int cutPointIndex, DiffractionCalculation calc, double deltaH, CnossosPath pathParameters, SegmentPath sourceToReceiverSegment, LineSegment sourceToReceiverDistance, List<SegmentPath> segments, List<PointPath> points) {
         // Set path parameters
         pathParameters.deltaH = deltaH;
         pathParameters.deltaPrimeH = calc.deltaPrimeH;
         
         // Configure segment ground paths
-        configureSegmentGroundPaths(calc, cutIndex);
+        configureSegmentGroundPaths(calc, cutPointIndex);
         
         // Calculate Fresnel corrections
         calculateFresnelCorrections(calc, pathParameters, sourceToReceiverSegment, sourceToReceiverDistance);
@@ -264,10 +277,20 @@ public class DirectPropagationProcessor {
         // Add segments and point to path
         segments.add(calc.seg1);
         segments.add(calc.seg2);
+        this.directPropagationPath.addSegment(calc.seg1);
+        this.directPropagationPath.addSegment(calc.seg2);
         points.add(
             new PointPath(
-                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutIndex)],
-                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutIndex)].z,
+                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutPointIndex)],
+                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutPointIndex)].z,
+                new ArrayList<>(), 
+                DIFH_RCRIT
+            )
+        );
+        this.directPropagationPath.addPoint(
+            new PointPath(
+                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutPointIndex)],
+                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutPointIndex)].z,
                 new ArrayList<>(), 
                 DIFH_RCRIT
             )

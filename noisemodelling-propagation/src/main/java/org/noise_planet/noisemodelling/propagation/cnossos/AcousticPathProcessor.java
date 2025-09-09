@@ -131,7 +131,6 @@ public class AcousticPathProcessor {
             );
             
             sourcePoint.setOrientation(emissionDirection);
-            configuration.getPathParameters().raySourceReceiverDirectivity = emissionDirection;
             acousticPath.addPoint(sourcePoint);
             acousticPath.setRaySourceReceiverDirectivity(emissionDirection);
         }

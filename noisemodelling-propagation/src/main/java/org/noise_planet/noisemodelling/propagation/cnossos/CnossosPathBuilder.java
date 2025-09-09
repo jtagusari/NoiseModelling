@@ -204,14 +204,14 @@ public class CnossosPathBuilder {
         if (p0 == null) {
             // Process direct propagation (no diffraction over obstructing objects)
             DirectPropagationProcessor directPropagationProcessor = new DirectPropagationProcessor(configuration);
-            boolean directPropagationProcessed = directPropagationProcessor.processDirectPropagation(
+            CnossosPath directPropagationPath = directPropagationProcessor.processDirectPropagation(
                 this.pathParameters.getSRSegment(), 
                 pathResult.getSegmentList(), 
                 pathResult.getPointList()
             );
-            if (directPropagationProcessed) {
-                return pathConfiguration.getPathParameters();
-            }
+            // if (directPropagationProcessed) {
+            return pathConfiguration.getPathParameters();
+            // }
         }
         
         // Compute final path parameters and delta values for diffraction
