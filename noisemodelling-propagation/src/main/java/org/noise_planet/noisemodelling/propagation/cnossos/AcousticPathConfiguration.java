@@ -20,6 +20,8 @@ public class AcousticPathConfiguration {
     private final CutProfile cutProfile;
     private final List<CutPoint> cutPoints;
     private final List<Coordinate> cutPointCoordinates2D;
+    private Coordinate sourceCoordinate2D;
+    private Coordinate receiverCoordinate2D;
     private final List<Integer> groundEffectPointIndices;
     private final Coordinate[] elevationProfile2D;
     
@@ -42,6 +44,8 @@ public class AcousticPathConfiguration {
         this.cutProfile = builder.cutProfile;
         this.cutPoints = builder.cutPoints;
         this.cutPointCoordinates2D = builder.cutPointCoordinates2D;
+        this.sourceCoordinate2D = builder.sourceCoordinate2D;
+        this.receiverCoordinate2D = builder.receiverCoordinate2D;
         this.groundEffectPointIndices = builder.groundEffectPointIndices;
         this.elevationProfile2D = builder.elevationProfile2D;
         this.bodyBarrier = builder.bodyBarrier;
@@ -93,6 +97,8 @@ public class AcousticPathConfiguration {
         private CutProfile cutProfile;
         private List<CutPoint> cutPoints;
         private List<Coordinate> cutPointCoordinates2D;
+        private Coordinate sourceCoordinate2D;
+        private Coordinate receiverCoordinate2D;
         private List<Integer> groundEffectPointIndices;
         private Coordinate[] elevationProfile2D;
         private boolean bodyBarrier;
@@ -130,6 +136,8 @@ public class AcousticPathConfiguration {
 
                 this.cutPoints = cutPoints;
                 this.cutPointCoordinates2D = cutPointCoordinates2D;
+                this.sourceCoordinate2D = cutPointCoordinates2D.get(0);
+                this.receiverCoordinate2D = cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1);
                 this.groundEffectPointIndices = groundEffectPointIndices;
                 this.elevationProfile2D = elevationProfile2D;
 
@@ -240,6 +248,14 @@ public class AcousticPathConfiguration {
 
     public Coordinate getSourceCoordinate() {
         return sourceCoordinate;
+    }
+
+    public Coordinate getSourceCoordinate2D() {
+        return sourceCoordinate2D;
+    }
+
+    public Coordinate getReceiverCoordinate2D() {
+        return receiverCoordinate2D;
     }
 
 }

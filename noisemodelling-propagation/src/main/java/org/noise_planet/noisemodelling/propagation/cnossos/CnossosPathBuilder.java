@@ -203,9 +203,9 @@ public class CnossosPathBuilder {
         
         if (p0 == null) {
             // Process direct propagation (no diffraction over obstructing objects)
-            boolean directPropagationProcessed = DirectPropagationProcessor.processDirectPropagation(
-                pathConfiguration,
-                pathConfiguration.getSrPath(), 
+            DirectPropagationProcessor directPropagationProcessor = new DirectPropagationProcessor(configuration);
+            boolean directPropagationProcessed = directPropagationProcessor.processDirectPropagation(
+                this.pathParameters.getSRSegment(), 
                 pathResult.getSegmentList(), 
                 pathResult.getPointList()
             );

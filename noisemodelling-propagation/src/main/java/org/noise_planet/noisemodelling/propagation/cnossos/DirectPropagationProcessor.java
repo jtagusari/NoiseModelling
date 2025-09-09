@@ -4,6 +4,8 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointVEdgeDiffraction;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
@@ -27,7 +29,7 @@ import static java.lang.Math.max;
  * 
  * @param cutProfile The cut profile containing source and receiver
  * @param pathParameters The path parameters to update
- * @param srPath The source-receiver segment
+ * @param sourceToReceiverPath The source-receiver segment
  * @param segments The segments list to update
  * @param points The points list to update
  * @param pts2D 2D coordinates of cut points
@@ -38,28 +40,19 @@ import static java.lang.Math.max;
  * @return true if direct propagation was processed successfully
  */
 public class DirectPropagationProcessor {
-    private List<Double> exactFrequencyArray;
-    public DirectPropagationProcessor(List<Double> exactFrequencyArray) {
-        this.exactFrequencyArray = exactFrequencyArray;
+    private final AcousticPathConfiguration pathConfiguration;
+    public DirectPropagationProcessor(AcousticPathConfiguration pathConfiguration) {
+        this.pathConfiguration = pathConfiguration;
     }
 
-    public static boolean processDirectPropagation(AcousticPathConfiguration pathConfiguration,
-                                                  SegmentPath srPath,
-                                                  List<SegmentPath> segments,
-                                                  List<PointPath> points) {
+    public boolean processDirectPropagation(SegmentPath sourceToReceiverPath,List<SegmentPath> segments, List<PointPath> points) {
         
-        CutProfile cutProfile = pathConfiguration.getCutProfile();
+        
         CnossosPath pathParameters = pathConfiguration.getPathParameters();
-        List<Coordinate> pts2D = pathConfiguration.getCutPointCoordinates2D();
-        Coordinate[] pts2DGround = pathConfiguration.getElevationProfile2D();
-        List<Integer> cut2DGroundIndex = pathConfiguration.getCut2DGroundIndex();
-        List<Double> exactFrequencyArray = pathConfiguration.getExactFrequencyArray();
-        
-        Coordinate firstPts2D = pts2D.get(0);
-        Coordinate lastPts2D = pts2D.get(pts2D.size() - 1);
+
     
         // Direct propagation (no diffraction over obstructing objects)
-        boolean horizontalPlaneDiffraction = cutProfile.getCutPoints().stream()
+        boolean horizontalPlaneDiffraction = pathConfiguration.getCutProfilePoints().stream()
                 .anyMatch(cutPoint -> cutPoint instanceof CutPointVEdgeDiffraction);
         
         List<SegmentPath> rayleighSegments = new ArrayList<>();
@@ -68,10 +61,10 @@ public class DirectPropagationProcessor {
         // do not check for rayleigh if the path is not direct between R and S
         if(!horizontalPlaneDiffraction) {
             // Check for Rayleigh criterion for segments computation
-            LineSegment dSR = new LineSegment(firstPts2D, lastPts2D);
+            LineSegment sourceToReceiverDistance = new LineSegment(pathConfiguration.getSourceCoordinate2D(), pathConfiguration.getReceiverCoordinate2D());
             // Look for diffraction over edge on free field (frequency dependent)
-            computeRayleighDiff(srPath, pathConfiguration, 
-                    dSR, rayleighSegments, rayleighPoints);
+            computeRayleighDiff(sourceToReceiverPath, 
+                    sourceToReceiverDistance, rayleighSegments, rayleighPoints);
         }
         
         if(rayleighSegments.isEmpty()) {
@@ -105,109 +98,56 @@ public class DirectPropagationProcessor {
      * Main method to compute Rayleigh diffraction effects.
      * Processes each potential diffraction point to determine if it significantly affects the acoustic path.
      */
-    public static void computeRayleighDiff(SegmentPath srSeg, AcousticPathConfiguration pathConfiguration,
-                           LineSegment dSR, List<SegmentPath> segments, List<PointPath> points) {
+    public void computeRayleighDiff(SegmentPath sourceToReceiverSegment, 
+                           LineSegment sourceToReceiverDistance, List<SegmentPath> segments, List<PointPath> points) {
         
-        CutProfile cutProfile = pathConfiguration.getCutProfile();
         CnossosPath pathParameters = pathConfiguration.getPathParameters();
-        List<Coordinate> pts2D = pathConfiguration.getCutPointCoordinates2D();
-        Coordinate[] pts2DGround = pathConfiguration.getElevationProfile2D();
-        List<Integer> cut2DGroundIndex = pathConfiguration.getCut2DGroundIndex();
-        List<Double> exactFrequencyArray = pathConfiguration.getExactFrequencyArray();
         
         // Initialize basic coordinates and cut points
-        DiffractionContext context = initializeDiffractionContext(cutProfile, pts2D, pts2DGround, cut2DGroundIndex);
         
         // Process each potential diffraction point
-        for (int cutIndex = 1; cutIndex < context.cuts.size() - 1; cutIndex++) {
-            processPotentialDiffractionPoint(cutIndex, context, srSeg, pathParameters, 
-                                           dSR, segments, points, exactFrequencyArray);
+        for (int cutIndex = 1; cutIndex < pathConfiguration.getCutProfilePoints().size() - 1; cutIndex++) {
+            int groundIndex = pathConfiguration.getGroundEffectPointIndices().get(cutIndex);
+            Coordinate diffractionPoint = pathConfiguration.getElevationProfile2D()[groundIndex];
+            
+            // Calculate basic path differences
+            double deltaH = calculatePathDifference(pathConfiguration.getSourceCoordinate2D(), pathConfiguration.getReceiverCoordinate2D(), diffractionPoint, sourceToReceiverDistance, sourceToReceiverSegment.d);
+            
+            // First criterion: frequency-based screening
+            if (!passesFrequencyScreening(deltaH)) {
+                continue; // Skip this point if it doesn't meet frequency criteria
+            }
+            
+            // Calculate detailed diffraction parameters
+            DiffractionCalculation calc = calculateDiffractionParameters(groundIndex, diffractionPoint, sourceToReceiverSegment);
+            
+            // Second criterion: detailed diffraction screening
+            if (!passesDetailedScreening(deltaH, calc.deltaPrimeH)) {
+                continue; // Skip this point if it doesn't meet detailed criteria
+            }
+            
+            // Point passes all criteria - add to path
+            addDiffractionPointToPath(cutIndex, calc, deltaH, pathParameters, sourceToReceiverSegment, sourceToReceiverDistance, segments, points);
         }
     }
     
-    /**
-     * Context class to hold diffraction calculation data.
-     */
-    private static class DiffractionContext {
-        final List<CutPoint> cuts;
-        final Coordinate src, rcv;
-        final CutPoint srcCut, rcvCut;
-        final Coordinate[] pts2DGround;
-        final List<Integer> cut2DGroundIndex;
-        final CutProfile cutProfile;
-        
-        DiffractionContext(CutProfile cutProfile, List<Coordinate> pts2D, 
-                          Coordinate[] pts2DGround, List<Integer> cut2DGroundIndex) {
-            this.cutProfile = cutProfile;
-            this.cuts = cutProfile.getCutPoints();
-            this.pts2DGround = pts2DGround;
-            this.cut2DGroundIndex = cut2DGroundIndex;
-            this.src = pts2D.get(0);
-            this.rcv = pts2D.get(pts2D.size() - 1);
-            this.srcCut = cutProfile.getSource();
-            this.rcvCut = cutProfile.getReceiver();
-        }
-    }
+
     
-    /**
-     * Initialize diffraction computation context.
-     */
-    private static DiffractionContext initializeDiffractionContext(CutProfile cutProfile, 
-                                                                  List<Coordinate> pts2D,
-                                                                  Coordinate[] pts2DGround, 
-                                                                  List<Integer> cut2DGroundIndex) {
-        return new DiffractionContext(cutProfile, pts2D, pts2DGround, cut2DGroundIndex);
-    }
-    
-    /**
-     * Process a single potential diffraction point.
-     */
-    private static void processPotentialDiffractionPoint(int cutIndex, DiffractionContext context,
-                                                        SegmentPath srSeg, CnossosPath pathParameters,
-                                                        LineSegment dSR, List<SegmentPath> segments,
-                                                        List<PointPath> points, List<Double> exactFrequencyArray) {
-        
-        // Get diffraction point coordinates
-        int groundIndex = context.cut2DGroundIndex.get(cutIndex);
-        Coordinate diffractionPoint = context.pts2DGround[groundIndex];
-        
-        // Calculate basic path differences
-        double deltaH = calculatePathDifference(context.src, context.rcv, diffractionPoint, dSR, srSeg.d);
-        
-        // First criterion: frequency-based screening
-        if (!passesFrequencyScreening(deltaH, exactFrequencyArray)) {
-            return; // Skip this point if it doesn't meet frequency criteria
-        }
-        
-        // Calculate detailed diffraction parameters
-        DiffractionCalculation calc = calculateDiffractionParameters(context, cutIndex, groundIndex, 
-                                                                   diffractionPoint, srSeg);
-        
-        // Second criterion: detailed diffraction screening
-        if (!passesDetailedScreening(deltaH, calc.deltaPrimeH, exactFrequencyArray)) {
-            return; // Skip this point if it doesn't meet detailed criteria
-        }
-        
-        // Point passes all criteria - add to path
-        addDiffractionPointToPath(context, cutIndex, calc, deltaH, pathParameters, 
-                                srSeg, dSR, segments, points);
-    }
     
     /**
      * Calculate the basic path difference for diffraction screening.
      */
-    private static double calculatePathDifference(Coordinate src, Coordinate rcv, Coordinate diffractionPoint,
-                                                LineSegment dSR, double directDistance) {
-        double dSO = src.distance(diffractionPoint);
-        double dOR = diffractionPoint.distance(rcv);
-        return dSR.orientationIndex(diffractionPoint) * (dSO + dOR - directDistance);
+    private static double calculatePathDifference(Coordinate sourceCoordinate2D, Coordinate receiverCoordinate2D, Coordinate diffractionPoint, LineSegment sourceToReceiverSegment, double directDistance) {
+        double sourceToObstacleDistance = sourceCoordinate2D.distance(diffractionPoint);
+        double obstacleToReceiverDistance = diffractionPoint.distance(receiverCoordinate2D);
+        return sourceToReceiverSegment.orientationIndex(diffractionPoint) * (sourceToObstacleDistance + obstacleToReceiverDistance - directDistance);
     }
     
     /**
      * Check if diffraction point passes frequency-based screening.
      */
-    private static boolean passesFrequencyScreening(double deltaH, List<Double> exactFrequencyArray) {
-        for (double frequency : exactFrequencyArray) {
+    private boolean passesFrequencyScreening(double deltaH) {
+        for (double frequency : pathConfiguration.getExactFrequencyArray()) {
             if (deltaH > -(SOUND_SPEED / frequency) / 20) {
                 return true;
             }
@@ -238,49 +178,48 @@ public class DirectPropagationProcessor {
     /**
      * Calculate detailed diffraction parameters including mirror points.
      */
-    private static DiffractionCalculation calculateDiffractionParameters(DiffractionContext context, 
-                                                                        int cutIndex, int groundIndex,
-                                                                        Coordinate diffractionPoint, 
-                                                                        SegmentPath srSeg) {
+    private DiffractionCalculation calculateDiffractionParameters(int groundIndex, Coordinate diffractionPointCoordinate, SegmentPath sourceToReceiverSegment) {
+
         // Create segments S->O and O->R
-        SegmentPath seg1 = createSourceToObstacleSegment(context, groundIndex, diffractionPoint);
-        SegmentPath seg2 = createObstacleToReceiverSegment(context, groundIndex, diffractionPoint);
-        
+        SegmentPath sourceToObstacleSegment = createSourceToObstacleSegment(groundIndex, diffractionPointCoordinate);
+        SegmentPath obstacleToReceiverSegment = createObstacleToReceiverSegment(groundIndex, diffractionPointCoordinate);
+
         // Calculate mirror points (prime coordinates)
-        Coordinate srcPrime = calculateMirrorPoint(context.src, seg1.sMeanPlane);
-        Coordinate rcvPrime = calculateMirrorPoint(context.rcv, seg2.rMeanPlane);
+        Coordinate sourceMirrorCoordinate2D = calculateMirrorPoint(pathConfiguration.getSourceCoordinate2D(), sourceToObstacleSegment.sMeanPlane);
+        Coordinate receiverMirrorCoordinate2D = calculateMirrorPoint(pathConfiguration.getReceiverCoordinate2D(), obstacleToReceiverSegment.rMeanPlane);
         
         // Calculate distances for mirror path
-        LineSegment dSPrimeRPrime = new LineSegment(srcPrime, rcvPrime);
-        srSeg.dPrime = srcPrime.distance(rcvPrime);
-        seg1.dPrime = srcPrime.distance(diffractionPoint);
-        seg2.dPrime = diffractionPoint.distance(rcvPrime);
+        LineSegment sourceMirrorToReceiverMirrorSegment = new LineSegment(sourceMirrorCoordinate2D, receiverMirrorCoordinate2D);
+        sourceToReceiverSegment.dPrime = sourceMirrorCoordinate2D.distance(receiverMirrorCoordinate2D);
+        sourceToObstacleSegment.dPrime = sourceMirrorCoordinate2D.distance(diffractionPointCoordinate);
+        obstacleToReceiverSegment.dPrime = diffractionPointCoordinate.distance(receiverMirrorCoordinate2D);
         
         // Calculate path difference for mirror configuration
-        double deltaPrimeH = dSPrimeRPrime.orientationIndex(diffractionPoint) * 
-                           (seg1.dPrime + seg2.dPrime - srSeg.dPrime);
+        double deltaPrimeH = sourceMirrorToReceiverMirrorSegment.orientationIndex(diffractionPointCoordinate) * 
+                           (sourceToObstacleSegment.dPrime + obstacleToReceiverSegment.dPrime - sourceToReceiverSegment.dPrime);
         
-        return new DiffractionCalculation(seg1, seg2, srcPrime, rcvPrime, deltaPrimeH, dSPrimeRPrime);
+        return new DiffractionCalculation(sourceToObstacleSegment, obstacleToReceiverSegment, sourceMirrorCoordinate2D, receiverMirrorCoordinate2D, deltaPrimeH, sourceMirrorToReceiverMirrorSegment);
     }
     
     /**
-     * Create segment from source to obstacle.
+     * Create segment from source to obstacleCoordinate.
      */
-    private static SegmentPath createSourceToObstacleSegment(DiffractionContext context, 
-                                                           int groundIndex, Coordinate obstacle) {
-        Coordinate[] soCoords = Arrays.copyOfRange(context.pts2DGround, 0, groundIndex + 1);
-        double[] meanPlaneCoeffs = JTSUtility.getMeanPlaneCoefficients(soCoords);
-        return CnossosSegmentComputer.createSegmentPath(context.src, obstacle, meanPlaneCoeffs);
+    private SegmentPath createSourceToObstacleSegment(int groundIndex, Coordinate obstacleCoordinate) {
+        Coordinate[] sourceToObstacleCoordinates = Arrays.copyOfRange(pathConfiguration.getElevationProfile2D(), 0, groundIndex + 1);
+        // Coordinate sourceCoordinate = pathConfiguration.getCutPointCoordinates2D().get(0);
+        double[] meanPlaneCoeffs = JTSUtility.getMeanPlaneCoefficients(sourceToObstacleCoordinates);
+        return CnossosSegmentComputer.createSegmentPath(pathConfiguration.getSourceCoordinate2D(), obstacleCoordinate, meanPlaneCoeffs);
     }
     
     /**
-     * Create segment from obstacle to receiver.
+     * Create segment from obstacleCoordinate to receiver.
      */
-    private static SegmentPath createObstacleToReceiverSegment(DiffractionContext context, 
-                                                             int groundIndex, Coordinate obstacle) {
-        Coordinate[] orCoords = Arrays.copyOfRange(context.pts2DGround, groundIndex, context.pts2DGround.length);
-        double[] meanPlaneCoeffs = JTSUtility.getMeanPlaneCoefficients(orCoords);
-        return CnossosSegmentComputer.createSegmentPath(obstacle, context.rcv, meanPlaneCoeffs);
+    private SegmentPath createObstacleToReceiverSegment(int groundIndex, Coordinate obstacleCoordinate) {
+        Coordinate[] obtacleToReceiverCoordinates = Arrays.copyOfRange(pathConfiguration.getElevationProfile2D(), groundIndex, pathConfiguration.getElevationProfile2D().length);
+        
+        double[] meanPlaneCoeffs = JTSUtility.getMeanPlaneCoefficients(obtacleToReceiverCoordinates);
+        // Coordinate receiverCoordinate = pathConfiguration.getCutPointCoordinates2D().get(pathConfiguration.getCutPointCoordinates2D().size() - 1);
+        return CnossosSegmentComputer.createSegmentPath(obstacleCoordinate, pathConfiguration.getReceiverCoordinate2D(), meanPlaneCoeffs);
     }
     
     /**
@@ -296,9 +235,8 @@ public class DirectPropagationProcessor {
     /**
      * Check if diffraction point passes detailed screening criteria.
      */
-    private static boolean passesDetailedScreening(double deltaH, double deltaPrimeH, 
-                                                  List<Double> exactFrequencyArray) {
-        for (double frequency : exactFrequencyArray) {
+    private boolean passesDetailedScreening(double deltaH, double deltaPrimeH) {
+        for (double frequency : pathConfiguration.getExactFrequencyArray()) {
             if (deltaH > (SOUND_SPEED / frequency) / 4 - deltaPrimeH) {
                 return true;
             }
@@ -309,106 +247,110 @@ public class DirectPropagationProcessor {
     /**
      * Add validated diffraction point to the acoustic path.
      */
-    private static void addDiffractionPointToPath(DiffractionContext context, int cutIndex,
-                                                 DiffractionCalculation calc, double deltaH,
-                                                 CnossosPath pathParameters, SegmentPath srSeg,
-                                                 LineSegment dSR, List<SegmentPath> segments,
-                                                 List<PointPath> points) {
+    private void addDiffractionPointToPath(int cutIndex, DiffractionCalculation calc, double deltaH, CnossosPath pathParameters, SegmentPath sourceToReceiverSegment, LineSegment sourceToReceiverDistance, List<SegmentPath> segments, List<PointPath> points) {
         // Set path parameters
         pathParameters.deltaH = deltaH;
         pathParameters.deltaPrimeH = calc.deltaPrimeH;
         
         // Configure segment ground paths
-        configureSegmentGroundPaths(context, cutIndex, calc);
+        configureSegmentGroundPaths(calc, cutIndex);
         
         // Calculate Fresnel corrections
-        calculateFresnelCorrections(context, calc, pathParameters, srSeg, dSR);
+        calculateFresnelCorrections(calc, pathParameters, sourceToReceiverSegment, sourceToReceiverDistance);
         
         // Calculate additional path corrections
-        calculateAdditionalPathCorrections(context, calc, pathParameters, srSeg);
+        calculateAdditionalPathCorrections(calc, pathParameters, sourceToReceiverSegment);
         
         // Add segments and point to path
         segments.add(calc.seg1);
         segments.add(calc.seg2);
-        points.add(new PointPath(context.pts2DGround[context.cut2DGroundIndex.get(cutIndex)], 
-                                context.pts2DGround[context.cut2DGroundIndex.get(cutIndex)].z, 
-                                new ArrayList<>(), DIFH_RCRIT));
+        points.add(
+            new PointPath(
+                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutIndex)],
+                pathConfiguration.getElevationProfile2D()[pathConfiguration.getGroundEffectPointIndices().get(cutIndex)].z,
+                new ArrayList<>(), 
+                DIFH_RCRIT
+            )
+        );
     }
     
     /**
      * Configure ground paths for segments.
      */
-    private static void configureSegmentGroundPaths(DiffractionContext context, int cutIndex,
-                                                   DiffractionCalculation calc) {
+    private void configureSegmentGroundPaths(DiffractionCalculation calc, int cutIndex) {
+
+        CutPointSource cutPointSource = (CutPointSource) pathConfiguration.getCutProfile().getSource();
+        CutPointReceiver cutPointReceiver = (CutPointReceiver) pathConfiguration.getCutProfile().getReceiver();
         calc.seg1.setGpath(
-            context.cutProfile.calculateWeightedGroundAbsorption(context.srcCut, context.cuts.get(cutIndex), Scene.DEFAULT_G_BUILDING),
-            context.srcCut.getGroundCoefficient()
+            pathConfiguration.getCutProfile().calculateWeightedGroundAbsorption(cutPointSource, pathConfiguration.getCutProfilePoints().get(cutIndex), Scene.DEFAULT_G_BUILDING),
+            cutPointSource.getGroundCoefficient()
         );
+
         calc.seg2.setGpath(
-            context.cutProfile.calculateWeightedGroundAbsorption(context.cuts.get(cutIndex), context.rcvCut, Scene.DEFAULT_G_BUILDING),
-            context.srcCut.getGroundCoefficient()
+            pathConfiguration.getCutProfile().calculateWeightedGroundAbsorption(pathConfiguration.getCutProfilePoints().get(cutIndex), cutPointReceiver, Scene.DEFAULT_G_BUILDING),
+            cutPointReceiver.getGroundCoefficient()
         );
     }
     
     /**
      * Calculate Fresnel corrections for diffraction.
      */
-    private static void calculateFresnelCorrections(DiffractionContext context, DiffractionCalculation calc,
-                                                   CnossosPath pathParameters, SegmentPath srSeg,
-                                                   LineSegment dSR) {
+    private void calculateFresnelCorrections( DiffractionCalculation calc,
+                                                   CnossosPath pathParameters, SegmentPath sourceToReceiverSegment,
+                                                   LineSegment sourceToReceiverDistance) {
         // Use the current diffraction point from the calculation
-        Coordinate obstacle = calc.seg1.r; // The obstacle point from segment calculation
+        Coordinate obstacleCoordinate = calc.seg1.r; // The obstacleCoordinate point from segment calculation
         
-        double dSO = context.src.distance(obstacle);
-        double dOR = obstacle.distance(context.rcv);
+        double dSO = pathConfiguration.getSourceCoordinate2D().distance(obstacleCoordinate);
+        double dOR = obstacleCoordinate.distance(pathConfiguration.getReceiverCoordinate2D());
         
-        if (dSR.orientationIndex(obstacle) == 1) {
-            pathParameters.deltaF = toCurve(dSO, srSeg.d) + toCurve(dOR, srSeg.d) - toCurve(srSeg.d, srSeg.d);
+        if (sourceToReceiverDistance.orientationIndex(obstacleCoordinate) == 1) {
+            pathParameters.deltaF = toCurve(dSO, sourceToReceiverSegment.d) + toCurve(dOR, sourceToReceiverSegment.d) - toCurve(sourceToReceiverSegment.d, sourceToReceiverSegment.d);
         } else {
-            Coordinate pA = dSR.pointAlong((obstacle.x - context.src.x) / (context.rcv.x - context.src.x));
-            pathParameters.deltaF = 2 * toCurve(context.src.distance(pA), srSeg.d) + 
-                                  2 * toCurve(pA.distance(context.rcv), srSeg.d) - 
-                                  toCurve(dSO, srSeg.d) - toCurve(dOR, srSeg.d) - toCurve(srSeg.d, srSeg.d);
+            Coordinate pA = sourceToReceiverDistance.pointAlong((obstacleCoordinate.x - pathConfiguration.getSourceCoordinate2D().x) / (pathConfiguration.getReceiverCoordinate2D().x - pathConfiguration.getSourceCoordinate2D().x));
+            pathParameters.deltaF = 2 * toCurve(pathConfiguration.getSourceCoordinate2D().distance(pA), sourceToReceiverSegment.d) + 
+                                  2 * toCurve(pA.distance(pathConfiguration.getReceiverCoordinate2D()), sourceToReceiverSegment.d) - 
+                                  toCurve(dSO, sourceToReceiverSegment.d) - toCurve(dOR, sourceToReceiverSegment.d) - toCurve(sourceToReceiverSegment.d, sourceToReceiverSegment.d);
         }
         
         // Calculate deltaPrimeF
-        if (calc.dSPrimeRPrime.orientationIndex(obstacle) == 1) {
-            pathParameters.deltaPrimeF = toCurve(calc.seg1.dPrime, srSeg.dPrime) + 
-                                       toCurve(calc.seg2.dPrime, srSeg.dPrime) - 
-                                       toCurve(srSeg.dPrime, srSeg.dPrime);
+        if (calc.dSPrimeRPrime.orientationIndex(obstacleCoordinate) == 1) {
+            pathParameters.deltaPrimeF = toCurve(calc.seg1.dPrime, sourceToReceiverSegment.dPrime) + 
+                                       toCurve(calc.seg2.dPrime, sourceToReceiverSegment.dPrime) - 
+                                       toCurve(sourceToReceiverSegment.dPrime, sourceToReceiverSegment.dPrime);
         } else {
-            Coordinate pA = calc.dSPrimeRPrime.pointAlong((obstacle.x - calc.srcPrime.x) / 
+            Coordinate pA = calc.dSPrimeRPrime.pointAlong((obstacleCoordinate.x - calc.srcPrime.x) / 
                                                         (calc.rcvPrime.x - calc.srcPrime.x));
-            pathParameters.deltaPrimeF = 2 * toCurve(calc.srcPrime.distance(pA), srSeg.dPrime) + 
-                                       2 * toCurve(pA.distance(calc.srcPrime), srSeg.dPrime) - 
-                                       toCurve(calc.seg1.dPrime, srSeg.dPrime) - 
-                                       toCurve(calc.seg2.dPrime, srSeg.d) - 
-                                       toCurve(srSeg.dPrime, srSeg.dPrime);
+            pathParameters.deltaPrimeF = 2 * toCurve(calc.srcPrime.distance(pA), sourceToReceiverSegment.dPrime) + 
+                                       2 * toCurve(pA.distance(calc.srcPrime), sourceToReceiverSegment.dPrime) - 
+                                       toCurve(calc.seg1.dPrime, sourceToReceiverSegment.dPrime) - 
+                                       toCurve(calc.seg2.dPrime, sourceToReceiverSegment.d) - 
+                                       toCurve(sourceToReceiverSegment.dPrime, sourceToReceiverSegment.dPrime);
         }
     }
     
     /**
      * Calculate additional path corrections.
      */
-    private static void calculateAdditionalPathCorrections(DiffractionContext context, DiffractionCalculation calc,
-                                                          CnossosPath pathParameters, SegmentPath srSeg) {
+    private void calculateAdditionalPathCorrections(DiffractionCalculation calc,
+                                                          CnossosPath pathParameters, SegmentPath sourceToReceiverSegment) {
         // Use the current diffraction point from the calculation
-        Coordinate obstacle = calc.seg1.r; // The obstacle point from segment calculation
+        Coordinate obstacleCoordinate = calc.seg1.r; // The obstacleCoordinate point from segment calculation
         
-        double dOR = obstacle.distance(context.rcv);
-        double dSO = context.src.distance(obstacle);
+        double dSO = pathConfiguration.getSourceCoordinate2D().distance(obstacleCoordinate);
+        double dOR = obstacleCoordinate.distance(pathConfiguration.getReceiverCoordinate2D());
         
         // Calculate deltaSPrimeRH
-        LineSegment sPrimeR = new LineSegment(calc.seg1.sPrime, context.rcv);
-        double dSPrimeO = calc.seg1.sPrime.distance(obstacle);
-        double dSPrimeR = calc.seg1.sPrime.distance(context.rcv);
-        pathParameters.deltaSPrimeRH = sPrimeR.orientationIndex(obstacle) * (dSPrimeO + dOR - dSPrimeR);
+        LineSegment sPrimeR = new LineSegment(calc.seg1.sPrime, pathConfiguration.getReceiverCoordinate2D());
+        double dSPrimeO = calc.seg1.sPrime.distance(obstacleCoordinate);
+        double dSPrimeR = calc.seg1.sPrime.distance(pathConfiguration.getReceiverCoordinate2D());
+        pathParameters.deltaSPrimeRH = sPrimeR.orientationIndex(obstacleCoordinate) * (dSPrimeO + dOR - dSPrimeR);
         
         // Calculate deltaSRPrimeH
-        LineSegment sRPrime = new LineSegment(context.src, calc.seg2.rPrime);
-        double dORPrime = obstacle.distance(calc.seg2.rPrime);
-        double dSRPrime = context.src.distance(calc.seg2.rPrime);
-        pathParameters.deltaSRPrimeH = sRPrime.orientationIndex(obstacle) * (dSO + dORPrime - dSRPrime);
+        LineSegment sRPrime = new LineSegment(pathConfiguration.getSourceCoordinate2D(), calc.seg2.rPrime);
+        double dORPrime = obstacleCoordinate.distance(calc.seg2.rPrime);
+        double sourceToReceiverDistancePrime = pathConfiguration.getSourceCoordinate2D().distance(calc.seg2.rPrime);
+        pathParameters.deltaSRPrimeH = sRPrime.orientationIndex(obstacleCoordinate) * (dSO + dORPrime - sourceToReceiverDistancePrime);
     }
 
 
