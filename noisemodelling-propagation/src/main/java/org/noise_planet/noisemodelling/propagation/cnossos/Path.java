@@ -221,6 +221,22 @@ public class Path {
         }
         pointList.add(point);
     }
+
+
+    public void addPointAll(List<PointPath> points) {
+        if (pointList == null) {
+            pointList = new ArrayList<>();
+        }
+        pointList.addAll(points);
+    }
+
+    
+    public void addPointAll(int index, List<PointPath> points) {
+        if (pointList == null) {
+            pointList = new ArrayList<>();
+        }
+        pointList.addAll(index, points);
+    }
     
     /**
      * Add a segment to the path.
@@ -234,6 +250,28 @@ public class Path {
         }
         segmentList.add(segment);
     }
+
+    
+    /**
+     * Add a segment to the path.
+     * Initializes the segment list if it doesn't exist.
+     * 
+     * @param segment The segment to add to the path
+     */
+    public void addSegmentAll(List<SegmentPath> segments) {
+        if (segmentList == null) {
+            segmentList = new ArrayList<>();
+        }
+        segmentList.addAll(segments);
+    }
+    
+    public void addSegmentAll(int index,List<SegmentPath> segments) {
+        if (segmentList == null) {
+            segmentList = new ArrayList<>();
+        }
+        segmentList.addAll(index, segments);
+    }
+
     
     /**
      * Get the number of points in the path.

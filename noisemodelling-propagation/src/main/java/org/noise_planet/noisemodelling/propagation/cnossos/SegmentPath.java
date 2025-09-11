@@ -179,4 +179,8 @@ public class SegmentPath {
     public void setDirectRayDistance(double d) {
         this.dc = d;
     }
+
+    public double getDirectDistance() {
+        return d;
+    }
 }

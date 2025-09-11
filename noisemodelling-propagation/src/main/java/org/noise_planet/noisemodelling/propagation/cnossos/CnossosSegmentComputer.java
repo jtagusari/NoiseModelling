@@ -14,7 +14,7 @@ import static org.noise_planet.noisemodelling.pathfinder.utils.geometry.Geometry
  */
 public class CnossosSegmentComputer {
     /** CNOSSOS-EU atmospheric refraction coefficient */
-    public static final double ALPHA0 = 2e-4;
+    private static final double ALPHA0 = 2e-4;
 
     /**
      * Create basic segment path from coordinate list with default ground parameters.

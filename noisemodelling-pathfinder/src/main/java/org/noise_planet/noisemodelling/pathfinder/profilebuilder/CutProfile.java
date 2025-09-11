@@ -112,24 +112,28 @@ public class CutProfile {
      * @return the weighted absorption coefficient of this path segment
      */
     @JsonIgnore
-    public double calculateWeightedGroundAbsorption(CutPoint p0, CutPoint p1, double roofG) {
+    public double calculateWeightedGroundAbsorption(CutPoint cutPointFrom, CutPoint cutPointTo, double roofG) {
+        int cutPointIndexFrom = cutPoints.indexOf(cutPointFrom);
+        int cutPointIndexTo = cutPoints.indexOf(cutPointTo);
+        return calculateWeightedGroundAbsorption(cutPointIndexFrom, cutPointIndexTo, roofG);
+    }
+
+    @JsonIgnore
+    public double calculateWeightedGroundAbsorption(int cutPointIndexFrom, int cutPointIndexTo, double roofG) {
         double totalLength = 0;
         double rsLength = 0.0;
 
-        // Extract part of the path from the specified argument
-        int i0 = cutPoints.indexOf(p0);
-        int i1 = cutPoints.indexOf(p1);
-        if(i0 == -1 || i1 == -1 || i1 < i0) {
+        if(cutPointIndexFrom == -1 || cutPointIndexTo == -1 || cutPointIndexTo < cutPointIndexFrom) {
             return 0.0;
         }
 
         boolean aboveRoof = false;
-        for(int index = 0; index < i1; index++) {
+        for(int index = 0; index < cutPointIndexTo; index++) {
             CutPoint current = cutPoints.get(index);
             if(current instanceof CutPointWall || current instanceof CutPointBridgeWall) {
                 aboveRoof = checkAboveRoof((CutPointWall) current);
             }
-            if(index >= i0) {
+            if(index >= cutPointIndexFrom) {
                 double segmentLength = current.getCoordinate().distance(cutPoints.get(index + 1).getCoordinate());
                 rsLength += segmentLength * (aboveRoof ? roofG : current.getGroundCoefficient());
                 totalLength += segmentLength;
@@ -240,10 +244,10 @@ public class CutProfile {
      * This static method processes a list of cut points to generate the ground profile.
      * 
      * @param cutPoints list of cut points to process
-     * @param groundEffectPointIndices if provided, will contain corresponding indices from parameter to return list items
+     * @param cutPointExpandedIndices if provided, will contain corresponding indices from parameter to return list items
      * @return the computed coordinate list of the vertical cut representing the ground profile
      */
-    private static List<Coordinate> expandCutPointsToElevationProfile(List<CutPoint> cutPoints, List<Integer> groundEffectPointIndices) {
+    private static List<Coordinate> expandCutPointsToElevationProfile(List<CutPoint> cutPoints, List<Integer> cutPointExpandedIndices) {
 
         List<Coordinate> expandedGroundCoordinates = new ArrayList<>(cutPoints.size());
         if(cutPoints.isEmpty()) {
@@ -251,15 +255,15 @@ public class CutProfile {
         }
         // keep track of the obstacle under our current position.
         boolean overArea = isFirstPointOverarea(cutPoints);
-        boolean updateIndex = groundEffectPointIndices != null;
-        if (updateIndex && groundEffectPointIndices.size() > 0) {
-            throw new IllegalArgumentException("groundEffectPointIndices must be empty if provided");
+        boolean updateIndex = cutPointExpandedIndices != null;
+        if (updateIndex && cutPointExpandedIndices.size() > 0) {
+            throw new IllegalArgumentException("cutPointExpandedIndices must be empty if provided");
         }
 
         for (CutPoint pnt : cutPoints) {
             if (pnt instanceof CutPointGroundEffect) {
                 if (updateIndex) {
-                    groundEffectPointIndices.add(expandedGroundCoordinates.size() - 1);
+                    cutPointExpandedIndices.add(expandedGroundCoordinates.size() - 1);
                 }
                 continue;
             }
@@ -293,8 +297,8 @@ public class CutProfile {
                     expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                 }
             }
-            if (groundEffectPointIndices != null) {
-                groundEffectPointIndices.add(expandedGroundCoordinates.size() - 1);
+            if (cutPointExpandedIndices != null) {
+                cutPointExpandedIndices.add(expandedGroundCoordinates.size() - 1);
             }
         }
         return expandedGroundCoordinates;
@@ -348,11 +352,11 @@ public class CutProfile {
      * @param cutPoints list of cut points to process
      * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param groundEffectPointIndices if provided, will contain corresponding indices from parameter to return list items
+     * @param cutPointExpandedIndices if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM with simplified geometry
      */
-    public static List<Coordinate> generateElevationProfile2D(List<CutPoint> cutPoints, double tolerance, List<Integer> groundEffectPointIndices) {
-        return JTSUtility.getNewCoordinateSystem(expandCutPointsToElevationProfile(cutPoints, groundEffectPointIndices), tolerance);
+    public static List<Coordinate> generateElevationProfile2D(List<CutPoint> cutPoints, double tolerance, List<Integer> cutPointExpandedIndices) {
+        return JTSUtility.getNewCoordinateSystem(expandCutPointsToElevationProfile(cutPoints, cutPointExpandedIndices), tolerance);
     }
 
     /**
@@ -362,11 +366,11 @@ public class CutProfile {
      * 
      * @param tolerance simplify the point list by not adding points where the distance from the line segments
      *                 formed from the previous and the next point is inferior to this tolerance (remove intermediate collinear points)
-     * @param groundEffectPointIndices if provided, will contain corresponding indices from parameter to return list items
+     * @param cutPointExpandedIndices if provided, will contain corresponding indices from parameter to return list items
      * @return the computed 2D coordinate list of DEM with simplified geometry
      */
-    public List<Coordinate> generateElevationProfile2D(double tolerance, List<Integer> groundEffectPointIndices) {
-        return generateElevationProfile2D(this.cutPoints, tolerance, groundEffectPointIndices);
+    public List<Coordinate> generateElevationProfile2D(double tolerance, List<Integer> cutPointExpandedIndices) {
+        return generateElevationProfile2D(this.cutPoints, tolerance, cutPointExpandedIndices);
     }
 
     /**
