@@ -15,17 +15,17 @@ public class AcousticPathBuilder {
     public static Path createPath(AcousticPathConfiguration configuration) {
         AcousticPathProcessor acousticPathProcessor = new AcousticPathProcessor(configuration);
         
-        if (configuration.getDiffractionPoints().size() < 2) {
+        if (configuration.getHorizontalEdgePivotPoints().size() < 2) {
             throw new IllegalArgumentException("At least source and receiver points are required.");
         }
         
-        if (configuration.getDiffractionPoints().size() == 2) {
-            acousticPathProcessor.buildWithSegmentIndex(1);
+        if (configuration.getHorizontalEdgePivotPoints().size() == 2) {
+            acousticPathProcessor.updateWithSegmentIndex(1);
             return acousticPathProcessor.getPath();
         }
         
-        for (int segmentIndex = 1; segmentIndex < configuration.getDiffractionPoints().size(); segmentIndex++) {
-            acousticPathProcessor.buildWithSegmentIndex(segmentIndex);
+        for (int segmentIndex = 1; segmentIndex < configuration.getHorizontalEdgePivotPoints().size(); segmentIndex++) {
+            acousticPathProcessor.updateWithSegmentIndex(segmentIndex);
         }
         
         return acousticPathProcessor.getPath();

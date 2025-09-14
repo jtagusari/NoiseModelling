@@ -16,7 +16,7 @@ import java.util.List;
 public class AcousticPathConfiguration {
     
     // Geometric data
-    private final List<Coordinate> diffractionPoints;
+    private final List<Coordinate> horizontalEdgePivotPoints;
     private final CutProfile cutProfile;
     private final List<CutPoint> cutPoints;
     private final List<Coordinate> cutPointCoordinates2D;
@@ -34,7 +34,7 @@ public class AcousticPathConfiguration {
      * Private constructor for builder pattern.
      */
     private AcousticPathConfiguration(Builder builder) {
-        this.diffractionPoints = builder.diffractionPoints;
+        this.horizontalEdgePivotPoints = builder.horizontalEdgePivotPoints;
         this.cutProfile = builder.cutProfile;
         this.cutPoints = builder.cutPoints;
         this.cutPointCoordinates2D = builder.cutPointCoordinates2D;
@@ -59,7 +59,7 @@ public class AcousticPathConfiguration {
      */
     public static Builder builder(AcousticPathConfiguration existing) {
         return new Builder()
-                .withDiffractionPoints(existing.diffractionPoints)
+                .withHorizontalEdgePivotPoints(existing.horizontalEdgePivotPoints)
                 .withCutProfile(existing.cutProfile)
                 .withBodyBarrier(existing.bodyBarrier)
                 .withGroundAttenuationCoefficient(existing.groundAttenuationCoefficient)
@@ -77,7 +77,7 @@ public class AcousticPathConfiguration {
      * Builder for AcousticPathConfiguration.
      */
     public static class Builder {
-        private List<Coordinate> diffractionPoints;
+        private List<Coordinate> horizontalEdgePivotPoints;
         private CutProfile cutProfile;
         private List<CutPoint> cutPoints;
         private List<Coordinate> cutPointCoordinates2D;
@@ -89,14 +89,14 @@ public class AcousticPathConfiguration {
         private double groundAttenuationCoefficient;
         private List<Double> exactFrequencyArray;
         
-        public Builder withDiffractionPoints(List<Coordinate> diffractionPoints) {
-            this.diffractionPoints = diffractionPoints;
-            if (diffractionPoints == null) {
+        public Builder withHorizontalEdgePivotPoints(List<Coordinate> horizontalEdgePivotPoints) {
+            this.horizontalEdgePivotPoints = horizontalEdgePivotPoints;
+            if (horizontalEdgePivotPoints == null) {
                 return this;
             }
 
             // this.sourceCoordinate = cutProfile.getSource().getCoordinate();
-            if (diffractionPoints.size() < 2) {
+            if (horizontalEdgePivotPoints.size() < 2) {
                 throw new IllegalArgumentException("At least source and receiver points are required.");
             } 
             return this;
@@ -169,7 +169,7 @@ public class AcousticPathConfiguration {
     }
     
     // Getters
-    public List<Coordinate> getDiffractionPoints() { return diffractionPoints; }
+    public List<Coordinate> getHorizontalEdgePivotPoints() { return horizontalEdgePivotPoints; }
     public CutProfile getCutProfile() { return cutProfile; }
     public List<CutPoint> getCutProfilePoints() { return cutPoints; }
     public List<Coordinate> getPts2D() { return cutPointCoordinates2D; }

@@ -20,14 +20,18 @@ import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POIN
 /**
  * Processor for a single acoustic path segment.
  *
- * Encapsulates all logic required to build the acoustic representation for one
- * segment between two diffraction points. This includes adding source/receiver
- * points, intermediate reflection points, vertical edge diffractions and
- * creating the geometric segments with ground factors.
+ * <p>This class encapsulates the logic required to build the acoustic
+ * representation for one horizontal segment between two pivot points derived
+ * from the cut profile. It converts cut profile entries into {@code PointPath}
+ * instances (source, receiver, reflections, horizontal/vertical diffractions)
+ * and creates {@code SegmentPath} objects with computed ground factors and
+ * geometric information used by CNOSSOS propagation computations.</p>
+ *
+ * <p>Typical usage: construct an instance with an {@code
+ * AcousticPathConfiguration} and call {@link #updateWithSegmentIndex(int)} for
+ * each segment index to populate the internal {@code Path} with points and
+ * segments.</p>
  */
-
-
-
 public class AcousticPathProcessor {
 
     private final AcousticPathConfiguration configuration;
@@ -37,18 +41,33 @@ public class AcousticPathProcessor {
     
     // Segment boundary indices
     private int startCutPointIndex, endCutPointIndex;
-    private int startGroundIndex, endGroundIndex;
-    
+    private int startExpandedCutPointIndex, endExpandedCutPointIndex;
     // Cut points for this segment
     private CutPoint startCutPoint, endCutPoint;
 
+
+    /**
+     * Create a processor bound to the supplied configuration.
+     *
+     * @param configuration configuration providing cut profiles, elevation
+     *                      data and propagation settings used to build the
+     *                      acoustic path
+     */
     public AcousticPathProcessor(AcousticPathConfiguration configuration) {
         this.configuration = configuration;
     }
 
+    /**
+     * Returns the generated acoustic path for the currently processed
+     * segment(s).
+     *
+     * @return the {@code Path} containing points and segments produced by this
+     *         processor
+     */
     public Path getPath(){
         return this.path;
     }
+
     
     /**
      * Build the acoustic representation for this segment and append it to the provided Path.
@@ -61,86 +80,90 @@ public class AcousticPathProcessor {
      * @param acousticPath path object to which points and segments will be appended
      * @return the same {@code acousticPath} instance after the segment has been added
      */
-    public AcousticPathProcessor buildWithSegmentIndex(int segmentIndex) {
+    public void updateWithSegmentIndex(int segmentIndex) {
 
         setSegmentIndex(segmentIndex);
 
-        this.initializePathSource()
-                .addIntermediatePoints()
-                .addReceiverPoint()
-                .addMainDiffractionSegment()
-                .configureDiffractionPointProperties();
-                
-        return this;
-    }
+        if (configuration.getHorizontalEdgePivotPoints().size() == 2) {
+            this.addSourcePoint();
+            this.addIntermediatePoints();
+            this.addReceiverPoint();
+        } else {
 
+            if (this.path.hasNoPoints()) { addSourcePoint(); }       
+            this.addIntermediatePoints();
+            this.addMainSegment();
+                    
+            boolean isFinalSegment = (segmentIndex == configuration.getHorizontalEdgePivotPoints().size() - 1);
+            if (isFinalSegment) {
+                this.addReceiverPoint();
+            } else {
+                this.addHorizontalEdgeDiffractionPoint();
+            }
+        }
+        return;
+    }
+    
+
+    /**
+     * Initialize internal indices and cut point references for the provided
+     * segment index.
+     *
+     * @param segmentIndex index of the horizontal pivot segment to process
+     */
     private void setSegmentIndex(int segmentIndex) {
+
         this.segmentIndex = segmentIndex;
-        List<Coordinate> diffractionPoints = configuration.getDiffractionPoints();
+        List<Coordinate> diffractionPointCoordinates = configuration.getHorizontalEdgePivotPoints();
         List<Coordinate> cutPointCoordinates = configuration.getCutPointCoordinates2D();
-        this.startCutPointIndex = cutPointCoordinates.indexOf(diffractionPoints.get(segmentIndex - 1));
-        this.endCutPointIndex = cutPointCoordinates.indexOf(diffractionPoints.get(segmentIndex));
-        
-        // Get ground indices and cut points
-        this.startGroundIndex = configuration.getCutPointExpandedIndices().get(startCutPointIndex);
-        this.endGroundIndex = configuration.getCutPointExpandedIndices().get(endCutPointIndex);
+
+        this.startCutPointIndex = cutPointCoordinates.indexOf(diffractionPointCoordinates.get(segmentIndex - 1));
+        this.endCutPointIndex = cutPointCoordinates.indexOf(diffractionPointCoordinates.get(segmentIndex));
+        this.startExpandedCutPointIndex = configuration.getCutPointExpandedIndices().get(startCutPointIndex);
+        this.endExpandedCutPointIndex = configuration.getCutPointExpandedIndices().get(endCutPointIndex);
         this.startCutPoint = configuration.getCutProfilePoints().get(startCutPointIndex);
         this.endCutPoint = configuration.getCutProfilePoints().get(endCutPointIndex);
         
         // Adjust ground indices for walls        
-        if (endGroundIndex - 1 > startGroundIndex && endCutPoint instanceof CutPointWall) {
+        if (endExpandedCutPointIndex - 1 > startExpandedCutPointIndex && endCutPoint instanceof CutPointWall) {
             final CutPointWall endCutPointWall = (CutPointWall) endCutPoint;
             if (endCutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER)) {
-                endGroundIndex -= 1;
+                endExpandedCutPointIndex -= 1;
             } else if (endCutPointWall.intersectionType.equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
-                endGroundIndex -= 2;
+                endExpandedCutPointIndex -= 2;
             }
         }
     }
 
     
-    
+        
     /**
-     * Index of the source cut point for this segment.
-     *
-     * The parent builder uses this index to update source coordinates when chaining segments.
-     *
-     * @return index in the cut profile that represents the start of this segment
+     * Create and append the source {@code PointPath} for the start of the
+     * current segment. Sets the initial orientation based on the first
+     * reachable reflection or the segment end if none exists.
      */
-    public int getSourceIndex() {
-        return startCutPointIndex;
+    private void addSourcePoint() {
+        PointPath sourcePoint = new PointPath(
+            configuration.getCutPointCoordinates2D().get(startCutPointIndex), 
+            startCutPoint.getzGround(), 
+            SRCE
+        );
+        
+        // Find target for orientation calculation
+        Coordinate targetCoordinate = findFirstReflectionTarget();
+        
+        // Compute emission direction
+        Orientation emissionDirection = computeOrientation(
+            configuration.getCutProfile().getSource().getOrientation(),
+            startCutPoint.getCoordinate(), 
+            targetCoordinate
+        );
+        
+        sourcePoint.setOrientation(emissionDirection);
+        this.path.addPoint(sourcePoint);
+        this.path.setRaySourceReceiverDirectivity(emissionDirection);
     }
     
-    /**
-     * If the path is empty, add the source point and set its emission orientation.
-     *
-     * The emission orientation is computed towards the first relevant elevated
-     * reflection or diffraction point; if none exists the receiver position is used.
-     */
-    private AcousticPathProcessor initializePathSource() {
-        if (this.path.hasNoPoints()) {
-            PointPath sourcePoint = new PointPath(
-                configuration.getCutPointCoordinates2D().get(startCutPointIndex), 
-                startCutPoint.getzGround(), 
-                SRCE
-            );
-            
-            // Find target for orientation calculation
-            Coordinate targetPosition = findFirstReflectionTarget();
-            
-            // Compute emission direction
-            Orientation emissionDirection = computeOrientation(
-                configuration.getCutProfile().getSource().getOrientation(),
-                configuration.getCutProfilePoints().get(startCutPointIndex).getCoordinate(), 
-                targetPosition
-            );
-            
-            sourcePoint.setOrientation(emissionDirection);
-            this.path.addPoint(sourcePoint);
-            this.path.setRaySourceReceiverDirectivity(emissionDirection);
-        }
-        return this;
-    }
     
     /**
      * Choose the target coordinate used to compute source emission orientation.
@@ -152,58 +175,61 @@ public class AcousticPathProcessor {
      * @return coordinate to use as orientation target for the source
      */
     private Coordinate findFirstReflectionTarget() {
-        Coordinate targetPosition = configuration.getCutProfilePointCoordinate(endCutPointIndex);
+        Coordinate targetCoordinate = configuration.getCutProfilePointCoordinate(endCutPointIndex);
         
         for (int pointIndex = startCutPointIndex + 1; pointIndex < endCutPointIndex; pointIndex++) {
             final CutPoint currentPoint = configuration.getCutProfilePoints().get(pointIndex);
             if (currentPoint instanceof CutPointReflection) {
-                targetPosition = currentPoint.getCoordinate();
+                targetCoordinate = currentPoint.getCoordinate();
                 break;
             } else if (currentPoint instanceof CutPointVEdgeDiffraction && currentPoint.hasObstacle()) {
-                targetPosition = currentPoint.getCoordinate();
+                targetCoordinate = currentPoint.getCoordinate();
                 break;
             }
         }
         
-        return targetPosition;
+        return targetCoordinate;
     }
+    
     
     /**
      * Process cut profile points between the start and end of this segment.
      *
-     * Reflection points are converted to reflection PointPath objects. Vertical
-     * edge diffraction points are added and the corresponding vertical diffraction
-     * segments are created. The method also ensures the remaining final segment
-     * after the last vertical edge is created when applicable.
+     * <p>Converts reflection cut points into reflection {@code PointPath}
+     * instances and handles vertical-edge diffractions by creating diffraction
+     * points and intermediate segments as required.</p>
      */
-    private AcousticPathProcessor addIntermediatePoints() {
-        int previousPivotPoint = startCutPointIndex;
+    private void addIntermediatePoints() {
+        int previousCutPointIndex = startCutPointIndex;
         
         for (int pointIndex = startCutPointIndex + 1; pointIndex < endCutPointIndex; pointIndex++) {
             final CutPoint currentPoint = configuration.getCutProfilePoints().get(pointIndex);
+            final Coordinate currentPointCoordinate2D = configuration.getCutPointCoordinates2D().get(pointIndex);
             
             if (currentPoint instanceof CutPointReflection && currentPoint.hasObstacle()) {
-                this.addReflectionPoint(currentPoint, pointIndex);
+                this.addReflectionPoint(currentPoint, currentPointCoordinate2D);
             } else if (currentPoint instanceof CutPointVEdgeDiffraction) {
-                this.addVerticalEdgeDiffraction(currentPoint, pointIndex, previousPivotPoint);
-                previousPivotPoint = pointIndex;
+                this.addVerticalEdgeDiffractionPoint(currentPoint, currentPointCoordinate2D);                
+                this.addIntermediateSegment(previousCutPointIndex, pointIndex);
+                previousCutPointIndex = pointIndex;
             }
         }
-
-        this.addFinalVerticalDiffractionSegment(previousPivotPoint);
-        return this;
+        
+        int lastSegmentIndex = configuration.getHorizontalEdgePivotPoints().size() - 1;
+        if (previousCutPointIndex != startCutPointIndex && segmentIndex == lastSegmentIndex) {
+            this.addFinalIntermediateSegment(previousCutPointIndex);
+        }
+        return;
     }
 
     /**
-     * Convert a CutPointReflection into a PointPath and append it to {@code acousticPath}.
-     *
-     * Computes the wall altitude at the reflection coordinate and stores the wall
-     * orientation (alpha) on the created point.
+     * Convert a {@link CutPointReflection} into a {@link PointPath} reflection
+     * point and append it to the internal {@code Path}.
      *
      * @param currentPoint reflection cut point
-     * @param pointIndex index of the cut point in the cut profile arrays
+     * @param currentPointCoordinate2D 2D coordinate of the reflection point
      */
-    private void addReflectionPoint(CutPoint currentPoint, int pointIndex) {
+    private void addReflectionPoint(CutPoint currentPoint, Coordinate currentPointCoordinate2D) {
         CutPointReflection cutPointReflection = (CutPointReflection) currentPoint;
         double wallAltitudeAtReflectionPoint = Vertex.interpolateZ(
             cutPointReflection.getCoordinate(),
@@ -212,8 +238,8 @@ public class AcousticPathProcessor {
         );
         
         PointPath reflectionPoint = new PointPath(
-            configuration.getCutPointCoordinates2D().get(pointIndex), 
-            currentPoint.getzGround(),
+            currentPointCoordinate2D,
+            cutPointReflection.getzGround(),
             cutPointReflection.getWallAlpha(), 
             REFL
         );
@@ -223,59 +249,53 @@ public class AcousticPathProcessor {
     }
     
     /**
-     * Handle a vertical edge diffraction cut point.
-     *
-     * This adds a diffraction PointPath at the cut point coordinate and then
-     * creates the vertical-diffraction segment that connects the previous pivot
-     * to this diffraction.
+     * Handle a vertical-edge diffraction cut point by appending a vertical
+     * diffraction {@code PointPath} to the internal path.
      *
      * @param currentPoint vertical-edge diffraction cut point
-     * @param pointIndex index of the cut point in the cut profile arrays
-     * @param previousPivotPoint index of the previous pivot/corner point used to build the segment
-     * @return updated {@code acousticPath} containing the new point and segment
+     * @param currentPointCoordinate2D 2D coordinate of the diffraction point
      */
-    private void addVerticalEdgeDiffraction(CutPoint currentPoint, int pointIndex, int previousPivotPoint) {
+    private void addVerticalEdgeDiffractionPoint(CutPoint currentPoint, Coordinate currentPointCoordinate2D) {
         // Add vertical edge diffraction point
         PointPath diffractionPoint = new PointPath(
-            configuration.getCutPointCoordinates2D().get(pointIndex), 
-            currentPoint.getzGround(), 
-            new ArrayList<>(), 
+            currentPointCoordinate2D,
+            currentPoint.getzGround(),
+            new ArrayList<>(),
             DIFV
         );
         this.path.addPoint(diffractionPoint);
         
         // Create segment for vertical diffraction
-        this.addVerticalDiffractionSegment(previousPivotPoint, pointIndex);
+        // this.addVerticalEdgeDiffractionSegment(previousCutPointIndex, pointIndex);
 
         return;
     }
     
     /**
-     * Build a geometric segment for a vertical-edge diffraction between two cut points.
+     * Build a geometric intermediate segment between two cut profile indices.
      *
-     * The method extracts the ground elevation slice between the two cut indices,
-     * computes an average ground plane and creates a SegmentPath populated with
-     * the appropriate ground absorption and attenuation factors.
+     * <p>Extracts the elevation profile between the two cut indices, computes a
+     * mean ground plane, and creates a {@code SegmentPath} with ground
+     * absorption and attenuation coefficients appropriate for the slice.</p>
      *
-     * @param startCutPointIndex index of the segment start cut point in the cut profile
-     * @param endCutPointIndex index of the segment end cut point in the cut profile
-     * @return {@code acousticPath} with the newly created segment appended
+     * @param startSegmentIndex index of the segment start cut point in the cut profile
+     * @param endSegmentIndex   index of the segment end cut point in the cut profile
      */
-    private void addVerticalDiffractionSegment(int startCutPointIndex, int endCutPointIndex) {
+    private void addIntermediateSegment(int startSegmentIndex, int endSegmentIndex) {
         Coordinate[] segmentGroundPoints = Arrays.copyOfRange(
             configuration.getElevationProfile2D(), 
-            configuration.getCut2DGroundIndex().get(startCutPointIndex),
-            configuration.getCut2DGroundIndex().get(endCutPointIndex) + 1
+            configuration.getCut2DGroundIndex().get(startSegmentIndex),
+            configuration.getCut2DGroundIndex().get(endSegmentIndex) + 1
         );
         double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(segmentGroundPoints);
         
         SegmentPath segment = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
-            configuration.getCutPointCoordinates2D().get(startCutPointIndex), 
-            configuration.getCutPointCoordinates2D().get(endCutPointIndex),
+            configuration.getCutPointCoordinates2D().get(startSegmentIndex),
+            configuration.getCutPointCoordinates2D().get(endSegmentIndex),
             meanPlane, 
             configuration.getCutProfile().calculateWeightedGroundAbsorption(
-                startCutPoint, 
-                configuration.getCutProfilePoints().get(endCutPointIndex), 
+                configuration.getCutProfilePoints().get(startSegmentIndex), 
+                configuration.getCutProfilePoints().get(endSegmentIndex), 
                 Scene.DEFAULT_G_BUILDING
             ), 
             configuration.getGroundAttenuationCoefficient()
@@ -284,118 +304,133 @@ public class AcousticPathProcessor {
         this.path.addSegment(segment);
         return;
     }
-    
+
     /**
      * Append the receiver point for this segment.
      *
-     * The receiver point is the endpoint of the segment and marked as RECV.
+     * <p>Creates a {@code PointPath} of type RECV using the end cut point
+     * coordinate and ground elevation.</p>
      */
-    private AcousticPathProcessor addReceiverPoint() {
+    private void addReceiverPoint() {
         PointPath receiverPoint = new PointPath(
             configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
             endCutPoint.getzGround(), 
             RECV
         );
         this.path.addPoint(receiverPoint);
-        return this;
+        return;
     }
+
     
     /**
-     * When the last processed pivot is not the segment start, create the final
-     * segment that connects the last pivot to the receiver (end of profile).
+     * Create the final intermediate segment connecting the last processed pivot
+     * to the end of the profile (receiver).
      *
-     * This is used for the last diffraction segment to ensure the tail segment
-     * after the final vertical-edge diffraction is constructed.
-     *
-     * @param previousPivotPoint index of the last pivot processed in this segment
+     * @param startSegmentIndex index of the last pivot processed in this segment
      */
-    private void addFinalVerticalDiffractionSegment(int previousPivotPoint) {
-        if (previousPivotPoint != startCutPointIndex && segmentIndex == configuration.getDiffractionPoints().size() - 1) {
-            Coordinate[] segmentGroundPoints = Arrays.copyOfRange(
-                configuration.getElevationProfile2D(), 
-                endGroundIndex, 
-                configuration.getElevationProfile2D().length
-            );
-            double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(segmentGroundPoints);
-            
-            SegmentPath segment = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
-                configuration.getCutPointCoordinates2D().get(previousPivotPoint), 
-                configuration.getCutPointCoordinates2D().get(configuration.getCutPointCoordinates2D().size() - 1),
-                meanPlane, 
-                configuration.getCutProfile().calculateWeightedGroundAbsorption(
-                    endCutPoint, 
-                    configuration.getCutProfilePoints().get(configuration.getCutProfilePoints().size() - 1), 
-                    Scene.DEFAULT_G_BUILDING
-                ),
-                configuration.getGroundAttenuationCoefficient()
-            );
-            segment.setPoints2DGround(segmentGroundPoints);
-            this.path.addSegment(segment);
-        }
+    private void addFinalIntermediateSegment(int startSegmentIndex) {
+
+        Coordinate[] segmentGroundPoints = Arrays.copyOfRange(
+            configuration.getElevationProfile2D(), 
+            endExpandedCutPointIndex, 
+            configuration.getElevationProfile2D().length
+        );
+        double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(segmentGroundPoints);
+        
+        SegmentPath segment = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
+            configuration.getCutPointCoordinates2D().get(startSegmentIndex), 
+            configuration.getCutPointCoordinates2D().get(configuration.getCutPointCoordinates2D().size() - 1),
+            meanPlane, 
+            configuration.getCutProfile().calculateWeightedGroundAbsorption(
+                endCutPoint, 
+                configuration.getCutProfilePoints().get(configuration.getCutProfilePoints().size() - 1), 
+                Scene.DEFAULT_G_BUILDING
+            ),
+            configuration.getGroundAttenuationCoefficient()
+        );
+        segment.setPoints2DGround(segmentGroundPoints);
+        this.path.addSegment(segment);
         return;
     }
     
-        
+
     /**
      * Build the main diffraction propagation segment between the segment endpoints.
      *
-     * This creates a SegmentPath that spans from the start cut point to the end
-     * cut point and computes direct-ray distance, ground points and absorption.
+     * <p>This constructs the primary {@code SegmentPath} spanning the full
+     * segment (from start cut point to end cut point). It computes the direct
+     * ray distance, extracts the ground slice and assigns weighted ground
+     * absorption for the entire segment.</p>
      */
-    private AcousticPathProcessor addMainDiffractionSegment() {
+    private void addMainSegment() {
         
-        if (configuration.getDiffractionPoints().size() > 2) {
-            Coordinate[] segmentGroundPoints = Arrays.copyOfRange(
-                configuration.getElevationProfile2D(), 
-                startGroundIndex, 
-                endGroundIndex + 1
-            );
-            double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(segmentGroundPoints);
-            
-            SegmentPath path = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
-                configuration.getCutPointCoordinates2D().get(startCutPointIndex), 
-                configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
-                meanPlane,
-                configuration.getCutProfile().calculateWeightedGroundAbsorption(
-                    configuration.getCutProfilePoints().get(startCutPointIndex), 
-                    configuration.getCutProfilePoints().get(endCutPointIndex), 
-                    Scene.DEFAULT_G_BUILDING
-                ),
-                configuration.getCutProfilePoints().get(startCutPointIndex).getGroundCoefficient()
-            );
-
-            path.setDirectRayDistance(startCutPoint.getCoordinate().distance3D(endCutPoint.getCoordinate()));
-            path.setPoints2DGround(segmentGroundPoints);
-            this.path.addSegment(path);
+        if (configuration.getHorizontalEdgePivotPoints().size() == 2) {
+            throw new IllegalStateException("Main diffraction segment can only be added when there are intermediate pivot points.");
         }
-        return this;
+
+        Coordinate[] segmentGroundPoints = Arrays.copyOfRange(
+            configuration.getElevationProfile2D(), 
+            startExpandedCutPointIndex, 
+            endExpandedCutPointIndex + 1
+        );
+        double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(segmentGroundPoints);
+        
+        SegmentPath path = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
+            configuration.getCutPointCoordinates2D().get(startCutPointIndex), 
+            configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
+            meanPlane,
+            configuration.getCutProfile().calculateWeightedGroundAbsorption(
+                startCutPoint, 
+                endCutPoint, 
+                Scene.DEFAULT_G_BUILDING
+            ),
+            startCutPoint.getGroundCoefficient()
+        );
+
+        path.setDirectRayDistance(startCutPoint.getCoordinate().distance3D(endCutPoint.getCoordinate()));
+        path.setPoints2DGround(segmentGroundPoints);
+        this.path.addSegment(path);
+        return;
     }
     
+    
     /**
-     * Set properties on the end diffraction point for this segment.
+     * Append a horizontal-edge diffraction {@code PointPath} at the segment end.
      *
-     * If this segment is not the final global segment, mark the point as a
-     * horizontal diffraction (DIFH) and copy barrier/wall properties where applicable.
+     * <p>The method sets diffraction-specific flags (e.g. whether a body
+     * barrier is present) and attaches wall alpha when the end cut point is a
+     * wall.</p>
      */
-    private AcousticPathProcessor configureDiffractionPointProperties() {
-        if (segmentIndex != configuration.getDiffractionPoints().size() - 1) {
-            PointPath pt = this.path.getPointList().get(this.path.getPointCount() - 1);
-            pt.type = DIFH;
-            pt.bodyBarrier = configuration.isBodyBarrier();
-            if (endCutPoint instanceof CutPointWall) {
-                pt.alphaWall = ((CutPointWall) endCutPoint).getWallAlpha();
-            }
+    private void addHorizontalEdgeDiffractionPoint() {        
+        PointPath diffractionPoint = new PointPath(
+            configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
+            endCutPoint.getzGround(), 
+            DIFH
+            );
+        diffractionPoint.bodyBarrier = configuration.isBodyBarrier();
+        if (endCutPoint instanceof CutPointWall) {
+            diffractionPoint.alphaWall = ((CutPointWall) endCutPoint).getWallAlpha();
         }
-        return this;
+        this.path.addPoint(diffractionPoint);
+        return;
     }
 
     
     /**
+     * Compute the orientation used for emission or reflection based on a
+     * reference {@code Orientation} and the local outgoing ray vector.
      *
-     * @param sourceOrientation
-     * @param src
-     * @param next
-     * @return
+     * <p>If {@code sourceOrientation} is {@code null} this method returns
+     * {@code null}. Otherwise the method rotates the supplied orientation to
+     * align with the normalized vector from {@code src} to {@code next} and
+     * returns a new {@code Orientation}.</p>
+     *
+     * @param sourceOrientation reference orientation to rotate (may be {@code null})
+     * @param src               source coordinate (3D) used to build direction vector
+     * @param next              destination coordinate (3D) used to build direction vector
+     * @return a new {@code Orientation} aligned with the direction from {@code src}
+     *         to {@code next}, or {@code null} when {@code sourceOrientation} is
+     *         {@code null}
      */
     private static Orientation computeOrientation(Orientation sourceOrientation, Coordinate src, Coordinate next){
         if(sourceOrientation == null) {

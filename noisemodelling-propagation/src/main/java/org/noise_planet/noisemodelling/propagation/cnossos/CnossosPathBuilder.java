@@ -22,7 +22,7 @@ import java.util.List;
  * </ol>
  *
  * <p>Heavy computations are delegated to helper classes such as
- * {@link DiffractionPointComputer}, {@link ReflectionPointValidator},
+ * {@link DiffractionPointCalculator}, {@link ReflectionPointValidator},
  * {@link AcousticPathBuilder}, and {@link CnossosPathProcessor}.
  */
 public class CnossosPathBuilder {
@@ -60,12 +60,12 @@ public class CnossosPathBuilder {
         }
 
         // Compute convex hull diffraction points for acoustic path calculation
-        List<Coordinate> diffractionPoints = DiffractionPointComputer.computeDiffractionPoints(pathConfiguration);
+        List<Coordinate> horizontalEdgePivotPoints = DiffractionPointCalculator.computeHorizontalEdgePivotPoints(pathConfiguration);
 
         
         // Validate and adjust reflection points based on wall constraints
         if (!ReflectionPointValidator.validateAndAdjustReflectionPoints(
-                diffractionPoints, 
+                horizontalEdgePivotPoints, 
                 pathConfiguration.getCutProfilePoints(), 
                 pathConfiguration.getCutPointCoordinates2D()
             )
@@ -75,12 +75,12 @@ public class CnossosPathBuilder {
 
         // Update configuration with diffraction points
         AcousticPathConfiguration updatedConfig = AcousticPathConfiguration.builder(pathConfiguration)
-                .withDiffractionPoints(diffractionPoints)
+                .withHorizontalEdgePivotPoints(horizontalEdgePivotPoints)
                 .build();
 
         // Create segments and points using the new API
         Path path = AcousticPathBuilder.createPath(updatedConfig);
-        CnossosPath cnossosPath = CnossosPathProcessor.createCnossosPathFromPath(path, updatedConfig);
+        CnossosPath cnossosPath = CnossosPathProcessor.createCnossosPath(path, updatedConfig);
         return cnossosPath;
     }
     

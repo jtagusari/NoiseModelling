@@ -155,7 +155,7 @@ public class CutProfile {
     @JsonIgnore
     private boolean checkAboveRoof(CutPointBridgeWall wall){
         /* TODO implement bridge enter/exit logic */
-        return false;
+        return true;
     }
 
     /**

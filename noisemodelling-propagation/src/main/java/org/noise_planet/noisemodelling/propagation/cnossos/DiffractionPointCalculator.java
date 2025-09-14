@@ -24,7 +24,7 @@ import java.util.List;
  * ordered list of {@link Coordinate} values is suitable as input for downstream
  * path building (e.g. selection of diffraction vertices).
  */
-public class DiffractionPointComputer {
+public class DiffractionPointCalculator {
 
 
     /**
@@ -43,7 +43,7 @@ public class DiffractionPointComputer {
      *                      and the original {@link CutProfile}
      * @return ordered list of 2D {@link Coordinate} representing diffraction candidates
      */
-    public static List<Coordinate> computeDiffractionPoints(AcousticPathConfiguration configuration) {
+    public static List<Coordinate> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
 
         // Collect valid diffraction points
         List<Coordinate> convexHullInput = collectValidDiffractionPoints(configuration);

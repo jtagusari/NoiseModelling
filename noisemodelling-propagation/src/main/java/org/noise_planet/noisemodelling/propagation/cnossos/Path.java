@@ -190,6 +190,8 @@ public class Path {
 
     public SegmentPath getSRSegment() {return srSegment;}
 
+    public void setSRSegmentDPrime(double dPrime) {srSegment.dPrime = dPrime;}
+
     public void setPointList(List<PointPath> pointList) {this.pointList = pointList;}
 
     public void setSegmentList(List<SegmentPath>  segmentList) {this.segmentList = segmentList;}
