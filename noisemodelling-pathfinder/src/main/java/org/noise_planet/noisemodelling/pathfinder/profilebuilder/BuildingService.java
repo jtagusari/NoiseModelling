@@ -5,7 +5,6 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.LineSegment;
-import org.locationtech.jts.math.Vector2D;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Polygon;

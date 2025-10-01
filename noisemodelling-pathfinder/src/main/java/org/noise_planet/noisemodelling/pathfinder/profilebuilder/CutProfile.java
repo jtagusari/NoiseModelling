@@ -14,14 +14,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
-import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
+import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
+import org.slf4j.LoggerFactory;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall.INTERSECTION_TYPE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.xml.transform.Source;
 
 /**
  * CutProfile represents a vertical profile cut between a sound source and receiver.
@@ -62,6 +67,7 @@ public class CutProfile {
         cutPoints.add(receiver);
     }
 
+
     /**
      * Insert and sort cut points into the profile.
      * The method ensures that the source remains the first point and the receiver remains the last point.
@@ -92,6 +98,7 @@ public class CutProfile {
             }
         }
     }
+
 
     /**
      * Sort the CutPoints by distance from a reference coordinate.
@@ -248,62 +255,148 @@ public class CutProfile {
      * @return the computed coordinate list of the vertical cut representing the ground profile
      */
     private static List<Coordinate> expandCutPointsToElevationProfile(List<CutPoint> cutPoints, List<Integer> cutPointExpandedIndices) {
-
-        List<Coordinate> expandedGroundCoordinates = new ArrayList<>(cutPoints.size());
+        Logger logger = LoggerFactory.getLogger("CutProfile: expandCutPointsToElevationProfile");
+        List<Coordinate> elevationProfileCoordinates = new ArrayList<>(cutPoints.size());
         if(cutPoints.isEmpty()) {
-            return expandedGroundCoordinates;
+            return elevationProfileCoordinates;
         }
         // keep track of the obstacle under our current position.
         boolean overArea = isFirstPointOverarea(cutPoints);
-        boolean updateIndex = cutPointExpandedIndices != null;
-        if (updateIndex && cutPointExpandedIndices.size() > 0) {
+        if (cutPointExpandedIndices != null && cutPointExpandedIndices.size() > 0) {
             throw new IllegalArgumentException("cutPointExpandedIndices must be empty if provided");
         }
 
-        for (CutPoint pnt : cutPoints) {
+        double lastZ = Double.NaN;
+        double lastGroundZ = Double.NaN;
+        long bridgePkOn = -1;
+
+        for (int i = 0; i < cutPoints.size(); i++) {
+            CutPoint pnt = cutPoints.get(i);
             if (pnt instanceof CutPointGroundEffect) {
-                if (updateIndex) {
-                    cutPointExpandedIndices.add(expandedGroundCoordinates.size() - 1);
+                if (cutPointExpandedIndices != null) {
+                    cutPointExpandedIndices.add(elevationProfileCoordinates.size() - 1);
                 }
                 continue;
             }
-            if (pnt instanceof CutPointWall) {
+
+            if (pnt instanceof CutPointSource) {
+                double bridgeHeight = ((CutPointSource) pnt).getBridgeHeight();
+                if (!Double.isNaN(bridgeHeight)){
+                    elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, bridgeHeight));
+                    lastGroundZ = bridgeHeight;
+                } else {
+                    elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    lastGroundZ = Double.NaN;
+                }
+                lastZ = pnt.getCoordinate().z;
+
+                SourceBridgeProperty property = ((CutPointSource) pnt).getSourceBridgeProperty();
+                if (property != null) {
+                    bridgePkOn = property.getBridgePkOn();
+                }
+
+            } else if (pnt instanceof CutPointWall) {
                 // Z ground profile must add intermediate ground points before adding the top level of building/wall/bridge
                 CutPointWall wallPoint = (CutPointWall) pnt;
                 
                 if (isEnteringPoint(wallPoint) || isWall(wallPoint)) {
-                    expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = true;
                 }
 
-                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
-
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
+                
                 if (isExitingPoint(wallPoint) || isWall(wallPoint)) {
-                    expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = false;
                 }
 
+                lastZ = pnt.getCoordinate().z;
+                lastGroundZ = Double.NaN;
+
             } else if (pnt instanceof CutPointBridgeWall) {
-                /* TODO implement bridge wall logic */
-                /* Height of the path is required to determine if we are over or under the bridge */
+                CutPointBridgeWall bridgePoint = (CutPointBridgeWall) pnt;
+                double bridgeHeight = bridgePoint.getBridgeHeight();
+                long cutPointBridgePk = bridgePoint.getBridgePk();
+
+                if (cutPointBridgePk == bridgePkOn) {
+                    if (isExitingPoint((CutPointWall) pnt)) {
+                        discendBridge(elevationProfileCoordinates, bridgePoint);
+                        bridgePkOn = bridgePoint.getNextBridgePk();
+                        lastZ = pnt.getCoordinate().z;
+                        lastGroundZ = bridgePoint.getNextBridgeHeight();
+                    }
+                    if (isEnteringPoint((CutPointWall) pnt) && lastZ > bridgeHeight) {
+                        ascendBridge(elevationProfileCoordinates, lastGroundZ, bridgePoint);
+                        lastZ = pnt.getCoordinate().z;
+                        lastGroundZ = bridgeHeight;
+                    }
+                } else if (lastZ > bridgeHeight) {
+                    if (isExitingPoint((CutPointWall) pnt)) {
+                        logger.warn("Source(s) outside Bridge Exits bridge wall at {}", cutPointBridgePk);
+                    }
+                    if (isEnteringPoint((CutPointWall) pnt)) {                        
+                        ascendBridge(elevationProfileCoordinates, lastGroundZ, bridgePoint);
+                        bridgePkOn = cutPointBridgePk;
+                        lastZ = pnt.getCoordinate().z;
+                        lastGroundZ = bridgeHeight;
+                    }
+                }
+
             } else if (pnt instanceof CutPointReflection) {
                 // Z ground profile is duplicated for reflection point before and after
-                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
-                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
-                expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                lastZ = pnt.getCoordinate().z;
+                lastGroundZ = Double.NaN;
             } else {
                 // we will ignore topographic point if we are over a building
                 if (!(overArea && pnt instanceof CutPointTopography)) {
-                    expandedGroundCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                    lastZ = pnt.getCoordinate().z;
+                    lastGroundZ = Double.NaN;
                 }
             }
+
             if (cutPointExpandedIndices != null) {
-                cutPointExpandedIndices.add(expandedGroundCoordinates.size() - 1);
+                cutPointExpandedIndices.add(elevationProfileCoordinates.size() - 1);
             }
         }
-        return expandedGroundCoordinates;
+        return elevationProfileCoordinates;
+    }
+
+    private static void ascendBridge(List<Coordinate> elevationProfileCoordinates, double lastGroundHeight, CutPointBridgeWall bridgePoint) {
+        double bridgeHeight = bridgePoint.getBridgeHeight();
+
+        if (!Double.isNaN(lastGroundHeight)) {
+            elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, lastGroundHeight));
+        } else {
+            elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgePoint.getzGround()));
+        }
+        elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgePoint.getCoordinate().z));
+        
+        if (bridgePoint.getCoordinate().z > bridgeHeight) {
+            elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgeHeight));
+        }
+        return;
     }
     
+    private static void discendBridge(List<Coordinate> elevationProfileCoordinates, CutPointBridgeWall bridgePoint){
+        double bridgeHeight = bridgePoint.getBridgeHeight();
+
+        elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgeHeight));
+        if (bridgePoint.getCoordinate().z > bridgeHeight) {
+            elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgePoint.getCoordinate().z));
+        }
+        if (bridgePoint.getNextBridgePk() >= 0){
+            elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgePoint.getNextBridgeHeight()));
+        } else {
+            elevationProfileCoordinates.add(new Coordinate(bridgePoint.getCoordinate().x, bridgePoint.getCoordinate().y, bridgePoint.getzGround()));
+        }
+    }
+
+
 
     private static boolean isFirstPointOverarea(List<CutPoint> cutPoints) {
         if (cutPoints.get(0) instanceof CutPointSource) {

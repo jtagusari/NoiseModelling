@@ -46,13 +46,9 @@ public class CnossosPathBuilder {
      */
     public static CnossosPath buildCnossosPath(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier) {
 
-        AcousticPathConfiguration pathConfiguration = AcousticPathConfiguration.builder()
-                .withCutProfile(cutProfile)
-                .withExactFrequencyArray(exactFrequencyArray)
-                .withGroundAttenuationCoefficient(groundAttenuationCoefficient)
-                .withBodyBarrier(bodyBarrier)
-                .build();
-
+        AcousticPathConfiguration pathConfiguration = new AcousticPathConfiguration(
+            cutProfile, exactFrequencyArray, groundAttenuationCoefficient, bodyBarrier
+        );
 
         // Delegate to the internal computation method
         if (pathConfiguration.getCutPointCoordinates2D().size() < 2) {
@@ -73,14 +69,11 @@ public class CnossosPathBuilder {
             throw new IllegalArgumentException("Invalid reflection points");
         }
 
-        // Update configuration with diffraction points
-        AcousticPathConfiguration updatedConfig = AcousticPathConfiguration.builder(pathConfiguration)
-                .withHorizontalEdgePivotPoints(horizontalEdgePivotPoints)
-                .build();
+        pathConfiguration.setHorizontalEdgePivotPoints(horizontalEdgePivotPoints);
 
         // Create segments and points using the new API
-        Path path = AcousticPathBuilder.createPath(updatedConfig);
-        CnossosPath cnossosPath = CnossosPathProcessor.createCnossosPath(path, updatedConfig);
+        Path path = AcousticPathBuilder.createPath(pathConfiguration);
+        CnossosPath cnossosPath = CnossosPathProcessor.createCnossosPath(path, pathConfiguration);
         return cnossosPath;
     }
     

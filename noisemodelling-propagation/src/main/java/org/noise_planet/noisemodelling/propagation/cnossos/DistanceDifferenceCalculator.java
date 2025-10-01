@@ -1,18 +1,8 @@
 package org.noise_planet.noisemodelling.propagation.cnossos;
 
-import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
-import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointVEdgeDiffraction;
-import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.stream.Collectors;
-
-import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POINT_TYPE.*;
 import static java.lang.Math.*;
 
 

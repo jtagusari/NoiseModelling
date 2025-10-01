@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.*;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.output.AttenuationOutputMultiThread;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
@@ -28,7 +27,6 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
-import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -237,7 +235,7 @@ public class SceneWithEmissionTest {
         assertEquals(6, levelsPerReceiverLines.size());
 
         for(int i = 0; i < levelsPerReceiver.size(); i++) {
-            assertArrayEquals(levelsPerReceiver.get(i).levels, levelsPerReceiverLines.get(i).levels, 0.2);
+            assertArrayEquals(levelsPerReceiver.get(i).getLevels(), levelsPerReceiverLines.get(i).getLevels(), 0.2);
         }
     }
 
@@ -305,7 +303,7 @@ public class SceneWithEmissionTest {
             // number of propagation paths between two walls = reflectionOrder * 2 + 1
             assertEquals(i * 2 + 1, propDataOut.cnossosPathCount.get());
 
-            double globalPowerAtReceiver = AcousticIndicatorsFunctions.sumDbArray(propDataOut.resultsCache.receiverLevels.pop().levels);
+            double globalPowerAtReceiver = AcousticIndicatorsFunctions.sumDbArray(propDataOut.resultsCache.receiverLevels.pop().getLevels());
             if(i == 0) {
                 firstPowerAtReceiver = globalPowerAtReceiver;
             } else {
@@ -323,7 +321,6 @@ public class SceneWithEmissionTest {
 
         GeometryFactory factory = new GeometryFactory();
         //Scene dimension
-        Envelope cellEnvelope = new Envelope(new Coordinate(-1200, -1200, 0.), new Coordinate(1200, 1200, 0.));
         FrequencyConfig frequencyConfig = new FrequencyConfig(FrequencyBand.OCTAVE);
 
         WKTReader wktReader = new WKTReader();
@@ -364,7 +361,7 @@ public class SceneWithEmissionTest {
         assertEquals(1, outputMultiThread.resultsCache.queueSize.get());
 
         assertEquals(14.6, AcousticIndicatorsFunctions.wToDb(sumArray(roadLvl.length,
-                AcousticIndicatorsFunctions.dBToW(outputMultiThread.resultsCache.receiverLevels.pop().levels))),
+                AcousticIndicatorsFunctions.dBToW(outputMultiThread.resultsCache.receiverLevels.pop().getLevels()))),
                 0.1);
     }
 

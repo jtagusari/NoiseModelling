@@ -5,9 +5,13 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineSegment;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointTopography;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 
 import java.util.ArrayList;
@@ -46,10 +50,23 @@ public class DiffractionPointCalculator {
     public static List<Coordinate> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
 
         // Collect valid diffraction points
-        List<Coordinate> convexHullInput = collectValidDiffractionPoints(configuration);
+        List<Coordinate> candidateCoordinates = collectHorizontalEdgePivotCandidates(configuration);
 
-        // Compute convex hull and process results
-        return calculateConvexHull(configuration, convexHullInput);
+        SourceBridgeProperty sourceProperty = configuration.getCutProfile().getSource().getSourceBridgeProperty();
+        SourceType sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
+        if (sourceProperty != null){
+            sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
+        }
+
+        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+        return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
+    }
+
+        List<Coordinate> downwardBridgeEdges = collectDownwardBridgeEdges(configuration);
+        if (downwardBridgeEdges == null || downwardBridgeEdges.size() == 0) {
+            return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
+        }
+        return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, downwardBridgeEdges);
     }
 
     /**
@@ -70,76 +87,103 @@ public class DiffractionPointCalculator {
      * </ul>
      *
      * @param configuration runtime configuration (used to access cut profile & coordinates)
-     * @param convexHullInput input coordinates (usually source, candidate diffractors, receiver)
+     * @param candidateCoordinates input coordinates (usually source, candidate diffractors, receiver)
      * @return processed list of coordinates forming the ordered diffraction candidates
      */
-    private static List<Coordinate> calculateConvexHull(AcousticPathConfiguration configuration,List<Coordinate> convexHullInput) {
+    private static List<Coordinate> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates, List<Coordinate> downwardBridgeEdges) {
 
-        List<Coordinate> cutPointCoordiantes2D = configuration.getCutPointCoordinates2D();
-        Coordinate firstPt = cutPointCoordiantes2D.get(0);
-        Coordinate lastPt = cutPointCoordiantes2D.get(cutPointCoordiantes2D.size() - 1);
-        CutProfile cutProfile = configuration.getCutProfile();
-        List<Coordinate> convexHullPoints = new ArrayList<>();
-
-        if (convexHullInput.size() > 2) {
-            GeometryFactory geomFactory = new GeometryFactory();
-            Coordinate[] coordsArray = convexHullInput.toArray(new Coordinate[0]);
-            ConvexHull convexHull = new ConvexHull(coordsArray, geomFactory);
-            Coordinate[] convexHullCoords = convexHull.getConvexHull().getCoordinates();
-            int indexFirst = Arrays.asList(convexHull.getConvexHull().getCoordinates()).indexOf(firstPt);
-            int indexLast = Arrays.asList(convexHull.getConvexHull().getCoordinates()).lastIndexOf(lastPt);
-            
-            if (indexFirst == -1 || indexLast == -1 || indexFirst > indexLast) {
-                throw new IllegalArgumentException("Wrong input data " + cutProfile.toString());
-            }
-            
-            convexHullCoords = Arrays.copyOfRange(convexHullCoords, indexFirst, indexLast + 1);
-            CoordinateSequence coordSequence = geomFactory.getCoordinateSequenceFactory().create(convexHullCoords);
-            Geometry geom = geomFactory.createLineString(coordSequence);
-            Geometry uniqueGeom = geom.union(); // Removes duplicate coordinates
-            convexHullCoords = uniqueGeom.getCoordinates();
-            
-            // Process the convex hull results
-            convexHullPoints = processConvexHullResults(convexHullCoords);
-        } else {
-            convexHullPoints = convexHullInput;
+        if (downwardBridgeEdges == null || downwardBridgeEdges.size() == 0) {
+            throw new IllegalArgumentException("No downward bridge edge provided");
         }
-        
-        return convexHullPoints;
+
+        /** TODO Only the first downward bridge edge is considered at this moment*/
+        Coordinate downwardEdgeCoordinate = downwardBridgeEdges.get(0);
+
+        List<Coordinate> pivotPointsWithoutDownwardEdges = extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
+        LineSegment segment = new LineSegment(
+            pivotPointsWithoutDownwardEdges.get(0),
+            pivotPointsWithoutDownwardEdges.get(1)
+        );
+
+        if (downwardEdgeCoordinate.x <= segment.p0.x || downwardEdgeCoordinate.x >= segment.p1.x) {
+            throw new IllegalArgumentException("Downward bridge edge is out of the range of source and the first cut-point");
+        }
+
+        double ratio = (downwardEdgeCoordinate.x - segment.p0.x) / (segment.p1.x - segment.p0.x);
+        double interpY = segment.p0.y + ratio * (segment.p1.y - segment.p0.y);
+        if (downwardEdgeCoordinate.y > interpY) {
+            return pivotPointsWithoutDownwardEdges;
+        }
+
+        List<Coordinate> newCandidateCoordinates = new ArrayList<>();
+        newCandidateCoordinates.add(downwardEdgeCoordinate);
+        for (int i = 1; i < candidateCoordinates.size(); i++) {
+            newCandidateCoordinates.add(candidateCoordinates.get(i));
+        }
+        List<Coordinate> pivotPointsWithDownwardEdges = extractPivotPointsUsingConvexHull(configuration, newCandidateCoordinates);
+        pivotPointsWithDownwardEdges.add(0, candidateCoordinates.get(0));
+        return pivotPointsWithDownwardEdges;
+
     }
 
-    /**
-     * Filter and convert convex-hull coordinate array into the final list used
-     * as diffraction candidates.
-     *
-     * Behavior:
-     * <ul>
-     *   <li>If the hull has exactly three coordinates (minimal hull), all three
-     *       are returned.</li>
-     *   <li>Otherwise coordinates with invalid Y values (equal to
-     *       {@code Double.MAX_VALUE} or infinite) are removed.</li>
-     * </ul>
-     *
-     * @param convexHullCoords coordinates returned by the hull union/cleanup step
-     * @return list of valid coordinates in hull order
-     */
-    private static List<Coordinate> processConvexHullResults(Coordinate[] convexHullCoords) {
-        List<Coordinate> convexHullPoints = new ArrayList<>();
-        
-        // Convert the result back to your format (List<Point2D> pts)
-        if (convexHullCoords.length == 3) {
-            convexHullPoints = Arrays.asList(convexHullCoords);
-        } else {
-            for (int j = 0; j < convexHullCoords.length; j++) {
-                // Check if the y-coordinate is valid (not equal to Double.MAX_VALUE and not infinite)
-                if (convexHullCoords[j].y == Double.MAX_VALUE || Double.isInfinite(convexHullCoords[j].y)) {
-                    continue; // Skip this point as it's not part of the hull
-                }
-                convexHullPoints.add(convexHullCoords[j]);
-            }
+
+    private static List<Coordinate> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates) {
+        int startIndex = 0;
+        int endIndex = candidateCoordinates.size() - 1;
+        return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, startIndex, endIndex);
+    }
+
+    private static List<Coordinate> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates, int startIndex, int endIndex) {
+
+        if (startIndex < 0 || endIndex >= candidateCoordinates.size() || startIndex > endIndex) {
+            throw new IllegalArgumentException("Invalid start/end indices");
+        }
+
+        List<Coordinate> slicedCandidateCoordinates = candidateCoordinates.subList(startIndex, endIndex + 1);
+
+        if (slicedCandidateCoordinates.size() < 2) {
+            throw new IllegalArgumentException("At least two input points are required for convex hull computation");
         }
         
-        return convexHullPoints;
+        if (slicedCandidateCoordinates.size() == 2) {
+            return slicedCandidateCoordinates;
+        }
+        
+        GeometryFactory geomFactory = new GeometryFactory();
+        Coordinate[] coordsArray = slicedCandidateCoordinates.toArray(new Coordinate[0]);
+        ConvexHull convexHull = new ConvexHull(coordsArray, geomFactory);
+        Coordinate[] convexHullCoordinates = convexHull.getConvexHull().getCoordinates();
+
+        Coordinate firstPt = coordsArray[0];
+        Coordinate lastPt = coordsArray[coordsArray.length - 1];
+        int indexFirst = Arrays.asList(convexHullCoordinates).indexOf(firstPt);
+        int indexLast = Arrays.asList(convexHullCoordinates).lastIndexOf(lastPt);
+        
+        if (indexFirst == -1 || indexLast == -1 || indexFirst > indexLast) {
+            CutProfile cutProfile = configuration.getCutProfile();
+            throw new IllegalArgumentException("Wrong input data " + cutProfile.toString());
+        }
+        
+        Coordinate[] upperConvexHullCoordinates = Arrays.copyOfRange(convexHullCoordinates, indexFirst, indexLast + 1);
+        CoordinateSequence coordSequence = geomFactory.getCoordinateSequenceFactory().create(upperConvexHullCoordinates);
+        Geometry geom = geomFactory.createLineString(coordSequence);
+        Geometry uniqueGeom = geom.union(); // Removes duplicate coordinates
+        upperConvexHullCoordinates = uniqueGeom.getCoordinates();
+
+        List<Coordinate> pathPoints = new ArrayList<>();
+
+        if (upperConvexHullCoordinates.length == 3) {
+            return Arrays.asList(upperConvexHullCoordinates);
+        }
+
+        for (int j = 0; j < upperConvexHullCoordinates.length; j++) {
+            if (upperConvexHullCoordinates[j].y == Double.MAX_VALUE || Double.isInfinite(upperConvexHullCoordinates[j].y)) {
+                    continue; // Skip this point as it's not part of the hull
+                }
+            pathPoints.add(upperConvexHullCoordinates[j]);
+        }
+        
+        return pathPoints;
     }
 
     /**
@@ -156,29 +200,58 @@ public class DiffractionPointCalculator {
      *                      cut point coordinates and the original {@link CutProfile}
      * @return list of coordinates to feed the convex-hull routine
      */
-    private static List<Coordinate> collectValidDiffractionPoints(AcousticPathConfiguration configuration){
+    private static List<Coordinate> collectHorizontalEdgePivotCandidates(AcousticPathConfiguration configuration){
         List<Coordinate> cutPointCoordinates2D = configuration.getCutPointCoordinates2D();
         List<CutPoint> cutProfilePoints = configuration.getCutProfilePoints();
-        List<Coordinate> convexHullInput = new ArrayList<>();
+        List<Coordinate> horizontalEdgePivotCandidates = new ArrayList<>();
+        SourceBridgeProperty sourceProperty = configuration.getCutProfile().getSource().getSourceBridgeProperty();
+        SourceType sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
+        if (sourceProperty != null) {
+            sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
+        };
         
         // Add source position
-        convexHullInput.add(cutPointCoordinates2D.get(0));
+        horizontalEdgePivotCandidates.add(cutPointCoordinates2D.get(0));
         
         // Add valid diffraction point, building/walls/dem
         for (int idPoint = 1; idPoint < cutProfilePoints.size() - 1; idPoint++) {
             CutPoint currentPoint = cutProfilePoints.get(idPoint);
-            // We only add the point at the top of the wall, not the point at the bottom of the wall
-            if (currentPoint instanceof CutPointTopography
-                    || (currentPoint instanceof CutPointWall
-                    && Double.compare(currentPoint.getCoordinate().z, currentPoint.getzGround()) != 0)) {
-                convexHullInput.add(cutPointCoordinates2D.get(idPoint));
+            Coordinate currentPointCoordinate2D = cutPointCoordinates2D.get(idPoint);
+            // Only add the point at the top of the wall, not the point at the bottom of the wall
+            if (
+                currentPoint instanceof CutPointTopography
+                || (currentPoint instanceof CutPointWall && currentPoint.hasObstacle())
+            ) {
+                horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
+            } else if(currentPoint instanceof CutPointBridgeWall && sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
+                horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
             }
         }
         
         // Add receiver position
-        convexHullInput.add(cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1));
-        
-        return convexHullInput;
+        horizontalEdgePivotCandidates.add(cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1));
+
+        return horizontalEdgePivotCandidates;
     }
 
+    private static List<Coordinate> collectDownwardBridgeEdges(AcousticPathConfiguration configuration){
+        SourceType sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
+        List<Coordinate> downwardBridgeEdges = new ArrayList<>();
+
+        if (sourceType != SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType != SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+            return downwardBridgeEdges;
+        }
+
+        List<CutPoint> cutProfilePoints = configuration.getCutProfilePoints();
+        List<Coordinate> cutPointCoordinates2D = configuration.getCutPointCoordinates2D();
+        for (int idPoint = 1; idPoint < cutProfilePoints.size() - 1; idPoint++) {
+            CutPoint currentPoint = cutProfilePoints.get(idPoint);
+            Coordinate currentPointCoordinate2D = cutPointCoordinates2D.get(idPoint);
+            // Only add the point at the top of the wall, not the point at the bottom of the wall
+            if (currentPoint instanceof CutPointBridgeWall && ((CutPointBridgeWall)currentPoint).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
+                downwardBridgeEdges.add(currentPointCoordinate2D);
+            }
+        }
+        return downwardBridgeEdges;
+    }
 }

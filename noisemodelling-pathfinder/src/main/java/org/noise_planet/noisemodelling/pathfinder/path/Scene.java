@@ -11,7 +11,6 @@ package org.noise_planet.noisemodelling.pathfinder.path;
 
 import org.h2gis.utilities.SpatialResultSet;
 import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Coordinates;
 import org.locationtech.jts.geom.Geometry;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;

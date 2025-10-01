@@ -831,17 +831,17 @@ public class RailwayCnossosTest {
         railwayCnossos.setRailwayDataFile("RailwayCnossosSNCF_2021.json");
 
         // Expected values
-        double[] expectedValuesLWRollingD = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
-        double[] expectedValuesLW_Traction_A_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
-        double[] expectedValuesL_Traction_B_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
-        double[] expectedValuesLW_Aero_A_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
-        double[] expectedValuesLW_Aero_B_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
+        // double[] expectedValuesLWRollingD = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
+        // double[] expectedValuesLW_Traction_A_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
+        // double[] expectedValuesL_Traction_B_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
+        // double[] expectedValuesLW_Aero_A_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
+        // double[] expectedValuesLW_Aero_B_D = new double[]{-140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140, -140};
 
         String vehCat = "SNCF2";
         double vehicleSpeed = 80;
         int rollingCondition = 0;
         double idlingTime = 0;
-        double nBUnit = 2;
+        // double nBUnit = 2;
         double tDay = 0.4;
         double tEvening = 0.3;
         double tNight = 0.25;

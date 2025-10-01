@@ -275,7 +275,7 @@ public class BridgeTest {
         bridge.createDeckGeometry(profileBuilder);
         
         // Test point inside bridge
-        Coordinate pointInside = new Coordinate(10, 5);
+        Coordinate pointInside = new Coordinate(10, 4);
         double height = bridge.getDeckHeightAtPoint(pointInside);
         assertFalse(Double.isNaN(height), "Height should be calculable for point inside bridge");
         assertTrue(height >= 15.0 && height <= 16.0, "Height should be within expected range");
@@ -702,9 +702,9 @@ public class BridgeTest {
                      "isPointOnBridge should complete without exception");
         
         // Test acoustic calculations
-        Coordinate sourceAbove = new Coordinate(10, 5, 20.0);
+        // Coordinate sourceAbove = new Coordinate(10, 5, 20.0);
         Coordinate sourceBelow = new Coordinate(10, 5, 10.0);
-        Coordinate receiver = new Coordinate(10, 15, 12.0);
+        // Coordinate receiver = new Coordinate(10, 15, 12.0);
         
         // Note: Diffraction calculation methods are currently commented out in the Bridge class
         // Testing new available methods instead

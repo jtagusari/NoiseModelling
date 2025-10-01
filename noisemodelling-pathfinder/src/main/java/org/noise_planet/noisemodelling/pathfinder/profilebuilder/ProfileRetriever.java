@@ -32,6 +32,13 @@ import org.slf4j.LoggerFactory;
  */
 public class ProfileRetriever {
     private ProfileRetriever() {}
+    
+    public static CutProfile getProfile(SourcePointInfo sourcePointInfo, Coordinate receiverCoordinate, 
+            double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, ProfileBuilder profileBuilder) {
+        return getProfile(sourcePointInfo.getCoordinate(), receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, profileBuilder.getMaxLineLength(), profileBuilder.getBuildingService(), profileBuilder.getWallService(), profileBuilder.getBridgeService(), 
+                profileBuilder.getTopographyService(), profileBuilder.getGroundService(), profileBuilder.getProcessedWallService(), 
+                GeometryFactoryProvider.SHARED, sourcePointInfo);
+    }
 
     /**
      * Build a {@link CutProfile} between {@code sourceCoordinate} and
@@ -93,7 +100,7 @@ public class ProfileRetriever {
 
         // Initialize the basic profile with source and receiver
         logger.debug("  Initializing profile...");
-        CutProfile profile = initializeProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, groundService, factory, sourcePointInfo);
+        CutProfile profile = initializeProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, groundService, bridgeService, factory, sourcePointInfo);
 
         // Add topography cut points
         logger.debug("  Adding topography cut points...");
@@ -134,7 +141,7 @@ public class ProfileRetriever {
      * @param factory geometry factory
      * @return initialized CutProfile
      */
-    private static CutProfile initializeProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, GroundService groundService, GeometryFactory factory, SourcePointInfo sourcePointInfo) {
+    private static CutProfile initializeProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, GroundService groundService, BridgeService bridgeService, GeometryFactory factory, SourcePointInfo sourcePointInfo) {
                 
         CutPointSource sourcePoint = new CutPointSource(sourceCoordinate).migrateFromSourcePointInfo(sourcePointInfo);
         CutPointReceiver receiverPoint = new CutPointReceiver(receiverCoordinate);
@@ -145,6 +152,12 @@ public class ProfileRetriever {
             sourcePoint.setGroundCoefficient(groundService.getGroundAbsorptions().get(groundAbsorptionIndex).getCoefficient());
         } else {
             sourcePoint.setGroundCoefficient(defaultGroundAttenuation);
+        }
+
+        long bridgePkOn = sourcePoint.getSourceBridgeProperty().getBridgePkOn();
+        if (bridgePkOn >= 0) {
+            Bridge bridge = bridgeService.getBridgeByPk(bridgePkOn);
+            sourcePoint.setBridgeHeight(bridge.getDeckHeightAtPoint(sourceCoordinate));
         }
 
         return new CutProfile(sourcePoint, receiverPoint);

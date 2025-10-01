@@ -12,8 +12,13 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.locationtech.jts.geom.Coordinate;
+import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -384,5 +389,21 @@ public class CutProfileTest {
         
         assertEquals(originalSource, copiedSource);
         assertEquals(originalSource.hashCode(), copiedSource.hashCode());
+    }
+    
+
+    private static CutProfile loadCutProfile(String utName) throws IOException {
+        String testCaseFileName = utName + ".json";
+        try(InputStream inputStream = PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName)) {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(inputStream, CutProfile.class);
+        }
+    }
+
+    @Test
+    public void TBCCoordinates2D() throws Exception {
+        CutProfile cutProfileCase = loadCutProfile("TBC06");
+        List<Coordinate> cutPointCoordinates2D = cutProfileCase.generateCutPointCoordinates2D();
+        assertNotNull(cutPointCoordinates2D);
     }
 }

@@ -10,7 +10,6 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.*;
-import org.locationtech.jts.operation.distance.DistanceOp;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -222,7 +221,7 @@ public class Bridge extends Obstruction {
         
         if (deckGeometry != null) {
             // Create edge points for triangulation from the point manager
-            BridgePointManager edgePointManager = new BridgePointManager(BridgePointManager.SortOrder.CLOCKWISE);
+            BridgePointManager edgePointManager = new BridgePointManager(BridgePointManager.SortOrder.SIDE_TO_SIDE);
             edgePointManager.addBridgePoints(geometryBuilder.createBridgeEdgePoints(pointManager, profileBuilder, BridgePoint.Position.RIGHT, false));
             edgePointManager.addBridgePoints(geometryBuilder.createBridgeEdgePoints(pointManager, profileBuilder, BridgePoint.Position.LEFT, false));
 
@@ -392,42 +391,6 @@ public class Bridge extends Obstruction {
     }
 
 
-    /**
-     * Check if an edge can cause diffraction between source and receiver.
-     * Performs a simplified geometric check using line intersection with buffered edge.
-     * @param source Source coordinate
-     * @param receiver Receiver coordinate  
-     * @param edgeStart Start coordinate of the edge
-     * @param edgeEnd End coordinate of the edge
-     * @return true if the edge can cause diffraction between source and receiver
-     */
-    private boolean canCauseDiffraction(Coordinate source, Coordinate receiver, Coordinate edgeStart, Coordinate edgeEnd) {
-        // Simplified geometric check - in practice would use more sophisticated fresnel zone analysis
-        GeometryFactory factory = GeometryFactoryProvider.SHARED;
-        LineString directPath = factory.createLineString(new Coordinate[]{source, receiver});
-        LineString edge = factory.createLineString(new Coordinate[]{edgeStart, edgeEnd});
-
-        return directPath.intersects(edge.buffer(1.0)); // 1 meter tolerance
-    }
-
-    /**
-     * Find the optimal diffraction point on an edge.
-     * Currently returns the midpoint of the edge as a simplified implementation.
-     * @param source Source coordinate
-     * @param receiver Receiver coordinate
-     * @param edgeStart Start coordinate of the edge
-     * @param edgeEnd End coordinate of the edge
-     * @return Optimal diffraction point on the edge
-     */
-    private Coordinate findDiffractionPoint(Coordinate source, Coordinate receiver, Coordinate edgeStart, Coordinate edgeEnd) {
-        // Simplified - return midpoint of edge
-        // In practice, would find point minimizing total path length
-        return new Coordinate(
-            (edgeStart.x + edgeEnd.x) / 2,
-            (edgeStart.y + edgeEnd.y) / 2,
-            (edgeStart.z + edgeEnd.z) / 2
-        );
-    }
 
     // Getters and Setters
     

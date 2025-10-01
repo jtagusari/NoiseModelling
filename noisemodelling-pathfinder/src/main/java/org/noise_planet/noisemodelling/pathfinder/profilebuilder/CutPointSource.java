@@ -40,6 +40,9 @@ public class CutPointSource  extends CutPoint {
     @JsonIgnore
     private SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty();
 
+    @JsonIgnore
+    private double bridgeHeight = Double.NaN;
+
     /**
      * Default constructor for deserialization.
      */
@@ -73,6 +76,7 @@ public class CutPointSource  extends CutPoint {
         this.orientation = cutPointSource.orientation;
         this.id = cutPointSource.id;
         this.sourceBridgeProperty = cutPointSource.sourceBridgeProperty;
+        this.bridgeHeight = cutPointSource.bridgeHeight;
     }
 
     /**
@@ -178,6 +182,15 @@ public class CutPointSource  extends CutPoint {
      */
     public void setLineLength(double li) {
         this.li = li;
+    }
+
+    @JsonProperty("bridgeHeight")
+    public double getBridgeHeight() {
+        return bridgeHeight;
+    }
+
+    public void setBridgeHeight(double bridgeHeight) {
+        this.bridgeHeight = bridgeHeight;
     }
 
     

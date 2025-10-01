@@ -6,6 +6,7 @@ import org.locationtech.jts.triangulate.quadedge.Vertex;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall.WallDirection;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -18,6 +19,8 @@ import org.locationtech.jts.index.strtree.STRtree;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -302,12 +305,16 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         }
         Coordinate intersection3D = minDistanceDp.getDiffractionPoint3D(bridge);
 
-        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(bridgeId, intersection3D, minDistanceDp.getSegment(), new ArrayList<>(bridge.getAlphas()), wallDirection);
+        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(bridgeId, intersection3D, minDistanceDp.getSegment(), new ArrayList<>(bridge.getAlphas()), wallDirection, bridgePkTarget);
 
         if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER) {
             bridgeCutPoint.setMirrorRelax(true);
         }
         bridgeCutPoint.modifyIntersectionHeight(bridge);
+        long bridgePkOn = src.getSourceBridgeProperty().getBridgePkOn();
+        if (bridgePkOn >= 0) {
+            bridgeCutPoint.setBridgeHeight(bridge.getDeckHeightAtPoint(intersection3D));
+        }
 
         return bridgeCutPoint;
     }
@@ -435,6 +442,12 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         IMAGINARY_SOURCE_TO_UPPER_RECEIVER,
         /** Imaginary source under bridge propagating to receiver below deck level */
         IMAGINARY_SOURCE_TO_LOWER_RECEIVER,
+        /** TODO */
+        /** Low source outside bridge propagating to receiver */
+        LOW_OUTSIDE_SOURCE_TO_RECEIVER,
+        /** TODO */
+        /** High source outside bridge propagating to receiver */
+        HIGH_OUTSIDE_SOURCE_TO_RECEIVER
     }
 
     /**
@@ -527,17 +540,17 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
                                  CutProfile profile) {
         
         CutPointSource cutPointSource = profile.getSource();
-        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(processedWallIndex, intersection, facetLine.getLineSegment(), facetLine.getAlphas());
-
-        long facetBridgePk = facetLine.getPrimaryKey();
-        if (facetBridgePk < 0) {
+        
+        long bridgePk = facetLine.getPrimaryKey();
+        if (bridgePk < 0) {
             throw new IllegalStateException("Primary key of bridge must be set to calculate a profile with bridges");
         }
-
+        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(processedWallIndex, intersection, facetLine.getLineSegment(), facetLine.getAlphas(), bridgePk);
+        
         WallDirection wallDirection = WallDirection.UPWARD;
         SourceType sourceType = cutPointSource.getSourceBridgeProperty().getSourceType();
         if (sourceType == SourceType.MIRROR_SOURCE || sourceType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-            if (!hasMirrorRelaxCutPoint(newCutPoints)) {
+            if (bridgePk == cutPointSource.getSourceBridgeProperty().getBridgePkAbove()) {
                 bridgeCutPoint.setMirrorRelax(true);
                 wallDirection = WallDirection.DOWNWARD;
             }
@@ -553,9 +566,9 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) - bridge.getDeckThicknessAtPoint(intersection);
         }
         bridgeCutPoint.modifyIntersectionHeight(bridgeHeightAtIntersection);
+        bridgeCutPoint.setBridgeHeight(bridge.getDeckHeightAtPoint(intersection));
 
-        newCutPoints.add(bridgeCutPoint);
-
+        
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
         
         boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, facetLine);
@@ -564,7 +577,22 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             bridgeCutPoint.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_ENTER;
         } else {
             bridgeCutPoint.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT;
+            for (int i = newCutPoints.size() -1; i >= 0; i--) {
+                CutPoint point = newCutPoints.get(i);
+                if (!(point instanceof CutPointBridgeWall)) {continue; }
+                CutPointBridgeWall bridgePoint = (CutPointBridgeWall) point;
+                if (bridgePoint.getBridgePk() == bridgeCutPoint.getBridgePk()) {
+                    break;
+                }
+                if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT && bridgePoint.getBridgeHeight() >= bridgeCutPoint.getBridgeHeight()) {
+                    bridgePoint.setNextBridgePk(bridgeCutPoint.getBridgePk());
+                    bridgePoint.setNextBridgeHeight(bridgeCutPoint.getBridgeHeight());
+                    break;
+                }
+            }
         }
+        newCutPoints.add(bridgeCutPoint);
+
 
         boolean hasBridgeIntersection = true;
         if (wallDirection == WallDirection.UPWARD) {
@@ -576,25 +604,109 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         return hasBridgeIntersection;
     }
 
-    /**
-     * Check if any mirror relax cut point exists in the provided cut points list.
-     * 
-     * <p>Mirror relax cut points are required for mirror source and imaginary source
-     * scenarios to ensure proper propagation calculation.
-     *
-     * @param newCutPoints list of cut points to search
-     * @return {@code true} if a mirror relax cut point is found; {@code false} otherwise
-     */
-    private static boolean hasMirrorRelaxCutPoint(List<CutPoint> newCutPoints) {
-        for (int i = 0; i < newCutPoints.size(); i++) {
-            CutPoint pnt = newCutPoints.get(i);
-            if (pnt instanceof CutPointBridgeWall) {
-                if (((CutPointBridgeWall) pnt).getMirrorRelax()) {
-                    return true;
-                }
+    public void setEffectiveBridgeCutPoint(CutProfile profile) {
+        List<Coordinate> cutPointCoordinates2D = profile.generateCutPointCoordinates2D();
+        ArrayList<CutPoint> newCutPoints3D = new ArrayList<>();
+        long bridgePkOn = profile.getSource().getSourceBridgeProperty().getBridgePkOn();
+        long bridgePkAbove = profile.getSource().getSourceBridgeProperty().getBridgePkAbove();
+        double bridgeHeightOn = profile.getSource().getBridgeHeight();
+
+        List<CutPointBridgeWall> nextBridges = new ArrayList<>();
+        for (int i = cutPointCoordinates2D.size() - 1; i >= 0; i--) {
+            CutPoint currentPoint = profile.getCutPoints().get(i);
+            if (!(currentPoint instanceof CutPointBridgeWall)) continue;
+            CutPointBridgeWall bridgePoint = (CutPointBridgeWall) currentPoint;
+            if (bridgePoint.getBridgePk() == bridgePkOn || bridgePoint.getBridgePk() == bridgePkAbove) continue;
+            if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT) {
+                nextBridges.add(bridgePoint);
+            } else if (nextBridges.contains(bridgePoint)) {
+                nextBridges.remove(nextBridges.indexOf(bridgePoint));
             }
         }
-        return false;
+        
+        int mirrorRelaxIndex = cutPointCoordinates2D.size() - 1;
+        for (int i = 0; i < cutPointCoordinates2D.size() - 1; i++) {
+            CutPoint currentPoint = profile.getCutPoints().get(i);
+            if (!(currentPoint instanceof CutPointBridgeWall)) { continue; }
+            if (((CutPointBridgeWall) currentPoint).getMirrorRelax()) {
+                mirrorRelaxIndex = i;
+            }
+        }
+        
+        LineSegment toReceiverLineSegment = new LineSegment(
+            cutPointCoordinates2D.get(0), 
+            cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1)
+        );
+        LineSegment toMirrorRelaxLineSegment = new LineSegment(
+            cutPointCoordinates2D.get(0), 
+            cutPointCoordinates2D.get(mirrorRelaxIndex)
+        );
+
+        for (int i = 0; i < cutPointCoordinates2D.size(); i++) {
+            CutPoint currentPoint = profile.getCutPoints().get(i);
+            Coordinate currentCoordinate2D = cutPointCoordinates2D.get(i);
+            LineSegment referenceLineSegment = i <= mirrorRelaxIndex ? toMirrorRelaxLineSegment : toReceiverLineSegment;
+            if (!(currentPoint instanceof CutPointBridgeWall)) {
+                newCutPoints3D.add(currentPoint);
+                if (!isPointUnderPath(currentCoordinate2D, referenceLineSegment)) {
+                    referenceLineSegment.setCoordinates(currentCoordinate2D, referenceLineSegment.p1);
+                }
+                continue;
+            }
+            CutPointBridgeWall bridgePoint = (CutPointBridgeWall) currentPoint;
+            
+            if (i == mirrorRelaxIndex) {
+                if (isPointUnderPath(currentCoordinate2D, toReceiverLineSegment)) {
+                    toReceiverLineSegment.setCoordinates(currentCoordinate2D, toReceiverLineSegment.p1);
+                }
+                newCutPoints3D.add(bridgePoint);
+                continue;
+            }
+
+            if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_ENTER) {
+                if (!isPointUnderPath(currentCoordinate2D, referenceLineSegment)) {
+                    // if the bridge is above the main sound ray, it is excluded from the profile and do nothing here.
+                    continue;
+                }
+                if (Double.isNaN(bridgeHeightOn) || bridgeHeightOn < bridgePoint.getBridgeHeight()){
+                    bridgeHeightOn = bridgePoint.getBridgeHeight();
+                    newCutPoints3D.add(bridgePoint);
+                    continue;
+                }
+                nextBridges.add(bridgePoint);
+                
+            } else if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT) {
+                if (Double.isNaN(bridgeHeightOn)) continue;
+                if (!isPointUnderPath(currentCoordinate2D, referenceLineSegment)) {
+                    referenceLineSegment.setCoordinates(currentCoordinate2D, referenceLineSegment.p1);
+                }
+                if (nextBridges.contains(bridgePoint)) {
+                    nextBridges.remove(nextBridges.indexOf(bridgePoint));
+                }
+                if (nextBridges.size() > 0) {
+                    CutPointBridgeWall nextBridgePoint = nextBridges.get(0);
+                    for (int j = 1; j < nextBridges.size(); j++) {
+                        CutPointBridgeWall bridgePointCandidate = nextBridges.get(j);
+                        if (bridgePointCandidate.getBridgeHeight() > nextBridgePoint.getBridgeHeight()) {
+                            nextBridgePoint = bridgePointCandidate;
+                        }
+                    }
+                    bridgePoint.setNextBridgePk(nextBridgePoint.getBridgePk());
+                    bridgePoint.setNextBridgeHeight(nextBridgePoint.getBridgeHeight());
+                    nextBridges.remove(nextBridges.indexOf(nextBridgePoint));
+                }
+                
+                newCutPoints3D.add(bridgePoint);
+                bridgeHeightOn = bridgePoint.getNextBridgeHeight();
+            }
+        }
+
+        profile.setCutPoints(newCutPoints3D);
     }
+
+    private static boolean isPointUnderPath(Coordinate coordinate, LineSegment lineSegment) {        
+        return coordinate.y < lineSegment.pointAlong((coordinate.x - lineSegment.p0.x) / (lineSegment.p1.x - lineSegment.p0.x)).y;
+    }
+
 
 }

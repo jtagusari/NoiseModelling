@@ -1104,6 +1104,10 @@ public class ProfileBuilder {
     public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
         return ProfileRetriever.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, maxLineLength, buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, GeometryFactoryProvider.SHARED, sourcePointInfo);
     }
+    public CutProfile getProfile(SourcePointInfo sourcePointInfo, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver) {
+        return ProfileRetriever.getProfile(sourcePointInfo, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, this);
+    }
+
     /**
      * Fetch the first intersecting ground absorption object index that intersects
      * with the provided geometry.
@@ -1284,6 +1288,29 @@ public class ProfileBuilder {
     public void getWallsOnPath(Coordinate p1, Coordinate p2, BuildingIntersectionPathVisitor visitor) {
         // Delegate to WallService which owns processedRtree
         processedWallService.getWallsOnPath(p1, p2, visitor, maxLineLength);
+    }
+
+    public double getMaxLineLength() {
+        return maxLineLength;
+    }
+
+    public BuildingService getBuildingService() {
+        return buildingService;
+    }
+    public WallService getWallService() {
+        return wallService;
+    }
+    public BridgeService getBridgeService() {
+        return bridgeService;
+    }
+    public TopographyService getTopographyService() {
+        return topographyService;
+    }
+    public GroundService getGroundService() {
+        return groundService;
+    }
+    public ProcessedWallService getProcessedWallService() {
+        return processedWallService;
     }
 
 }

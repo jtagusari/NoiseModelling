@@ -425,7 +425,6 @@ public class ElevationConverter {
     }
 
     
-    // splitLineStringWithBridge was extracted to BridgeSourceBuilder
 
     /**
      * Project a LineString onto the digital elevation model (DEM) by applying ground elevation to Z and

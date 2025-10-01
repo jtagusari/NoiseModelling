@@ -1,9 +1,5 @@
 package org.noise_planet.noisemodelling.propagation.cnossos;
 
-import org.locationtech.jts.geom.Coordinate;
-import java.util.List;
-import java.util.ArrayList;
-
 /**
  * Coordinates the construction of complete acoustic paths.
  * Manages multiple acoustic path processors and aggregates their results

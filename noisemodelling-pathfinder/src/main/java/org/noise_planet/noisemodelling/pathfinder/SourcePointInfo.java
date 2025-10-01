@@ -36,7 +36,8 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         }
         this.li = li;
         this.orientation = orientation;
-        this.sourceBridgeProperty = sourceBridgeProperty;
+        this.sourceBridgeProperty = sourceBridgeProperty != null ? 
+                                   sourceBridgeProperty : new SourceBridgeProperty();
     }
 
     public SourcePointInfo(int sourceIndex, long sourcePrimaryKey, Coordinate position, double li,

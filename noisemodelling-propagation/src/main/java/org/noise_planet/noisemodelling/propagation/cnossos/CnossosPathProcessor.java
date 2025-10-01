@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POINT_TYPE.*;
-import static java.lang.Math.*;
 
 
 /**

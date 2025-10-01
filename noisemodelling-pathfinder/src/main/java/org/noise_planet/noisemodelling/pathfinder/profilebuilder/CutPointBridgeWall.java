@@ -28,6 +28,9 @@ public class CutPointBridgeWall  extends CutPointWall {
 
     private WallDirection wallDirection = WallDirection.UPWARD;
     private boolean mirrorRelax;
+    private double bridgeHeight;
+    private long nextBridgePk = -1;
+    private double nextBridgeHeight = Double.NaN;
 
     public void setWallDirection(WallDirection wallDirection){
         this.wallDirection = wallDirection;
@@ -41,12 +44,14 @@ public class CutPointBridgeWall  extends CutPointWall {
         this.mirrorRelax = mirrorRelax;
     }
 
-    /** This point encounter this kind of limit
-     * - We can enter or exit a polygon
-     * - pass a line (a wall without width) */
-    public enum INTERSECTION_TYPE {BUILDING_ENTER, BUILDING_EXIT, THIN_WALL_ENTER_EXIT}
+    public double getBridgeHeight() {
+        return bridgeHeight;
+    }
 
-    public INTERSECTION_TYPE intersectionType = INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
+    public void setBridgeHeight(double bridgeHeight) {
+        this.bridgeHeight = bridgeHeight;
+    }
+
 
     /** Database primary key value of the obstacle */
     private Long wallPk = null;
@@ -59,24 +64,53 @@ public class CutPointBridgeWall  extends CutPointWall {
         this.wallDirection = WallDirection.UPWARD;
     }
 
-    public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha, WallDirection wallDirection) {
+    public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha, WallDirection wallDirection, long bridgePk) {
         super(processedWallIndex, intersection, wallSegment, wallAlpha);
         this.wallDirection = wallDirection;
+        this.wallPk = bridgePk;
     }
     
-    public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha) {
+    public CutPointBridgeWall(int processedWallIndex, Coordinate intersection, LineSegment wallSegment, List<Double> wallAlpha, long bridgePk) {
         super(processedWallIndex, intersection, wallSegment, wallAlpha);
         this.wallDirection = WallDirection.UPWARD;
+        this.wallPk = bridgePk;
     }
 
     public WallDirection getWallDirection() {
         return wallDirection;
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonProperty("wallPk")
     public Long getWallPk() {
         return wallPk;
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty("bridgePk")
+    public Long getBridgePk(){
+        return wallPk;
+    }
+
+    @JsonProperty("bridgePk")
+    public void setBridgePk(long pk) {
+        setPk(pk);
+    }
+    
+    @JsonProperty("nextBridgePk")
+    public Long getNextBridgePk() {
+        return nextBridgePk;
+    }
+
+    public void setNextBridgePk(Long pk) {
+        this.nextBridgePk = pk;
+    }
+
+    @JsonProperty("nextBridgeHeight")
+    public double getNextBridgeHeight() {
+        return nextBridgeHeight;
+    }
+
+    public void setNextBridgeHeight(double height) {
+        this.nextBridgeHeight = height;
     }
     /**
      *
@@ -97,6 +131,7 @@ public class CutPointBridgeWall  extends CutPointWall {
         } else {
             newZ = bridge.getDeckHeightAtPoint(coordinate) - bridge.getDeckThicknessAtPoint(coordinate);
         }
+        setBridgeHeight(bridge.getDeckHeightAtPoint(coordinate));
         modifyIntersectionHeight(newZ);
     }
 
@@ -117,5 +152,42 @@ public class CutPointBridgeWall  extends CutPointWall {
                 ", wallAlpha=" + getWallAlpha() +
                 ", wall=" + wall +
                 '}';
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+
+        CutPointBridgeWall that = (CutPointBridgeWall) o;
+
+        if (getBridgePk() != that.getBridgePk()) return false;
+        if (mirrorRelax != that.mirrorRelax) return false;
+        if (Double.compare(that.bridgeHeight, bridgeHeight) != 0) return false;
+        if (nextBridgePk != that.nextBridgePk) return false;
+        if (Double.compare(that.nextBridgeHeight, nextBridgeHeight) != 0) return false;
+        if (wallDirection != that.wallDirection) return false;
+        if (!getCoordinate().equals3D(that.getCoordinate())) return false;
+        return true;
+    }
+    
+    @Override
+    public int hashCode() {
+        int result = 17;
+        // include coordinate (x,y,z) if available
+        if (getCoordinate() != null) {
+            long xBits = Double.doubleToLongBits(getCoordinate().x);
+            long yBits = Double.doubleToLongBits(getCoordinate().y);
+            long zBits = Double.doubleToLongBits(getCoordinate().z);
+            result = 31 * result + (int) (xBits ^ (xBits >>> 32));
+            result = 31 * result + (int) (yBits ^ (yBits >>> 32));
+            result = 31 * result + (int) (zBits ^ (zBits >>> 32));
+        }
+        // include bridge primary key
+        long pk = (getBridgePk() != null) ? getBridgePk() : -1L;
+        result = 31 * result + (int) (pk ^ (pk >>> 32));
+        // include wall direction
+        result = 31 * result + (wallDirection != null ? wallDirection.ordinal() : 0);
+        return result;
     }
 }

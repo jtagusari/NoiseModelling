@@ -30,6 +30,8 @@ public class SourceBridgeProperty {
     private long bridgePkOn = -1L;
     /** Primary key of the bridge related to this source (-1 if none). */
     private long bridgePkAbove = -1L;
+    private double bridgeDeckHeightOn = 0.0;
+    private double bridgeDeckHeightAbove = 0.0;
 
     /**
      * Create an empty SourceBridgeProperty instance with default values.

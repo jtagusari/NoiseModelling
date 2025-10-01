@@ -15,9 +15,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.pathfinder.path.MirrorReceiver;
 
-import java.util.List;
 
 /**
  * Abstract base class representing a point on a vertical cut profile between source and receiver.

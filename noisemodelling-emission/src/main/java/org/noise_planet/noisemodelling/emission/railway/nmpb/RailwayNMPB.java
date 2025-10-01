@@ -19,7 +19,6 @@ import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 
-import static java.lang.Math.min;
 import static org.noise_planet.noisemodelling.emission.utils.interpLinear.interpLinear;
 
 /**
@@ -375,26 +374,26 @@ public class RailwayNMPB {
      **/
     public RailWayNMPBParameters evaluate(RailwayVehicleNMPBParameters vehicleParameters, RailwayTrackNMPBParameters trackParameters) throws IOException {
 
-        final String fileVersion = "";//vehicleParameters.getFileVersion();
+        // final String fileVersion = "";//vehicleParameters.getFileVersion();
 
-        String typeVehicle = vehicleParameters.getTypeVehicle();
-        double speedVehicle = vehicleParameters.getSpeedVehicle();
-        double vehPerHour = vehicleParameters.getNumberVehicle();
-        double axlesPerVeh = getAxlesPerVeh(typeVehicle);
-        int runningCondition = vehicleParameters.getRunningCondition();
+        // String typeVehicle = vehicleParameters.getTypeVehicle();
+        // double speedVehicle = vehicleParameters.getSpeedVehicle();
+        // double vehPerHour = vehicleParameters.getNumberVehicle();
+        // double axlesPerVeh = getAxlesPerVeh(typeVehicle);
+        // int runningCondition = vehicleParameters.getRunningCondition();
 
-        double speedTrack = trackParameters.getSpeedTrack();
-        double speedCommercial = trackParameters.getSpeedCommercial();
-        int trackRoughnessId = trackParameters.getRailRoughness();
-        int trackTransferId = trackParameters.getTrackTransfer();
-        int impactId = trackParameters.getImpactNoise();
-        int bridgeId = trackParameters.getBridgeTransfert();
-        int curvature = trackParameters.getCurvature();
+        // double speedTrack = trackParameters.getSpeedTrack();
+        // double speedCommercial = trackParameters.getSpeedCommercial();
+        // int trackRoughnessId = trackParameters.getRailRoughness();
+        // int trackTransferId = trackParameters.getTrackTransfer();
+        // int impactId = trackParameters.getImpactNoise();
+        // int bridgeId = trackParameters.getBridgeTransfert();
+        // int curvature = trackParameters.getCurvature();
 
         // get speed of the vehicle
-        double speed = min(speedVehicle, min(speedTrack, speedCommercial));
+        // double speed = min(speedVehicle, min(speedTrack, speedCommercial));
 
-        boolean isTunnel = trackParameters.getIsTunnel();
+        // boolean isTunnel = trackParameters.getIsTunnel();
         // %% Take into account the number of coach and the number of units
         // 10*log10(NbUnit*NbCoach);
 
