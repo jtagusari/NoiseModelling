@@ -286,6 +286,8 @@ public class SceneWithEmissionTest {
         AttenuationParameters attData = new AttenuationParameters(frequencyConfig);
         attData.setHumidity(HUMIDITY);
         attData.setTemperature(TEMPERATURE);
+        // Set the attenuation parameters for empty period (no period-specific settings)
+        scene.cnossosParametersPerPeriod.put("", attData);
 
         double firstPowerAtReceiver = 0;
         for(int i = 0; i < 100; i++) {

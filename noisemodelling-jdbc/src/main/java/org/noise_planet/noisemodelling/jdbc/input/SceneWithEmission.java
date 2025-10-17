@@ -191,13 +191,17 @@ public class SceneWithEmission extends SceneWithAttenuation {
         List<Long> returnedPks = super.addSourceDb(pk, geom, rs);
         for (long returnedPk : returnedPks) {
             SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
+            // If sourceBridgeProperty is null, create a default instance (source not related to bridge)
+            if (sourceBridgeProperty == null) {
+                sourceBridgeProperty = new SourceBridgeProperty();
+            }
             switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
                 case INPUT_MODE_TRAFFIC_FLOW_DEN:
-                    if (sourceBridgeProperty.getSourceType() != SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-                        registerDENValuesUsingTrafficFlow(returnedPk, rs);
-                    } else {
+                    if (sourceBridgeProperty.getSourceType() == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
                         Bridge bridge = profileBuilder.getBridgeByPk(sourceBridgeProperty.getBridgePkOn());
                         registerBridgeStructuralDENValues(returnedPk, rs, bridge);
+                    } else {
+                        registerDENValuesUsingTrafficFlow(returnedPk, rs);
                     }
                     break;
                 case INPUT_MODE_LW_DEN:
@@ -251,13 +255,17 @@ public class SceneWithEmission extends SceneWithAttenuation {
      */
     public void registerSourceEmission(Long pk, ResultSet rs) throws SQLException {
         SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
+        // If sourceBridgeProperty is null, create a default instance (source not related to bridge)
+        if (sourceBridgeProperty == null) {
+            sourceBridgeProperty = new SourceBridgeProperty();
+        }
         switch (sceneDatabaseInputSettings.inputMode) {
             case INPUT_MODE_TRAFFIC_FLOW:
-                if (sourceBridgeProperty.getSourceType() != SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-                    registerPeriodValueUsingTrafficFlow(pk, rs);
-                } else {
+                if (sourceBridgeProperty.getSourceType() == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
                     Bridge bridge = profileBuilder.getBridgeByPk(sourceBridgeProperty.getBridgePkOn());
                     registerBridgeStructuralPeriodValues(pk, rs, bridge);
+                } else {
+                    registerPeriodValueUsingTrafficFlow(pk, rs);
                 }
                 break;
             case INPUT_MODE_LW:

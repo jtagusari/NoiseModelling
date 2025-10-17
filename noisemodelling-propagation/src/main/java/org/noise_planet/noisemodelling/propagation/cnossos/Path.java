@@ -280,6 +280,7 @@ public class Path {
      * 
      * @return The number of points, or 0 if the point list is null
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public int getPointCount() {
         return pointList == null ? 0 : pointList.size();
     }
@@ -289,6 +290,7 @@ public class Path {
      * 
      * @return The number of segments, or 0 if the segment list is null
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public int getSegmentCount() {
         return segmentList == null ? 0 : segmentList.size();
     }

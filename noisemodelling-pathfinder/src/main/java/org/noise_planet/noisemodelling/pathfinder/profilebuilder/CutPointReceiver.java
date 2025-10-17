@@ -52,6 +52,11 @@ public class CutPointReceiver  extends CutPoint {
      */
     public CutPointReceiver(CutPoint receiver) {
         super(receiver);
+        if (receiver instanceof CutPointReceiver) {
+            CutPointReceiver cutPointReceiver = (CutPointReceiver) receiver;
+            this.receiverPk = cutPointReceiver.receiverPk;
+            this.id = cutPointReceiver.id;
+        }
     }
 
     /**

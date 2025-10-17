@@ -325,8 +325,7 @@ public class TableLoaderTest {
         noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
 
         // Use train directivity functions instead of discrete directivity
-        DefaultTableLoader defaultTableLoader = ((DefaultTableLoader) noiseMapByReceiverMaker.getPropagationProcessDataFactory());
-        defaultTableLoader.insertTrainDirectivity();
+        noiseMapByReceiverMaker.getSceneInputSettings().setUseTrainDirectivity(true);
 
         noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 

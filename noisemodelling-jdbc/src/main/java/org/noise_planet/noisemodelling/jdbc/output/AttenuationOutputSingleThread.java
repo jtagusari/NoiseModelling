@@ -167,7 +167,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                         processNoiseLevel(receiverNoiseLevel);
                     }
                 } else {
-                    double[] attenuation = dBToW(processAndStoreAttenuation(new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE), cnossosPath, ""));
+                    double[] attenuation = dBToW(processAndStoreAttenuation(scene.getAttenuationParameters(), cnossosPath, ""));
                     ReceiverNoiseLevel receiverNoiseLevel =
                             new ReceiverNoiseLevel(new SourcePointInfo(source),
                                     new ReceiverPointInfo(receiver), "",
@@ -188,8 +188,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                                     cnossosPath, period));
                         } else {
                             if(defaultAttenuation.length == 0) {
-                                // None ? ok fallback to default settings
-                                defaultAttenuation = dBToW(processAndStoreAttenuation(new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE),
+                                // None ? ok fallback to default settings from scene
+                                defaultAttenuation = dBToW(processAndStoreAttenuation(scene.getAttenuationParameters(),
                                         cnossosPath, ""));
                             }
                             attenuation = defaultAttenuation;
