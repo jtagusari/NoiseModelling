@@ -24,7 +24,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
-import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
 
@@ -43,7 +43,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     private static final int UNKNOWN_SOURCE_ID = -1;
     AttenuationOutputMultiThread multiThread;
     NoiseMapDatabaseParameters dbSettings;
-    public List<CnossosPath> cnossosPaths = new ArrayList<>();
+    public List<CnossosPathExt> cnossosPaths = new ArrayList<>();
 
     /**
      * Collected attenuation/noise level on the current receiver
@@ -98,12 +98,12 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                     attenuationDivGeom), -1);
     }
 
-    private double[] processAndStoreAttenuation(AttenuationParameters data, CnossosPath proPathParameters, String period) {
+    private double[] processAndStoreAttenuation(AttenuationParameters data, CnossosPathExt proPathParameters, String period) {
         double[] attenuation = AttenuationCnossos.computeCnossosAttenuation(data, proPathParameters, multiThread.sceneWithEmission,
                 multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix);
         if(multiThread.noiseMapDatabaseParameters.exportRaysMethod == NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE &&
                 multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix) {
-            CnossosPath cnossosPath = new CnossosPath(proPathParameters);
+            CnossosPathExt cnossosPath = new CnossosPathExt(proPathParameters);
             cnossosPath.setTimePeriod(period);
             cnossosPaths.add(cnossosPath);
         }
@@ -132,7 +132,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         cutProfileCount.addAndGet(1);
         PathSearchStrategy strategy = PathSearchStrategy.CONTINUE;
         final SceneWithEmission scene = multiThread.sceneWithEmission;
-        CnossosPath cnossosPath = CnossosPathBuilder.buildCnossosPath(
+        CnossosPathExt cnossosPath = CnossosPathBuilder.buildCnossosPath(
             cutProfile,
             scene.profileBuilder.getExactFrequencyArray(),
             scene.getDefaultGroundAttenuation(),
@@ -312,7 +312,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
      * @param stack Stack to feed
      * @param data rays
      */
-    public void pushInStack(ConcurrentLinkedDeque<CnossosPath> stack, Collection<CnossosPath> data) {
+    public void pushInStack(ConcurrentLinkedDeque<CnossosPathExt> stack, Collection<CnossosPathExt> data) {
         while(multiThread.resultsCache.queueSize.get() > dbSettings.outputMaximumQueue) {
             try {
                 Thread.sleep(10);
@@ -331,8 +331,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 // too many rays, remove unwanted rays
                 int newListSize = data.size() - (int)(newTotalRays - dbSettings.getMaximumRaysOutputCount());
                 if(newListSize > 0) {
-                    List<CnossosPath> subList = new ArrayList<CnossosPath>(newListSize);
-                    for (CnossosPath pathParameters : data) {
+                    List<CnossosPathExt> subList = new ArrayList<CnossosPathExt>(newListSize);
+                    for (CnossosPathExt pathParameters : data) {
                         subList.add(pathParameters);
                         if (subList.size() >= newListSize) {
                             break;

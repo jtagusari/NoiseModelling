@@ -24,7 +24,7 @@ import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFuncti
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.CoordinateMixin;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.LineSegmentMixin;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
-import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,21 +94,21 @@ public class NoiseMapWriter implements Callable<Boolean> {
         }
     }
 
-    public String propagationPathAsJSON(CnossosPath path) throws JsonProcessingException {
+    public String propagationPathAsJSON(CnossosPathExt path) throws JsonProcessingException {
         return jsonWriter.writeValueAsString(path);
     }
 
-    public static CnossosPath jsonToPropagationPath(String json) throws JsonProcessingException {
+    public static CnossosPathExt jsonToPropagationPath(String json) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        return mapper.readValue(json, CnossosPath.class);
+        return mapper.readValue(json, CnossosPathExt.class);
     }
 
     /**
-     * Processes the stack of CnossosPath objects and inserts their data into the rays table.
-     * @param stack the stack of CnossosPath objects containing the data to be inserted into the rays table
+     * Processes the stack of CnossosPathExt objects and inserts their data into the rays table.
+     * @param stack the stack of CnossosPathExt objects containing the data to be inserted into the rays table
      * @throws SQLException if an SQL exception occurs while executing the INSERT query
      */
-    void processRaysStack(ConcurrentLinkedDeque<CnossosPath> stack) throws SQLException {
+    void processRaysStack(ConcurrentLinkedDeque<CnossosPathExt> stack) throws SQLException {
         boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
                 equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
         StringBuilder query = new StringBuilder("INSERT INTO " + databaseParameters.raysTable +
@@ -142,7 +142,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
         }
         int batchSize = 0;
         while(!stack.isEmpty()) {
-            CnossosPath row = stack.pop();
+            CnossosPathExt row = stack.pop();
             resultsCache.queueSize.decrementAndGet();
             int parameterIndex = 1;
             LineString lineString = row.asGeom();

@@ -11,12 +11,12 @@
     - [Create Path](#create-path)
     - [Segment Processing Details](#segment-processing-details)
   - [Calculate Parameters](#calculate-parameters)
-    - [CnossosPath class](#cnossospath-class)
+    - [CnossosPathExt class](#cnossospath-class)
     - [Calculate parameters](#calculate-parameters-1)
 
 ## Concepts & Overview — CnossosPathBuilder
 
-The propagation algorithms are characterized by the `CnossosPathBuilder` class, which orchestrates the conversion of a vertical `CutProfile` into a fully assembled acoustic path (`CnossosPath`) suitable for CNOSSOS-style propagation calculations.
+The propagation algorithms are characterized by the `CnossosPathBuilder` class, which orchestrates the conversion of a vertical `CutProfile` into a fully assembled acoustic path (`CnossosPathExt`) suitable for CNOSSOS-style propagation calculations.
 The process involves several key steps:
 
 1. Construct an `AcousticPathConfiguration` from the `CutProfile` and parameters.
@@ -24,7 +24,7 @@ The process involves several key steps:
 3. Validate and possibly adjust reflection points (`ReflectionPointValidator`).
 4. Update the configuration with validated diffraction/reflection points.
 5. Build geometry segments and points with `AcousticPathBuilder`.
-6. Convert and post-process into a `CnossosPath` via `CnossosPathProcessor`.
+6. Convert and post-process into a `CnossosPathExt` via `CnossosPathProcessor`.
 
 ## AcousticPathConfiguration
 
@@ -673,13 +673,13 @@ With these steps, a new `Path` instance that encapsulates the ordered point and 
 
 ## Calculate Parameters
 
-### CnossosPath class
+### CnossosPathExt class
 
-The `CnossosPath` class extends the base `Path` class with CNOSSOS-specific acoustic computation data. It contains all the acoustic attenuation arrays and parameters required for CNOSSOS propagation calculations.
+The `CnossosPathExt` class extends the base `Path` class with CNOSSOS-specific acoustic computation data. It contains all the acoustic attenuation arrays and parameters required for CNOSSOS propagation calculations.
 
 ```plantuml
 @startuml
-class CnossosPath extends Path {
+class CnossosPathExt extends Path {
   + double[] aAtm
   + double[] aDiv
   + double[] aRef
@@ -708,9 +708,9 @@ class CnossosPath extends Path {
   + ABoundary aBoundaryF
   + GroundAttenuation groundAttenuation
   
-  + CnossosPath()
-  + CnossosPath(CutProfile)
-  + CnossosPath(CnossosPath)
+  + CnossosPathExt()
+  + CnossosPathExt(CutProfile)
+  + CnossosPathExt(CnossosPathExt)
   + init(int) : void
 }
 
@@ -743,25 +743,25 @@ class GroundAttenuation {
 
 class Path {}
 
-CnossosPath --> ABoundary : aBoundaryH
-CnossosPath --> ABoundary : aBoundaryF
-CnossosPath --> GroundAttenuation : groundAttenuation
+CnossosPathExt --> ABoundary : aBoundaryH
+CnossosPathExt --> ABoundary : aBoundaryF
+CnossosPathExt --> GroundAttenuation : groundAttenuation
 
 @enduml
 ```
 
-The `CnossosPathProcessor.createCnossosPath()` method converts a fully built `Path` into a `CnossosPath`, which is the final data structure used for CNOSSOS propagation calculations. This method performs the following:
+The `CnossosPathProcessor.createCnossosPath()` method converts a fully built `Path` into a `CnossosPathExt`, which is the final data structure used for CNOSSOS propagation calculations. This method performs the following:
 
 ### Calculate parameters
 
-The `CnossosPathProcessor.createCnossosPath()` method converts a fully built `Path` into a `CnossosPath` through the following process:
+The `CnossosPathProcessor.createCnossosPath()` method converts a fully built `Path` into a `CnossosPathExt` through the following process:
 
 
 The process includes these key steps:
 
 1. A local mean ground plane is calculated from the provided `elevationProfile2D` coordinates.
 2. SR (source→receiver) segment is built: it calls `CnossosSegmentComputer.createSegmentPathWithGroundFactors(...)` to construct a straight source–receiver `SegmentPath` including sampled ground factors and sets elevation-profile metadata and the straight-line 3D distance on the segment.
-3. A `CnossosPath` is created from the `CutProfile` and `Path`, copying `pointList`, `segmentList` and `raySourceReceiverDirectivity`.
+3. A `CnossosPathExt` is created from the `CutProfile` and `Path`, copying `pointList`, `segmentList` and `raySourceReceiverDirectivity`.
 4. The assembled `PointPath` list is inspected for horizontal diffraction points (`DIFH`); if found it delegates to `setDiffractionPathParameters(...)`, otherwise to `setDirectPathParameters(...)` to compute the CNOSSOS delta parameters.
 5. The CNOSSOS parameters are calculated: the delegated routines compute delta distances (deltaH, deltaF, deltaPrimeH, deltaPrimeF, etc.), mirror-image points for reflection tests, and set the SR dPrime value together with per-segment dPrime where applicable. They also detect and insert Rayleigh-style diffraction obstacle points when appropriate.
 
@@ -786,7 +786,7 @@ start
 
 :Build SR (source→receiver) segment;
 
-:Create CnossosPath from CutProfile and Path;
+:Create CnossosPathExt from CutProfile and Path;
 
 :Inspect PointPath list for horizontal diffraction;
 if (Contains horizontal diffraction points (DIFH)?) then (yes)
@@ -817,7 +817,7 @@ endif
 
 :Initialize frequency-dependent arrays;
 
-:Return completed CnossosPath;
+:Return completed CnossosPathExt;
 
 stop
 

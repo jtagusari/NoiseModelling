@@ -15,7 +15,7 @@ import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
-import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
 
 import java.util.*;
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AttenuationVisitor implements CutPlaneVisitor {
     public AttenuationComputeOutput multiThreadParent;
     public List<ReceiverNoiseLevel> receiverAttenuationLevels = new ArrayList<>();
-    public List<CnossosPath> pathParameters = new ArrayList<CnossosPath>();
+    public List<CnossosPathExt> pathParameters = new ArrayList<CnossosPathExt>();
     public boolean keepRays = false;
 
     public AttenuationVisitor(AttenuationComputeOutput multiThreadParent) {
@@ -40,7 +40,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
         final SceneWithAttenuation scene = multiThreadParent.scene;
         // Source surface reflectivity
         double gs = scene.sourceGs.getOrDefault(cutProfile.getSource().getSourcePk(), SceneWithAttenuation.DEFAULT_GS);
-        CnossosPath cnossosPath = CnossosPathBuilder.buildCnossosPath(
+        CnossosPathExt cnossosPath = CnossosPathBuilder.buildCnossosPath(
             cutProfile, 
             scene.profileBuilder.getExactFrequencyArray(), 
             gs, 
@@ -57,7 +57,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
 
     }
 
-    private void processPath(String period, AttenuationParameters AttenuationParameters, CnossosPath path) {
+    private void processPath(String period, AttenuationParameters AttenuationParameters, CnossosPathExt path) {
         double[] aGlobalMeteo = AttenuationCnossos.computeCnossosAttenuation(AttenuationParameters, path,
                 multiThreadParent.scene, multiThreadParent.exportAttenuationMatrix);
         if (aGlobalMeteo != null && aGlobalMeteo.length > 0) {
@@ -76,7 +76,7 @@ public class AttenuationVisitor implements CutPlaneVisitor {
      * Get propagation path result
      * @param path Propagation path result
      */
-    public void addPropagationPath(CnossosPath path) {
+    public void addPropagationPath(CnossosPathExt path) {
         if(!multiThreadParent.scene.cnossosParametersPerPeriod.isEmpty()) {
             for (Map.Entry<String, AttenuationParameters> cnossosParametersEntry :
                     multiThreadParent.scene.cnossosParametersPerPeriod.entrySet()) {

@@ -27,7 +27,7 @@ import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.RootProgressVisitor;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
-import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.GroundAbsorption;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
@@ -217,7 +217,7 @@ public class NoiseMapByReceiverMakerTest {
             try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, PATH FROM " + parameters.raysTable + " WHERE PERIOD='D' ORDER BY IDRECEIVER")) {
                 assertTrue(rs.next());
                 assertEquals(1, rs.getInt(1));
-                CnossosPath cnossosPath = NoiseMapWriter.jsonToPropagationPath(rs.getString(2));
+                CnossosPathExt cnossosPath = NoiseMapWriter.jsonToPropagationPath(rs.getString(2));
                 // This is source orientation, not relevant to receiver position
                 assertOrientationEquals(new Orientation(45, 0.81, 0), cnossosPath.getSourceOrientation(), 0.01);
                 assertOrientationEquals(new Orientation(330.2084079818916,-5.947213381005439,0.0), cnossosPath.raySourceReceiverDirectivity, 0.01);
@@ -280,15 +280,15 @@ public class NoiseMapByReceiverMakerTest {
 
             NoiseMapDatabaseParameters parameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
 
-            List<CnossosPath> pathsParameters = new ArrayList<>();
+            List<CnossosPathExt> pathsParameters = new ArrayList<>();
             try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, PATH FROM " + parameters.raysTable + " WHERE PERIOD='D' ORDER BY IDRECEIVER")) {
                 while (rs.next()) {
-                    CnossosPath cnossosPath = NoiseMapWriter.jsonToPropagationPath(rs.getString("PATH"));
+                    CnossosPathExt cnossosPath = NoiseMapWriter.jsonToPropagationPath(rs.getString("PATH"));
                     pathsParameters.add(cnossosPath);
                 }
             }
             assertEquals(4 , pathsParameters.size());
-            CnossosPath pathParameters = pathsParameters.remove(0);
+            CnossosPathExt pathParameters = pathsParameters.remove(0);
             assertEquals(1, pathParameters.getCutProfile().getReceiver().getReceiverPk());
             // receiver is front of source
             assertEquals(new Orientation(0, 0, 0), pathParameters.getRaySourceReceiverDirectivity());

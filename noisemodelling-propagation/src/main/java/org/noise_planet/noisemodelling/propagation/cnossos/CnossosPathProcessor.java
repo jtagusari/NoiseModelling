@@ -26,9 +26,9 @@ import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POIN
  * (deltaH, deltaF, deltaPrimeH, etc.) used downstream in level
  * calculations.
  *
- * <p>All methods operate on the provided {@link CnossosPath} and
- * {@link AcousticPathConfiguration} objects and mutate the {@link CnossosPath}
- * instance in-place (they do not create or return new CnossosPath objects).
+ * <p>All methods operate on the provided {@link CnossosPathExt} and
+ * {@link AcousticPathConfiguration} objects and mutate the {@link CnossosPathExt}
+ * instance in-place (they do not create or return new CnossosPathExt objects).
  */
 public class CnossosPathProcessor {
     private static final double SOUND_SPEED = 340.0;
@@ -41,25 +41,25 @@ public class CnossosPathProcessor {
      * Behaviour and side-effects:
      * - Computes a straight source->receiver `SegmentPath` including
      *   ground factors and stores it as the SR segment on the resulting
-     *   `CnossosPath`.
+     *   `CnossosPathExt`.
      * - Copies the point and segment lists and ray directivity from the
-     *   input `Path` into the `CnossosPath` instance.
+     *   input `Path` into the `CnossosPathExt` instance.
      * - Initialises internal arrays sized to the number of exact
      *   frequencies in `configuration` and computes CNOSSOS-specific
      *   delta parameters by calling `setDiffractionPathParameters` or `setDirectPathParameters`.
      *
-     * Note: the method mutates the returned `CnossosPath` (it is
+     * Note: the method mutates the returned `CnossosPathExt` (it is
      * initialised and populated) but does not modify the input
      * `configuration` or `acousticPath` objects.
      *
      * @param acousticPath acousticPath produced by the pathfinder (contains points/segments)
      * @param configuration runtime configuration containing the cut-profile,
      *                      elevation profile and frequency array
-     * @return a fully initialised `CnossosPath` ready for attenuation
+     * @return a fully initialised `CnossosPathExt` ready for attenuation
      *         computations (contains SR segment, points, segments and
      *         CNOSSOS delta parameters)
      */
-    public static CnossosPath createCnossosPath(AcousticPath acousticPath, AcousticPathConfiguration configuration) {
+    public static CnossosPathExt createCnossosPath(AcousticPath acousticPath, AcousticPathConfiguration configuration) {
         Path path = acousticPath.getPath();
         double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(configuration.getElevationProfile2D());
 
@@ -79,7 +79,7 @@ public class CnossosPathProcessor {
             )
         );
 
-        CnossosPath cnossosPath = new CnossosPath(configuration.getCutProfile());
+        CnossosPathExt cnossosPath = new CnossosPathExt(configuration.getCutProfile());
         cnossosPath.setFavorable(true);
         cnossosPath.setSRSegment(sourceToReceiverPath);
         cnossosPath.setPointList(path.getPointList());
@@ -88,11 +88,22 @@ public class CnossosPathProcessor {
 
         cnossosPath.init(configuration.getExactFrequencyArray().size());
 
-        boolean hasDiffraction = cnossosPath.getPointList().stream()
-                .anyMatch(p -> p.type.equals(DIFH) || p.type.equals(DIFU));
-        
-        if (hasDiffraction) {
-            setDiffractionPathParameters(cnossosPath, configuration);
+        boolean hasDifu = false;
+        boolean hasDifh = false;
+
+        for (PointPath p : cnossosPath.getPointList()) {
+            if (p.type.equals(DIFU)) hasDifu = true;
+            else if (p.type.equals(DIFH)) hasDifh = true;
+            
+            if (hasDifu && hasDifh) break;
+        }
+
+        if (hasDifu && hasDifh) {
+            setDiffractionPathParametersUH(cnossosPath, configuration);
+        } else if (hasDifu) {
+            setDiffractionPathParametersU(cnossosPath, configuration);
+        } else if (hasDifh) {
+            setDiffractionPathParametersH(cnossosPath, configuration);
         } else {
             setDirectPathParameters(cnossosPath, configuration);
         }
@@ -101,7 +112,7 @@ public class CnossosPathProcessor {
     }
 
     /**
-     * Populate the supplied {@link CnossosPath} for the direct-propagation
+     * Populate the supplied {@link CnossosPathExt} for the direct-propagation
      * case or detect and insert single-point Rayleigh diffraction
      * contributions when required.
      *
@@ -120,13 +131,13 @@ public class CnossosPathProcessor {
      *       {@code cnossosPath}.</li>
      * </ul>
      *
-     * <p>This method mutates the provided {@link CnossosPath} instance and
+     * <p>This method mutates the provided {@link CnossosPathExt} instance and
      * does not return a new object.
      *
      * @param cnossosPath path data object to populate (mutated)
      * @param pathConfiguration configuration object containing cut-profile and coordinates
      */
-    private static void setDirectPathParameters(CnossosPath cnossosPath, AcousticPathConfiguration pathConfiguration) {
+    private static void setDirectPathParameters(CnossosPathExt cnossosPath, AcousticPathConfiguration pathConfiguration) {
     
         // If any vertical-edge diffraction point exists in the cut profile,
         // the path is already treated as a diffraction path (not a pure
@@ -167,9 +178,141 @@ public class CnossosPathProcessor {
     }
 
     
+    private static void setDiffractionPathParametersUH(CnossosPathExt cnossosPath, AcousticPathConfiguration configuration){ 
+        Coordinate sourceCoordinate = configuration.getSourceCoordinate2D();
+        Coordinate receiverCoordinate = configuration.getReceiverCoordinate2D();
+        
+        // Find the diffraction edge U
+        PointPath diffractionPoint = cnossosPath.getPointList().stream()
+        .filter(p -> p.type.equals(DIFU)).findFirst().orElse(null);
+        if(diffractionPoint == null) {
+            throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
+        }
+        
+        Coordinate diffractionPointCoordinate = diffractionPoint.coordinate;
+
+        SegmentPath sourceToDiffractionPointPath = cnossosPath.getSegmentList().get(0);
+        SegmentPath diffractionPointToReceiverPath = cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1);
+
+        // mirror source is not considered for U-edge diffraction
+
+        // Coordinate mirrorSourceCoordinate = calculateMirrorPoint(sourceCoordinate, sourceToDiffractionPointPath.sMeanPlane);
+        Coordinate mirrorReceiverCoordinate = calculateMirrorPoint(receiverCoordinate, diffractionPointToReceiverPath.rMeanPlane);
+
+        // Distance between the diffraction points is zero in the U-edge case
+        cnossosPath.e = 0;
+
+        cnossosPath.deltaSRPrimeU = DistanceDifferenceCalculator.computeDeltaH(
+            sourceCoordinate, 
+            diffractionPointCoordinate, 
+            cnossosPath.e, 
+            diffractionPointCoordinate, 
+            mirrorReceiverCoordinate,
+            diffractionPointCoordinate
+        );
+        
+        if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
+            cnossosPath.deltaSRPrimeU = -cnossosPath.deltaSRPrimeU;
+        }   
+
+        boolean hasVirticalEdgeDiffraction = cnossosPath.getPointList().stream()
+                .anyMatch(pointPath -> pointPath.type.equals(DIFV));
+        
+        if (hasVirticalEdgeDiffraction) {
+            PointPath firstVDiffractionPoint = cnossosPath.getPointList().stream()
+                .filter(p -> p.type.equals(DIFV)).findFirst().orElse(null);
+            double directDistance = cnossosPath.getSRSegment().dc;
+
+            cnossosPath.deltaU = DistanceDifferenceCalculator.computeVpathDeltaH(
+                sourceCoordinate, 
+                firstVDiffractionPoint.coordinate, 
+                cnossosPath.e, 
+                diffractionPointCoordinate, 
+                receiverCoordinate,
+                diffractionPointCoordinate,
+                directDistance
+            );
+        } else {
+            cnossosPath.deltaU = DistanceDifferenceCalculator.computeDeltaH(
+                sourceCoordinate, 
+                diffractionPointCoordinate, 
+                cnossosPath.e, 
+                diffractionPointCoordinate, 
+                receiverCoordinate
+            );
+        }
+        
+    }
+
+    private static void setDiffractionPathParametersU(CnossosPathExt cnossosPath, AcousticPathConfiguration configuration){ 
+        Coordinate sourceCoordinate = configuration.getSourceCoordinate2D();
+        Coordinate receiverCoordinate = configuration.getReceiverCoordinate2D();
+        
+        // Find the diffraction edge U
+        PointPath diffractionPoint = cnossosPath.getPointList().stream()
+        .filter(p -> p.type.equals(DIFU)).findFirst().orElse(null);
+        if(diffractionPoint == null) {
+            throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
+        }
+        
+        Coordinate diffractionPointCoordinate = diffractionPoint.coordinate;
+
+        SegmentPath sourceToDiffractionPointPath = cnossosPath.getSegmentList().get(0);
+        SegmentPath diffractionPointToReceiverPath = cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1);
+
+        // mirror source is not considered for U-edge diffraction
+
+        // Coordinate mirrorSourceCoordinate = calculateMirrorPoint(sourceCoordinate, sourceToDiffractionPointPath.sMeanPlane);
+        Coordinate mirrorReceiverCoordinate = calculateMirrorPoint(receiverCoordinate, diffractionPointToReceiverPath.rMeanPlane);
+
+        // Distance between the diffraction points is zero in the U-edge case
+        cnossosPath.e = 0;
+
+        cnossosPath.deltaSRPrimeU = DistanceDifferenceCalculator.computeDeltaH(
+            sourceCoordinate, 
+            diffractionPointCoordinate, 
+            cnossosPath.e, 
+            diffractionPointCoordinate, 
+            mirrorReceiverCoordinate,
+            diffractionPointCoordinate
+        );
+        
+        if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
+            cnossosPath.deltaSRPrimeU = -cnossosPath.deltaSRPrimeU;
+        }   
+
+        boolean hasVirticalEdgeDiffraction = cnossosPath.getPointList().stream()
+                .anyMatch(pointPath -> pointPath.type.equals(DIFV));
+        
+        if (hasVirticalEdgeDiffraction) {
+            PointPath firstVDiffractionPoint = cnossosPath.getPointList().stream()
+                .filter(p -> p.type.equals(DIFV)).findFirst().orElse(null);
+            double directDistance = cnossosPath.getSRSegment().dc;
+
+            cnossosPath.deltaU = DistanceDifferenceCalculator.computeVpathDeltaH(
+                sourceCoordinate, 
+                firstVDiffractionPoint.coordinate, 
+                cnossosPath.e, 
+                diffractionPointCoordinate, 
+                receiverCoordinate,
+                diffractionPointCoordinate,
+                directDistance
+            );
+        } else {
+            cnossosPath.deltaU = DistanceDifferenceCalculator.computeDeltaH(
+                sourceCoordinate, 
+                diffractionPointCoordinate, 
+                cnossosPath.e, 
+                diffractionPointCoordinate, 
+                receiverCoordinate
+            );
+        }
+        
+    }
+    
     /**
      * Compute and set CNOSSOS diffraction-related delta parameters on the
-     * provided {@link CnossosPath} when horizontal diffraction points exist.
+     * provided {@link CnossosPathExt} when horizontal diffraction points exist.
      *
      * <p>The method locates the first and last horizontal diffraction points
      * in the path, computes cumulative distances, and fills delta values
@@ -179,7 +322,7 @@ public class CnossosPathProcessor {
      * @param cnossosPath path object to update (must contain segments and points)
      * @param configuration runtime configuration containing geometry and profile
      */
-    private static void setDiffractionPathParameters(CnossosPath cnossosPath, AcousticPathConfiguration configuration){ 
+    private static void setDiffractionPathParametersH(CnossosPathExt cnossosPath, AcousticPathConfiguration configuration){ 
         Coordinate sourceCoordinate = configuration.getSourceCoordinate2D();
         Coordinate receiverCoordinate = configuration.getReceiverCoordinate2D();
         
@@ -317,7 +460,7 @@ public class CnossosPathProcessor {
      * @param pathConfiguration runtime configuration containing profile and coordinates
      * @return {@code true} if one or more Rayleigh obstacle points were inserted
      */
-    private static boolean setRayleighDiffractionEffects(CnossosPath cnossosPath, AcousticPathConfiguration pathConfiguration) {
+    private static boolean setRayleighDiffractionEffects(CnossosPathExt cnossosPath, AcousticPathConfiguration pathConfiguration) {
         
         Coordinate sourceCoordinate = pathConfiguration.getSourceCoordinate2D();
         Coordinate receiverCoordinate = pathConfiguration.getReceiverCoordinate2D();
@@ -387,7 +530,7 @@ public class CnossosPathProcessor {
         
 
             // Collect the two path segments and a corresponding diffraction point
-            // to be appended to the main CnossosPath if at least one qualifying
+            // to be appended to the main CnossosPathExt if at least one qualifying
             // obstacle is found.
             segmentList.add(sourceToObstaclePath);
             segmentList.add(obstacleToReceiverPath);

@@ -24,7 +24,7 @@ import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.AttenuationVisitor;
 import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 
-import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
+import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -204,7 +204,7 @@ public class GenerateReferenceDeviation {
                 utName));
     }
 
-    private static void addUTDeviationDetails(String utName, StringBuilder sb, JsonNode expectedValues, CnossosPath actual, double[] powerLevel) {
+    private static void addUTDeviationDetails(String utName, StringBuilder sb, JsonNode expectedValues, CnossosPathExt actual, double[] powerLevel) {
         double[] actualLH = addArray(actual.aGlobalH, powerLevel);
         double[] expectedLH = asArray(expectedValues.get("LH"));
         DeviationResult lhDeviation = computeDeviation(expectedLH, actualLH);

@@ -17,9 +17,9 @@ import static java.lang.Math.*;
  * (deltaH, deltaF, deltaPrimeH, etc.) used downstream in level
  * calculations.
  *
- * <p>All methods operate on the provided {@link CnossosPath} and
- * {@link AcousticPathConfiguration} objects and mutate the {@link CnossosPath}
- * instance in-place (they do not create or return new CnossosPath objects).
+ * <p>All methods operate on the provided {@link CnossosPathExt} and
+ * {@link AcousticPathConfiguration} objects and mutate the {@link CnossosPathExt}
+ * instance in-place (they do not create or return new CnossosPathExt objects).
  */
 public class DistanceDifferenceCalculator {   
 

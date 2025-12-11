@@ -107,7 +107,7 @@ public class AttenuationCnossos {
      * @param data
      * @return list double with the values of AGround
      */
-    public static double[] getAGroundCore(CnossosPath pathParameters, SegmentPath segmentPath, AttenuationParameters data) {
+    public static double[] getAGroundCore(CnossosPathExt pathParameters, SegmentPath segmentPath, AttenuationParameters data) {
 
         double[] aGround = new double[data.getFrequencies().size()];
         double aGroundMin;
@@ -199,7 +199,7 @@ public class AttenuationCnossos {
      * @param data
      * @return list double with the values of ARef
      */
-    private static double[] getARef(CnossosPath pathParameters, AttenuationParameters data) {
+    private static double[] getARef(CnossosPathExt pathParameters, AttenuationParameters data) {
         double[] aRef = new double[data.getFrequencies().size()];
         Arrays.fill(aRef, 0.0);
         for (PointPath pointPath : pathParameters.getPointList()) {
@@ -222,7 +222,7 @@ public class AttenuationCnossos {
      * @param data
      * @return list double with the values of AGround
      */
-    private static double[] aGround(SegmentPath segmentPath, CnossosPath pathParameters, AttenuationParameters data) {
+    private static double[] aGround(SegmentPath segmentPath, CnossosPathExt pathParameters, AttenuationParameters data) {
         // Here there is a debate if use the condition isgDisc or not
         // In Directive 2015-2019, isgDisc == true because the term – 3(1 – Gm) takes into account the fact that when the source and the receiver are far apart, the first reflection source side is no longer on the platform but on natural land.
         if (!(segmentPath.gPath == 0 && data.isgDisc())) {
@@ -269,7 +269,7 @@ public class AttenuationCnossos {
      * @param data
      * @return list double with the values of ABoundary
      */
-    private static double[] getABoundary(CnossosPath pathParameters, AttenuationParameters data) {
+    private static double[] getABoundary(CnossosPathExt pathParameters, AttenuationParameters data) {
 
         SegmentPath srPath = pathParameters.getSRSegment();
         List<SegmentPath> segments = pathParameters.getSegmentList();
@@ -386,7 +386,7 @@ public class AttenuationCnossos {
      * @param data
      * @return list double with the values of ADiv
      */
-    public static double[] aDiv(CnossosPath pathParameters, AttenuationParameters data) {
+    public static double[] aDiv(CnossosPathExt pathParameters, AttenuationParameters data) {
         double[] aDiv = new double[data.getFrequencies().size()];
         long difVPointCount = pathParameters.getPointList().stream().
                 filter(pointPath -> pointPath.type.equals(DIFV)).count();
@@ -416,7 +416,7 @@ public class AttenuationCnossos {
      * @param data
      * @return
      */
-    public static double[] evaluateAref(CnossosPath pathParameters, AttenuationParameters data) {
+    public static double[] evaluateAref(CnossosPathExt pathParameters, AttenuationParameters data) {
         return getARef(pathParameters, data);
     }
 
@@ -427,7 +427,7 @@ public class AttenuationCnossos {
      * @param data
      * @return
      */
-    public static double[] evaluate(CnossosPath pathParameters, AttenuationParameters data) {
+    public static double[] evaluate(CnossosPathExt pathParameters, AttenuationParameters data) {
         // init
         aGlobal = new double[data.getFrequencies().size()];
         double[] aBoundary;
@@ -488,7 +488,7 @@ public class AttenuationCnossos {
      * @param favorable
      * @return
      */
-    private static boolean isValidRcrit(CnossosPath pp, int freq, boolean favorable) {
+    private static boolean isValidRcrit(CnossosPathExt pp, int freq, boolean favorable) {
         double lambda = 340.0/freq;
         return favorable ?
                 pp.deltaF > -lambda / 20 && pp.deltaF > lambda / 4 - pp.deltaPrimeF || pp.deltaF > 0 :
@@ -501,7 +501,7 @@ public class AttenuationCnossos {
      * @param data
      * @return
      */
-    public static double[] aBoundary(CnossosPath path, AttenuationParameters data) {
+    public static double[] aBoundary(CnossosPathExt path, AttenuationParameters data) {
         double[] aGround = new double[data.getFrequencies().size()];
         double[] aDif = new double[data.getFrequencies().size()];
         List<PointPath> diffPts = path.getPointList().stream().
@@ -560,7 +560,7 @@ public class AttenuationCnossos {
      * @param data
      * @return list double with the values of deltaRetrodif
      */
-    public static double[] deltaRetrodif(CnossosPath reflect, AttenuationParameters data) {
+    public static double[] deltaRetrodif(CnossosPathExt reflect, AttenuationParameters data) {
         double[] retroDiff = new double[data.getFrequencies().size()];
         Arrays.fill(retroDiff, 0.);
         final Coordinate originalS = reflect.getSRSegment().s;
@@ -635,7 +635,7 @@ public class AttenuationCnossos {
      * @param type
      * @return the value of ADiv
      */
-    private static double aDif(CnossosPath proPathParameters, AttenuationParameters data, int i, PointPath.POINT_TYPE type) {
+    private static double aDif(CnossosPathExt proPathParameters, AttenuationParameters data, int i, PointPath.POINT_TYPE type) {
         SegmentPath first = proPathParameters.getSegmentList().get(0);
         SegmentPath last = proPathParameters.getSegmentList().get(proPathParameters.getSegmentList().size()-1);
 
@@ -729,7 +729,7 @@ public class AttenuationCnossos {
      * @param idFreq
      * @return a double list of the value of CfK
      */
-    private static double[] computeCfKValues(CnossosPath proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
+    private static double[] computeCfKValues(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
         return computeCfKValues(proPathParameters, path, data, idFreq, false);
     }
 
@@ -742,7 +742,7 @@ public class AttenuationCnossos {
      * @param forceGPath
      * @return
      */
-    private static double[] computeCfKValues(CnossosPath proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq, boolean forceGPath) {
+    private static double[] computeCfKValues(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq, boolean forceGPath) {
         int fm = data.getFrequencies().get(idFreq);
         double c = data.getCelerity();
         double dp = path.dp;
@@ -763,7 +763,7 @@ public class AttenuationCnossos {
      * @param idFreq
      * @return homogeneous ground Atktenuation in db
      */
-    public static double aGroundH(CnossosPath proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
+    public static double aGroundH(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
         return aGroundH(proPathParameters, path, data, idFreq, false);
     }
 
@@ -776,7 +776,7 @@ public class AttenuationCnossos {
      * @param forceGPath
      * @return homogeneous ground Attenuation in db
      */
-    public static double aGroundH(CnossosPath proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq, boolean forceGPath) {
+    public static double aGroundH(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq, boolean forceGPath) {
         double[] values = computeCfKValues(proPathParameters, path, data, idFreq, forceGPath);
         double cf = values[0];
         double k = values[1];
@@ -800,7 +800,7 @@ public class AttenuationCnossos {
     }
 
     //Todo check if the favorable testform should be use instead
-    public static double aGroundF(CnossosPath proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
+    public static double aGroundF(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
         return aGroundF(proPathParameters, path, data, idFreq, false);
     }
 
@@ -813,7 +813,7 @@ public class AttenuationCnossos {
      * @param forceGPath
      * @return favorable ground Attenuation in db
      */
-    public static double aGroundF(CnossosPath proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq, boolean forceGPath) {
+    public static double aGroundF(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq, boolean forceGPath) {
         double[] values = computeCfKValues(proPathParameters, path, data, idFreq);
         double cf = values[0];
         double k = values[1];
@@ -845,7 +845,7 @@ public class AttenuationCnossos {
      * @param proPathParameters Cnossos paths
      * @return double list of attenuation
      */
-    public static double[] computeCnossosAttenuation(AttenuationParameters data, CnossosPath proPathParameters,
+    public static double[] computeCnossosAttenuation(AttenuationParameters data, CnossosPathExt proPathParameters,
                                                      SceneWithAttenuation scene, boolean exportAttenuationMatrix) {
         if (data == null) {
             return new double[0];

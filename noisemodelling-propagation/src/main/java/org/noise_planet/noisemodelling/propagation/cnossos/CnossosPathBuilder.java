@@ -6,7 +6,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import java.util.List;
 
 /**
- * Constructs a {@link CnossosPath} from a vertical {@link CutProfile}.
+ * Constructs a {@link CnossosPathExt} from a vertical {@link CutProfile}.
  *
  * <p>This class orchestrates the acoustic path construction pipeline. It
  * prepares a runtime {@link AcousticPathConfiguration} and delegates the
@@ -17,7 +17,7 @@ import java.util.List;
  *   <li>validate and adjust reflection points against wall constraints,</li>
  *   <li>assemble path geometry (points and segments) via
  *       {@link AcousticPathBuilder}, and</li>
- *   <li>convert the assembled geometry into a {@link CnossosPath} with
+ *   <li>convert the assembled geometry into a {@link CnossosPathExt} with
  *       acoustic parameters.</li>
  * </ol>
  *
@@ -28,7 +28,7 @@ import java.util.List;
 public class CnossosPathBuilder {
 
     /**
-     * Construct and compute a {@link CnossosPath} from the supplied inputs.
+     * Construct and compute a {@link CnossosPathExt} from the supplied inputs.
      *
      * <p>This static convenience method builds a runtime
      * {@link AcousticPathConfiguration} using the provided {@link CutProfile},
@@ -40,11 +40,11 @@ public class CnossosPathBuilder {
      * @param exactFrequencyArray list of frequency bands used in calculations
      * @param groundAttenuationCoefficient default ground attenuation coefficient
      * @param bodyBarrier whether the cut represents a body barrier
-     * @return a completed {@link CnossosPath}
+     * @return a completed {@link CnossosPathExt}
      * @throws IllegalArgumentException if the cut profile is invalid (fewer
      *         than two points) or if reflection validation fails
      */
-    public static CnossosPath buildCnossosPath(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier) {
+    public static CnossosPathExt buildCnossosPath(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier) {
 
         AcousticPathConfiguration pathConfiguration = new AcousticPathConfiguration(
             cutProfile, exactFrequencyArray, groundAttenuationCoefficient, bodyBarrier
@@ -83,7 +83,7 @@ public class CnossosPathBuilder {
         }
         
         // path = acousticPath.getPath();
-        CnossosPath cnossosPath = CnossosPathProcessor.createCnossosPath(acousticPath, pathConfiguration);
+        CnossosPathExt cnossosPath = CnossosPathProcessor.createCnossosPath(acousticPath, pathConfiguration);
         return cnossosPath;
     }
     
