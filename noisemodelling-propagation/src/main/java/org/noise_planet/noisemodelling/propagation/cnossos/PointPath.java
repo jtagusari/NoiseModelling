@@ -51,6 +51,10 @@ public class PointPath {
          */
         DIFH,
         /**
+         * Diffraction on upper horizontal edges (vertical plane)
+         */
+        DIFU,
+        /**
          * Receiver point
          */
         RECV,

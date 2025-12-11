@@ -13,6 +13,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointTopogra
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
+import org.noise_planet.noisemodelling.propagation.cnossos.PivotPoint.PivotType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,7 +29,7 @@ import java.util.List;
  * ordered list of {@link Coordinate} values is suitable as input for downstream
  * path building (e.g. selection of diffraction vertices).
  */
-public class DiffractionPointCalculator {
+public class PivotPointCalculator {
 
 
     /**
@@ -47,7 +48,7 @@ public class DiffractionPointCalculator {
      *                      and the original {@link CutProfile}
      * @return ordered list of 2D {@link Coordinate} representing diffraction candidates
      */
-    public static List<Coordinate> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
+    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
 
         // Collect valid diffraction points
         List<Coordinate> candidateCoordinates = collectHorizontalEdgePivotCandidates(configuration);
@@ -90,7 +91,7 @@ public class DiffractionPointCalculator {
      * @param candidateCoordinates input coordinates (usually source, candidate diffractors, receiver)
      * @return processed list of coordinates forming the ordered diffraction candidates
      */
-    private static List<Coordinate> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates, List<Coordinate> downwardBridgeEdges) {
+    private static List<PivotPoint> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates, List<Coordinate> downwardBridgeEdges) {
 
         if (downwardBridgeEdges == null || downwardBridgeEdges.size() == 0) {
             throw new IllegalArgumentException("No downward bridge edge provided");
@@ -99,14 +100,14 @@ public class DiffractionPointCalculator {
         /** TODO Only the first downward bridge edge is considered at this moment*/
         Coordinate downwardEdgeCoordinate = downwardBridgeEdges.get(0);
 
-        List<Coordinate> pivotPointsWithoutDownwardEdges = extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
+        List<PivotPoint> pivotPointsWithoutDownwardEdges = extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         LineSegment segment = new LineSegment(
-            pivotPointsWithoutDownwardEdges.get(0),
-            pivotPointsWithoutDownwardEdges.get(1)
+            (Coordinate) pivotPointsWithoutDownwardEdges.get(0),
+            (Coordinate) pivotPointsWithoutDownwardEdges.get(1)
         );
 
         if (downwardEdgeCoordinate.x <= segment.p0.x || downwardEdgeCoordinate.x >= segment.p1.x) {
-            throw new IllegalArgumentException("Downward bridge edge is out of the range of source and the first cut-point");
+            throw new IllegalArgumentException("Downward edge is out of the range of source and the first upward-edge");
         }
 
         double ratio = (downwardEdgeCoordinate.x - segment.p0.x) / (segment.p1.x - segment.p0.x);
@@ -115,25 +116,34 @@ public class DiffractionPointCalculator {
             return pivotPointsWithoutDownwardEdges;
         }
 
-        List<Coordinate> newCandidateCoordinates = new ArrayList<>();
-        newCandidateCoordinates.add(downwardEdgeCoordinate);
+        List<PivotPoint> pivotPointsWithDownwardEdges = new ArrayList<>();
+        pivotPointsWithDownwardEdges.add(pivotPointsWithoutDownwardEdges.get(0));
+
+
+        List<Coordinate> CandidateCoordinatesAfterDownwardEdges = new ArrayList<>();
+        CandidateCoordinatesAfterDownwardEdges.add(downwardEdgeCoordinate);
         for (int i = 1; i < candidateCoordinates.size(); i++) {
-            newCandidateCoordinates.add(candidateCoordinates.get(i));
+            if (candidateCoordinates.get(i).x <= downwardEdgeCoordinate.x) {
+                continue;
+            }
+            CandidateCoordinatesAfterDownwardEdges.add(candidateCoordinates.get(i));
         }
-        List<Coordinate> pivotPointsWithDownwardEdges = extractPivotPointsUsingConvexHull(configuration, newCandidateCoordinates);
-        pivotPointsWithDownwardEdges.add(0, candidateCoordinates.get(0));
+        List<PivotPoint> pivotPointsAfterDownwardEdges = extractPivotPointsUsingConvexHull(configuration, CandidateCoordinatesAfterDownwardEdges);
+        pivotPointsAfterDownwardEdges.get(0).setPivotType(PivotType.TOP_OF_OBSTACLE);
+
+        pivotPointsWithDownwardEdges.addAll(pivotPointsAfterDownwardEdges);
         return pivotPointsWithDownwardEdges;
 
     }
 
 
-    private static List<Coordinate> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates) {
+    private static List<PivotPoint> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates) {
         int startIndex = 0;
         int endIndex = candidateCoordinates.size() - 1;
         return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, startIndex, endIndex);
     }
 
-    private static List<Coordinate> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates, int startIndex, int endIndex) {
+    private static List<PivotPoint> extractPivotPointsUsingConvexHull(AcousticPathConfiguration configuration,List<Coordinate> candidateCoordinates, int startIndex, int endIndex) {
 
         if (startIndex < 0 || endIndex >= candidateCoordinates.size() || startIndex > endIndex) {
             throw new IllegalArgumentException("Invalid start/end indices");
@@ -145,8 +155,9 @@ public class DiffractionPointCalculator {
             throw new IllegalArgumentException("At least two input points are required for convex hull computation");
         }
         
+        
         if (slicedCandidateCoordinates.size() == 2) {
-            return slicedCandidateCoordinates;
+            return coordinatesToPivotPoints(slicedCandidateCoordinates);
         }
         
         GeometryFactory geomFactory = new GeometryFactory();
@@ -170,11 +181,11 @@ public class DiffractionPointCalculator {
         Geometry uniqueGeom = geom.union(); // Removes duplicate coordinates
         upperConvexHullCoordinates = uniqueGeom.getCoordinates();
 
-        List<Coordinate> pathPoints = new ArrayList<>();
-
         if (upperConvexHullCoordinates.length == 3) {
-            return Arrays.asList(upperConvexHullCoordinates);
+            return coordinatesToPivotPoints(Arrays.asList(upperConvexHullCoordinates));
         }
+
+        List<Coordinate> pathPoints = new ArrayList<>();
 
         for (int j = 0; j < upperConvexHullCoordinates.length; j++) {
             if (upperConvexHullCoordinates[j].y == Double.MAX_VALUE || Double.isInfinite(upperConvexHullCoordinates[j].y)) {
@@ -183,7 +194,23 @@ public class DiffractionPointCalculator {
             pathPoints.add(upperConvexHullCoordinates[j]);
         }
         
-        return pathPoints;
+        return coordinatesToPivotPoints(pathPoints);
+    }
+
+    private static List<PivotPoint> coordinatesToPivotPoints(List<Coordinate> coordinates) {
+        List<PivotPoint> pivotPoints = new ArrayList<>();
+        for (int i = 0; i < coordinates.size(); i++) {
+            PivotPoint.PivotType type;
+            if (i == 0) {
+                type = PivotPoint.PivotType.SOURCE;
+            } else if (i == coordinates.size() - 1) {
+                type = PivotPoint.PivotType.RECEIVER;
+            } else {
+                type = PivotPoint.PivotType.TOP_OF_OBSTACLE;
+            }
+            pivotPoints.add(new PivotPoint(coordinates.get(i), type));
+        }
+        return pivotPoints;
     }
 
     /**

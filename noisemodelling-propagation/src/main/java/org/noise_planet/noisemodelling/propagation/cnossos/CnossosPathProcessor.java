@@ -50,17 +50,17 @@ public class CnossosPathProcessor {
      *
      * Note: the method mutates the returned `CnossosPath` (it is
      * initialised and populated) but does not modify the input
-     * `configuration` or `path` objects.
+     * `configuration` or `acousticPath` objects.
      *
-     * @param path path produced by the pathfinder (contains points/segments)
+     * @param acousticPath acousticPath produced by the pathfinder (contains points/segments)
      * @param configuration runtime configuration containing the cut-profile,
      *                      elevation profile and frequency array
      * @return a fully initialised `CnossosPath` ready for attenuation
      *         computations (contains SR segment, points, segments and
      *         CNOSSOS delta parameters)
      */
-    public static CnossosPath createCnossosPath(Path path, AcousticPathConfiguration configuration) {
-
+    public static CnossosPath createCnossosPath(AcousticPath acousticPath, AcousticPathConfiguration configuration) {
+        Path path = acousticPath.getPath();
         double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(configuration.getElevationProfile2D());
 
         SegmentPath sourceToReceiverPath = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
@@ -89,7 +89,7 @@ public class CnossosPathProcessor {
         cnossosPath.init(configuration.getExactFrequencyArray().size());
 
         boolean hasDiffraction = cnossosPath.getPointList().stream()
-                .anyMatch(p -> p.type.equals(DIFH));
+                .anyMatch(p -> p.type.equals(DIFH) || p.type.equals(DIFU));
         
         if (hasDiffraction) {
             setDiffractionPathParameters(cnossosPath, configuration);
@@ -183,7 +183,8 @@ public class CnossosPathProcessor {
         Coordinate sourceCoordinate = configuration.getSourceCoordinate2D();
         Coordinate receiverCoordinate = configuration.getReceiverCoordinate2D();
         
-        // Find first and last horizontal diffraction points                
+        // Find first and last horizontal diffraction points
+        // note: the last diffraction point corresponds to the first diffraction point if there is only one diffracting edge
         PointPath firstDiffractionPoint = cnossosPath.getPointList().stream()
         .filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
         PointPath lastDiffractionPoint = cnossosPath.getPointList().stream()

@@ -14,7 +14,7 @@ import java.util.List;
 public class AcousticPathConfiguration {
     
     // Geometric data
-    private List<Coordinate> horizontalEdgePivotPoints;
+    private List<PivotPoint> horizontalEdgePivotPoints;
     private final CutProfile cutProfile;
     private final List<CutPoint> cutPoints;
     private final List<Coordinate> cutPointCoordinates2D;
@@ -48,7 +48,7 @@ public class AcousticPathConfiguration {
         this.exactFrequencyArray = exactFrequencyArray;
     }
 
-    public void setHorizontalEdgePivotPoints(List<Coordinate> horizontalEdgePivotPoints) {
+    public void setHorizontalEdgePivotPoints(List<PivotPoint> horizontalEdgePivotPoints) {
         this.horizontalEdgePivotPoints = horizontalEdgePivotPoints;
         if (horizontalEdgePivotPoints == null) {
             return;
@@ -61,7 +61,7 @@ public class AcousticPathConfiguration {
     }
     
     // Getters
-    public List<Coordinate> getHorizontalEdgePivotPoints() { return horizontalEdgePivotPoints; }
+    public List<PivotPoint> getHorizontalEdgePivotPoints() { return horizontalEdgePivotPoints; }
     public CutProfile getCutProfile() { return cutProfile; }
     public List<CutPoint> getCutProfilePoints() { return cutPoints; }
     public List<Coordinate> getPts2D() { return cutPointCoordinates2D; }

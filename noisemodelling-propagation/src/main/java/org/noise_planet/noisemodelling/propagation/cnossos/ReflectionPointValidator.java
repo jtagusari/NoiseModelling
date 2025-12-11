@@ -27,7 +27,7 @@ public class ReflectionPointValidator {
      * @param cutPointCoordinates2D List of 2D coordinates of cut points
      * @return true if validation succeeds and points are valid for computation
      */
-    public static boolean validateAndAdjustReflectionPoints(List<Coordinate> horizontalEdgePivotPoints, 
+    public static boolean validateAndAdjustReflectionPoints(List<PivotPoint> horizontalEdgePivotPoints, 
                                                            List<CutPoint> cutProfilePoints,
                                                            List<Coordinate> cutPointCoordinates2D) {
         // If the path is direct (no diffraction), no need to validate reflection points
@@ -46,7 +46,7 @@ public class ReflectionPointValidator {
      * @param cutPointCoordinates2D List of 2D coordinates
      * @return true if validation succeeds for all segments
      */
-    private static boolean validateAllPathSegments(List<Coordinate> horizontalEdgePivotPoints, 
+    private static boolean validateAllPathSegments(List<PivotPoint> horizontalEdgePivotPoints, 
                                                   List<CutPoint> cutProfilePoints,
                                                   List<Coordinate> cutPointCoordinates2D) {
         // Process consecutive acoustic path point pairs (source→1st diffraction, 1st→2nd diffraction, ..., last diffraction→receiver)
@@ -68,7 +68,7 @@ public class ReflectionPointValidator {
      * @return true if all reflection points within the segment are valid
      */
     private static boolean validateSegmentReflectionPoints(int segmentIndex, 
-                                                          List<Coordinate> horizontalEdgePivotPoints,
+                                                          List<PivotPoint> horizontalEdgePivotPoints,
                                                           List<CutPoint> cutProfilePoints,
                                                           List<Coordinate> cutPointCoordinates2D) {
         // Get start and end point indices for the current segment
@@ -76,7 +76,10 @@ public class ReflectionPointValidator {
         int endPointIndex = cutPointCoordinates2D.indexOf(horizontalEdgePivotPoints.get(segmentIndex));
         
         // Create geometric line segment for the acoustic path segment
-        LineSegment acousticPathSegment = new LineSegment(horizontalEdgePivotPoints.get(segmentIndex - 1), horizontalEdgePivotPoints.get(segmentIndex));
+        LineSegment acousticPathSegment = new LineSegment(
+            (Coordinate) horizontalEdgePivotPoints.get(segmentIndex - 1), 
+            (Coordinate) horizontalEdgePivotPoints.get(segmentIndex)
+        );
         
         // Validate intermediate points (reflection point candidates) within the segment
         for (int pointIndex = startPointIndex + 1; pointIndex < endPointIndex; pointIndex++) {

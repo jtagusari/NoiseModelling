@@ -32,8 +32,9 @@ import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POIN
  * each segment index to populate the internal {@code Path} with points and
  * segments.</p>
  */
-public class AcousticPathProcessor {
+public class AcousticPath {
 
+    private final List<PivotPoint> horizontalEdgePivotPoints;
     private final AcousticPathConfiguration configuration;
     private final Path path = new Path(new ArrayList<>(), new ArrayList<>());
     // private final Path acousticPath;
@@ -53,7 +54,8 @@ public class AcousticPathProcessor {
      *                      data and propagation settings used to build the
      *                      acoustic path
      */
-    public AcousticPathProcessor(AcousticPathConfiguration configuration) {
+    public AcousticPath(List<PivotPoint> horizontalEdgePivotPoints, AcousticPathConfiguration configuration) {
+        this.horizontalEdgePivotPoints = horizontalEdgePivotPoints;
         this.configuration = configuration;
     }
 
@@ -84,7 +86,7 @@ public class AcousticPathProcessor {
 
         setSegmentIndex(segmentIndex);
 
-        if (configuration.getHorizontalEdgePivotPoints().size() == 2) {
+        if (horizontalEdgePivotPoints.size() == 2) {
             this.addSourcePoint();
             this.addIntermediatePoints();
             this.addReceiverPoint();
@@ -94,9 +96,12 @@ public class AcousticPathProcessor {
             this.addIntermediatePoints();
             this.addMainSegment();
                     
-            boolean isFinalSegment = (segmentIndex == configuration.getHorizontalEdgePivotPoints().size() - 1);
+            boolean isFinalSegment = (segmentIndex == horizontalEdgePivotPoints.size() - 1);
+            boolean isUpperEdgeSegment = horizontalEdgePivotPoints.get(segmentIndex).getPivotType() == PivotPoint.PivotType.BOTTOM_OF_OBSTACLE;
             if (isFinalSegment) {
                 this.addReceiverPoint();
+            } else if (isUpperEdgeSegment) {
+                this.addUpperHorizontalEdgeDiffractionPoint();
             } else {
                 this.addHorizontalEdgeDiffractionPoint();
             }
@@ -114,7 +119,7 @@ public class AcousticPathProcessor {
     private void setSegmentIndex(int segmentIndex) {
 
         this.segmentIndex = segmentIndex;
-        List<PivotPoint> pivotPoints = configuration.getHorizontalEdgePivotPoints();
+        List<PivotPoint> pivotPoints = horizontalEdgePivotPoints;
         List<Coordinate> pivotPointCoordinates = new ArrayList<>();
         for (PivotPoint pp : pivotPoints) {
             pivotPointCoordinates.add((Coordinate) pp);
@@ -219,7 +224,7 @@ public class AcousticPathProcessor {
             }
         }
         
-        int lastSegmentIndex = configuration.getHorizontalEdgePivotPoints().size() - 1;
+        int lastSegmentIndex = horizontalEdgePivotPoints.size() - 1;
         if (previousCutPointIndex != startCutPointIndex && segmentIndex == lastSegmentIndex) {
             this.addFinalIntermediateSegment(previousCutPointIndex);
         }
@@ -368,7 +373,7 @@ public class AcousticPathProcessor {
      */
     private void addMainSegment() {
         
-        if (configuration.getHorizontalEdgePivotPoints().size() == 2) {
+        if (horizontalEdgePivotPoints.size() == 2) {
             throw new IllegalStateException("Main diffraction segment can only be added when there are intermediate pivot points.");
         }
 
@@ -419,6 +424,20 @@ public class AcousticPathProcessor {
         return;
     }
 
+    
+    private void addUpperHorizontalEdgeDiffractionPoint() {        
+        PointPath diffractionPoint = new PointPath(
+            configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
+            endCutPoint.getzGround(), 
+            DIFU
+            );
+        diffractionPoint.bodyBarrier = configuration.isBodyBarrier();
+        if (endCutPoint instanceof CutPointWall) {
+            diffractionPoint.alphaWall = ((CutPointWall) endCutPoint).getWallAlpha();
+        }
+        this.path.addPoint(diffractionPoint);
+        return;
+    }
     
     /**
      * Compute the orientation used for emission or reflection based on a
