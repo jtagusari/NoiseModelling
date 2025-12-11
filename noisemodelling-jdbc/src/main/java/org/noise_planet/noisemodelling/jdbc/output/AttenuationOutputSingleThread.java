@@ -21,7 +21,6 @@ import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
@@ -265,7 +264,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
 
             final SceneWithEmission scene = multiThread.sceneWithEmission;
             for (SourcePointInfo sourcePointInfo : sourceList) {
-                double[] attenuation = dBToW(computeFastAttenuation(sourcePointInfo, receiver, new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE)));
+                // Use scene's attenuation parameters which contain the correct frequencies from profileBuilder
+                double[] attenuation = dBToW(computeFastAttenuation(sourcePointInfo, receiver, scene.getAttenuationParameters()));
                 if(scene.getWjSources().containsKey(sourcePointInfo.getSourcePk())) {
                     ArrayList<SceneWithEmission.PeriodEmission> emissions = scene.getWjSources().get(sourcePointInfo.getSourcePk());
                     for (SceneWithEmission.PeriodEmission periodEmission : emissions) {
