@@ -61,7 +61,60 @@ public class CnossosPathProcessor {
      *         CNOSSOS delta parameters)
      */
     public static CnossosPathExt createCnossosPath(AcousticPath acousticPath, AcousticPathConfiguration configuration) {
-        Path path = acousticPath.getPath();
+        // Path path = acousticPath.getPath();
+        // double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(configuration.getElevationProfile2D());
+
+        // SegmentPath sourceToReceiverPath = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
+        //     configuration.getCutPointCoordinates2D(), 
+        //     meanPlane, 
+        //     configuration.getCutProfile().calculateWeightedGroundAbsorption(), 
+        //     configuration.getCutProfile().getGroundAbsorptionAtSource()
+        // );
+
+        // sourceToReceiverPath.setElevationProfile2D(configuration.getElevationProfile2D());
+
+        // sourceToReceiverPath.setDirectRayDistance(
+        //     CGAlgorithms3D.distance(
+        //         configuration.getCutProfile().getReceiver().getCoordinate(),
+        //         configuration.getCutProfile().getSource().getCoordinate()
+        //     )
+        // );
+
+        // CnossosPathExt cnossosPath = new CnossosPathExt(configuration.getCutProfile());
+        // cnossosPath.setFavorable(true);
+        // cnossosPath.setSRSegment(sourceToReceiverPath);
+        // cnossosPath.setPointList(path.getPointList());
+        // cnossosPath.setSegmentList(path.getSegmentList());
+        // cnossosPath.setRaySourceReceiverDirectivity(path.getRaySourceReceiverDirectivity());
+
+        // cnossosPath.init(configuration.getExactFrequencyArray().size());
+        CnossosPathExt cnossosPath = initializeCnossosPath(acousticPath.getPath(), configuration);
+
+        boolean hasDifu = false;
+        boolean hasDifh = false;
+
+        for (PointPath p : cnossosPath.getPointList()) {
+            if (p.type.equals(DIFU)) hasDifu = true;
+            else if (p.type.equals(DIFH)) hasDifh = true;
+            
+            if (hasDifu && hasDifh) break;
+        }
+
+        if (hasDifu && hasDifh) {
+            setDiffractionPathParametersUH(cnossosPath, configuration);
+        } else if (hasDifu) {
+            setDiffractionPathParametersU(cnossosPath, configuration);
+        } else if (hasDifh) {
+            setDiffractionPathParametersH(cnossosPath, configuration);
+        } else {
+            setDirectPathParameters(cnossosPath, configuration);
+        }
+
+        return cnossosPath;
+    }
+
+    private static CnossosPathExt initializeCnossosPath(Path path, AcousticPathConfiguration configuration) {
+        
         double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(configuration.getElevationProfile2D());
 
         SegmentPath sourceToReceiverPath = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
@@ -88,36 +141,7 @@ public class CnossosPathProcessor {
         cnossosPath.setRaySourceReceiverDirectivity(path.getRaySourceReceiverDirectivity());
 
         cnossosPath.init(configuration.getExactFrequencyArray().size());
-
-        boolean hasDifu = false;
-        boolean hasDifh = false;
-
-        for (PointPath p : cnossosPath.getPointList()) {
-            if (p.type.equals(DIFU)) hasDifu = true;
-            else if (p.type.equals(DIFH)) hasDifh = true;
-            
-            if (hasDifu && hasDifh) break;
-        }
-
-        if (hasDifu && hasDifh) {
-            setDiffractionPathParametersUH(cnossosPath, configuration);
-        } else if (hasDifu) {
-            setDiffractionPathParametersU(cnossosPath, configuration);
-        } else if (hasDifh) {
-            setDiffractionPathParametersH(cnossosPath, configuration);
-        } else {
-            setDirectPathParameters(cnossosPath, configuration);
-        }
-
         return cnossosPath;
-    }
-
-    private static CnossosPathExt createCnossosPathWithExtractedCutPoints(AcousticPathConfiguration pathConfiguration, List<Integer> extractedCutPointIndices) {
-        CutProfile extractedCutProfile = new CutProfile(pathConfiguration.getCutProfile());
-        extractedCutProfile.extractCutPoints(extractedCutPointIndices);
-        CnossosPathExt newPath = CnossosPathBuilder.buildCnossosPath(extractedCutProfile, pathConfiguration.getExactFrequencyArray(), pathConfiguration.getGroundAttenuationCoefficient(), pathConfiguration.isBodyBarrier());
-
-        return newPath;
     }
 
     /**
@@ -197,107 +221,76 @@ public class CnossosPathProcessor {
         if(diffractionPointU == null) {
             throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
         }
-
-        // Find first and last horizontal diffraction points
-        // note: the last diffraction point corresponds to the first diffraction point if there is only one diffracting edge
-        PointPath firstDiffractionPointH = cnossosPath.getPointList().stream()
-        .filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
-        PointPath lastDiffractionPointH = cnossosPath.getPointList().stream()
-        .filter(p -> p.type.equals(DIFH)).reduce((first, second) -> second).orElse(null);
-        if(firstDiffractionPointH == null || lastDiffractionPointH == null) {
-            throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
-        }
-        
         Coordinate diffractionPointUCoordinate = diffractionPointU.coordinate;
-        Coordinate firstDiffractionPointHCoordinate =  firstDiffractionPointH.coordinate;
-        Coordinate lastDiffractionPointHCoordinate =  lastDiffractionPointH.coordinate;
-
-
-        SegmentPath sourceToDiffractionUPointPath = cnossosPath.getSegmentList().get(0);
-        SegmentPath uToFirstDiffractionHPointPath = cnossosPath.getSegmentList().get(1);
-        SegmentPath lastDiffractionPointHToReceiverPath = cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1);
-
         double deltaU = DistanceDifferenceCalculator.computeDeltaH(
             sourceCoordinate, 
             diffractionPointUCoordinate, 
             receiverCoordinate
         );
 
-        // double deltaH = DistanceDifferenceCalculator.computeDeltaH(
-        //     sourceCoordinate, 
-        //     diffractionPointHCoordinate, 
-        //     receiverCoordinate
-        // );
-
-        Coordinate firstPointUCoordinate;
-        Coordinate lastPointUCoordinate;
-        Coordinate firstPointHCoordinate;
-        Coordinate lastPointHCoordinate;
-
-        // if (deltaU >= deltaH) {
-        //     firstPointUCoordinate = sourceCoordinate;
-        //     lastPointUCoordinate = receiverCoordinate;
-        //     firstPointHCoordinate = diffractionPointUCoordinate;
-        //     lastPointHCoordinate = receiverCoordinate;
-        // } else {
-        //     firstPointUCoordinate = sourceCoordinate;
-        //     lastPointUCoordinate = diffractionPointHCoordinate;
-        //     firstPointHCoordinate = sourceCoordinate;
-        //     lastPointHCoordinate = receiverCoordinate;
-        // }
-
-        // mirror source is not considered for U-edge diffraction
-
-        // Coordinate mirrorSourceCoordinate = calculateMirrorPoint(sourceCoordinate, sourceToDiffractionPointPath.sMeanPlane);
-        Coordinate mirrorReceiverCoordinate = calculateMirrorPoint(receiverCoordinate, lastDiffractionPointHToReceiverPath.rMeanPlane);
-
-        // if (deltaU >= deltaH) {
-        //     cnossosPath.deltaSRPrimeU = DistanceDifferenceCalculator.computeDeltaH(
-        //         sourceCoordinate, 
-        //         diffractionPointUCoordinate, 
-        //         mirrorReceiverCoordinate
-        //     );
-        //     if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
-        //         cnossosPath.deltaSRPrimeU = -cnossosPath.deltaSRPrimeU;
-        //     }   
-
-        // } else {
-        //     cnossosPath.deltaSRPrimeH = DistanceDifferenceCalculator.computeDeltaH(
-        //         sourceCoordinate, 
-        //         diffractionPointHCoordinate, 
-        //         mirrorReceiverCoordinate
-        //     );
-        //     if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
-        //         cnossosPath.deltaSRPrimeH = -cnossosPath.deltaSRPrimeH;
-        //     }   
-        // }
-
-
-        boolean hasVirticalEdgeDiffraction = cnossosPath.getPointList().stream()
-                .anyMatch(pointPath -> pointPath.type.equals(DIFV));
+        CnossosPathExt cnossosPathWithoutUEdge = CnossosPathBuilder.buildCnossosPath(
+            configuration.getCutProfile(), 
+            configuration.getExactFrequencyArray(), 
+            configuration.getGroundAttenuationCoefficient(), 
+            configuration.isBodyBarrier(), 
+            true
+        );
+        double deltaH = cnossosPathWithoutUEdge.deltaH;
         
-        if (hasVirticalEdgeDiffraction) {
-            PointPath firstVDiffractionPoint = cnossosPath.getPointList().stream()
-                .filter(p -> p.type.equals(DIFV)).findFirst().orElse(null);
-            double directDistance = cnossosPath.getSRSegment().dc;
+        Path pathU;
+        Path pathL;
+        if (deltaU >= deltaH) {
+            List<PivotPoint> pivotPointsU = configuration.getHorizontalEdgePivotPoints().stream()
+                .filter(p -> p.getPivotType() != PivotPoint.PivotType.TOP_OF_OBSTACLE)
+                .collect(Collectors.toList());
+            pathU = new AcousticPath(pivotPointsU, configuration).getPath();
 
-            cnossosPath.deltaU = DistanceDifferenceCalculator.computeVpathDeltaH(
-                sourceCoordinate, 
-                firstVDiffractionPoint.coordinate, 
-                cnossosPath.e, 
-                diffractionPointUCoordinate, 
-                receiverCoordinate,
-                diffractionPointUCoordinate,
-                directDistance
+            int size = configuration.getHorizontalEdgePivotPoints().size();
+            List<PivotPoint> pivotPointsL = new ArrayList<>(
+                configuration.getHorizontalEdgePivotPoints().subList(1, size - 1)
             );
+            pathL = new AcousticPath(pivotPointsL, configuration).getPath();
         } else {
-            cnossosPath.deltaU = DistanceDifferenceCalculator.computeDeltaH(
-                sourceCoordinate, 
-                diffractionPointUCoordinate, 
-                receiverCoordinate
-            );
+            List<PivotPoint> pivotPointsU = new ArrayList<>();
+            pivotPointsU.add(configuration.getHorizontalEdgePivotPoints().get(0));
+
+            PivotPoint pivotPointU = configuration.getHorizontalEdgePivotPoints().stream()
+                .filter(p -> p.getPivotType() == PivotPoint.PivotType.BOTTOM_OF_OBSTACLE)
+                .findFirst().orElse(null);
+            pivotPointsU.add(pivotPointU);
+
+            PointPath firstDiffractionPoint = cnossosPathWithoutUEdge.getPointList().stream()
+                .filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
+             pivotPointsU.add(new PivotPoint(
+                firstDiffractionPoint.coordinate,
+                PivotPoint.PivotType.RECEIVER
+            ));
+            
+            pathU = new AcousticPath(pivotPointsU, configuration).getPath();
+            pathL = (Path) cnossosPathWithoutUEdge;
         }
+
+        CnossosPathExt cnossosPathU = initializeCnossosPath(pathU, configuration);
+        setDiffractionPathParametersU(cnossosPathU, configuration);
+
+        CnossosPathExt cnossosPathL = initializeCnossosPath(pathL, configuration);
+        setDiffractionPathParametersH(cnossosPathL, configuration);
+
+        cnossosPath.deltaU = cnossosPathU.deltaU;
         
+        cnossosPath.e = cnossosPathL.e;
+        cnossosPath.deltaSPrimeRH = cnossosPathL.deltaSPrimeRH;
+        cnossosPath.deltaSPrimeRF = cnossosPathL.deltaSPrimeRF;
+        cnossosPath.deltaSRPrimeH = cnossosPathL.deltaSRPrimeH;
+        cnossosPath.deltaSRPrimeF = cnossosPathL.deltaSRPrimeF;
+
+        cnossosPath.setSRSegmentDPrime(cnossosPathL.getSRSegment().dPrime);
+        cnossosPath.getSegmentList().get(0).dPrime = cnossosPathL.getSegmentList().get(0).dPrime;
+        cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1).dPrime = cnossosPathL.getSegmentList().get(cnossosPathL.getSegmentList().size()-1).dPrime;
+        cnossosPath.deltaH = cnossosPathL.deltaH;        
+        cnossosPath.deltaF = cnossosPathL.deltaF;
+        cnossosPath.deltaPrimeH = cnossosPathL.deltaPrimeH;
+        cnossosPath.deltaPrimeF = cnossosPathL.deltaPrimeF;
     }
 
     private static void setDiffractionPathParametersU(CnossosPathExt cnossosPath, AcousticPathConfiguration configuration){ 

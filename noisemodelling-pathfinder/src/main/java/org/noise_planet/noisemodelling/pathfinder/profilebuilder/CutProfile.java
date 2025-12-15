@@ -56,13 +56,6 @@ public class CutProfile {
     public CutProfile() {
     }
 
-    public CutProfile(CutProfile other) {
-        this.cutPoints = new ArrayList<>(other.getCutPoints());
-        this.hasBuildingIntersection = other.hasBuildingIntersection;
-        this.hasBridgeIntersection = other.hasBridgeIntersection;
-        this.hasTopographyIntersection = other.hasTopographyIntersection;
-    }
-
     /**
      * Creates a new CutProfile with source and receiver points.
      * 
@@ -74,52 +67,6 @@ public class CutProfile {
         cutPoints.add(receiver);
     }
 
-    public void extractCutPoints(int startIndex, int endIndex) {
-        if (startIndex < 0 || endIndex >= cutPoints.size() || startIndex >= endIndex) {
-            throw new IllegalArgumentException("Invalid start or end index for extracting cut points.");
-        }
-
-        List<Integer> cutPointIndices = new ArrayList<>();
-        for (int i = startIndex; i <= endIndex; i++) {
-            cutPointIndices.add(i);
-        }
-        extractCutPoints(cutPointIndices);
-        return;
-    }
-
-    public void extractCutPoints(List<Integer> cutPointIndices) {
-        ArrayList<CutPoint> newCutPoints = new ArrayList<>();
-        
-        if (cutPointIndices.size() < 2) {
-            throw new IllegalArgumentException("At least two indices are required to extract cut points.");
-        }
-
-        for (int i: cutPointIndices) {
-            if (i < 0 || i >= cutPoints.size()) {
-                throw new IllegalArgumentException("Invalid index for extracting cut points.");
-            }
-            newCutPoints.add(this.cutPoints.get(i));
-        }
-        this.cutPoints = newCutPoints;
-        return;
-    }
-
-    public void removeCutPoints(List<Integer> cutPointIndices) {
-        ArrayList<CutPoint> newCutPoints = new ArrayList<>();
-        
-        for (int i = 0; i < cutPoints.size(); i++) {
-            if (!cutPointIndices.contains(i)) {
-                newCutPoints.add(this.cutPoints.get(i));
-            }
-        }
-
-        if (newCutPoints.size() < 2) {
-            throw new IllegalArgumentException("At least two cut points must remain after removal.");
-        }
-
-        this.cutPoints = newCutPoints;
-        return;
-    }
 
     /**
      * Insert and sort cut points into the profile.

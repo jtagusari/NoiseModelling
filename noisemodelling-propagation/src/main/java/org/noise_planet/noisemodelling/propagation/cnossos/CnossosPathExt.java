@@ -46,4 +46,5 @@ public class CnossosPathExt extends CnossosPath {
         this.deltaSRPrimeU = other.deltaSRPrimeU;
         this.deltaRetroU = other.deltaRetroU;
     }
+
 }

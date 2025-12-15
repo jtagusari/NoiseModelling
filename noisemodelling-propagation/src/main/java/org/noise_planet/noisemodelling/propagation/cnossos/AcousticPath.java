@@ -35,12 +35,14 @@ import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POIN
 public class AcousticPath {
 
     private final List<PivotPoint> horizontalEdgePivotPoints;
+    private final List<Coordinate> pivotPointCoordinates;
     private final AcousticPathConfiguration configuration;
-    private final Path path = new Path(new ArrayList<>(), new ArrayList<>());
+    private final Path path;
     // private final Path acousticPath;
     private int segmentIndex;
     
     // Segment boundary indices
+    
     private int startCutPointIndex, endCutPointIndex;
     private int startExpandedCutPointIndex, endExpandedCutPointIndex;
     // Cut points for this segment
@@ -56,12 +58,26 @@ public class AcousticPath {
      */
     public AcousticPath(List<PivotPoint> horizontalEdgePivotPoints, AcousticPathConfiguration configuration) {
         this.horizontalEdgePivotPoints = horizontalEdgePivotPoints;
+        this.pivotPointCoordinates = new ArrayList<>();
+        for (PivotPoint pp : horizontalEdgePivotPoints) {
+            pivotPointCoordinates.add((Coordinate) pp);
+        }
+
         this.configuration = configuration;
+        this.path = new Path(new ArrayList<>(), new ArrayList<>());
 
         for (int segmentIndex = 1; segmentIndex < horizontalEdgePivotPoints.size(); segmentIndex++) {
             this.updateWithSegmentIndex(segmentIndex);
         }
     }
+    
+    public AcousticPath(AcousticPath other){
+        this.horizontalEdgePivotPoints = new ArrayList<>(other.horizontalEdgePivotPoints);
+        this.pivotPointCoordinates = new ArrayList<>(other.pivotPointCoordinates);
+        this.configuration = new AcousticPathConfiguration(other.configuration);
+        this.path = new Path(other.path);
+    }
+
 
     /**
      * Returns the generated acoustic path for the currently processed
@@ -90,7 +106,7 @@ public class AcousticPath {
 
         setSegmentIndex(segmentIndex);
 
-        if (horizontalEdgePivotPoints.size() == 2) {
+        if (pivotPointCoordinates.size() == 2) {
             this.addSourcePoint();
             this.addIntermediatePoints();
             this.addReceiverPoint();
@@ -100,7 +116,7 @@ public class AcousticPath {
             this.addIntermediatePoints();
             this.addMainSegment();
                     
-            boolean isFinalSegment = (segmentIndex == horizontalEdgePivotPoints.size() - 1);
+            boolean isFinalSegment = (segmentIndex == pivotPointCoordinates.size() - 1);
             boolean isUpperEdgeSegment = horizontalEdgePivotPoints.get(segmentIndex).getPivotType() == PivotPoint.PivotType.BOTTOM_OF_OBSTACLE;
             if (isFinalSegment) {
                 this.addReceiverPoint();
@@ -123,15 +139,11 @@ public class AcousticPath {
     private void setSegmentIndex(int segmentIndex) {
 
         this.segmentIndex = segmentIndex;
-        List<PivotPoint> pivotPoints = horizontalEdgePivotPoints;
-        List<Coordinate> pivotPointCoordinates = new ArrayList<>();
-        for (PivotPoint pp : pivotPoints) {
-            pivotPointCoordinates.add((Coordinate) pp);
-        }
         List<Coordinate> cutPointCoordinates = configuration.getCutPointCoordinates2D();
 
         this.startCutPointIndex = cutPointCoordinates.indexOf(pivotPointCoordinates.get(segmentIndex - 1));
         this.endCutPointIndex = cutPointCoordinates.indexOf(pivotPointCoordinates.get(segmentIndex));
+
         this.startExpandedCutPointIndex = configuration.getCutPointExpandedIndices().get(startCutPointIndex);
         this.endExpandedCutPointIndex = configuration.getCutPointExpandedIndices().get(endCutPointIndex);
         this.startCutPoint = configuration.getCutProfilePoints().get(startCutPointIndex);
@@ -228,7 +240,7 @@ public class AcousticPath {
             }
         }
         
-        int lastSegmentIndex = horizontalEdgePivotPoints.size() - 1;
+        int lastSegmentIndex = pivotPointCoordinates.size() - 1;
         if (previousCutPointIndex != startCutPointIndex && segmentIndex == lastSegmentIndex) {
             this.addFinalIntermediateSegment(previousCutPointIndex);
         }
@@ -377,7 +389,7 @@ public class AcousticPath {
      */
     private void addMainSegment() {
         
-        if (horizontalEdgePivotPoints.size() == 2) {
+        if (pivotPointCoordinates.size() == 2) {
             throw new IllegalStateException("Main diffraction segment can only be added when there are intermediate pivot points.");
         }
 

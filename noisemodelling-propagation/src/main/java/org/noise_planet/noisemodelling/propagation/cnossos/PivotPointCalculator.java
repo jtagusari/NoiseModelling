@@ -48,26 +48,34 @@ public class PivotPointCalculator {
      *                      and the original {@link CutProfile}
      * @return ordered list of 2D {@link Coordinate} representing diffraction candidates
      */
-    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
+    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration, boolean omitBridgeDownwardEdge) {
 
         // Collect valid diffraction points
         List<Coordinate> candidateCoordinates = collectHorizontalEdgePivotCandidates(configuration);
 
         SourceBridgeProperty sourceProperty = configuration.getCutProfile().getSource().getSourceBridgeProperty();
-        SourceType sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
+
+        SourceType sourceType;
         if (sourceProperty != null){
-            sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
+            sourceType = sourceProperty.getSourceType();
+        } else {
+            sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
         }
 
-        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
-        return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
-    }
+        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE || omitBridgeDownwardEdge) {
+            return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
+        }
 
         List<Coordinate> downwardBridgeEdges = collectDownwardBridgeEdges(configuration);
         if (downwardBridgeEdges == null || downwardBridgeEdges.size() == 0) {
             return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         }
         return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, downwardBridgeEdges);
+    }
+
+    
+    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
+        return computeHorizontalEdgePivotPoints(configuration, false);
     }
 
     /**
@@ -245,6 +253,7 @@ public class PivotPointCalculator {
             CutPoint currentPoint = cutProfilePoints.get(idPoint);
             Coordinate currentPointCoordinate2D = cutPointCoordinates2D.get(idPoint);
             // Only add the point at the top of the wall, not the point at the bottom of the wall
+            // Only add the point at the top of the bridge wall, only when the source is on the bridge
             if (
                 currentPoint instanceof CutPointTopography
                 || (currentPoint instanceof CutPointWall && currentPoint.hasObstacle())

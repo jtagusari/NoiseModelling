@@ -42,14 +42,14 @@ public class CnossosPathBuilder {
      * @throws IllegalArgumentException if the cut profile is invalid (fewer
      *         than two points) or if reflection validation fails
      */
-    public static CnossosPathExt buildCnossosPath(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier) {
+    public static CnossosPathExt buildCnossosPath(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier, boolean omitBridgeDownwardEdge) {
 
         AcousticPathConfiguration pathConfiguration = new AcousticPathConfiguration(
             cutProfile, exactFrequencyArray, groundAttenuationCoefficient, bodyBarrier
         );
 
         // Compute convex hull diffraction points for acoustic path calculation
-        List<PivotPoint> horizontalEdgePivotPoints = buildHorizontalEdgePivotPoints(pathConfiguration);
+        List<PivotPoint> horizontalEdgePivotPoints = buildHorizontalEdgePivotPoints(pathConfiguration, omitBridgeDownwardEdge);
 
         // Create segments and points using the new API
         AcousticPath acousticPath = new AcousticPath(horizontalEdgePivotPoints, pathConfiguration);
@@ -58,11 +58,15 @@ public class CnossosPathBuilder {
         CnossosPathExt cnossosPath = CnossosPathProcessor.createCnossosPath(acousticPath, pathConfiguration);
         return cnossosPath;
     }
+    
+    public static CnossosPathExt buildCnossosPath(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier) {
+        return buildCnossosPath(cutProfile, exactFrequencyArray, groundAttenuationCoefficient, bodyBarrier, false);
+    }
 
-    private static List<PivotPoint> buildHorizontalEdgePivotPoints(AcousticPathConfiguration pathConfiguration) {
+    private static List<PivotPoint> buildHorizontalEdgePivotPoints(AcousticPathConfiguration pathConfiguration, boolean omitBridgeDownwardEdge) {
 
         // Compute convex hull diffraction points for acoustic path calculation
-        List<PivotPoint> horizontalEdgePivotPoints = PivotPointCalculator.computeHorizontalEdgePivotPoints(pathConfiguration);
+        List<PivotPoint> horizontalEdgePivotPoints = PivotPointCalculator.computeHorizontalEdgePivotPoints(pathConfiguration, omitBridgeDownwardEdge);
 
         if (horizontalEdgePivotPoints.size() < 2) {
             throw new IllegalArgumentException("At least source and receiver points are required.");
