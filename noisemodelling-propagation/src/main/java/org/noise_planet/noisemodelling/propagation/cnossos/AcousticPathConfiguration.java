@@ -39,6 +39,10 @@ public class AcousticPathConfiguration {
         this.sourceCoordinate2D = cutPointCoordinates2D.get(0);
         this.receiverCoordinate2D = cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1);
 
+        if (cutPoints.size() < 2) {
+            throw new IllegalArgumentException("The cut points must contain at least two points");
+        }
+
         if (cutPointCoordinates2D.size() != cutPoints.size()) {
             throw new IllegalArgumentException("The two arrays (cutPoint and cutPointCoordinates2D) size should be the same");
         }
@@ -47,6 +51,21 @@ public class AcousticPathConfiguration {
         this.groundAttenuationCoefficient = groundAttenuationCoefficient;
         this.exactFrequencyArray = exactFrequencyArray;
     }
+
+    public AcousticPathConfiguration(AcousticPathConfiguration other) {
+        this.horizontalEdgePivotPoints = other.getHorizontalEdgePivotPoints();
+        this.cutProfile = other.getCutProfile();
+        this.cutPoints = other.getCutProfilePoints();
+        this.cutPointCoordinates2D = other.getCutPointCoordinates2D();
+        this.sourceCoordinate2D = other.getSourceCoordinate2D();
+        this.receiverCoordinate2D = other.getReceiverCoordinate2D();
+        this.cutPointExpandedIndices = other.getCutPointExpandedIndices();
+        this.elevationProfile2D = other.getElevationProfile2D();
+        this.bodyBarrier = other.isBodyBarrier();
+        this.groundAttenuationCoefficient = other.getGroundAttenuationCoefficient();
+        this.exactFrequencyArray = other.getExactFrequencyArray();
+    }
+
 
     public void setHorizontalEdgePivotPoints(List<PivotPoint> horizontalEdgePivotPoints) {
         this.horizontalEdgePivotPoints = horizontalEdgePivotPoints;

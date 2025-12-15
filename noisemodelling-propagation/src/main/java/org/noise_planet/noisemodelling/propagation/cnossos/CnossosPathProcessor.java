@@ -3,6 +3,7 @@ package org.noise_planet.noisemodelling.propagation.cnossos;
 import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointVEdgeDiffraction;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
@@ -111,6 +112,14 @@ public class CnossosPathProcessor {
         return cnossosPath;
     }
 
+    private static CnossosPathExt createCnossosPathWithExtractedCutPoints(AcousticPathConfiguration pathConfiguration, List<Integer> extractedCutPointIndices) {
+        CutProfile extractedCutProfile = new CutProfile(pathConfiguration.getCutProfile());
+        extractedCutProfile.extractCutPoints(extractedCutPointIndices);
+        CnossosPathExt newPath = CnossosPathBuilder.buildCnossosPath(extractedCutProfile, pathConfiguration.getExactFrequencyArray(), pathConfiguration.getGroundAttenuationCoefficient(), pathConfiguration.isBodyBarrier());
+
+        return newPath;
+    }
+
     /**
      * Populate the supplied {@link CnossosPathExt} for the direct-propagation
      * case or detect and insert single-point Rayleigh diffraction
@@ -182,38 +191,87 @@ public class CnossosPathProcessor {
         Coordinate sourceCoordinate = configuration.getSourceCoordinate2D();
         Coordinate receiverCoordinate = configuration.getReceiverCoordinate2D();
         
-        // Find the diffraction edge U
-        PointPath diffractionPoint = cnossosPath.getPointList().stream()
+        // Find the diffraction point of U
+        PointPath diffractionPointU = cnossosPath.getPointList().stream()
         .filter(p -> p.type.equals(DIFU)).findFirst().orElse(null);
-        if(diffractionPoint == null) {
+        if(diffractionPointU == null) {
+            throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
+        }
+
+        // Find first and last horizontal diffraction points
+        // note: the last diffraction point corresponds to the first diffraction point if there is only one diffracting edge
+        PointPath firstDiffractionPointH = cnossosPath.getPointList().stream()
+        .filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
+        PointPath lastDiffractionPointH = cnossosPath.getPointList().stream()
+        .filter(p -> p.type.equals(DIFH)).reduce((first, second) -> second).orElse(null);
+        if(firstDiffractionPointH == null || lastDiffractionPointH == null) {
             throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
         }
         
-        Coordinate diffractionPointCoordinate = diffractionPoint.coordinate;
+        Coordinate diffractionPointUCoordinate = diffractionPointU.coordinate;
+        Coordinate firstDiffractionPointHCoordinate =  firstDiffractionPointH.coordinate;
+        Coordinate lastDiffractionPointHCoordinate =  lastDiffractionPointH.coordinate;
 
-        SegmentPath sourceToDiffractionPointPath = cnossosPath.getSegmentList().get(0);
-        SegmentPath diffractionPointToReceiverPath = cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1);
+
+        SegmentPath sourceToDiffractionUPointPath = cnossosPath.getSegmentList().get(0);
+        SegmentPath uToFirstDiffractionHPointPath = cnossosPath.getSegmentList().get(1);
+        SegmentPath lastDiffractionPointHToReceiverPath = cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1);
+
+        double deltaU = DistanceDifferenceCalculator.computeDeltaH(
+            sourceCoordinate, 
+            diffractionPointUCoordinate, 
+            receiverCoordinate
+        );
+
+        // double deltaH = DistanceDifferenceCalculator.computeDeltaH(
+        //     sourceCoordinate, 
+        //     diffractionPointHCoordinate, 
+        //     receiverCoordinate
+        // );
+
+        Coordinate firstPointUCoordinate;
+        Coordinate lastPointUCoordinate;
+        Coordinate firstPointHCoordinate;
+        Coordinate lastPointHCoordinate;
+
+        // if (deltaU >= deltaH) {
+        //     firstPointUCoordinate = sourceCoordinate;
+        //     lastPointUCoordinate = receiverCoordinate;
+        //     firstPointHCoordinate = diffractionPointUCoordinate;
+        //     lastPointHCoordinate = receiverCoordinate;
+        // } else {
+        //     firstPointUCoordinate = sourceCoordinate;
+        //     lastPointUCoordinate = diffractionPointHCoordinate;
+        //     firstPointHCoordinate = sourceCoordinate;
+        //     lastPointHCoordinate = receiverCoordinate;
+        // }
 
         // mirror source is not considered for U-edge diffraction
 
         // Coordinate mirrorSourceCoordinate = calculateMirrorPoint(sourceCoordinate, sourceToDiffractionPointPath.sMeanPlane);
-        Coordinate mirrorReceiverCoordinate = calculateMirrorPoint(receiverCoordinate, diffractionPointToReceiverPath.rMeanPlane);
+        Coordinate mirrorReceiverCoordinate = calculateMirrorPoint(receiverCoordinate, lastDiffractionPointHToReceiverPath.rMeanPlane);
 
-        // Distance between the diffraction points is zero in the U-edge case
-        cnossosPath.e = 0;
+        // if (deltaU >= deltaH) {
+        //     cnossosPath.deltaSRPrimeU = DistanceDifferenceCalculator.computeDeltaH(
+        //         sourceCoordinate, 
+        //         diffractionPointUCoordinate, 
+        //         mirrorReceiverCoordinate
+        //     );
+        //     if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
+        //         cnossosPath.deltaSRPrimeU = -cnossosPath.deltaSRPrimeU;
+        //     }   
 
-        cnossosPath.deltaSRPrimeU = DistanceDifferenceCalculator.computeDeltaH(
-            sourceCoordinate, 
-            diffractionPointCoordinate, 
-            cnossosPath.e, 
-            diffractionPointCoordinate, 
-            mirrorReceiverCoordinate,
-            diffractionPointCoordinate
-        );
-        
-        if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
-            cnossosPath.deltaSRPrimeU = -cnossosPath.deltaSRPrimeU;
-        }   
+        // } else {
+        //     cnossosPath.deltaSRPrimeH = DistanceDifferenceCalculator.computeDeltaH(
+        //         sourceCoordinate, 
+        //         diffractionPointHCoordinate, 
+        //         mirrorReceiverCoordinate
+        //     );
+        //     if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
+        //         cnossosPath.deltaSRPrimeH = -cnossosPath.deltaSRPrimeH;
+        //     }   
+        // }
+
 
         boolean hasVirticalEdgeDiffraction = cnossosPath.getPointList().stream()
                 .anyMatch(pointPath -> pointPath.type.equals(DIFV));
@@ -227,17 +285,15 @@ public class CnossosPathProcessor {
                 sourceCoordinate, 
                 firstVDiffractionPoint.coordinate, 
                 cnossosPath.e, 
-                diffractionPointCoordinate, 
+                diffractionPointUCoordinate, 
                 receiverCoordinate,
-                diffractionPointCoordinate,
+                diffractionPointUCoordinate,
                 directDistance
             );
         } else {
             cnossosPath.deltaU = DistanceDifferenceCalculator.computeDeltaH(
                 sourceCoordinate, 
-                diffractionPointCoordinate, 
-                cnossosPath.e, 
-                diffractionPointCoordinate, 
+                diffractionPointUCoordinate, 
                 receiverCoordinate
             );
         }
@@ -257,29 +313,7 @@ public class CnossosPathProcessor {
         
         Coordinate diffractionPointCoordinate = diffractionPoint.coordinate;
 
-        SegmentPath sourceToDiffractionPointPath = cnossosPath.getSegmentList().get(0);
-        SegmentPath diffractionPointToReceiverPath = cnossosPath.getSegmentList().get(cnossosPath.getSegmentList().size()-1);
-
-        // mirror source is not considered for U-edge diffraction
-
-        // Coordinate mirrorSourceCoordinate = calculateMirrorPoint(sourceCoordinate, sourceToDiffractionPointPath.sMeanPlane);
-        Coordinate mirrorReceiverCoordinate = calculateMirrorPoint(receiverCoordinate, diffractionPointToReceiverPath.rMeanPlane);
-
-        // Distance between the diffraction points is zero in the U-edge case
-        cnossosPath.e = 0;
-
-        cnossosPath.deltaSRPrimeU = DistanceDifferenceCalculator.computeDeltaH(
-            sourceCoordinate, 
-            diffractionPointCoordinate, 
-            cnossosPath.e, 
-            diffractionPointCoordinate, 
-            mirrorReceiverCoordinate,
-            diffractionPointCoordinate
-        );
-        
-        if (sourceCoordinate.x > mirrorReceiverCoordinate.x) {
-            cnossosPath.deltaSRPrimeU = -cnossosPath.deltaSRPrimeU;
-        }   
+        // neither mirror source and receiver is considered for U-edge diffraction
 
         boolean hasVirticalEdgeDiffraction = cnossosPath.getPointList().stream()
                 .anyMatch(pointPath -> pointPath.type.equals(DIFV));
@@ -301,8 +335,6 @@ public class CnossosPathProcessor {
         } else {
             cnossosPath.deltaU = DistanceDifferenceCalculator.computeDeltaH(
                 sourceCoordinate, 
-                diffractionPointCoordinate, 
-                cnossosPath.e, 
                 diffractionPointCoordinate, 
                 receiverCoordinate
             );
@@ -657,6 +689,7 @@ public class CnossosPathProcessor {
         double result = 0;
         List<PointPath> pointsWithoutREFL = pointPathList.stream()
                 .filter(pointPath -> pointPath.type != REFL)
+                .filter(pointPath -> pointPath.type != DIFU)
                 .collect(Collectors.toList());
 
         for(int i = 1; i < pointsWithoutREFL.size() - 2; i++) {

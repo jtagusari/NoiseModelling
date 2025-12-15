@@ -14,16 +14,14 @@ import java.util.List;
  * <ol>
  *   <li>build a runtime configuration from the provided {@link CutProfile},</li>
  *   <li>identify diffraction candidate points (convex-hull based),</li>
- *   <li>validate and adjust reflection points against wall constraints,</li>
- *   <li>assemble path geometry (points and segments) via
- *       {@link AcousticPathBuilder}, and</li>
+ *   <li>validate and adjust reflection points against wall constraints, and</li>
  *   <li>convert the assembled geometry into a {@link CnossosPathExt} with
  *       acoustic parameters.</li>
  * </ol>
  *
  * <p>Heavy computations are delegated to helper classes such as
  * {@link PivotPointCalculator}, {@link ReflectionPointValidator},
- * {@link AcousticPathBuilder}, and {@link CnossosPathProcessor}.
+ and {@link CnossosPathProcessor}.
  */
 public class CnossosPathBuilder {
 
@@ -50,10 +48,18 @@ public class CnossosPathBuilder {
             cutProfile, exactFrequencyArray, groundAttenuationCoefficient, bodyBarrier
         );
 
-        // Delegate to the internal computation method
-        if (pathConfiguration.getCutPointCoordinates2D().size() < 2) {
-            throw new IllegalArgumentException("The cut profile must contain at least two points");
-        }
+        // Compute convex hull diffraction points for acoustic path calculation
+        List<PivotPoint> horizontalEdgePivotPoints = buildHorizontalEdgePivotPoints(pathConfiguration);
+
+        // Create segments and points using the new API
+        AcousticPath acousticPath = new AcousticPath(horizontalEdgePivotPoints, pathConfiguration);
+        
+        // path = acousticPath.getPath();
+        CnossosPathExt cnossosPath = CnossosPathProcessor.createCnossosPath(acousticPath, pathConfiguration);
+        return cnossosPath;
+    }
+
+    private static List<PivotPoint> buildHorizontalEdgePivotPoints(AcousticPathConfiguration pathConfiguration) {
 
         // Compute convex hull diffraction points for acoustic path calculation
         List<PivotPoint> horizontalEdgePivotPoints = PivotPointCalculator.computeHorizontalEdgePivotPoints(pathConfiguration);
@@ -72,19 +78,7 @@ public class CnossosPathBuilder {
             throw new IllegalArgumentException("Invalid reflection points");
         }
 
-        // pathConfiguration.setHorizontalEdgePivotPoints(horizontalEdgePivotPoints);
-
-        // Create segments and points using the new API
-        // Path path = AcousticPathBuilder.createPath(pathConfiguration);
-        // Path path;
-        AcousticPath acousticPath = new AcousticPath(horizontalEdgePivotPoints, pathConfiguration);
-        for (int segmentIndex = 1; segmentIndex < horizontalEdgePivotPoints.size(); segmentIndex++) {
-            acousticPath.updateWithSegmentIndex(segmentIndex);
-        }
-        
-        // path = acousticPath.getPath();
-        CnossosPathExt cnossosPath = CnossosPathProcessor.createCnossosPath(acousticPath, pathConfiguration);
-        return cnossosPath;
+        return horizontalEdgePivotPoints;
     }
     
     

@@ -57,6 +57,10 @@ public class AcousticPath {
     public AcousticPath(List<PivotPoint> horizontalEdgePivotPoints, AcousticPathConfiguration configuration) {
         this.horizontalEdgePivotPoints = horizontalEdgePivotPoints;
         this.configuration = configuration;
+
+        for (int segmentIndex = 1; segmentIndex < horizontalEdgePivotPoints.size(); segmentIndex++) {
+            this.updateWithSegmentIndex(segmentIndex);
+        }
     }
 
     /**
@@ -82,7 +86,7 @@ public class AcousticPath {
      * @param acousticPath path object to which points and segments will be appended
      * @return the same {@code acousticPath} instance after the segment has been added
      */
-    public void updateWithSegmentIndex(int segmentIndex) {
+    private void updateWithSegmentIndex(int segmentIndex) {
 
         setSegmentIndex(segmentIndex);
 
