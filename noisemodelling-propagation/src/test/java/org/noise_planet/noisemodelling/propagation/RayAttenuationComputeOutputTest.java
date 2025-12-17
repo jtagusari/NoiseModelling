@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
+import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossosExt;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -41,7 +42,7 @@ public class RayAttenuationComputeOutputTest {
                 CnossosPathExt.class
         );
         AttenuationParameters attenuationCnossosParameters = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
-        double[] aBoundary = AttenuationCnossos.aBoundary(cnossosPath,attenuationCnossosParameters);
+        double[] aBoundary = AttenuationCnossosExt.aBoundary(cnossosPath,attenuationCnossosParameters);
         for(double value : aBoundary) {
             assertFalse(Double.isNaN(value));
         }
