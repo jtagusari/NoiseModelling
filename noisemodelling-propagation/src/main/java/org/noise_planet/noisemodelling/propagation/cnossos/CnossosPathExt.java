@@ -9,22 +9,24 @@
 
 package org.noise_planet.noisemodelling.propagation.cnossos;
 
+import java.util.ArrayList;
+
+import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
+import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 
 /**
  * All the datas Path of Cnossos
  */
 public class CnossosPathExt extends CnossosPath {
-    public  double[] double_aBoundaryU = new double[0];
-    public  double[] aRetroDiffU = new double[0];
-    public  double[] aGlobalU = new double[0];
-    public double[] aDifU = new double[0];
-    public double deltaU = Double.MAX_VALUE;
-    public double deltaPrimeU= Double.MAX_VALUE;
-    public double deltaSRPrimeU= Double.MAX_VALUE;
-    public ABoundary aBoundaryU = new ABoundary();
-    public double e=0;
-    public double deltaRetroU= Double.MAX_VALUE;
+
+    private CnossosPath cnossosPathBottomRoute = null;
+    private CnossosPath cnossosPathTopRoute = null;
+
+    public CnossosPath getCnossosPathBottomRoute() {return cnossosPathBottomRoute;}
+    public void setCnossosPathBottomRoute(CnossosPath cnossosPathBottomRoute) {this.cnossosPathBottomRoute = cnossosPathBottomRoute;}
+    public CnossosPath getCnossosPathTopRoute() {return cnossosPathTopRoute;}
+    public void setCnossosPathTopRoute(CnossosPath cnossosPathTopRoute) {this.cnossosPathTopRoute = cnossosPathTopRoute;}
 
     public CnossosPathExt() {
     }
@@ -35,16 +37,41 @@ public class CnossosPathExt extends CnossosPath {
 
     public CnossosPathExt(CnossosPathExt other) {
         super(other);
-        this.double_aBoundaryU = other.double_aBoundaryU;
-        this.aRetroDiffU = other.aRetroDiffU;
-        this.aGlobalU = other.aGlobalU;
-        this.aDifU = other.aDifU;
-        this.deltaU = other.deltaU;
-        this.deltaPrimeU = other.deltaPrimeU;
-        this.deltaSRPrimeU = other.deltaSRPrimeU;
-        this.aBoundaryU = other.aBoundaryU;
-        this.deltaSRPrimeU = other.deltaSRPrimeU;
-        this.deltaRetroU = other.deltaRetroU;
+        this.cnossosPathBottomRoute = other.getCnossosPathBottomRoute();
+        this.cnossosPathTopRoute = other.getCnossosPathTopRoute();
+    }
+
+    public CnossosPathExt(Path path, AcousticPathConfiguration configuration) {
+
+        this.setPointList(path.getPointList());
+        this.setSegmentList(path.getSegmentList());
+        this.setSourceOrientation(path.getSourceOrientation());
+        this.setRaySourceReceiverDirectivity(path.getRaySourceReceiverDirectivity());
+        this.setFavorable(true);
+        
+        this.setCutProfile(configuration.getCutProfile());
+        
+        double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(configuration.getElevationProfile2D());
+
+        SegmentPath sourceToReceiverPath = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
+            configuration.getCutPointCoordinates2D(), 
+            meanPlane, 
+            configuration.getCutProfile().calculateWeightedGroundAbsorption(), 
+            configuration.getCutProfile().getGroundAbsorptionAtSource()
+        );
+
+        sourceToReceiverPath.setElevationProfile2D(configuration.getElevationProfile2D());
+
+        sourceToReceiverPath.setDirectRayDistance(
+            CGAlgorithms3D.distance(
+                configuration.getCutProfile().getReceiver().getCoordinate(),
+                configuration.getCutProfile().getSource().getCoordinate()
+            )
+        );
+
+        this.setSRSegment(sourceToReceiverPath);
+
+        return;
     }
 
 }

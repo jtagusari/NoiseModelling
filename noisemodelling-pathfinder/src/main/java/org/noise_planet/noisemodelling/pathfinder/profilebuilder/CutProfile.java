@@ -56,6 +56,13 @@ public class CutProfile {
     public CutProfile() {
     }
 
+    public CutProfile(CutProfile other){
+        this.cutPoints = new ArrayList<>(other.cutPoints);
+        this.hasBuildingIntersection = other.hasBuildingIntersection;
+        this.hasBridgeIntersection = other.hasBridgeIntersection;
+        this.hasTopographyIntersection = other.hasTopographyIntersection;
+    }
+
     /**
      * Creates a new CutProfile with source and receiver points.
      * 
@@ -67,7 +74,7 @@ public class CutProfile {
         cutPoints.add(receiver);
     }
 
-
+    
     /**
      * Insert and sort cut points into the profile.
      * The method ensures that the source remains the first point and the receiver remains the last point.
@@ -505,6 +512,7 @@ public class CutProfile {
         CutPointSource original = (CutPointSource) cutPoints.get(0);
         return new CutPointSource(original);
     }
+
 
     /**
      * Get the receiver point of the acoustic path.

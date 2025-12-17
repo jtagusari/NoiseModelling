@@ -24,6 +24,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
+import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossosExt;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
@@ -92,14 +93,14 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         // only take account of geometric dispersion and atmospheric attenuation
         double distance = Math.max(1.0, sourceInfo.getCoordinate().distance3D(receiverInfo.getCoordinate()));
         // 3 dB gain as we consider source G path is equal to 0
-        double attenuationDivGeom = AttenuationCnossos.getADiv(distance) - 3;
+        double attenuationDivGeom = AttenuationCnossosExt.getADiv(distance) - 3;
         return AcousticIndicatorsFunctions.multiplicationArray(AcousticIndicatorsFunctions.sumArray(
-                    AttenuationCnossos.aAtm(cnossosParameters.getAlpha_atmo(), distance),
+                    AttenuationCnossosExt.aAtm(cnossosParameters.getAlpha_atmo(), distance),
                     attenuationDivGeom), -1);
     }
 
     private double[] processAndStoreAttenuation(AttenuationParameters data, CnossosPathExt proPathParameters, String period) {
-        double[] attenuation = AttenuationCnossos.computeCnossosAttenuation(data, proPathParameters, multiThread.sceneWithEmission,
+        double[] attenuation = AttenuationCnossosExt.computeCnossosAttenuation(data, proPathParameters, multiThread.sceneWithEmission,
                 multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix);
         if(multiThread.noiseMapDatabaseParameters.exportRaysMethod == NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE &&
                 multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix) {

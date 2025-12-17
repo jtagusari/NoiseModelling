@@ -48,7 +48,7 @@ public class PivotPointCalculator {
      *                      and the original {@link CutProfile}
      * @return ordered list of 2D {@link Coordinate} representing diffraction candidates
      */
-    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration, boolean omitBridgeDownwardEdge) {
+    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
 
         // Collect valid diffraction points
         List<Coordinate> candidateCoordinates = collectHorizontalEdgePivotCandidates(configuration);
@@ -62,7 +62,7 @@ public class PivotPointCalculator {
             sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
         }
 
-        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE || omitBridgeDownwardEdge) {
+        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
             return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         }
 
@@ -73,10 +73,6 @@ public class PivotPointCalculator {
         return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, downwardBridgeEdges);
     }
 
-    
-    public static List<PivotPoint> computeHorizontalEdgePivotPoints(AcousticPathConfiguration configuration) {
-        return computeHorizontalEdgePivotPoints(configuration, false);
-    }
 
     /**
      * Compute a trimmed convex-hull along the cut-profile and return the

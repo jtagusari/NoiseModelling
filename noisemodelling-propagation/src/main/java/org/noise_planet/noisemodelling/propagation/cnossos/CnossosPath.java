@@ -10,7 +10,12 @@
 package org.noise_planet.noisemodelling.propagation.cnossos;
 
 
+import java.util.ArrayList;
+
+import org.locationtech.jts.algorithm.CGAlgorithms3D;
+import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
+import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 
 /**
  * All the datas Path of Cnossos

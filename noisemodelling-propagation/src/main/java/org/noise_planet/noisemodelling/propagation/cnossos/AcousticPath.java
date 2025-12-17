@@ -1,5 +1,6 @@
 package org.noise_planet.noisemodelling.propagation.cnossos;
 
+import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.math.Vector3D;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
@@ -44,6 +45,8 @@ public class AcousticPath {
     // Segment boundary indices
     
     private int startCutPointIndex, endCutPointIndex;
+    private int sourceCutPointIndex, receiverCutPointIndex;
+    private int sourceExpandedCutPointIndex, receiverExpandedCutPointIndex;
     private int startExpandedCutPointIndex, endExpandedCutPointIndex;
     // Cut points for this segment
     private CutPoint startCutPoint, endCutPoint;
@@ -64,11 +67,60 @@ public class AcousticPath {
         }
 
         this.configuration = configuration;
-        this.path = new Path(new ArrayList<>(), new ArrayList<>());
+        this.path = new Path(configuration.getCutProfile());
+        this.path.setPointList(new ArrayList<>());
+        this.path.setSegmentList(new ArrayList<>());
 
         for (int segmentIndex = 1; segmentIndex < horizontalEdgePivotPoints.size(); segmentIndex++) {
             this.updateWithSegmentIndex(segmentIndex);
         }
+
+        this.setSRSegment();
+
+    }
+
+    private void setSRSegment(){
+
+        Coordinate[] elevationProfileSR = Arrays.copyOfRange(
+            configuration.getElevationProfile2D(), 
+            sourceExpandedCutPointIndex, 
+            receiverExpandedCutPointIndex + 1
+        );
+        double[] meanPlaneSR = JTSUtility.getMeanPlaneCoefficients(elevationProfileSR);
+        
+        List<Coordinate> cutPointCoordinatesSR = configuration.getCutPointCoordinates2D().subList(
+            sourceCutPointIndex, 
+            receiverCutPointIndex + 1
+        );
+
+        double weightedGroundAbsorptionSR = configuration.getCutProfile().calculateWeightedGroundAbsorption(
+            sourceCutPointIndex, 
+            receiverCutPointIndex,
+            Scene.DEFAULT_G_BUILDING
+        );
+
+        double groundAbsorptionAtSource = configuration.getCutProfile().getCutPoints().get(sourceCutPointIndex).getGroundCoefficient();
+
+        SegmentPath sourceToReceiverPath = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
+            cutPointCoordinatesSR, 
+            meanPlaneSR, 
+            weightedGroundAbsorptionSR, 
+            groundAbsorptionAtSource
+        );
+
+        sourceToReceiverPath.setElevationProfile2D(elevationProfileSR);
+
+        Coordinate sourceCoordinate = configuration.getCutProfile().getCutPoints().get(sourceCutPointIndex).getCoordinate();
+        Coordinate receiverCoordinate = configuration.getCutProfile().getCutPoints().get(receiverCutPointIndex).getCoordinate();
+
+        sourceToReceiverPath.setDirectRayDistance(
+            CGAlgorithms3D.distance(
+                receiverCoordinate,
+                sourceCoordinate
+            )
+        );
+        
+        this.path.setSRSegment(sourceToReceiverPath);
     }
     
     public AcousticPath(AcousticPath other){
@@ -168,6 +220,8 @@ public class AcousticPath {
      * reachable reflection or the segment end if none exists.
      */
     private void addSourcePoint() {
+        this.sourceCutPointIndex = startCutPointIndex;
+        this.sourceExpandedCutPointIndex = startExpandedCutPointIndex;
         PointPath sourcePoint = new PointPath(
             configuration.getCutPointCoordinates2D().get(startCutPointIndex), 
             startCutPoint.getzGround(), 
@@ -337,6 +391,9 @@ public class AcousticPath {
      * coordinate and ground elevation.</p>
      */
     private void addReceiverPoint() {
+        this.receiverCutPointIndex = endCutPointIndex;
+        this.receiverExpandedCutPointIndex = endExpandedCutPointIndex;
+
         PointPath receiverPoint = new PointPath(
             configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
             endCutPoint.getzGround(), 
@@ -445,7 +502,7 @@ public class AcousticPath {
         PointPath diffractionPoint = new PointPath(
             configuration.getCutPointCoordinates2D().get(endCutPointIndex), 
             endCutPoint.getzGround(), 
-            DIFU
+            DIFB
             );
         diffractionPoint.bodyBarrier = configuration.isBodyBarrier();
         if (endCutPoint instanceof CutPointWall) {
