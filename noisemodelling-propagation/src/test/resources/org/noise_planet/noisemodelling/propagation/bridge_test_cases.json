@@ -1,0 +1,184 @@
+{
+  "testCases": [
+    {
+      "testName": "TBC01_ACTUAL_Z10_5_R020",
+      "receiverCoord": {
+        "x": 20,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.5,
+      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "bridgeId": 100,
+      "mirrorBridgeId": -1
+    },
+    {
+      "testName": "TBC01_ACTUAL_Z10_5_R050",
+      "receiverCoord": {
+        "x": 50,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.5,
+      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "bridgeId": 100,
+      "mirrorBridgeId": -1
+    },
+    {
+      "testName": "TBC01_ACTUAL_Z10_5_R100",
+      "receiverCoord": {
+        "x": 100,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.5,
+      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "bridgeId": 100,
+      "mirrorBridgeId": -1
+    },
+    {
+      "testName": "TBC01_ACTUAL_Z10_5_R150",
+      "receiverCoord": {
+        "x": 150,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.5,
+      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "bridgeId": 100,
+      "mirrorBridgeId": -1
+    },
+    {
+      "testName": "TBC01_ACTUAL_Z10_5_R200",
+      "receiverCoord": {
+        "x": 200,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.5,
+      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "bridgeId": 100,
+      "mirrorBridgeId": -1
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z10_R020",
+      "receiverCoord": {
+        "x": 20,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z10_R050",
+      "receiverCoord": {
+        "x": 50,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z10_R100",
+      "receiverCoord": {
+        "x": 100,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z10_R150",
+      "receiverCoord": {
+        "x": 150,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z10_R200",
+      "receiverCoord": {
+        "x": 200,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 10.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z19_R020",
+      "receiverCoord": {
+        "x": 20,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 19.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z19_R050",
+      "receiverCoord": {
+        "x": 50,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 19.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z19_R100",
+      "receiverCoord": {
+        "x": 100,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 19.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z19_R150",
+      "receiverCoord": {
+        "x": 150,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 19.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    },
+    {
+      "testName": "TBC01_IMAGINARY_Z19_R200",
+      "receiverCoord": {
+        "x": 200,
+        "y": 10,
+        "z": 4
+      },
+      "sourceZ": 19.0,
+      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "bridgeId": -1,
+      "mirrorBridgeId": 100
+    }
+  ]
+}
