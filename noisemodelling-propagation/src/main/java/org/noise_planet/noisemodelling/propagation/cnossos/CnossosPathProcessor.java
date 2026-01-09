@@ -190,7 +190,7 @@ public class CnossosPathProcessor {
         if (deltaB >= deltaH) {
             CutProfile cutProfileOnlyWithBottomEdge = newCutProfileOnlyWithBottomEdge(configuration.getCutProfile());
             
-            CnossosPath cnossosPathOnlyWithBottomEdge = CnossosPathBuilder.buildCnossosPath(
+            CnossosPathExt cnossosPathOnlyWithBottomEdge = CnossosPathBuilder.buildCnossosPath(
                 cutProfileOnlyWithBottomEdge, 
                 configuration.getExactFrequencyArray(), 
                 configuration.getGroundAttenuationCoefficient(), 
@@ -200,7 +200,7 @@ public class CnossosPathProcessor {
             
             CutProfile cutProfileAfterBottomEdge = newCutProfileAfterBottomEdge(configuration.getCutProfile());
             
-            CnossosPath cnossosPathAfterBottomEdge = CnossosPathBuilder.buildCnossosPath(
+            CnossosPathExt cnossosPathAfterBottomEdge = CnossosPathBuilder.buildCnossosPath(
                 cutProfileAfterBottomEdge, 
                 configuration.getExactFrequencyArray(), 
                 configuration.getGroundAttenuationCoefficient(), 
@@ -214,7 +214,7 @@ public class CnossosPathProcessor {
 
             CutProfile cutProfileOnlyBeforeTopEdge = newCutProfileBeforeTopEdge(configuration.getCutProfile(), diffractionPointT.coordinate);
 
-            CnossosPath cnossosPathOnlyBeforeTopEdge = CnossosPathBuilder.buildCnossosPath(
+            CnossosPathExt cnossosPathOnlyBeforeTopEdge = CnossosPathBuilder.buildCnossosPath(
                 cutProfileOnlyBeforeTopEdge, 
                 configuration.getExactFrequencyArray(), 
                 configuration.getGroundAttenuationCoefficient(), 

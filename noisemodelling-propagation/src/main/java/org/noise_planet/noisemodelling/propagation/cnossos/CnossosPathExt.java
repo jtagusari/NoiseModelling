@@ -20,13 +20,13 @@ import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
  */
 public class CnossosPathExt extends CnossosPath {
 
-    private CnossosPath cnossosPathBottomRoute = null;
-    private CnossosPath cnossosPathTopRoute = null;
+    private CnossosPathExt cnossosPathBottomRoute = null;
+    private CnossosPathExt cnossosPathTopRoute = null;
 
-    public CnossosPath getCnossosPathBottomRoute() {return cnossosPathBottomRoute;}
-    public void setCnossosPathBottomRoute(CnossosPath cnossosPathBottomRoute) {this.cnossosPathBottomRoute = cnossosPathBottomRoute;}
-    public CnossosPath getCnossosPathTopRoute() {return cnossosPathTopRoute;}
-    public void setCnossosPathTopRoute(CnossosPath cnossosPathTopRoute) {this.cnossosPathTopRoute = cnossosPathTopRoute;}
+    public CnossosPathExt getCnossosPathBottomRoute() {return cnossosPathBottomRoute;}
+    public void setCnossosPathBottomRoute(CnossosPathExt cnossosPathBottomRoute) {this.cnossosPathBottomRoute = cnossosPathBottomRoute;}
+    public CnossosPathExt getCnossosPathTopRoute() {return cnossosPathTopRoute;}
+    public void setCnossosPathTopRoute(CnossosPathExt cnossosPathTopRoute) {this.cnossosPathTopRoute = cnossosPathTopRoute;}
 
     public CnossosPathExt() {
     }

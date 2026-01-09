@@ -508,6 +508,30 @@ public class AttenuationCnossosExt {
                 filter(pointPath -> pointPath.type.equals(DIFH_RCRIT) || pointPath.type.equals(DIFH)
                         || pointPath.type.equals(DIFV) || pointPath.type.equals(DIFB))
                         .collect(Collectors.toList());
+
+        // multiple diffraction due to DIFH and DIFB
+        if (diffPts.size() >= 1) {
+            List<PointPath> diffPtsT = diffPts.stream().
+                    filter(pointPath -> pointPath.type.equals(DIFH) || pointPath.type.equals(DIFH_RCRIT))
+                    .collect(Collectors.toList());
+            List<PointPath> diffPtsB = diffPts.stream().
+                    filter(pointPath -> pointPath.type.equals(DIFB))
+                    .collect(Collectors.toList());
+
+            if (diffPtsT.size() >= 1 && diffPtsB.size() >= 1) {
+                CnossosPathExt pathT = path.getCnossosPathTopRoute();
+                double[] aBoundaryT = aBoundary(pathT, data);
+                CnossosPathExt pathB = path.getCnossosPathBottomRoute();
+                double[] aBoundaryB = aBoundary(pathB, data);
+
+                double[] aBoundarySum = new double[aBoundaryT.length];
+                for (int i = 0; i < aBoundaryT.length; i++) {
+                    aBoundarySum[i] = aBoundaryT[i] + aBoundaryB[i];
+                }
+                return aBoundarySum;
+            }
+        }
+
         path.aBoundaryH.init(data.getFrequencies().size());
         path.aBoundaryF.init(data.getFrequencies().size());
         // Without diff
@@ -531,7 +555,7 @@ public class AttenuationCnossosExt {
             }
             if (first != null) {
                 aDif[i] = aDif(path, data, i, first.type);
-                if(!first.type.equals(DIFV) && isValidRCriterion) {
+                if(!first.type.equals(DIFV) && !first.type.equals(DIFB) && isValidRCriterion) {
                     aGround[i] = 0.;
                 }
             } else {
@@ -648,6 +672,12 @@ public class AttenuationCnossosExt {
         long difVCount = proPathParameters.getPointList().stream().filter(pointPath -> pointPath.type.equals(DIFV)).count();
         double cSecond;
 
+        // multiple diffraction due to DIFH and DIFB points is not calculated here (calculate at aBoundary level)
+        if (difHCount >= 1 && difBCount >= 1) {
+            throw new IllegalArgumentException("Multiple diffraction with both DIFH and DIFB points is not handled in aDif method.");
+        }
+
+
         // single diffraction or multiple diffraction
         if (
             (type.equals(PointPath.POINT_TYPE.DIFH) && difHCount <= 1) || 
@@ -668,7 +698,7 @@ public class AttenuationCnossosExt {
         ) {
             deltaSR = proPathParameters.deltaF;
         } else {
-            deltaSR = proPathParameters.deltaH;
+            deltaSR = proPathParameters.deltaH; // always unfavorable for DIFV and DIFB condition
         }
 
         // difference of the route between the imagenery source and the imagenery receiver
@@ -681,15 +711,17 @@ public class AttenuationCnossosExt {
         // main calculation of the diffraction attenuation
         double deltaDiffSR = 0;
         double testForm = 40 / lambda * cSecond * deltaSR;
+        boolean smallDelta = deltaSR < 0 && (deltaSR <= -lambda/20 || deltaSR <= lambda/4 - deltaSpRp);
 
-        if(deltaSR >= 0 || (deltaSR > -lambda/20 && deltaSR > lambda/4 - deltaSpRp)) {
-            deltaDiffSR = testForm>=-2 ? 10*ch*log10(3+testForm) : 0;
-        } else if(type.equals(PointPath.POINT_TYPE.DIFH)) {
-            return 0; // no attenuation due to diffraction
+        // return 0 dB if the condition of small delta is verified for horizontal diffraction
+        if (smallDelta && type.equals(PointPath.POINT_TYPE.DIFH)) {
+            return 0;
         }
 
+        deltaDiffSR = testForm>=-2 ? 10*ch*log10(3+testForm) : 0;
+
         // if the diffraction edge is vertical, return the value of deltaDiffSR (no ground effect) 
-        if(type.equals(DIFV)) {
+        if(type.equals(DIFV) || type.equals(DIFB)) {
             if(proPathParameters.keepAbsorption) {
                 if(proPathParameters.isFavorable()) {
                     proPathParameters.aBoundaryF.deltaDiffSR[i] = deltaDiffSR;

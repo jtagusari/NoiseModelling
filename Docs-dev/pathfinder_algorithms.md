@@ -481,7 +481,7 @@ Representative test cases (for example `TC01`, `TC02`, `TC04` in `PathFinderTest
 
 Below are two small canonical Java examples you can copy into unit tests or scripts. Prefer the first (decorator) snippet for tests and quick experimentation; use the second snippet for bulk/DB-loading workflows where you manage PKs and large numbers of sources.
 
-1. Unit-test / quick example (recommended)
+**1. Unit-test / quick example (recommended)**
 
 ```java
 // Prepare builder, populate obstacles and finalize
@@ -494,21 +494,22 @@ ProfileBuilderDecorator d = new ProfileBuilderDecorator(pb)
   .addSource(10.0, 20.0, 2.5)   // adds a point source
   .addReceiver(15.0, 25.0, 1.8) // adds a receiver
   .setGs(0.5)                   // optional ground coefficient
-  .vEdgeDiff(true)
-  .hEdgeDiff(true);
+  .vEdgeDiff(true)              // horizontal diffraction
+  .hEdgeDiff(true);             // vertical diffraction
 
 Scene scene = d.build();
 
 // Obtain a CutProfile between the (first) source and the first receiver
-SourcePointInfo src = scene.getSourceQuery().getSourcePointInfo(0); // helper: get the 1st source sample
 Coordinate recv = scene.getReceivers().get(0);
-CutProfile profile = pb.getProfile(src.getCoord(), recv, scene.getDefaultGroundAttenuation(), false);
+Coordinate sourceCoord = scene.getSourceGeometryByIndex(0).getCoordinate();
+SourcePointInfo src = new SourcePointInfo(sourceCoord);
+CutProfile profile = scene.getProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
 
 // Inspect or assert on profile contents in tests
 assert profile != null;
 ```
 
-1. Bulk / DB-backed loading example
+**2. Bulk / DB-backed loading example**
 
 ```java
 // Build and finalize the ProfileBuilder once
@@ -531,9 +532,23 @@ scene.addReceiver(1001L, new Coordinate(12.3, 45.6, 1.7));
 
 // For each receiver, collect candidate source points and compute profiles
 for(Coordinate recv : scene.getReceivers()) {
-  Collection<SourcePointInfo> candidates = scene.getSourceQuery().query(recv, scene.getMaxSrcDist());
-  for(SourcePointInfo s : candidates) {
-    CutProfile p = pb.getProfile(s.getCoord(), recv, scene.getDefaultGroundAttenuation(), false);
+  // Create search region around receiver
+  Envelope searchRegion = new Envelope(recv);
+  searchRegion.expandBy(scene.getMaxSrcDist());
+  
+  // Query spatial index for candidate sources
+  Iterator<Integer> sourceIndices = scene.getSourceQuery().query(searchRegion);
+  while(sourceIndices.hasNext()) {
+    int srcIndex = sourceIndices.next();
+    Coordinate sourceCoord = scene.getSourceGeometryByIndex(srcIndex).getCoordinate();
+    long sourcePk = scene.getSourcePkById(srcIndex);
+    
+    // Create SourcePointInfo with metadata
+    SourcePointInfo src = new SourcePointInfo(srcIndex, sourcePk, sourceCoord, 1.0, 
+                                              scene.getSourceOrientationByPk(sourcePk));
+    
+    // Compute profile
+    CutProfile p = scene.getProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
     // process p (PathFinder, attenuation, tests...)
   }
 }
