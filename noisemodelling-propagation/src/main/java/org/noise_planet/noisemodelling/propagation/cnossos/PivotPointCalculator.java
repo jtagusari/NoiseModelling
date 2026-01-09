@@ -14,6 +14,8 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.propagation.cnossos.PivotPoint.PivotType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +32,8 @@ import java.util.List;
  * path building (e.g. selection of diffraction vertices).
  */
 public class PivotPointCalculator {
+    
+    private static final Logger LOGGER = LoggerFactory.getLogger(PivotPointCalculator.class);
 
 
     /**
@@ -62,14 +66,22 @@ public class PivotPointCalculator {
             sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
         }
 
+        LOGGER.debug("computeHorizontalEdgePivotPoints - sourceType: {}, candidateCount: {}", 
+                    sourceType, candidateCoordinates.size());
+
         if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+            LOGGER.debug("Using standard convex hull (no downward bridge edges)");
             return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         }
 
         List<Coordinate> downwardBridgeEdges = collectDownwardBridgeEdges(configuration);
+        LOGGER.debug("Collected {} downward bridge edges", 
+                    downwardBridgeEdges != null ? downwardBridgeEdges.size() : 0);
         if (downwardBridgeEdges == null || downwardBridgeEdges.size() == 0) {
+            LOGGER.debug("No downward bridge edges - using standard convex hull");
             return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         }
+        LOGGER.debug("Using convex hull with downward bridge edges");
         return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, downwardBridgeEdges);
     }
 
@@ -103,6 +115,8 @@ public class PivotPointCalculator {
 
         /** TODO Only the first downward bridge edge is considered at this moment*/
         Coordinate downwardEdgeCoordinate = downwardBridgeEdges.get(0);
+        LOGGER.debug("Downward bridge edge coordinate: ({}, {}, {})", 
+                    downwardEdgeCoordinate.x, downwardEdgeCoordinate.y, downwardEdgeCoordinate.z);
 
         List<PivotPoint> pivotPointsWithoutDownwardEdges = extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         LineSegment segment = new LineSegment(
@@ -116,10 +130,14 @@ public class PivotPointCalculator {
 
         double ratio = (downwardEdgeCoordinate.x - segment.p0.x) / (segment.p1.x - segment.p0.x);
         double interpY = segment.p0.y + ratio * (segment.p1.y - segment.p0.y);
+        LOGGER.debug("Interpolated Y at downward edge X: {} (downward edge Y: {})", interpY, downwardEdgeCoordinate.y);
+        
         if (downwardEdgeCoordinate.y > interpY) {
+            LOGGER.debug("Downward edge is above interpolated line - using standard pivot points");
             return pivotPointsWithoutDownwardEdges;
         }
 
+        LOGGER.debug("Downward edge is below interpolated line - adding BOTTOM_OF_OBSTACLE pivot point");
         List<PivotPoint> pivotPointsWithDownwardEdges = new ArrayList<>();
         pivotPointsWithDownwardEdges.add(pivotPointsWithoutDownwardEdges.get(0));
 
@@ -133,9 +151,13 @@ public class PivotPointCalculator {
             CandidateCoordinatesAfterDownwardEdges.add(candidateCoordinates.get(i));
         }
         List<PivotPoint> pivotPointsAfterDownwardEdges = extractPivotPointsUsingConvexHull(configuration, CandidateCoordinatesAfterDownwardEdges);
-        pivotPointsAfterDownwardEdges.get(0).setPivotType(PivotType.TOP_OF_OBSTACLE);
+        
+        LOGGER.debug("Setting first point after downward edge to BOTTOM_OF_OBSTACLE");
+        pivotPointsAfterDownwardEdges.get(0).setPivotType(PivotType.BOTTOM_OF_OBSTACLE);
 
         pivotPointsWithDownwardEdges.addAll(pivotPointsAfterDownwardEdges);
+        
+        LOGGER.debug("Final pivot points with downward edges: {} points", pivotPointsWithDownwardEdges.size());
         return pivotPointsWithDownwardEdges;
 
     }
@@ -214,6 +236,11 @@ public class PivotPointCalculator {
             }
             pivotPoints.add(new PivotPoint(coordinates.get(i), type));
         }
+        LOGGER.debug("Created {} pivot points: {}", pivotPoints.size(), 
+                    pivotPoints.stream()
+                        .map(p -> String.format("%s(%.2f,%.2f,%.2f)", 
+                                p.getPivotType(), p.x, p.y, p.z))
+                        .collect(java.util.stream.Collectors.joining(", ")));
         return pivotPoints;
     }
 
@@ -241,27 +268,52 @@ public class PivotPointCalculator {
             sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
         };
         
+        LOGGER.debug("collectHorizontalEdgePivotCandidates - Total cut profile points: {}", cutProfilePoints.size());
+        LOGGER.debug("collectHorizontalEdgePivotCandidates - sourceType: {}", sourceType);
+        
         // Add source position
         horizontalEdgePivotCandidates.add(cutPointCoordinates2D.get(0));
+        LOGGER.debug("Added SOURCE at index 0: ({}, {}, {})", 
+                    cutPointCoordinates2D.get(0).x, cutPointCoordinates2D.get(0).y, cutPointCoordinates2D.get(0).z);
         
         // Add valid diffraction point, building/walls/dem
         for (int idPoint = 1; idPoint < cutProfilePoints.size() - 1; idPoint++) {
             CutPoint currentPoint = cutProfilePoints.get(idPoint);
             Coordinate currentPointCoordinate2D = cutPointCoordinates2D.get(idPoint);
-            // Only add the point at the top of the wall, not the point at the bottom of the wall
-            // Only add the point at the top of the bridge wall, only when the source is on the bridge
-            if (
-                currentPoint instanceof CutPointTopography
-                || (currentPoint instanceof CutPointWall && currentPoint.hasObstacle())
-            ) {
+            
+            LOGGER.debug("Checking point {} of type {}: ({}, {}, {})", 
+                       idPoint, currentPoint.getClass().getSimpleName(), 
+                       currentPointCoordinate2D.x, currentPointCoordinate2D.y, currentPointCoordinate2D.z);
+            
+            if (currentPoint instanceof CutPointTopography) {
                 horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
+                LOGGER.debug("  -> Added as CutPointTopography");
             } else if(currentPoint instanceof CutPointBridgeWall && sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
                 horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
+                LOGGER.debug("  -> Added as CutPointBridgeWall (source on bridge)");
+            } else if(currentPoint instanceof CutPointBridgeWall) {
+                CutPointBridgeWall bridgeWall = (CutPointBridgeWall)currentPoint;
+                LOGGER.debug("  -> Skipped CutPointBridgeWall (direction: {}, sourceType: {})", 
+                           bridgeWall.getWallDirection(), sourceType);
+            } else if (currentPoint instanceof CutPointWall && currentPoint.hasObstacle()) {
+                horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
+                LOGGER.debug("  -> Added as CutPointWall with obstacle");
+            } else {
+                LOGGER.debug("  -> Skipped (type: {}, hasObstacle: {})", 
+                           currentPoint.getClass().getSimpleName(), 
+                           currentPoint.hasObstacle());
             }
         }
         
         // Add receiver position
         horizontalEdgePivotCandidates.add(cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1));
+        LOGGER.debug("Added RECEIVER at index {}: ({}, {}, {})", 
+                    cutPointCoordinates2D.size() - 1,
+                    cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1).x,
+                    cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1).y,
+                    cutPointCoordinates2D.get(cutPointCoordinates2D.size() - 1).z);
+        
+        LOGGER.debug("Total candidates collected: {}", horizontalEdgePivotCandidates.size());
 
         return horizontalEdgePivotCandidates;
     }
@@ -270,7 +322,10 @@ public class PivotPointCalculator {
         SourceType sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
         List<Coordinate> downwardBridgeEdges = new ArrayList<>();
 
-        if (sourceType != SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType != SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+        LOGGER.debug("collectDownwardBridgeEdges - sourceType: {}", sourceType);
+        // Fixed: Should only skip collection for these specific source types
+        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+            LOGGER.debug("Source type {} does not require downward bridge edges", sourceType);
             return downwardBridgeEdges;
         }
 
@@ -281,9 +336,12 @@ public class PivotPointCalculator {
             Coordinate currentPointCoordinate2D = cutPointCoordinates2D.get(idPoint);
             // Only add the point at the top of the wall, not the point at the bottom of the wall
             if (currentPoint instanceof CutPointBridgeWall && ((CutPointBridgeWall)currentPoint).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
+                LOGGER.debug("Found downward bridge edge at index {}: ({}, {}, {})", 
+                           idPoint, currentPointCoordinate2D.x, currentPointCoordinate2D.y, currentPointCoordinate2D.z);
                 downwardBridgeEdges.add(currentPointCoordinate2D);
             }
         }
+        LOGGER.debug("Total downward bridge edges collected: {}", downwardBridgeEdges.size());
         return downwardBridgeEdges;
     }
 }

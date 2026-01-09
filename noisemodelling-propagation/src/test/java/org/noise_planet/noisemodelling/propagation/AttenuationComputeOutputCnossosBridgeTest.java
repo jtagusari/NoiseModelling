@@ -13,6 +13,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.locationtech.jts.geom.*;
 import org.locationtech.jts.math.Vector2D;
@@ -51,6 +53,36 @@ public class AttenuationComputeOutputCnossosBridgeTest {
     private static final double TEMPERATURE = 10;
     private static final double[] SOUND_POWER_LEVELS = new double[]{93, 93, 93, 93, 93, 93, 93, 93};
     private static final double[] A_WEIGHTING = new double[]{-26.2, -16.1, -8.6, -3.2, 0.0, 1.2, 1.0, -1.1};
+
+    /**
+     * Test case data structure for parameterized tests
+     */
+    public static class TestCase {
+        public String testName;
+        public ReceiverCoord receiverCoord;
+        public double sourceZ;
+        public String sourceType;
+        public long bridgeId;
+        public long mirrorBridgeId;
+
+        public static class ReceiverCoord {
+            public double x;
+            public double y;
+            public double z;
+        }
+
+        @Override
+        public String toString() {
+            return testName;
+        }
+    }
+
+    /**
+     * Test cases wrapper for JSON deserialization
+     */
+    public static class TestCases {
+        public List<TestCase> testCases;
+    }
 
     /**
      * Create a bridge for testing (same as PathFinderBridgeTest.createBridge1())
@@ -176,180 +208,101 @@ public class AttenuationComputeOutputCnossosBridgeTest {
     }
 
     /**
-     * Test TBC01 -- Bridge with source on bridge deck, receiver at x=20
+     * Load test cases from JSON file
      */
-    @Test
-    public void TBC01_R20() throws Exception {
-        runTBC01WithReceiver("TBC01_R20", new Coordinate(20, 10, 4));
+    private static List<TestCase> loadTestCases() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        InputStream is = AttenuationComputeOutputCnossosBridgeTest.class
+                .getResourceAsStream("/org/noise_planet/noisemodelling/propagation/bridge_test_cases.json");
+        if (is == null) {
+            throw new FileNotFoundException("Test cases JSON file not found");
+        }
+        TestCases testCases = mapper.readValue(is, TestCases.class);
+        return testCases.testCases;
     }
 
     /**
-     * Test TBC01 -- Bridge with source on bridge deck, receiver at x=50
+     * Provide test cases for parameterized test
      */
-    @Test
-    public void TBC01_R50() throws Exception {
-        runTBC01WithReceiver("TBC01_R50", new Coordinate(50, 10, 4));
+    private static List<TestCase> provideTestCases() {
+        try {
+            return loadTestCases();
+        } catch (IOException e) {
+            LOGGER.error("Failed to load test cases", e);
+            return Collections.emptyList();
+        }
     }
 
     /**
-     * Test TBC01 -- Bridge with source on bridge deck, receiver at x=100
+     * Parameterized test that runs all test cases from JSON file
      */
+    @ParameterizedTest
+    @MethodSource("provideTestCases")
+    public void testBridgeWithParameters(TestCase testCase) throws Exception {
+        Coordinate receiverCoord = new Coordinate(
+            testCase.receiverCoord.x, 
+            testCase.receiverCoord.y, 
+            testCase.receiverCoord.z
+        );
+        
+        SourceBridgeProperty.SourceType sourceType = 
+            SourceBridgeProperty.SourceType.valueOf(testCase.sourceType);
+        
+        runTBC01WithReceiverAndSource(
+            testCase.testName, 
+            receiverCoord, 
+            testCase.sourceZ,
+            sourceType,
+            testCase.bridgeId,
+            testCase.mirrorBridgeId
+        );
+    }
+    
     @Test
-    public void TBC01_R100() throws Exception {
-        runTBC01WithReceiver("TBC01_R100", new Coordinate(100, 10, 4));
+    public void TBC01_IMAGINARY_Z19_R050() throws Exception {
+        LOGGER.info("=== Starting TBC01_IMAGINARY_Z19_R050 test ===");
+        LOGGER.info("Test conditions:");
+        LOGGER.info("  - Source type: IMAGINARY_SOURCE_UNDER_BRIDGE");
+        LOGGER.info("  - Source Z: 19.0");
+        LOGGER.info("  - Receiver: (50, 10, 4)");
+        LOGGER.info("  - BridgeId: -1, MirrorBridgeId: 100");
+        
+        runTBC01WithReceiverAndSource(
+            "TBC01_IMAGINARY_Z19_R050", 
+            new Coordinate(50, 10, 4), 
+            19.0,
+            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+            -1,
+            100
+        );
+        
+        LOGGER.info("=== TBC01_IMAGINARY_Z19_R050 test completed ===");
     }
 
-    /**
-     * Test TBC01 -- Bridge with source on bridge deck, receiver at x=150
+        /**
+     * Individual test for TBC01_IMAGINARY_Z10_R050 case
+     * This test case is also included in the parameterized tests but extracted here for specific analysis
      */
     @Test
-    public void TBC01_R150() throws Exception {
-        runTBC01WithReceiver("TBC01_R150", new Coordinate(150, 10, 4));
+    public void TBC01_IMAGINARY_Z10_R050() throws Exception {
+        LOGGER.info("=== Starting TBC01_IMAGINARY_Z10_R050 test ===");
+        LOGGER.info("Test conditions:");
+        LOGGER.info("  - Source type: IMAGINARY_SOURCE_UNDER_BRIDGE");
+        LOGGER.info("  - Source Z: 10.0");
+        LOGGER.info("  - Receiver: (50, 10, 4)");
+        LOGGER.info("  - BridgeId: -1, MirrorBridgeId: 100");
+        
+        runTBC01WithReceiverAndSource(
+            "TBC01_IMAGINARY_Z10_R050", 
+            new Coordinate(50, 10, 4), 
+            10.0,
+            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+            -1,
+            100
+        );
+        
+        LOGGER.info("=== TBC01_IMAGINARY_Z10_R050 test completed ===");
     }
 
-    /**
-     * Test TBC01 -- Bridge with source on bridge deck, receiver at x=200
-     */
-    @Test
-    public void TBC01_R200() throws Exception {
-        runTBC01WithReceiver("TBC01_R200", new Coordinate(200, 10, 4));
-    }
-
-    // ========== Tests with different source configurations ==========
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=10), receiver at x=20
-     */
-    @Test
-    public void TBC01_SZ10_IMAGINARY_R20() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_IMAGINARY_R20", new Coordinate(20, 10, 4), 10.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=10), receiver at x=50
-     */
-    @Test
-    public void TBC01_SZ10_IMAGINARY_R50() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_IMAGINARY_R50", new Coordinate(50, 10, 4), 10.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=10), receiver at x=100
-     */
-    @Test
-    public void TBC01_SZ10_IMAGINARY_R100() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_IMAGINARY_R100", new Coordinate(100, 10, 4), 10.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=10), receiver at x=150
-     */
-    @Test
-    public void TBC01_SZ10_IMAGINARY_R150() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_IMAGINARY_R150", new Coordinate(150, 10, 4), 10.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=10), receiver at x=200
-     */
-    @Test
-    public void TBC01_SZ10_IMAGINARY_R200() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_IMAGINARY_R200", new Coordinate(200, 10, 4), 10.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with ACTUAL_SOURCE_ON_BRIDGE (z=10.5), receiver at x=20
-     */
-    @Test
-    public void TBC01_SZ10_5_ACTUAL_R20() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_5_ACTUAL_R20", new Coordinate(20, 10, 4), 10.5,
-            SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
-    }
-
-    /**
-     * Test TBC01 with ACTUAL_SOURCE_ON_BRIDGE (z=10.5), receiver at x=50
-     */
-    @Test
-    public void TBC01_SZ10_5_ACTUAL_R50() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_5_ACTUAL_R50", new Coordinate(50, 10, 4), 10.5,
-            SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
-    }
-
-    /**
-     * Test TBC01 with ACTUAL_SOURCE_ON_BRIDGE (z=10.5), receiver at x=100
-     */
-    @Test
-    public void TBC01_SZ10_5_ACTUAL_R100() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_5_ACTUAL_R100", new Coordinate(100, 10, 4), 10.5,
-            SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
-    }
-
-    /**
-     * Test TBC01 with ACTUAL_SOURCE_ON_BRIDGE (z=10.5), receiver at x=150
-     */
-    @Test
-    public void TBC01_SZ10_5_ACTUAL_R150() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_5_ACTUAL_R150", new Coordinate(150, 10, 4), 10.5,
-            SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
-    }
-
-    /**
-     * Test TBC01 with ACTUAL_SOURCE_ON_BRIDGE (z=10.5), receiver at x=200
-     */
-    @Test
-    public void TBC01_SZ10_5_ACTUAL_R200() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ10_5_ACTUAL_R200", new Coordinate(200, 10, 4), 10.5,
-            SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=19), receiver at x=20
-     */
-    @Test
-    public void TBC01_SZ19_IMAGINARY_R20() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ19_IMAGINARY_R20", new Coordinate(20, 10, 4), 19.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=19), receiver at x=50
-     */
-    @Test
-    public void TBC01_SZ19_IMAGINARY_R50() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ19_IMAGINARY_R50", new Coordinate(50, 10, 4), 19.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=19), receiver at x=100
-     */
-    @Test
-    public void TBC01_SZ19_IMAGINARY_R100() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ19_IMAGINARY_R100", new Coordinate(100, 10, 4), 19.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=19), receiver at x=150
-     */
-    @Test
-    public void TBC01_SZ19_IMAGINARY_R150() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ19_IMAGINARY_R150", new Coordinate(150, 10, 4), 19.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
-
-    /**
-     * Test TBC01 with IMAGINARY_SOURCE_UNDER_BRIDGE (z=19), receiver at x=200
-     */
-    @Test
-    public void TBC01_SZ19_IMAGINARY_R200() throws Exception {
-        runTBC01WithReceiverAndSource("TBC01_SZ19_IMAGINARY_R200", new Coordinate(200, 10, 4), 19.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100);
-    }
 }
 

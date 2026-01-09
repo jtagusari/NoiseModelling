@@ -171,7 +171,7 @@ public class CnossosPathProcessor {
             throw new IllegalArgumentException("No horizontal diffraction points found in a diffraction path");
         }
 
-        double deltaB = DistanceDifferenceCalculator.computeDeltaH(
+        double deltaB = -1 * DistanceDifferenceCalculator.computeDeltaH(
             sourceCoordinate, 
             diffractionPointB.coordinate, 
             receiverCoordinate
@@ -329,7 +329,8 @@ public class CnossosPathProcessor {
                 .filter(p -> p.type.equals(DIFV)).findFirst().orElse(null);
             double directDistance = cnossosPath.getSRSegment().dc;
 
-            cnossosPath.deltaH = DistanceDifferenceCalculator.computeVpathDeltaH(
+            // note the orientation is reversed for bottom-edge diffraction
+            cnossosPath.deltaH = -1 * DistanceDifferenceCalculator.computeVpathDeltaH(
                 sourceCoordinate, 
                 firstVDiffractionPoint.coordinate, 
                 cnossosPath.e, 
@@ -339,7 +340,8 @@ public class CnossosPathProcessor {
                 directDistance
             );
         } else {
-            cnossosPath.deltaH = DistanceDifferenceCalculator.computeDeltaH(
+            // note the orientation is reversed for bottom-edge diffraction
+            cnossosPath.deltaH = -1 * DistanceDifferenceCalculator.computeDeltaH(
                 sourceCoordinate, 
                 diffractionPointCoordinate, 
                 receiverCoordinate
