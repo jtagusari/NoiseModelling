@@ -1,0 +1,123 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+  {
+    "type": "java",
+    "name": "Scriptrunner - Import roads",
+    "request": "launch",
+    "mainClass": "org.noise_planet.noisemodelling.runner.Main",
+    "projectName": "wps_scripts",
+    "preLaunchTask": "build_wps",
+    "args": [
+      "-w", "./tests", 
+      "-s", "./wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Import_and_Export/Import_File.groovy",
+      "-d", "h2gisdbtest", 
+      "-pathFile", "./wps_scripts/src/test/resources/org/noise_planet/noisemodelling/wps/ROADS2.shp"
+    ],
+    "classPaths": [
+      "${workspaceFolder}/wps_scripts/build/classes/java/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/resources/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/libs/*"
+    ]
+  },
+  {
+    "type": "java",
+    "name": "Scriptrunner - Import receivers",
+    "request": "launch",
+    "mainClass": "org.noise_planet.noisemodelling.runner.Main",
+    "projectName": "wps_scripts",
+    "preLaunchTask": "build_wps",
+    "args": [
+      "-w", "./tests", 
+      "-s", "./wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Import_and_Export/Import_File.groovy",
+      "-d", "h2gisdbtest", 
+      "-pathFile", "./wps_scripts/src/test/resources/org/noise_planet/noisemodelling/wps/receivers.shp"
+    ],
+    "classPaths": [
+      "${workspaceFolder}/wps_scripts/build/classes/java/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/resources/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/libs/*"
+    ]
+  },
+  {
+    "type": "java",
+    "name": "Scriptrunner - Import buildings",
+    "request": "launch",
+    "mainClass": "org.noise_planet.noisemodelling.runner.Main",
+    "projectName": "wps_scripts",
+    "preLaunchTask": "build_wps",
+    "args": [
+      "-w", "./tests", 
+      "-s", "./wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Import_and_Export/Import_File.groovy",
+      "-d", "h2gisdbtest", 
+      "-pathFile", "./wps_scripts/src/test/resources/org/noise_planet/noisemodelling/wps/buildings.shp"
+    ],
+    "classPaths": [
+      "${workspaceFolder}/wps_scripts/build/classes/java/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/resources/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/libs/*"
+    ]
+  },
+  {
+    "type": "java",
+    "name": "Scriptrunner - Import DEM",
+    "request": "launch",
+    "mainClass": "org.noise_planet.noisemodelling.runner.Main",
+    "projectName": "wps_scripts",
+    "preLaunchTask": "build_wps",
+    "args": [
+      "-w", "./tests", 
+      "-s", "./wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Import_and_Export/Import_File.groovy",
+      "-d", "h2gisdbtest", 
+      "-pathFile", "./wps_scripts/src/test/resources/org/noise_planet/noisemodelling/wps/dem.geojson"
+    ],
+    "classPaths": [
+      "${workspaceFolder}/wps_scripts/build/classes/java/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/resources/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/libs/*"
+    ]
+  },
+  {
+    "type": "java",
+    "name": "Scriptrunner - Import ground",
+    "request": "launch",
+    "mainClass": "org.noise_planet.noisemodelling.runner.Main",
+    "projectName": "wps_scripts",
+    "preLaunchTask": "build_wps",
+    "args": [
+      "-w", "./tests", 
+      "-s", "./wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Import_and_Export/Import_File.groovy",
+      "-d", "h2gisdbtest", 
+      "-pathFile", "./wps_scripts/src/test/resources/org/noise_planet/noisemodelling/wps/ground_type.shp"
+    ],
+    "classPaths": [
+      "${workspaceFolder}/wps_scripts/build/classes/java/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/resources/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/libs/*"
+    ]
+  },
+  {
+    "type": "java",
+    "name": "Scriptrunner - Run SPL calculation",
+    "request": "launch",
+    "mainClass": "org.noise_planet.noisemodelling.runner.Main",
+    "projectName": "wps_scripts",
+    "preLaunchTask": "build_wps",
+    "args": [
+      "-w", "./tests", 
+      "-s", "./wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/NoiseModelling/Noise_level_from_traffic.groovy ",
+      "-d", "h2gisdbtest", 
+      "-tableBuilding", "BUILDINGS",
+      "-tableRoads", "ROADS2",
+      "-tableReceivers", "RECEIVERS",
+      "-tableGroundAbs", "GROUND_TYPE",
+      "-tableDEM", "DEM",
+    ],
+    "classPaths": [
+      "${workspaceFolder}/wps_scripts/build/classes/java/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/resources/main/org/noise_planet/noisemodelling/runner",
+      "${workspaceFolder}/wps_scripts/build/libs/*"
+    ]
+  }
+]
+}

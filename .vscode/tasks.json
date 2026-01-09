@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build_wps",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": ["build"],
+      "options": {
+        "cwd": "${workspaceFolder}/wps_scripts"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": ["$gradle"],
+      "detail": "Generated task for Gradle build of wps_scripts"
+    },
+    {
+      "label": "build_wps_without_test",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": ["build", "-x", "test"],
+      "options": {
+        "cwd": "${workspaceFolder}/wps_scripts"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": ["$gradle"],
+      "detail": "Generated task for Gradle build of wps_scripts"
+    }
+  ]
+}

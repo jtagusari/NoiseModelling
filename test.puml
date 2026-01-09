@@ -1,0 +1,5 @@
+@startuml
+title シーケンス図
+Webページ -> APIサーバー: リクエスト
+APIサーバー --> Webページ: レスポンス
+@enduml

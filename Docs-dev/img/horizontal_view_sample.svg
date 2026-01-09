@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 365.95 301.99">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        fill: #f8b62d;
+      }
+
+      .cls-3 {
+        stroke-dasharray: 2;
+      }
+
+      .cls-3, .cls-4, .cls-5, .cls-6, .cls-7, .cls-8 {
+        fill: none;
+      }
+
+      .cls-3, .cls-4, .cls-6, .cls-9, .cls-7, .cls-8, .cls-2 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-3, .cls-6 {
+        stroke: #e4007f;
+      }
+
+      .cls-4, .cls-8 {
+        stroke: #231815;
+        stroke-width: 2px;
+      }
+
+      .cls-10 {
+        fill: #dae000;
+      }
+
+      .cls-9 {
+        fill: #e60012;
+      }
+
+      .cls-9, .cls-2 {
+        stroke: #fff;
+      }
+
+      .cls-11 {
+        fill: #231815;
+      }
+
+      .cls-7 {
+        stroke: #a5a5a5;
+        stroke-width: 50px;
+      }
+
+      .cls-8 {
+        stroke-dasharray: 12;
+      }
+
+      .cls-12 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <rect class="cls-5" x="49.14" y="17.62" width="252.98" height="252.98"/>
+    </clipPath>
+  </defs>
+  <g class="cls-12">
+    <rect class="cls-1" x="76.55" y="101.11" width="55.17" height="55.17" transform="translate(-54.16 80.23) rotate(-34)"/>
+    <rect class="cls-10" x="144.06" y="5.83" width="52.43" height="103.3" transform="translate(-3.03 105.05) rotate(-34)"/>
+    <rect class="cls-11" x="117.92" y="239.93" width="27.59" height="14.9" transform="translate(-115.81 115.94) rotate(-34)"/>
+    <line class="cls-7" x1="13.98" y1="279.53" x2="319.75" y2="73.28"/>
+    <line class="cls-8" x1="104.58" y1="285.67" x2="350.93" y2="119.51"/>
+    <line class="cls-4" x1="127.88" y1="301.16" x2="365.39" y2="140.95"/>
+    <line class="cls-4" x1="58.53" y1="278.23" x2="334.63" y2="95.35"/>
+    <circle class="cls-9" cx="135.96" cy="91.95" r="4.25"/>
+    <line class="cls-6" x1="131.71" y1="247.38" x2="135.96" y2="91.95"/>
+    <line class="cls-6" x1="166.15" y1="98.24" x2="131.71" y2="247.38"/>
+    <circle class="cls-2" cx="172.89" cy="69.05" r="4.25"/>
+    <line class="cls-3" x1="172.89" y1="69.05" x2="131.71" y2="247.38"/>
+    <line class="cls-6" x1="135.96" y1="91.95" x2="166.15" y2="98.24"/>
+  </g>
+</svg>
