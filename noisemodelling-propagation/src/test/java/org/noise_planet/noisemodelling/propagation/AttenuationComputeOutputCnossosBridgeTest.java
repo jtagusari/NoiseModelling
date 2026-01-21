@@ -172,7 +172,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
 
         //Propagation data building
         SceneWithAttenuation sceneWithAttenuation = new SceneWithAttenuation(profileBuilder);
-        sceneWithAttenuation.addSource((long)1, source, new Orientation(0,0,0), 
+        sceneWithAttenuation.addSource((long)1, source, null, new Orientation(0,0,0),
             new SourceBridgeProperty(sourceType, bridgeId, mirrorBridgeId));
         sceneWithAttenuation.addReceiver(receiverCoord);
         sceneWithAttenuation.setComputeHorizontalDiffraction(false);
@@ -287,7 +287,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
 
         //Propagation data building
         SceneWithAttenuation sceneWithAttenuation = new SceneWithAttenuation(profileBuilder);
-        sceneWithAttenuation.addSource((long)1, source, new Orientation(0,0,0));
+        sceneWithAttenuation.addSource((long)1, source, null, new Orientation(0,0,0));
         sceneWithAttenuation.addReceiver(new Coordinate(50, 15, 4));
         sceneWithAttenuation.setComputeHorizontalDiffraction(false);
         sceneWithAttenuation.setComputeVerticalDiffraction(true);

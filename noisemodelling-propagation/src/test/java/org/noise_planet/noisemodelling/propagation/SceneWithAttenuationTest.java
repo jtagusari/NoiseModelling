@@ -19,7 +19,7 @@ public class SceneWithAttenuationTest {
         GeometryFactory gf = new GeometryFactory();
         Point p = gf.createPoint(new Coordinate(10, 20));
 
-        long pk = scene.addSource(123L, p, 2.5);
+        long pk = scene.addSource(123L, p, null, 2.5);
         assertEquals(1, scene.getSourceCount());
         assertEquals(1, scene.getSourcePks().size());
         assertEquals(2.5, scene.sourceGs.get(pk));
@@ -40,7 +40,7 @@ public class SceneWithAttenuationTest {
         SceneWithAttenuation scene = new SceneWithAttenuation(new ProfileBuilder());
         GeometryFactory gf = new GeometryFactory();
         Point p = gf.createPoint(new Coordinate(0,0));
-        scene.addSource(5L, p, 0.0);
+        scene.addSource(5L, p, null, 0.0);
 
         // No directivity set -> omnidirectional
         assertTrue(scene.isOmnidirectional(0));

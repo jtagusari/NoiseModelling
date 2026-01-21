@@ -6,7 +6,15 @@ import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.locationtech.jts.geom.Coordinate;
 import static java.lang.Double.isNaN;
 /**
- * Attribute of the source point
+ * Attribute of the source point.
+ * 
+ * <p>The position coordinate contains absolute elevation in the Z component:
+ * <ul>
+ * <li>For HEIGHT_TYPE=RELATIVE sources: Z coordinate is converted to absolute elevation
+ *     during sampling (Step 7) using calculateAbsoluteElevation()</li>
+ * <li>For HEIGHT_TYPE=ABSOLUTE sources: Z coordinate is already absolute elevation from database</li>
+ * </ul>
+ * All SourcePointInfo instances contain absolute elevations ready for propagation calculation.
  */
 
 public class SourcePointInfo implements Comparable<SourcePointInfo> {
@@ -17,6 +25,7 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
     private final double li;
     private final int sourceIndex;
     private final long sourcePk;
+    /** Source position with absolute elevation in Z coordinate (elevation in DEM coordinate system) */
     private final Coordinate position;
     private final Orientation orientation;
     private final SourceBridgeProperty sourceBridgeProperty;
@@ -24,6 +33,13 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
 
     /**
      * Create a SourcePointInfo from explicit values.
+     * 
+     * @param sourceIndex Source index in Scene
+     * @param sourcePrimaryKey Source primary key for emission data lookup
+     * @param position Source position with absolute elevation in Z coordinate (not relative height)
+     * @param li Line segment length
+     * @param orientation Source orientation
+     * @param sourceBridgeProperty Bridge properties
      */
     public SourcePointInfo(int sourceIndex, long sourcePrimaryKey, Coordinate position, double li,
                             Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
@@ -89,6 +105,11 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         return sourceBridgeProperty;
     }
 
+    /**
+     * Get source position coordinate.
+     * 
+     * @return Coordinate with absolute elevation in Z component (elevation in DEM coordinate system)
+     */
     public Coordinate getCoordinate() {
         return position;
     }

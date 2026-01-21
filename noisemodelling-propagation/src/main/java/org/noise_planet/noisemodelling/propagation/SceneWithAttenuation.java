@@ -110,8 +110,8 @@ public class SceneWithAttenuation extends Scene {
      * @param gs Ground factor (gs) to associate with the registered source; may be null
      * @return the registered source primary key (as returned by {@code addSource})
      */
-    public long addSource(Long pk, Geometry geom, Double gs) {
-        long returnedPk = addSource(pk, geom);
+    public long addSource(Long pk, Geometry geom, HeightType heightType, Double gs) {
+        long returnedPk = addSource(pk, geom, heightType);
         sourceGs.put(returnedPk, gs);
         return returnedPk;
     }
@@ -206,13 +206,27 @@ public class SceneWithAttenuation extends Scene {
             orientation =  new Orientation(yaw, pitch, roll);
         }
 
+        // Read HEIGHT_TYPE field (default to RELATIVE if not present)
+        Scene.HeightType heightType = Scene.HeightType.RELATIVE;
+        if(sourceFieldNames.containsKey(HEIGHT_TYPE_DATABASE_FIELD)) {
+            String heightTypeStr = rs.getString(sourceFieldNames.get(HEIGHT_TYPE_DATABASE_FIELD));
+            if (heightTypeStr != null && !heightTypeStr.trim().isEmpty()) {
+                try {
+                    heightType = Scene.HeightType.valueOf(heightTypeStr.toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    LOGGER.warn("Invalid HEIGHT_TYPE value '{}' for source pk={}, defaulting to RELATIVE", heightTypeStr, pk);
+                    heightType = Scene.HeightType.RELATIVE;
+                }
+            }
+        }
+
         int gsField = JDBCUtilities.getFieldIndex(rs.getMetaData(), GS_DATABASE_FIELD);
         if(sourceFieldNames.containsKey(GS_DATABASE_FIELD)) {
             sourceGs.put(pk, rs.getDouble(gsField));
         }
 
         if (!profileBuilder.hasBridges()) {
-            returnedPks.add(addSource(pk, geom, orientation));
+            returnedPks.add(addSource(pk, geom, heightType, orientation, null));
             // Log when the registered key differs from the candidate key
             for (Long registered : returnedPks) {
                 if (!Objects.equals(pk, registered)) {
@@ -227,7 +241,7 @@ public class SceneWithAttenuation extends Scene {
             bridgePk = rs.getLong(JDBCUtilities.getFieldIndex(rs.getMetaData(), BRIDGE_PK_DATABASE_FIELD));
         }
         if(bridgePk == -1){
-            returnedPks.add(addSource(pk, geom, orientation));
+            returnedPks.add(addSource(pk, geom, heightType, orientation, null));
             return returnedPks;
         }
 
@@ -239,11 +253,13 @@ public class SceneWithAttenuation extends Scene {
 
         if(sourceType.equals("ROAD")){
             SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, bridgePk, -1L);
-            returnedPks.add(addSource(pk, geom, orientation, sourceBridgeProperty));
+            long returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+            returnedPks.add(returnedPk);
             return returnedPks;
         } else if(sourceType.equals("BRIDGE")){
             SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1L, bridgePk);
-            returnedPks.add(addSource(pk, geom, orientation, sourceBridgeProperty));
+            long returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+            returnedPks.add(returnedPk);
             return returnedPks;
         } else {
             throw new IllegalArgumentException(

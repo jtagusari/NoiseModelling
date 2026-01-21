@@ -85,8 +85,12 @@ public final class SourceCollector {
             long sourcePk = scene.getSourcePkById(srcIndex);
             SourceBridgeProperty bridgeProperty = scene.getSourceBridgePropertyByPk(sourcePk);
             
-            // Convert relative Z to absolute elevation
-            sourceCoordinates.z = ElevationConverter.calculateAbsoluteElevation(sourceCoordinates, bridgeProperty, scene);
+            // Convert relative Z to absolute elevation only if HEIGHT_TYPE is RELATIVE
+            Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
+            if (heightType == Scene.HeightType.RELATIVE) {
+                sourceCoordinates.z = ElevationConverter.calculateAbsoluteElevation(sourceCoordinates, bridgeProperty, scene);
+            }
+            // else: ABSOLUTE - use sourceCoordinates.z as-is (already absolute elevation)
             
             Orientation orientation = scene.getSourceOrientationByPk(sourcePk);
             SourcePointInfo sourceInfo = new SourcePointInfo(srcIndex, sourcePk, sourceCoordinates, 1., orientation, bridgeProperty);
@@ -182,8 +186,12 @@ public final class SourceCollector {
                 long sourcePk = scene.getSourcePkById(srcIndex);
                 SourceBridgeProperty bridgeProperty = scene.getSourceBridgePropertyByPk(sourcePk);
                 
-                // Convert relative Z to absolute elevation
-                pt.z = ElevationConverter.calculateAbsoluteElevation(pt, bridgeProperty, scene);
+                // Convert relative Z to absolute elevation only if HEIGHT_TYPE is RELATIVE
+                Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
+                if (heightType == Scene.HeightType.RELATIVE) {
+                    pt.z = ElevationConverter.calculateAbsoluteElevation(pt, bridgeProperty, scene);
+                }
+                // else: ABSOLUTE - use pt.z as-is (already absolute elevation)
                 
                 SourcePointInfo sourceInfo = new SourcePointInfo(srcIndex, sourcePk, pt, li, orientation, bridgeProperty);
                 sourceList.add(sourceInfo);

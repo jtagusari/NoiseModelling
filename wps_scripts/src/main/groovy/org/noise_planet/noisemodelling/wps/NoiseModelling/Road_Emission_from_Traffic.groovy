@@ -68,6 +68,7 @@ inputs = [
                         "<li><b> JUNC_TYPE </b> : Type of junction (k=0 none, k = 1 for a crossing with traffic lights ; k = 2 for a roundabout) (INTEGER)</li>" +
                         "<li><b> SLOPE </b> : Slope (in %) of the road section. If the field is not filled in, the LINESTRING z-values will be used to calculate the slope and the traffic direction (way field) will be force to 3 (bidirectional). (DOUBLE)</li>" +
                         "<li><b> WAY </b> : Define the way of the road section. 1 = one way road section and the traffic goes in the same way that the slope definition you have used, 2 = one way road section and the traffic goes in the inverse way that the slope definition you have used, 3 = bi-directional traffic flow, the flow is split into two components and correct half for uphill and half for downhill (INTEGER)</li>" +
+                        "<li><b> HEIGHT_TYPE </b> : Source height interpretation type. 'ABSOLUTE' (default when geometry has Z coordinate) = height value is absolute elevation in the same coordinate system as DEM, 'RELATIVE' (default when geometry has no Z coordinate) = height value is relative to ground elevation (VARCHAR)</li>" +
                         "<li><b> BRIDGE_PK </b> : Primary key of the bridge on which the road is located (optional, for bridge structural noise calculation) (INTEGER)</li>" +
                         "</ul></br><b> This table can be generated from the WPS Block 'Import_OSM'. </b>.",
                 type       : String.class
@@ -411,8 +412,15 @@ def exec(Connection connection, input) {
             
             sql.execute(duplicateQuery)
             
-            // Update the duplicated records to have SOURCE_TYPE='BRIDGE'
+            // Update the duplicated records to have SOURCE_TYPE='BRIDGE' and HEIGHT_TYPE='RELATIVE'
             sql.execute("UPDATE " + sources_table_name + " SET SOURCE_TYPE = 'BRIDGE' WHERE PK > " + maxPk)
+            
+            // Set HEIGHT_TYPE to 'RELATIVE' for bridge structural sources (if column exists)
+            boolean hasHeightTypeColumn = JDBCUtilities.hasField(connection, sources_table_name, "HEIGHT_TYPE")
+            if (hasHeightTypeColumn) {
+                sql.execute("UPDATE " + sources_table_name + " SET HEIGHT_TYPE = 'RELATIVE' WHERE PK > " + maxPk)
+                logger.info('Set HEIGHT_TYPE=RELATIVE for duplicated bridge records')
+            }
             
             logger.info('Duplicated ' + numBridgeRecords + ' bridge records with SOURCE_TYPE=BRIDGE')
         } else {
@@ -426,7 +434,7 @@ def exec(Connection connection, input) {
 
     // drop table LW_ROADS if exists and the create and prepare the table
     sql.execute("drop table if exists LW_ROADS;")
-    sql.execute("create table LW_ROADS (pk integer, the_geom Geometry, SOURCE_TYPE varchar(20) DEFAULT 'ROAD', BRIDGE_PK integer, " +
+    sql.execute("create table LW_ROADS (pk integer, the_geom Geometry, SOURCE_TYPE varchar(20) DEFAULT 'ROAD', BRIDGE_PK integer, HEIGHT_TYPE varchar(10), " +
             "HZD63 double precision, HZD125 double precision, HZD250 double precision, HZD500 double precision, HZD1000 double precision, HZD2000 double precision, HZD4000 double precision, HZD8000 double precision," +
             "HZE63 double precision, HZE125 double precision, HZE250 double precision, HZE500 double precision, HZE1000 double precision, HZE2000 double precision, HZE4000 double precision, HZE8000 double precision," +
             "HZN63 double precision, HZN125 double precision, HZN250 double precision, HZN500 double precision, HZN1000 double precision, HZN2000 double precision, HZN4000 double precision, HZN8000 double precision);")
@@ -517,6 +525,10 @@ def exec(Connection connection, input) {
     // BRIDGE sources: z=-0.05m (below deck for structural vibration sources)
     sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,0.05) WHERE SOURCE_TYPE = 'ROAD';")
     sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,-0.05) WHERE SOURCE_TYPE = 'BRIDGE';")
+    
+    // Set HEIGHT_TYPE to RELATIVE since we've assigned fixed relative heights
+    sql.execute("UPDATE LW_ROADS SET HEIGHT_TYPE = 'RELATIVE';")
+    logger.info('Set HEIGHT_TYPE=RELATIVE for all LW_ROADS records')
 
     // Add primary key to the road table
     sql.execute("ALTER TABLE LW_ROADS ALTER COLUMN PK INT NOT NULL;")

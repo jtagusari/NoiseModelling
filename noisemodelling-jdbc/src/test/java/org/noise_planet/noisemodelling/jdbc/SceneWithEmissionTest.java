@@ -200,7 +200,7 @@ public class SceneWithEmissionTest {
         PathFinder.splitLineStringIntoPoints(geomSource, 1.0, srcPtsRef);
         for (long i = 0; i < srcPtsRef.size(); i++) {
             Coordinate srcPtRef = srcPtsRef.get((int) i);
-            scene.addSource(i, factory.createPoint(srcPtRef));
+            scene.addSource(i, factory.createPoint(srcPtRef), null);
             scene.registerSourceEmission(i, "", roadLvl);
         }
 
@@ -222,7 +222,7 @@ public class SceneWithEmissionTest {
 
         // Second compute the same scene but with a line source
         scene.clearSources();
-        scene.addSource(1L, geomSource);
+        scene.addSource(1L, geomSource, null);
         scene.registerSourceEmission(1L, "", roadLvl);
 
         AttenuationOutputMultiThread propDataOutTest = new AttenuationOutputMultiThread(scene);
@@ -275,7 +275,7 @@ public class SceneWithEmissionTest {
         //Propagation data building
         SceneWithEmission scene = new SceneWithEmission(profileBuilder);
         GeometryFactory gf = new GeometryFactory();
-        scene.addSource(1L, gf.createPoint(new Coordinate(8, 5.5, 0.1)));
+        scene.addSource(1L, gf.createPoint(new Coordinate(8, 5.5, 0.1)), null);
         scene.addReceiver(new Coordinate(4.5, 8, 1.6));
         scene.setDefaultGroundAttenuation(0.5);
         scene.registerSourceEmission(1L, "", sourcePower);
@@ -341,7 +341,7 @@ public class SceneWithEmissionTest {
 
         SceneWithEmission scene = new SceneWithEmission(builder);
         scene.addReceiver(new Coordinate(162, 80, 150));
-        scene.addSource(1L, factory.createPoint(new Coordinate(-150, 200, 1)));
+        scene.addSource(1L, factory.createPoint(new Coordinate(-150, 200, 1)), null);
         scene.setComputeHorizontalDiffraction(true);
         scene.setComputeVerticalDiffraction(true);
         scene.registerSourceEmission(1L, "", roadLvl);

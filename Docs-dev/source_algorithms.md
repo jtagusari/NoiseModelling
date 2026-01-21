@@ -153,7 +153,7 @@ The `ROADS` table supports the following data format options:
 
 1. **Standard Format (Detailed Traffic):**
    - **Required:** `THE_GEOM` (LineString with optional Z), `PK` (primary key), traffic flow per period (`LV_D`, `MV_D`, `HGV_D`, `WAV_D`, `WBV_D` in vehicles/hour), speed per period (`LV_SPD_D`, `MV_SPD_D`, `HGV_SPD_D`, `WAV_SPD_D`, `WBV_SPD_D` in km/h)
-   - **Optional:** Environmental parameters (`PVMT`, `TEMP_D/E/N`, `TS_STUD`, `PM_STUD`), geometry parameters (`JUNC_DIST`, `JUNC_TYPE`, `WAY`, `SLOPE`), legacy fields (`TV_D`, `HV_D` for backward compatibility)
+   - **Optional:** Environmental parameters (`PVMT`, `TEMP_D/E/N`, `TS_STUD`, `PM_STUD`), geometry parameters (`JUNC_DIST`, `JUNC_TYPE`, `WAY`, `SLOPE`), source height specification (`HEIGHT_TYPE`: 'ABSOLUTE' (default when Z coordinate exists) for absolute elevation, 'RELATIVE' (default when Z coordinate is absent) for height above ground), legacy fields (`TV_D`, `HV_D` for backward compatibility)
 2. **AADF Format (Annual Average Flow):**
    - **Required:** `THE_GEOM` (LineString), `PK`, `AADF` (vehicles/day), `CLAS_ADM` (road category: 1=Motorway, 2=National, 3+=Local)
 3. **TMJA Format (French Standard):**
@@ -190,8 +190,8 @@ The record duplication workflow consists of the following SQL operations:
 - These records require dual emission calculation: traffic noise + structural noise
 
 *Record Types After Duplication:*
-- **SOURCE_TYPE='ROAD'** — Original records for all roads, calculated using CNOSSOS-EU methodology for tire/engine noise
-- **SOURCE_TYPE='BRIDGE'** — Duplicated records for bridge roads only, calculated using ASJ methodology for structural vibration noise
+- **SOURCE_TYPE='ROAD'** — Original records for all roads, calculated using CNOSSOS-EU methodology for tire/engine noise, preserves original `HEIGHT_TYPE`
+- **SOURCE_TYPE='BRIDGE'** — Duplicated records for bridge roads only, calculated using ASJ methodology for structural vibration noise, `HEIGHT_TYPE` is set to 'RELATIVE' (bridge structural sources use relative height from bridge deck)
 
 **Data Flow Example:**
 
@@ -266,12 +266,13 @@ The calculated emission data is stored in the `LW_ROADS` table, which serves as 
 2. `INSERT INTO LW_ROADS (...) VALUES (...)` — batch inserts emission records (100 records/batch for performance), preserving SOURCE_TYPE from ROADS table
 3. `UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom, 0.05) WHERE SOURCE_TYPE = 'ROAD'` — assigns Z=0.05m to road traffic noise sources
 4. `UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom, -0.05) WHERE SOURCE_TYPE = 'BRIDGE'` — assigns Z=-0.05m to bridge structural noise sources (below deck)
-5. `ALTER TABLE LW_ROADS ADD PRIMARY KEY (PK)` — sets primary key constraint for referential integrity
+5. `UPDATE LW_ROADS SET HEIGHT_TYPE = 'RELATIVE'` — marks all Z values as relative heights (ground-relative for ROAD, deck-relative for BRIDGE)
+6. `ALTER TABLE LW_ROADS ADD PRIMARY KEY (PK)` — sets primary key constraint for referential integrity
 
 *Height Convention:*
-- **Road sources (SOURCE_TYPE='ROAD'):** Z=0.05m represents acoustic source height above road surface (bridge deck if on bridge)
-- **Bridge sources (SOURCE_TYPE='BRIDGE'):** Z=-0.05m represents structural vibration source below deck surface, modeling sound radiation from bridge structure itself
-- These values undergo coordinate transformation during propagation (Step 8) to maintain correct relative heights above actual terrain or bridge deck surfaces
+- **Road sources (SOURCE_TYPE='ROAD'):** Z=0.05m represents acoustic source height above road surface (bridge deck if on bridge), `HEIGHT_TYPE='RELATIVE'`
+- **Bridge sources (SOURCE_TYPE='BRIDGE'):** Z=-0.05m represents structural vibration source below deck surface, modeling sound radiation from bridge structure itself, `HEIGHT_TYPE='RELATIVE'`
+- These values undergo coordinate transformation during propagation (Step 7) to convert relative heights to absolute elevations based on actual terrain or bridge deck surfaces
 
 *Bridge Source Handling:*
 - **SOURCE_TYPE='ROAD'**: Normal propagation from road surface (bridge deck if on bridge)
@@ -290,8 +291,9 @@ The `fetchCellSource()` method orchestrates the geometry loading workflow throug
 
 1. **Metadata Retrieval** — `getGeometryColumnNames()` locates the geometry column name, and `getIntegerPrimaryKeyNameAndIndex()` retrieves primary key field information for linking emission data
 2. **Spatial Query** — Executes `SELECT * FROM LW_ROADS WHERE THE_GEOM && envelope` using spatial operator `&&` to trigger bounding box intersection test with automatic spatial index usage. Query uses fetch size and forward-only cursor to minimize memory consumption
-3. **Geometry Processing** — For each loaded geometry, applies optional clipping to envelope boundary using JTS `intersection()`, filters empty geometries via `isEmpty()`, and validates that all vertices have valid Z coordinates (missing Z triggers immediate error)
-4. **Result Streaming** — Processes large result sets incrementally through streaming, enabling envelope-based filtering to load only sources within calculation area and performing early validation before propagation
+3. **Field Loading** — For each record, loads `SOURCE_TYPE`, `BRIDGE_PK`, and `HEIGHT_TYPE` fields to determine source classification and height interpretation. 
+4. **Geometry Processing** — For each loaded geometry, applies optional clipping to envelope boundary using JTS `intersection()`, filters empty geometries via `isEmpty()`, and validates that all vertices have valid Z coordinates (missing Z triggers immediate error)
+5. **Result Streaming** — Processes large result sets incrementally through streaming, enabling envelope-based filtering to load only sources within calculation area and performing early validation before propagation
 
 **Output:**
 Validated LineString geometries with Z coordinates, primary keys, and metadata, ready for Scene registration (Step 6)
@@ -308,6 +310,7 @@ The `addSourceDb()` / `doAddSourceDb()` method orchestrates the Scene registrati
    - Reads ResultSet metadata to build column name → index map
    - Identifies optional columns: 
      - `YAW`, `PITCH`, `ROLL`: orientation angles
+     - `HEIGHT_TYPE`: height interpretation type (RELATIVE: height above ground/deck, ABSOLUTE: absolute elevation in DEM coordinate system)
      - `DIR_ID`: directivity identifier for emission pattern
      - `GS`: ground factor for surface absorption
      - `BRIDGE_PK`: bridge primary key
@@ -322,31 +325,25 @@ The `addSourceDb()` / `doAddSourceDb()` method orchestrates the Scene registrati
      - Unknown SOURCE_TYPE → Throw IllegalArgumentException
 
 3. **Scene Registration:**
-   - Calls `Scene.addSource(pk, geom, orientation, sourceBridgeProperty)`
+   - Calls `Scene.addSource(pk, geom, orientation, heightType, sourceBridgeProperty)`
    - **Bridge footprint validation:** If bridgePkOn ≥ 0, verifies geometry is within bridge footprint
    - Stores complete LineString geometry without subdivision
+   - Registers orientation (if present), height type (if present, default RELATIVE), and bridge properties (if applicable)
    - Assigns unique `sourceIndex` for spatial queries and stores `sourcePk` (database primary key) for emission data lookup
 
 4. **Emission Data Linkage:**
    - Associates registered source with emission data from LW_ROADS table via `sourcePk`
    - Each source references 24 sound power levels (3 periods × 8 frequency bands)
 
-**Source Type Classification:**
+**Data Storage in Scene:**
 
-1. **ACTUAL_SOURCE_ON_BRIDGE** (`SOURCE_TYPE`=`ROAD`)
-   - Physical source on bridge deck (road traffic noise)
-   - Ground reference = bridge deck height
-   - Z coordinate = +0.05m (above deck)
-   
-2. **IMAGINARY_SOURCE_UNDER_BRIDGE** (`SOURCE_TYPE`=`BRIDGE`)
-   - Virtual source beneath bridge deck (structural vibration noise)
-   - Ground reference = terrain surface below bridge
-   - Z coordinate = -0.05m (below deck)
-   
-3. **SOURCE_NOT_RELATED_TO_BRIDGE** (`BRIDGE_PK` is NULL or -1)
-   - Standard ground-level source
-   - Ground reference = terrain surface from DEM
-   - Z coordinate = +0.05m (above ground)
+After registration, each source has the following attributes stored in Scene maps (indexed by sourcePk):
+- **Geometry:** `scene.sourceGeometries` — LineString or Point geometry
+- **Orientation:** `scene.sourceOrientation` — Yaw/pitch/roll angles for directivity
+- **Bridge properties:** `scene.sourceBridgeProperties` — Source type (bridge relationship: `ACTUAL_SOURCE_ON_BRIDGE`, `IMAGINARY_SOURCE_UNDER_BRIDGE`, or `SOURCE_NOT_RELATED_TO_BRIDGE`) and primary keys of the bridge.
+- **Height type:** `scene.sourceHeightType` — How to interpret Z coordinates (`RELATIVE` or `ABSOLUTE`)
+- **Ground factor:** `SceneWithAttenuation.sourceGs` — Surface absorption coefficient
+- **Directivity:** `SceneWithAttenuation.sourceEmissionAttenuation` — Emission pattern reference
 
 **Key Behavior:**
 
@@ -384,17 +381,22 @@ This step samples Scene-registered LineString geometries into discrete point sou
    - Points placed at regular intervals along LineString
 
 5. **Elevation Conversion:**
-   - **For each sampled point**, `calculateAbsoluteElevation()` immediately converts relative Z to absolute elevation based on `SourceBridgeProperty`:
-     - **SOURCE_NOT_RELATED_TO_BRIDGE:** `absoluteZ = DEM_ground_elevation + coord.z` (typically DEM + 0.05m)
-     - **ACTUAL_SOURCE_ON_BRIDGE:** `absoluteZ = bridge_deck_height + coord.z` (typically deck + 0.05m)
-     - **IMAGINARY_SOURCE_UNDER_BRIDGE:** `absoluteZ = (bridge_deck_height - deck_thickness) + coord.z` (typically bridge_bottom - 0.05m)
-     - **MIRROR_SOURCE:** Uses reflection formula to calculate mirrored elevation based on original source position and bridge geometry
-   - **Coordinate update:** `coord.z = absoluteZ` immediately replaces relative Z with absolute elevation
+   - **For each sampled point**, retrieve `HEIGHT_TYPE` from Scene via `scene.getSourceHeightTypeByPk(sourcePk)`
+   - **If HEIGHT_TYPE = RELATIVE (default):**
+     - Call `calculateAbsoluteElevation()` to convert relative Z to absolute elevation based on `SourceBridgeProperty`:
+       - **SOURCE_NOT_RELATED_TO_BRIDGE:** `absoluteZ = DEM_ground_elevation + coord.z` (typically DEM + 0.05m)
+       - **ACTUAL_SOURCE_ON_BRIDGE:** `absoluteZ = bridge_deck_height + coord.z` (typically deck + 0.05m)
+       - **IMAGINARY_SOURCE_UNDER_BRIDGE:** `absoluteZ = (bridge_deck_height - deck_thickness) + coord.z` (typically bridge_bottom - 0.05m)
+   - **If HEIGHT_TYPE = ABSOLUTE:**
+     - Skip elevation conversion — `coord.z` already contains absolute elevation in DEM coordinate system
+     - Use Z coordinate as-is (no transformation needed)
+   - **Result:** After this step, `coord.z` always contains absolute elevation regardless of original `HEIGHT_TYPE`
 
 6. **SourcePointInfo Creation:**
    - Each sampled point becomes a `SourcePointInfo` object **with absolute elevation**
    - All points share the same `sourcePk` for emission data lookup
    - Position (with absolute Z), segment length (`li`), orientation, and `sourceBridgeProperty` assigned to each point
+   - **Note:** This step is executed for all sources regardless of `HEIGHT_TYPE`
 
 7. **MIRROR_SOURCE Generation (Bridge Reflection):**
    - `addMirrorSourceIfNeeded()` checks if each sampled point (with absolute elevation) is within any bridge footprint (2D projection)

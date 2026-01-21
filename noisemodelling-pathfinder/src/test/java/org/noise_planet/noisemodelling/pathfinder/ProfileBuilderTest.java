@@ -292,7 +292,7 @@ public class ProfileBuilderTest {
         Scene scene = new Scene(profileBuilder);
         WKTReader wktReader = new WKTReader();
         Geometry geometry = wktReader.read("MultiLineStringZ ((10 10 1, 200 50 1))");
-        scene.addSource(1L, geometry);
+        scene.addSource(1L, geometry, null);
         PathFinder pathFinder = new PathFinder(scene);
         assertEquals(2, scene.getSourceGeometryByIndex(0).getNumPoints());
         pathFinder.makeSourceRelativeZToAbsolute();

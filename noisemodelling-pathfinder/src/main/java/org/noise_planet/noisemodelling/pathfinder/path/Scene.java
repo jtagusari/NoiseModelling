@@ -70,6 +70,8 @@ public class Scene {
     public static final String BRIDGE_PK_DATABASE_FIELD = "BRIDGEPK";
     /** Database field name for source type (ROAD or BRIDGE) */
     public static final String SOURCE_TYPE_DATABASE_FIELD = "SOURCE_TYPE";
+    /** Database field name for height type (RELATIVE or ABSOLUTE) */
+    public static final String HEIGHT_TYPE_DATABASE_FIELD = "HEIGHT_TYPE";
 
     /** Coordinate of receivers - observation points where noise levels are calculated */
     public List<Coordinate> receivers = new ArrayList<>();
@@ -89,6 +91,19 @@ public class Scene {
 
     /** Bridge properties for sources located on bridges (height, virtual source flags, etc.) */
     public Map<Long, SourceBridgeProperty> sourceBridgeProperties = new HashMap<>();
+
+    /**
+     * Enumerates how source height is interpreted.
+     */
+    public enum HeightType {
+        /** Height value is relative to ground elevation (or bridge deck for bridge sources). */
+        RELATIVE,
+        /** Height value is absolute elevation in the same coordinate system as DEM. */
+        ABSOLUTE
+    }
+
+    /** Source height type for each source - determines how Z coordinates are interpreted */
+    public Map<Long, HeightType> sourceHeightType = new HashMap<>();
 
     /** Maximum reflection order - number of reflections to consider in ray tracing */
     public int reflexionOrder = 1;
@@ -174,11 +189,12 @@ public class Scene {
      * @param geom Source geometry (Point for point sources, LineString for linear sources)
      * @return Actual registered primary key (may differ from requested pk if conflict occurred)
      */
-    public long addSource(Long pk, Geometry geom) {
+    public long addSource(Long pk, Geometry geom, HeightType heightType) {
         sourceGeometries.add(geom);
         sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
         long registeredPk = UniqueKeyGenerator.generateLongKey(pk == null ? 0L : pk.longValue(), sourcesPk);
         sourcesPk.add(registeredPk);
+        sourceHeightType.put(registeredPk, heightType);
         return registeredPk;
     }
 
@@ -191,8 +207,8 @@ public class Scene {
      * @param orientation Directional orientation (yaw, pitch, roll angles in degrees)
      * @return Actual registered primary key
      */
-    public long addSource(Long pk, Geometry geom, Orientation orientation) {
-        long returnedPk = addSource(pk, geom);
+    public long addSource(Long pk, Geometry geom, HeightType heightType, Orientation orientation) {
+        long returnedPk = addSource(pk, geom, heightType);
         sourceOrientation.put(returnedPk, orientation);
         return returnedPk;
     }
@@ -204,11 +220,12 @@ public class Scene {
      * @param pk Desired primary key (null for auto-generation)
      * @param geom Source geometry (Point for point sources, LineString for linear sources)
      * @param orientation Directional orientation (can be null for omnidirectional sources)
+     * @param heightType Height interpretation type (RELATIVE or ABSOLUTE). If null, defaults to RELATIVE.
      * @param sourceBridgeProperty Bridge-related properties (height, virtual source flags, etc.)
      * @return Actual registered primary key
      * @throws IllegalArgumentException if bridgePkOn >= 0 but source geometry does not intersect bridge footprint
      */
-    public long addSource(Long pk, Geometry geom, Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
+    public long addSource(Long pk, Geometry geom,HeightType heightType,  Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
         // Validate bridge-source geometry intersection if bridge is specified
         if (sourceBridgeProperty != null && sourceBridgeProperty.getBridgePkOn() >= 0) {
             long bridgePk = sourceBridgeProperty.getBridgePkOn();
@@ -230,10 +247,7 @@ public class Scene {
             }
         }
         
-        long returnedPk = addSource(pk, geom);
-        if (orientation != null) {
-            sourceOrientation.put(returnedPk, orientation);
-        }
+        long returnedPk = addSource(pk, geom, heightType, orientation);
         if (sourceBridgeProperty != null) {
             this.sourceBridgeProperties.put(returnedPk, sourceBridgeProperty);
         }
@@ -247,12 +261,16 @@ public class Scene {
      * 
      * @param sourceGeometries List of source geometries to set
      */
-    public void setSources(List<Geometry> sourceGeometries) {
+    public void setSources(List<Geometry> sourceGeometries, List<HeightType> heightTypes) {
         int i = 0;
         for(Geometry source : sourceGeometries) {
             sourcesIndex.appendGeometry(source, i++);
         }
         this.sourceGeometries = sourceGeometries;
+        this.sourceHeightType = new HashMap<>();
+        for (int j = 0; j < heightTypes.size(); j++) {
+            this.sourceHeightType.put((long) j, heightTypes.get(j));
+        }
     }
 
     /**
@@ -338,6 +356,21 @@ public class Scene {
     }
 
     /**
+     * Get height type for a specific source by primary key.
+     * Returns RELATIVE if no height type is specified.
+     * 
+     * @param pk Source primary key
+     * @return HeightType enum value (RELATIVE or ABSOLUTE)
+     */
+    public HeightType getSourceHeightTypeByPk(long pk) {
+        HeightType heightType = sourceHeightType.get(pk);
+        if (heightType == null) {
+            return HeightType.RELATIVE;
+        }
+        return heightType;
+    }
+
+    /**
      * Remove a source by its primary key.
      * Removes the source from all collections: geometries, orientations, bridge properties, etc.
      * 
@@ -350,6 +383,7 @@ public class Scene {
             sourceGeometries.remove(index);
             sourceOrientation.remove(pk);
             sourceBridgeProperties.remove(pk);
+            sourceHeightType.remove(pk);
         }
     }
 

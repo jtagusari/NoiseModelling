@@ -38,7 +38,7 @@ public class SceneTest {
         Scene scene = new Scene(new ProfileBuilder());
         GeometryFactory gf = new GeometryFactory();
         Point p = gf.createPoint(new Coordinate(1,2));
-        long registeredPk = scene.addSource(42L, p);
+        long registeredPk = scene.addSource(42L, p, null);
         assertEquals(1, scene.getSourceCount());
         // Scene stores a registered key in sourcesPk
         assertTrue(registeredPk == 42L);
@@ -61,8 +61,8 @@ public class SceneTest {
         Point p2 = gf.createPoint(new Coordinate(100,100));
 
         // Add two sources with PK and orientation
-        scene.addSource(1L, p1, new org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation(10,0,0));
-        scene.addSource(2L, p2, new org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation(20,0,0));
+        scene.addSource(1L, p1, null, new org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation(10,0,0));
+        scene.addSource(2L, p2, null, new org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation(20,0,0));
 
         // Scene registers its own keys for sources; ensure two orientations were stored
         assertEquals(2, scene.getSourceOrientations().size());
