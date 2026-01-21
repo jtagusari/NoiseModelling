@@ -258,10 +258,10 @@ public class EmissionTableGenerator {
 
         // Build and execute queries
         StringBuilder createTableQuery = new StringBuilder("create table "+outputTable+" (PK_SECTION int," +
-                " the_geom GEOMETRY, DIR_ID int, GS double");
+                " the_geom GEOMETRY, DIR_ID int, SOURCE_TYPE varchar(20), GS double");
         StringBuilder insertIntoQuery = new StringBuilder("INSERT INTO "+outputTable+"(PK_SECTION, the_geom," +
-                " DIR_ID, GS");
-        StringBuilder insertIntoValuesQuery = new StringBuilder("?,?,?,?");
+                " DIR_ID, SOURCE_TYPE, GS");
+        StringBuilder insertIntoValuesQuery = new StringBuilder("?,?,?,?,?");
         for(int thirdOctave : FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
             createTableQuery.append(", ").append(frequencyPrepend).append("D");
             createTableQuery.append(thirdOctave);
@@ -313,6 +313,7 @@ public class EmissionTableGenerator {
             Arrays.fill(LWNight, -99.00);
             double heightSource = 0;
             int directivityId = 0;
+            String sourceType = "";
             boolean day = (!railWayLWDay.getRailwaySourceList().isEmpty());
             boolean evening = (!railWayLWEvening.getRailwaySourceList().isEmpty());
             boolean night = (!railWayLWNight.getRailwaySourceList().isEmpty());
@@ -326,6 +327,7 @@ public class EmissionTableGenerator {
                         if (night) LWNight = railWayLWNight.getRailwaySourceList().get("ROLLING").getlW();
                         if (day) heightSource = 4; //railWayLWDay.getRailwaySourceList().get("ROLLING").getSourceHeight();
                         directivityId = 1;
+                        sourceType = "ROLLING";
                         break;
                     case 1:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("TRACTIONA").getlW();
@@ -333,6 +335,7 @@ public class EmissionTableGenerator {
                         if (night) LWNight = railWayLWNight.getRailwaySourceList().get("TRACTIONA").getlW();
                         heightSource = 0.5;
                         directivityId = 2;
+                        sourceType = "TRACTIONA";
                         break;
                     case 2:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("TRACTIONB").getlW();
@@ -340,6 +343,7 @@ public class EmissionTableGenerator {
                         if (night) LWNight = railWayLWNight.getRailwaySourceList().get("TRACTIONB").getlW();
                         heightSource = 4;
                         directivityId = 3;
+                        sourceType = "TRACTIONB";
                         break;
                     case 3:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("AERODYNAMICA").getlW();
@@ -347,6 +351,7 @@ public class EmissionTableGenerator {
                         if (night)  LWNight = railWayLWNight.getRailwaySourceList().get("AERODYNAMICA").getlW();
                         heightSource = 0.5;
                         directivityId = 4;
+                        sourceType = "AERODYNAMICA";
                         break;
                     case 4:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("AERODYNAMICB").getlW();
@@ -354,6 +359,7 @@ public class EmissionTableGenerator {
                         if (night)  LWNight = railWayLWNight.getRailwaySourceList().get("AERODYNAMICB").getlW();
                         heightSource = 4;
                         directivityId = 5;
+                        sourceType = "AERODYNAMICB";
                         break;
                     case 5:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("BRIDGE").getlW();
@@ -361,6 +367,7 @@ public class EmissionTableGenerator {
                         if (night)  LWNight = railWayLWNight.getRailwaySourceList().get("BRIDGE").getlW();
                         heightSource = 0.5;
                         directivityId = 6;
+                        sourceType = "BRIDGE";
                         break;
                 }
 
@@ -373,6 +380,7 @@ public class EmissionTableGenerator {
                     ps.setInt(cursor++, pk);
                     ps.setObject(cursor++, sourceGeometry);
                     ps.setInt(cursor++, directivityId);
+                    ps.setString(cursor++, sourceType);
                     ps.setDouble(cursor++, railWayLWGeom.getGs());
                     for (double v : LWDay) {
                         ps.setDouble(cursor++, v);

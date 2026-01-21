@@ -257,6 +257,64 @@ public class AttenuationComputeOutputCnossosBridgeTest {
             testCase.mirrorBridgeId
         );
     }
+
+    @Test
+    public void TBC01_WALL_Z_10_5_R50_15() throws Exception {
+        LOGGER.info("=== Starting TBC01_WALL_Z_10_5_R50_15 test ===");
+        LOGGER.info("Test conditions:");
+        LOGGER.info("  - Receiver: (50, 15, 4)");
+        LOGGER.info("  - Wall: from (10, 0, 12) to (10, 20, 12)");
+        
+        //Profile building with wall instead of bridge
+        ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
+        
+        // Add thin building as wall from (10, 0, 0) to (10, 20, 0) with height 12
+        GeometryFactory geometryFactory = new GeometryFactory();
+        profileBuilder.addBuilding(new Coordinate[]{
+            new Coordinate(14.9, 0, 0),
+            new Coordinate(15.1, 0, 0),
+            new Coordinate(15.1, 20, 0),
+            new Coordinate(14.9, 20, 0),
+            new Coordinate(14.9, 0, 0)
+        }, 12, -1);
+        profileBuilder.finishFeeding();
+
+        // Create line source from (10, 5, 10.5) to (10, 15, 10.5)
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(10, 5, 10.5),
+                new Coordinate(10, 15, 10.5)
+        });
+
+        //Propagation data building
+        SceneWithAttenuation sceneWithAttenuation = new SceneWithAttenuation(profileBuilder);
+        sceneWithAttenuation.addSource((long)1, source, new Orientation(0,0,0));
+        sceneWithAttenuation.addReceiver(new Coordinate(50, 15, 4));
+        sceneWithAttenuation.setComputeHorizontalDiffraction(false);
+        sceneWithAttenuation.setComputeVerticalDiffraction(true);
+
+        //Propagation process path data building
+        AttenuationParameters attData = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
+        attData.setFrequencies(profileBuilder.getFrequencyArray());
+        attData.setHumidity(HUMIDITY);
+        attData.setTemperature(TEMPERATURE);
+        sceneWithAttenuation.setAttenuationParameters(attData);
+
+        //Out and computation settings
+        AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, sceneWithAttenuation);
+        
+        PathFinder computeRays = new PathFinder(sceneWithAttenuation);
+        computeRays.setThreadCount(1);
+
+        //Run computation
+        computeRays.run(propDataOut);
+
+        // Export to JSON file
+        String outputPath = "target/test-classes/org/noise_planet/noisemodelling/propagation/TBC01_WALL_S10_15_R50_15_attenuation_output.json";
+        exportRays(outputPath, propDataOut);
+        
+        LOGGER.info("=== TBC01_WALL_S10_15_R50_15 test completed ===");
+    }
+
     
     @Test
     public void TBC01_IMAGINARY_Z19_R050() throws Exception {

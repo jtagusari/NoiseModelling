@@ -9,7 +9,6 @@ import org.noise_planet.noisemodelling.emission.directivity.DirectivitySphere;
 import org.noise_planet.noisemodelling.emission.directivity.OmnidirectionalDirection;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.BridgeSourceBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
@@ -163,10 +162,10 @@ public class SceneWithAttenuation extends Scene {
     * The method reads the ResultSet metadata on first use to build a map of
     * input column names to 1-based indexes. It attempts to extract optional
     * orientation (yaw/pitch/roll), directivity identifier, ground factor (gs)
-    * and bridge-related attributes. When the profile contains bridges the
-    * builder {@link BridgeSourceBuilder} is used to split a single input
-    * geometry into multiple segment sources; each registered segment produces
-    * a returned PK.
+    * and bridge-related attributes. When BRIDGE_PK is present, SOURCE_TYPE field
+    * determines the appropriate SourceBridgeProperty:
+    * - SOURCE_TYPE='ROAD': ACTUAL_SOURCE_ON_BRIDGE (road traffic noise)
+    * - SOURCE_TYPE='BRIDGE': IMAGINARY_SOURCE_UNDER_BRIDGE (structural noise)
     *
     * If the registered PK differs from the provided candidate PK the method
     * will emit an info-level log entry describing the candidate and the
@@ -223,38 +222,36 @@ public class SceneWithAttenuation extends Scene {
             return returnedPks;
         }
 
-        // Read bridge-related attributes
-        boolean isOnBridge = false;
-        if(sourceFieldNames.containsKey(IS_ON_BRIDGE_DATABASE_FIELD)) {
-            isOnBridge = rs.getBoolean(JDBCUtilities.getFieldIndex(rs.getMetaData(), IS_ON_BRIDGE_DATABASE_FIELD));
-        }
-
         long bridgePk = -1;
         if(sourceFieldNames.containsKey(BRIDGE_PK_DATABASE_FIELD)) {
             bridgePk = rs.getLong(JDBCUtilities.getFieldIndex(rs.getMetaData(), BRIDGE_PK_DATABASE_FIELD));
         }
-
-        BridgeSourceBuilder bridgeSourceBuilder = new BridgeSourceBuilder(profileBuilder);
-        bridgeSourceBuilder.createBridgeRelatedLineSources(pk, geom, isOnBridge, bridgePk);
-        Integer segmentSize = bridgeSourceBuilder.getSegmentSize();
-
-        List<Geometry> splittedSegments = bridgeSourceBuilder.getSplittedSegments();
-        List<SourceBridgeProperty> sourceBridgeProperties = bridgeSourceBuilder.getSourceBridgeProperties();
-
-        for (int i = 0; i < segmentSize; i++) {
-            Geometry segmentGeom = splittedSegments.get(i);
-            SourceBridgeProperty sourceBridgeProp = sourceBridgeProperties.get(i);
-            returnedPks.add(addSource(pk, segmentGeom, orientation, sourceBridgeProp));
+        if(bridgePk == -1){
+            returnedPks.add(addSource(pk, geom, orientation));
+            return returnedPks;
         }
 
-        // Log any differences between candidate PK and registered PKs
-        for (Long registered : returnedPks) {
-            if (!Objects.equals(pk, registered)) {
-                LOGGER.info("Registered source key differs from candidate: candidate={}, registered={}", pk, registered);
-            }
+        // Read SOURCE_TYPE field to determine the appropriate SourceBridgeProperty.sourceType
+        String sourceType = null;
+        if(sourceFieldNames.containsKey(SOURCE_TYPE_DATABASE_FIELD)) {
+            sourceType = rs.getString(JDBCUtilities.getFieldIndex(rs.getMetaData(), SOURCE_TYPE_DATABASE_FIELD));
         }
 
-        return returnedPks;
+        if(sourceType.equals("ROAD")){
+            SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, bridgePk, -1L);
+            returnedPks.add(addSource(pk, geom, orientation, sourceBridgeProperty));
+            return returnedPks;
+        } else if(sourceType.equals("BRIDGE")){
+            SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1L, bridgePk);
+            returnedPks.add(addSource(pk, geom, orientation, sourceBridgeProperty));
+            return returnedPks;
+        } else {
+            throw new IllegalArgumentException(
+                "Unknown SOURCE_TYPE value for bridge source. " +
+                "Expected 'ROAD' or 'BRIDGE', got '" + sourceType + "'. " +
+                "sourcePk=" + pk + ", bridgePk=" + bridgePk + ".");
+        }
+
     }
 
 

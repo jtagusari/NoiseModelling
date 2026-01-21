@@ -92,7 +92,7 @@ def run(input) {
 
         // create empty LW_ROADS
         sql.execute("drop table if exists LW_ROADS;")
-        sql.execute("create table LW_ROADS (IDSOURCE integer, the_geom Geometry, " +
+        sql.execute("create table LW_ROADS (IDSOURCE integer, the_geom Geometry, SOURCE_TYPE varchar(20) DEFAULT 'ROAD', " +
                 "Ld63 double precision, Ld125 double precision, Ld250 double precision, Ld500 double precision, Ld1000 double precision, Ld2000 double precision, Ld4000 double precision, Ld8000 double precision," +
                 "Le63 double precision, Le125 double precision, Le250 double precision, Le500 double precision, Le1000 double precision, Le2000 double precision, Le4000 double precision, Le8000 double precision," +
                 "Ln63 double precision, Ln125 double precision, Ln250 double precision, Ln500 double precision, Ln1000 double precision, Ln2000 double precision, Ln4000 double precision, Ln8000 double precision);")

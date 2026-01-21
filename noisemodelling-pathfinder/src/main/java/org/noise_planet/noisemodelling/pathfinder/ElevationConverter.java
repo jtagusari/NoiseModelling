@@ -64,6 +64,97 @@ public class ElevationConverter {
         }
     }
 
+    /**
+     * Calculate absolute elevation for a source coordinate based on source type.
+     * This static method provides elevation conversion logic that can be used by
+     * other components (e.g., SourceCollector) during source point sampling.
+     * 
+     * @param coord Source coordinate (relative Z from LW_ROADS)
+     * @param sourceBridgeProperty Source bridge relationship
+     * @param scene Scene containing DEM and bridge data
+     * @return Absolute elevation (sea level reference)
+     */
+    public static double calculateAbsoluteElevation(Coordinate coord, SourceBridgeProperty sourceBridgeProperty, Scene scene) {
+        ProfileBuilder profileBuilder = scene.getProfileBuilder();
+        if (profileBuilder == null) {
+            throw new IllegalStateException("ProfileBuilder is required for elevation calculation");
+        }
+        
+        // If sourceBridgeProperty is null, treat as SOURCE_NOT_RELATED_TO_BRIDGE (default behavior)
+        if (sourceBridgeProperty == null) {
+            return profileBuilder.getZGround(coord) + coord.z;
+        }
+        
+        SourceBridgeProperty.SourceType sourceType = sourceBridgeProperty.getSourceType();
+        
+        switch (sourceType) {
+            case SOURCE_NOT_RELATED_TO_BRIDGE:
+                // Ground elevation + original relative Z
+                return profileBuilder.getZGround(coord) + coord.z;
+                
+            case ACTUAL_SOURCE_ON_BRIDGE:
+                long bridgePkOn = sourceBridgeProperty.getBridgePkOn();
+                Bridge bridgeOn = profileBuilder.getBridgeByPk(bridgePkOn);
+                if (bridgeOn == null) {
+                    throw new IllegalStateException("Bridge not found: " + bridgePkOn);
+                }
+                double deckHeightOn = bridgeOn.getDeckHeightAtPoint(coord);
+                if (Double.isNaN(deckHeightOn)) {
+                    throw new IllegalStateException("Cannot get deck height at coordinate: " + coord);
+                }
+                // Bridge deck height + original relative Z
+                return deckHeightOn + coord.z;
+                
+            case IMAGINARY_SOURCE_UNDER_BRIDGE:
+                long bridgePkUnder = sourceBridgeProperty.getBridgePkAbove();
+                Bridge bridgeUnder = profileBuilder.getBridgeByPk(bridgePkUnder);
+                if (bridgeUnder == null) {
+                    throw new IllegalStateException("Bridge not found: " + bridgePkUnder);
+                }
+                double deckHeightUnder = bridgeUnder.getDeckHeightAtPoint(coord);
+                double deckThicknessUnder = bridgeUnder.getDeckThicknessAtPoint(coord);
+                if (Double.isNaN(deckHeightUnder) || Double.isNaN(deckThicknessUnder)) {
+                    throw new IllegalStateException("Cannot get bridge properties at coordinate: " + coord);
+                }
+                // Bridge bottom + original relative Z
+                return (deckHeightUnder - deckThicknessUnder) + coord.z;
+                
+            case MIRROR_SOURCE:
+                // MIRROR_SOURCE elevation calculated using reflection formula
+                long bridgePkAbove = sourceBridgeProperty.getBridgePkAbove();
+                Bridge bridgeAbove = profileBuilder.getBridgeByPk(bridgePkAbove);
+                if (bridgeAbove == null) {
+                    throw new IllegalStateException("Bridge above not found: " + bridgePkAbove);
+                }
+                double deckHeightAbove = bridgeAbove.getDeckHeightAtPoint(coord);
+                double deckThicknessAbove = bridgeAbove.getDeckThicknessAtPoint(coord);
+                if (Double.isNaN(deckHeightAbove) || Double.isNaN(deckThicknessAbove)) {
+                    throw new IllegalStateException("Cannot get bridge above properties at coordinate: " + coord);
+                }
+                
+                // Get original source elevation (before reflection)
+                long bridgePkOnForMirror = sourceBridgeProperty.getBridgePkOn();
+                double originalSourceZ;
+                if (bridgePkOnForMirror >= 0) {
+                    // Original source was on a bridge
+                    Bridge bridgeOnForMirror = profileBuilder.getBridgeByPk(bridgePkOnForMirror);
+                    if (bridgeOnForMirror == null) {
+                        throw new IllegalStateException("Bridge on not found: " + bridgePkOnForMirror);
+                    }
+                    originalSourceZ = bridgeOnForMirror.getDeckHeightAtPoint(coord) + coord.z;
+                } else {
+                    // Original source was on ground
+                    originalSourceZ = profileBuilder.getZGround(coord) + coord.z;
+                }
+                
+                // Mirror formula: originalZ + 2 * (bridgeBottom - originalZ)
+                double bridgeBottom = deckHeightAbove - deckThicknessAbove;
+                return originalSourceZ + 2.0 * (bridgeBottom - originalSourceZ);
+                
+            default:
+                throw new IllegalArgumentException("Unknown source type: " + sourceType);
+        }
+    }
 
     /**
      * Convert a list of geometries from relative to absolute coordinates.
@@ -85,277 +176,6 @@ public class ElevationConverter {
     public void changeGeometries(List<Geometry> geometries) {
         List<Geometry> convertedGeometries = convertAllGeometries(geometries);
         replaceGeometryList(geometries, convertedGeometries);
-    }
-
-    /**
-     * Changes source geometry elevation based on the source type and bridge relationship.
-     * This method applies different elevation calculation strategies:
-     *
-     * SOURCE_NOT_RELATED_TO_BRIDGE: Uses DEM ground elevation + 0.05m offset
-     * ACTUAL_SOURCE_ON_BRIDGE: Uses bridge deck height (from bridgePkOn) + 0.05m offset
-     * IMAGINARY_SOURCE_UNDER_BRIDGE: Uses bridge deck height - deck thickness
-     * MIRROR_SOURCE: Uses bridge above calculations (bridgePkAbove)
-     *
-     * @param sourcePk Primary key of the source to process
-     */
-    public void changeSourceGeometries(long sourcePk) {
-        SourceBridgeProperty sourceBridgeProperty = scene.getSourceBridgePropertyByPk(sourcePk);
-        if (sourceBridgeProperty == null) {
-            throw new IllegalArgumentException("No bridge property found for source PK: " + sourcePk + 
-                ". Source must have associated bridge properties for elevation conversion.");
-        }
-
-        // Find the source index by primary key
-        List<Long> sourcePks = scene.getSourcePks();
-        int sourceIndex = sourcePks.indexOf(sourcePk);
-        if (sourceIndex == -1) {
-            throw new IllegalArgumentException("Source with PK " + sourcePk + " not found in scene. " +
-                "Available source PKs: " + sourcePks);
-        }
-
-        SourceBridgeProperty.SourceType sourceType = sourceBridgeProperty.getSourceType();
-        Geometry sourceGeometry = scene.getSourceGeometryByIndex(sourceIndex);
-        if (sourceGeometry == null) {
-            throw new IllegalStateException("Source geometry is null for source PK: " + sourcePk + 
-                " at index: " + sourceIndex + ". Scene may be in an inconsistent state.");
-        }
-
-        // Convert the source geometry coordinates based on the source type
-        Geometry convertedGeometry = convertGeometryBySourceType(sourceGeometry, sourceBridgeProperty, sourceType);
-        
-        // Update the geometry in the scene by replacing it in the list
-        List<Geometry> sourceGeometries = scene.getSourceGeometries();
-        sourceGeometries.set(sourceIndex, convertedGeometry);
-    }
-
-    /**
-     * Converts geometry coordinates based on the source type and bridge properties.
-     *
-     * @param geometry The geometry to convert
-     * @param sourceBridgeProperty Bridge properties for this source
-     * @param sourceType Type of source relative to bridge
-     * @return Converted geometry with updated elevation
-     */
-    private Geometry convertGeometryBySourceType(Geometry geometry, SourceBridgeProperty sourceBridgeProperty, 
-                                                SourceBridgeProperty.SourceType sourceType) {
-        switch (sourceType) {
-            case SOURCE_NOT_RELATED_TO_BRIDGE:
-                return convertToGroundLevel(geometry);
-                
-            case ACTUAL_SOURCE_ON_BRIDGE:
-                return convertToActualSourceOnBridge(geometry, sourceBridgeProperty);
-                
-            case IMAGINARY_SOURCE_UNDER_BRIDGE:
-                return convertToImaginarySourceUnderBridge(geometry, sourceBridgeProperty);
-                
-            case MIRROR_SOURCE:
-                return convertToMirrorSource(geometry, sourceBridgeProperty);
-                
-            default:
-                // Unknown source type, fall back to ground level
-                return convertToGroundLevel(geometry);
-        }
-    }
-
-    /**
-     * Converts geometry to ground level with 0.05m offset.
-     */
-    private Geometry convertToGroundLevel(Geometry geometry) {
-        return applyElevationToGeometry(geometry, this::calculateGroundElevation);
-    }
-
-    /**
-     * Converts geometry for actual source on bridge (deck height + 0.05m).
-     */
-    private Geometry convertToActualSourceOnBridge(Geometry geometry, SourceBridgeProperty sourceBridgeProperty) {
-        return applyElevationToGeometry(geometry, 
-            coord -> calculateBridgeOnElevation(coord, sourceBridgeProperty.getBridgePkOn()));
-    }
-
-    /**
-     * Converts geometry for imaginary source under bridge (deck height - deck thickness).
-     */
-    private Geometry convertToImaginarySourceUnderBridge(Geometry geometry, SourceBridgeProperty sourceBridgeProperty) {
-        return applyElevationToGeometry(geometry, 
-            coord -> calculateBridgeUnderElevation(coord, sourceBridgeProperty.getBridgePkOn()));
-    }
-
-    /**
-     * Converts geometry for mirror source (using bridgePkAbove).
-     */
-    private Geometry convertToMirrorSource(Geometry geometry, SourceBridgeProperty sourceBridgeProperty) {
-        long bridgePkAbove = sourceBridgeProperty.getBridgePkAbove();
-        if (bridgePkAbove < 0) {
-            throw new IllegalArgumentException("Invalid bridgePkAbove value: " + bridgePkAbove + 
-                ". Mirror source requires a valid bridge above (bridgePkAbove >= 0).");
-        }
-        return applyElevationToGeometry(geometry, 
-            coord -> calculateMirrorSourceElevation(coord, sourceBridgeProperty));
-    }
-
-    /**
-     * Calculates ground elevation + 0.05m offset.
-     */
-    private double calculateGroundElevation(Coordinate coord) {
-        return scene.profileBuilder.getZGround(coord) + OFFSET;
-    }
-
-    /**
-     * Calculates bridge deck elevation + 0.05m offset.
-     */
-    private double calculateBridgeOnElevation(Coordinate coord, long bridgePk) {
-        Bridge bridge = scene.profileBuilder.getBridgeByPk(bridgePk);
-        if (bridge == null) {
-            throw new IllegalStateException("Bridge not found for PK: " + bridgePk + 
-                ". Bridge on elevation calculation requires valid bridge.");
-        }
-        
-        double deckHeight = bridge.getDeckHeightAtPoint(coord);
-        if (Double.isNaN(deckHeight)) {
-            throw new IllegalStateException("Cannot get bridge deck height at coordinate: " + coord + 
-                ". Bridge PK: " + bridgePk + ", deckHeight: " + deckHeight);
-        }
-        
-        return deckHeight + OFFSET;
-    }
-
-    /**
-     * Calculates bridge bottom elevation (deck height - deck thickness).
-     */
-    private double calculateBridgeUnderElevation(Coordinate coord, long bridgePk) {
-        Bridge bridge = scene.profileBuilder.getBridgeByPk(bridgePk);
-        if (bridge == null) {
-            throw new IllegalStateException("Bridge not found for PK: " + bridgePk + 
-                ". Bridge under elevation calculation requires valid bridge.");
-        }
-        
-        double deckHeight = bridge.getDeckHeightAtPoint(coord);
-        double deckThickness = bridge.getDeckThicknessAtPoint(coord);
-        
-        if (Double.isNaN(deckHeight) || Double.isNaN(deckThickness)) {
-            throw new IllegalStateException("Cannot get bridge properties at coordinate: " + coord + 
-                ". Bridge PK: " + bridgePk + 
-                ", deckHeight: " + deckHeight + 
-                ", deckThickness: " + deckThickness);
-        }
-        
-        return deckHeight - deckThickness;
-    }
-
-    /**
-     * Calculates mirror source elevation using complex reflection formula.
-     * Formula: deckHeightOn + (deckHeightAbove - deckThicknessAbove - deckHeightOn) * 2
-     * 
-     * @param coord coordinate point for elevation calculation
-     * @param sourceBridgeProperty bridge properties containing bridgePkAbove and bridgePkOn
-     * @return calculated mirror source elevation
-     */
-    private double calculateMirrorSourceElevation(Coordinate coord, SourceBridgeProperty sourceBridgeProperty) {
-        long bridgePkAbove = sourceBridgeProperty.getBridgePkAbove();
-        long bridgePkOn = sourceBridgeProperty.getBridgePkOn();
-        
-        // Get bridge above properties
-        Bridge bridgeAbove = scene.profileBuilder.getBridgeByPk(bridgePkAbove);
-        if (bridgeAbove == null) {
-            throw new IllegalStateException("Bridge above not found for PK: " + bridgePkAbove + 
-                ". Mirror source calculation requires valid bridge above.");
-        }
-        
-        double deckHeightAbove = bridgeAbove.getDeckHeightAtPoint(coord);
-        double deckThicknessAbove = bridgeAbove.getDeckThicknessAtPoint(coord);
-        
-        if (Double.isNaN(deckHeightAbove) || Double.isNaN(deckThicknessAbove)) {
-            throw new IllegalStateException("Cannot get bridge above properties at coordinate: " + coord + 
-                ". Bridge PK: " + bridgePkAbove + 
-                ", deckHeightAbove: " + deckHeightAbove + 
-                ", deckThicknessAbove: " + deckThicknessAbove);
-        }
-        
-        // Get deck height on bridge (or DEM if bridgePkOn < 0)
-        double deckHeightOn;
-        if (bridgePkOn < 0) {
-            // Use DEM ground elevation when bridgePkOn < 0
-            deckHeightOn = scene.profileBuilder.getZGround(coord);
-        } else {
-            Bridge bridgeOn = scene.profileBuilder.getBridgeByPk(bridgePkOn);
-            if (bridgeOn == null) {
-                throw new IllegalStateException("Bridge on not found for PK: " + bridgePkOn + 
-                    ". Mirror source calculation requires valid bridge on when bridgePkOn >= 0.");
-            }
-            
-            deckHeightOn = bridgeOn.getDeckHeightAtPoint(coord);
-            if (Double.isNaN(deckHeightOn)) {
-                throw new IllegalStateException("Cannot get bridge on deck height at coordinate: " + coord + 
-                    ". Bridge PK: " + bridgePkOn + ", deckHeightOn: " + deckHeightOn);
-            }
-        }
-        
-        // Apply the mirror source formula:
-        // deckHeightOn + (deckHeightAbove - deckThicknessAbove - deckHeightOn) * 2
-        return deckHeightOn + (deckHeightAbove - deckThicknessAbove - deckHeightOn) * 2.0;
-    }
-
-    /**
-     * Applies elevation calculation to geometry using the provided elevation function.
-     */
-    private Geometry applyElevationToGeometry(Geometry geometry, ElevationFunction elevationFunction) {
-        if (geometry instanceof LineString) {
-            return applyElevationToLineString((LineString) geometry, elevationFunction);
-        } else if (geometry instanceof MultiLineString) {
-            return applyElevationToMultiLineString((MultiLineString) geometry, elevationFunction);
-        }
-        
-        // For other geometry types, apply elevation to all coordinates
-        return applyElevationToGenericGeometry(geometry, elevationFunction);
-    }
-
-    /**
-     * Applies elevation to LineString coordinates.
-     */
-    private LineString applyElevationToLineString(LineString lineString, ElevationFunction elevationFunction) {
-        Coordinate[] coords = lineString.getCoordinates();
-        Coordinate[] newCoords = new Coordinate[coords.length];
-        
-        for (int i = 0; i < coords.length; i++) {
-            newCoords[i] = new Coordinate(coords[i].x, coords[i].y, elevationFunction.calculateElevation(coords[i]));
-        }
-        
-        return GEOMETRY_FACTORY.createLineString(newCoords);
-    }
-
-    /**
-     * Applies elevation to MultiLineString coordinates.
-     */
-    private MultiLineString applyElevationToMultiLineString(MultiLineString multiLineString, ElevationFunction elevationFunction) {
-        LineString[] lineStrings = new LineString[multiLineString.getNumGeometries()];
-        
-        for (int i = 0; i < multiLineString.getNumGeometries(); i++) {
-            lineStrings[i] = applyElevationToLineString((LineString) multiLineString.getGeometryN(i), elevationFunction);
-        }
-        
-        return GEOMETRY_FACTORY.createMultiLineString(lineStrings);
-    }
-
-    /**
-     * Applies elevation to generic geometry coordinates.
-     */
-    private Geometry applyElevationToGenericGeometry(Geometry geometry, ElevationFunction elevationFunction) {
-        Geometry newGeometry = geometry.copy();
-        Coordinate[] coords = newGeometry.getCoordinates();
-        
-        for (Coordinate coord : coords) {
-            coord.setZ(elevationFunction.calculateElevation(coord));
-        }
-        
-        return newGeometry;
-    }
-
-    /**
-     * Functional interface for elevation calculation strategies.
-     */
-    @FunctionalInterface
-    private interface ElevationFunction {
-        double calculateElevation(Coordinate coord);
     }
 
     /**

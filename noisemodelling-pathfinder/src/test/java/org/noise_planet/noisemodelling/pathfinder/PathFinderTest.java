@@ -1521,7 +1521,7 @@ public class PathFinderTest {
 
         //Propagation data building
         Scene rayData = new ProfileBuilderDecorator(builder)
-                .addSource(105, 35, -0.45)
+                .addSource(105, 35, 0.05)  // 0.05m above ground (ground elevation is -0.5m, so absolute elevation is -0.45m)
                 .addReceiver(200, 50, 4)
                 .hEdgeDiff(true)
                 .vEdgeDiff(true)

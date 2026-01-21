@@ -26,7 +26,10 @@ import org.h2gis.utilities.SpatialResultSet
 import org.h2gis.utilities.TableLocation
 import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.locationtech.jts.geom.Geometry
+import org.noise_planet.noisemodelling.jdbc.BridgeStructuralEmissionCalculator
 import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -65,16 +68,33 @@ inputs = [
                         "<li><b> JUNC_TYPE </b> : Type of junction (k=0 none, k = 1 for a crossing with traffic lights ; k = 2 for a roundabout) (INTEGER)</li>" +
                         "<li><b> SLOPE </b> : Slope (in %) of the road section. If the field is not filled in, the LINESTRING z-values will be used to calculate the slope and the traffic direction (way field) will be force to 3 (bidirectional). (DOUBLE)</li>" +
                         "<li><b> WAY </b> : Define the way of the road section. 1 = one way road section and the traffic goes in the same way that the slope definition you have used, 2 = one way road section and the traffic goes in the inverse way that the slope definition you have used, 3 = bi-directional traffic flow, the flow is split into two components and correct half for uphill and half for downhill (INTEGER)</li>" +
+                        "<li><b> BRIDGE_PK </b> : Primary key of the bridge on which the road is located (optional, for bridge structural noise calculation) (INTEGER)</li>" +
                         "</ul></br><b> This table can be generated from the WPS Block 'Import_OSM'. </b>.",
+                type       : String.class
+        ],
+        tableBridgePoints: [
+                name       : 'Bridge points table name (optional)',
+                title      : 'Bridge points table name',
+                description: "<b>Name of the Bridge Points table (optional).</b> Required for bridge structural noise calculation (SOURCE_TYPE='BRIDGE'). </br>" +
+                        "<br>This table should contain bridge geometry and structure information: </br><ul>" +
+                        "<li><b> PK </b>* : Point identifier (INTEGER, PRIMARY KEY)</li>" +
+                        "<li><b> BRIDGE_PK </b>* : Bridge identifier linking to ROADS.BRIDGE_PK (INTEGER)</li>" +
+                        "<li><b> THE_GEOM </b>* : Point geometry (POINT with Z coordinate)</li>" +
+                        "<li><b> GIRDER_TYPE </b> : Bridge girder type (STEEL_BOX, STEEL_PLATE, CONCRETE_BOX, CONCRETE_PLATE, CONCRETE_HOLLOW_SLAB) (VARCHAR)</li>" +
+                        "<li><b> SLAB_TYPE </b> : Bridge slab type (STEEL, CONCRETE) (VARCHAR)</li>" +
+                        "<li><b> ABSOLUTE_DECK_HEIGHT </b> : Absolute elevation of bridge deck (DOUBLE)</li>" +
+                        "<li><b> DECK_THICKNESS </b> : Deck thickness in meters (DOUBLE)</li>" +
+                        "</ul>",
                 type       : String.class,
-                coefficientVersion            : [
-                        name       : 'Coefficient version',
-                        title      : 'Coefficient version',
-                        description: '&#127783; Cnossos coefficient version  (1 = 2015, 2 = 2020) </br> </br>' +
-                                '&#128736; Default value: <b>2</b>',
-                        min        : 0, max: 1,
-                        type       : Double.class
-                ],
+                min        : 0, max: 1
+        ],
+        coefficientVersion: [
+                name       : 'Coefficient version',
+                title      : 'Coefficient version',
+                description: '&#127783; Cnossos coefficient version  (1 = 2015, 2 = 2020) </br> </br>' +
+                        '&#128736; Default value: <b>2</b>',
+                min        : 0, max: 1,
+                type       : Double.class
         ]
 ]
 
@@ -140,6 +160,7 @@ def exec(Connection connection, input) {
     String sources_table_name = input['tableRoads']
     // do it case-insensitive
     sources_table_name = sources_table_name.toUpperCase()
+    
     // Check if srid are in metric projection.
     int sridSources = GeometryTableUtilities.getSRID(connection, TableLocation.parse(sources_table_name))
     if (sridSources == 3785 || sridSources == 4326) throw new IllegalArgumentException("Error : Please use a metric projection for "+sources_table_name+".")
@@ -158,26 +179,263 @@ def exec(Connection connection, input) {
         throw new IllegalArgumentException(String.format("Source table %s does not contain a primary key", sourceTableIdentifier))
     }
 
+    // Optional: Bridge points table for structural noise calculation
+    // Default to BRIDGE_POINTS if not specified
+    String bridge_points_table_name = ""
+    if (input['tableBridgePoints']) {
+        bridge_points_table_name = input['tableBridgePoints']
+    } else {
+        // Try to use default BRIDGE_POINTS table if it exists
+        bridge_points_table_name = "BRIDGE_POINTS"
+    }
+    
+    // do it case-insensitive
+    bridge_points_table_name = bridge_points_table_name.toUpperCase()
+    
+    // Check if the table exists
+    boolean bridgePointsTableExists = JDBCUtilities.tableExists(connection, bridge_points_table_name)
+    
+    if (!bridgePointsTableExists) {
+        if (input['tableBridgePoints']) {
+            // User explicitly specified a table that doesn't exist
+            throw new IllegalArgumentException("Error : The table "+bridge_points_table_name+" does not exist.")
+        } else {
+            // Default table doesn't exist, check if any road record has BRIDGE_PK
+            logger.info("Default BRIDGE_POINTS table not found")
+            
+            // Create a sql connection to check for BRIDGE_PK usage
+            Sql sql = new Sql(connection)
+            
+            // Check if BRIDGE_PK column exists and is used
+            boolean hasBridgePkColumn = JDBCUtilities.hasField(connection, sources_table_name, "BRIDGE_PK")
+            
+            if (hasBridgePkColumn) {
+                def bridgePkCount = sql.firstRow("SELECT COUNT(*) as cnt FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL")
+                int numRecordsWithBridgePk = bridgePkCount.cnt as Integer
+                
+                if (numRecordsWithBridgePk > 0) {
+                    throw new IllegalArgumentException(
+                        "Error: BRIDGE_POINTS table does not exist, but " + numRecordsWithBridgePk + 
+                        " record(s) in " + sources_table_name + " have BRIDGE_PK values set. " +
+                        "Bridge structural noise calculation requires a valid BRIDGE_POINTS table. " +
+                        "Please provide a BRIDGE_POINTS table or remove BRIDGE_PK values from the roads table.")
+                }
+            }
+            
+            logger.info("No BRIDGE_PK values found in roads table, skipping bridge structural noise calculation")
+            bridge_points_table_name = ""
+        }
+    } else {
+        // Table exists, perform SRID validation
+        logger.info("Using bridge points table: " + bridge_points_table_name)
+        // Check if srid are in metric projection and are all the same.
+        int sridBridgePoints = GeometryTableUtilities.getSRID(connection, TableLocation.parse(bridge_points_table_name))
+        if (sridBridgePoints == 3785 || sridBridgePoints == 4326) throw new IllegalArgumentException("Error : Please use a metric projection for "+bridge_points_table_name+".")
+        if (sridBridgePoints == 0) throw new IllegalArgumentException("Error : The table "+bridge_points_table_name+" does not have an associated SRID.")
+        if (sridBridgePoints != sridSources) throw new IllegalArgumentException("Error : The SRID of table "+sources_table_name+" and "+bridge_points_table_name+" are not the same.")
+    }
+
+    // -------------------
+    // Load Bridge Information (if provided)
+    // -------------------
+    Map<Long, Bridge> bridgeMap = new HashMap<>()
+    
+    if (!bridge_points_table_name.isEmpty()) {
+        logger.info('Loading bridge information from ' + bridge_points_table_name)
+        
+        // Create a sql connection
+        Sql sql = new Sql(connection)
+        
+        // Load bridge points from database
+        List<BridgePoint> bridgePoints = new ArrayList<>()
+        
+        sql.eachRow("SELECT * FROM " + bridge_points_table_name) { row ->
+            BridgePoint bridgePoint = new BridgePoint()
+            
+            // Set primary keys
+            bridgePoint.setPrimaryKey(row.PK as Long)
+            bridgePoint.setBridgePrimaryKey(row.BRIDGE_PK as Long)
+            
+            // Set geometry
+            Geometry geom = row.THE_GEOM as Geometry
+            if (geom != null && !geom.isEmpty()) {
+                bridgePoint.setCoordinate(geom.getCoordinate())
+            }
+            
+            // Set bridge structure type
+            if (row.hasProperty('GIRDER_TYPE') && row.GIRDER_TYPE != null) {
+                try {
+                    bridgePoint.setGirderType(Bridge.GirderType.valueOf(row.GIRDER_TYPE as String))
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown girder type: " + row.GIRDER_TYPE + ", using default")
+                }
+            }
+            
+            if (row.hasProperty('SLAB_TYPE') && row.SLAB_TYPE != null) {
+                try {
+                    bridgePoint.setSlabType(Bridge.SlabType.valueOf(row.SLAB_TYPE as String))
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown slab type: " + row.SLAB_TYPE + ", using default")
+                }
+            }
+            
+            // Set height information
+            if (row.hasProperty('ABSOLUTE_DECK_HEIGHT') && row.ABSOLUTE_DECK_HEIGHT != null) {
+                bridgePoint.setAbsoluteDeckHeight(row.ABSOLUTE_DECK_HEIGHT as Double)
+            }
+            
+            if (row.hasProperty('DECK_THICKNESS') && row.DECK_THICKNESS != null) {
+                bridgePoint.setDeckThickness(row.DECK_THICKNESS as Double)
+            }
+            
+            bridgePoints.add(bridgePoint)
+        }
+        
+        logger.info('Loaded ' + bridgePoints.size() + ' bridge points')
+        
+        // Create bridges from bridge points
+        if (!bridgePoints.isEmpty()) {
+            List<Bridge> bridges = Bridge.createBridgesFromPoints(bridgePoints)
+            logger.info('Created ' + bridges.size() + ' bridge structures')
+            
+            // Create map for easy lookup by bridge PK
+            for (Bridge bridge : bridges) {
+                bridgeMap.put(bridge.getPrimaryKey(), bridge)
+            }
+        }
+    }
+
+    // -------------------
+    // Step 2: Bridge Record Duplication and Classification
+    // Duplicate bridge road records to enable dual emission calculation:
+    // SOURCE_TYPE='ROAD' for traffic noise, SOURCE_TYPE='BRIDGE' for structural noise
+    // -------------------
+    logger.info('Step 2: Checking for bridge records and duplicating if necessary...')
+    
+    // Create a sql connection to interact with the database in SQL
+    Sql sql = new Sql(connection)
+    
+    // Check if BRIDGE_PK column exists in the source table
+    boolean hasBridgePkColumn = false
+    try {
+        sql.firstRow("SELECT BRIDGE_PK FROM " + sources_table_name + " LIMIT 1")
+        hasBridgePkColumn = true
+        logger.info('BRIDGE_PK column found in ' + sources_table_name)
+    } catch (SQLException e) {
+        logger.info('BRIDGE_PK column not found in ' + sources_table_name + ', skipping bridge duplication')
+    }
+    
+    if (hasBridgePkColumn) {
+        // Check if SOURCE_TYPE column already exists - if so, throw exception
+        boolean hasSourceTypeColumn = false
+        try {
+            sql.firstRow("SELECT SOURCE_TYPE FROM " + sources_table_name + " LIMIT 1")
+            hasSourceTypeColumn = true
+        } catch (SQLException e) {
+            // Column doesn't exist, which is expected
+            hasSourceTypeColumn = false
+        }
+        
+        if (hasSourceTypeColumn) {
+            throw new IllegalArgumentException("Error: SOURCE_TYPE column already exists in " + sources_table_name + 
+                ". This script expects to create this column. Please remove the SOURCE_TYPE column or use a different source table.")
+        }
+        
+        // Add SOURCE_TYPE column (now we know it doesn't exist)
+        sql.execute("ALTER TABLE " + sources_table_name + " ADD COLUMN SOURCE_TYPE VARCHAR(20)")
+        logger.info('Added SOURCE_TYPE column to ' + sources_table_name)
+        
+        // Set all existing records to 'ROAD'
+        sql.execute("UPDATE " + sources_table_name + " SET SOURCE_TYPE = 'ROAD'")
+        logger.info('Set SOURCE_TYPE to ROAD for existing records')
+        
+        // Count bridge records
+        def bridgeCount = sql.firstRow("SELECT COUNT(*) as cnt FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL AND SOURCE_TYPE = 'ROAD'")
+        int numBridgeRecords = bridgeCount.cnt as Integer
+        
+        if (numBridgeRecords > 0) {
+            logger.info('Found ' + numBridgeRecords + ' bridge records to duplicate')
+            
+            // Validate that each bridge road is contained within the bridge footprint
+            if (!bridgeMap.isEmpty()) {
+                logger.info('Validating bridge road geometries...')
+                sql.eachRow("SELECT PK, BRIDGE_PK, THE_GEOM FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL AND SOURCE_TYPE = 'ROAD'") { row ->
+                    Long roadPk = row.PK as Long
+                    Long bridgePkValue = row.BRIDGE_PK as Long
+                    Geometry roadGeometry = row.THE_GEOM as Geometry
+                    
+                    // Check if bridge exists in bridgeMap
+                    Bridge bridge = bridgeMap.get(bridgePkValue)
+                    if (bridge == null) {
+                        throw new IllegalArgumentException(
+                            "Bridge with PK=" + bridgePkValue + " not found in bridge points table " + bridge_points_table_name + ". " +
+                            "Road record PK=" + roadPk + " references a non-existent bridge.")
+                    }
+                    
+                    // Get bridge footprint geometry
+                    Geometry bridgeFootprint = bridge.getFootprintGeometry()
+                    if (bridgeFootprint == null) {
+                        throw new IllegalArgumentException(
+                            "Bridge with PK=" + bridgePkValue + " has no footprint geometry. " +
+                            "Cannot validate road geometry containment for road PK=" + roadPk)
+                    }
+                    
+                    // Check if road geometry is contained within bridge footprint
+                    if (!bridgeFootprint.contains(roadGeometry)) {
+                        throw new IllegalArgumentException(
+                            "Road geometry is not fully contained within bridge footprint. " +
+                            "bridgePk=" + bridgePkValue + ", roadPk=" + roadPk + ". " +
+                            "Roads with BRIDGE_PK must be completely within the bridge geometry.")
+                    }
+                }
+                logger.info('All bridge road geometries validated successfully')
+            } else {
+                logger.warn('Bridge points table not loaded, skipping bridge geometry validation. ' +
+                    'Bridge records will be duplicated but structural noise calculation may fail.')
+            }
+            
+            // Get the maximum PK value for generating new PKs
+            def maxPkRow = sql.firstRow("SELECT MAX(PK) as maxpk FROM " + sources_table_name)
+            int maxPk = (maxPkRow.maxpk ?: 0) as Integer
+            
+            // Get all column names except PK
+            def columnNames = JDBCUtilities.getColumnNames(connection.getMetaData(), sources_table_name)
+            def columnsExceptPk = columnNames.findAll { it.toUpperCase() != 'PK' }
+            def columnList = columnsExceptPk.join(', ')
+            
+            // Duplicate bridge records with SOURCE_TYPE='BRIDGE'
+            String duplicateQuery = "INSERT INTO " + sources_table_name + " (PK, " + columnList + ") " +
+                    "SELECT (ROW_NUMBER() OVER () + " + maxPk + ") as new_pk, " + columnList + " " +
+                    "FROM " + sources_table_name + " " +
+                    "WHERE BRIDGE_PK IS NOT NULL AND SOURCE_TYPE = 'ROAD'"
+            
+            sql.execute(duplicateQuery)
+            
+            // Update the duplicated records to have SOURCE_TYPE='BRIDGE'
+            sql.execute("UPDATE " + sources_table_name + " SET SOURCE_TYPE = 'BRIDGE' WHERE PK > " + maxPk)
+            
+            logger.info('Duplicated ' + numBridgeRecords + ' bridge records with SOURCE_TYPE=BRIDGE')
+        } else {
+            logger.info('No bridge records found to duplicate')
+        }
+    }
 
     // -------------------
     // Init table LW_ROADS
     // -------------------
 
-    // Create a sql connection to interact with the database in SQL
-    Sql sql = new Sql(connection)
-
     // drop table LW_ROADS if exists and the create and prepare the table
     sql.execute("drop table if exists LW_ROADS;")
-    sql.execute("create table LW_ROADS (pk integer, the_geom Geometry, " +
+    sql.execute("create table LW_ROADS (pk integer, the_geom Geometry, SOURCE_TYPE varchar(20) DEFAULT 'ROAD', BRIDGE_PK integer, " +
             "HZD63 double precision, HZD125 double precision, HZD250 double precision, HZD500 double precision, HZD1000 double precision, HZD2000 double precision, HZD4000 double precision, HZD8000 double precision," +
             "HZE63 double precision, HZE125 double precision, HZE250 double precision, HZE500 double precision, HZE1000 double precision, HZE2000 double precision, HZE4000 double precision, HZE8000 double precision," +
             "HZN63 double precision, HZN125 double precision, HZN250 double precision, HZN500 double precision, HZN1000 double precision, HZN2000 double precision, HZN4000 double precision, HZN8000 double precision);")
 
-    def qry = 'INSERT INTO LW_ROADS(pk,the_geom, ' +
+    def qry = 'INSERT INTO LW_ROADS(pk,the_geom,SOURCE_TYPE,BRIDGE_PK, ' +
             'HZD63, HZD125, HZD250, HZD500, HZD1000,HZD2000, HZD4000, HZD8000,' +
             'HZE63, HZE125, HZE250, HZE500, HZE1000,HZE2000, HZE4000, HZE8000,' +
             'HZN63, HZN125, HZN250, HZN500, HZN1000,HZN2000, HZN4000, HZN8000) ' +
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
 
 
     // --------------------------------------
@@ -206,14 +464,42 @@ def exec(Connection connection, input) {
             k++
             //logger.info(rs)
             Geometry geo = rs.getGeometry()
+            
+            // Get SOURCE_TYPE and BRIDGE_PK from the record
+            String sourceType = 'ROAD'
+            Integer bridgePk = null
+            try {
+                sourceType = rs.getString('SOURCE_TYPE') ?: 'ROAD'
+                bridgePk = rs.getObject('BRIDGE_PK') as Integer
+            } catch (SQLException e) {
+                // Columns may not exist, use defaults
+            }
 
             // Compute emission sound level for each road segment
-            double[][] results = EmissionTableGenerator.computeLw(rs, coefficientVersion, sourceFieldsCache)
+            double[][] results
+            
+            // Route 1: CNOSSOS-EU road traffic noise (SOURCE_TYPE='ROAD')
+            // Route 2: ASJ 2023 bridge structural noise (SOURCE_TYPE='BRIDGE')
+            if (sourceType == 'BRIDGE' && bridgePk != null) {
+                // Route 2: Bridge structural noise calculation
+                Bridge bridge = bridgeMap.get(bridgePk as Long)
+                if (bridge == null) {
+                    throw new IllegalArgumentException("Bridge with PK=" + bridgePk + " not found in bridge map. " +
+                        "Road record PK=" + rs.getLong(pkIndex) + " references a non-existent bridge.")
+                }
+                
+                // Use BridgeStructuralEmissionCalculator for structural noise
+                results = BridgeStructuralEmissionCalculator.computeStructuralLw(rs, bridge, sourceFieldsCache)
+            } else {
+                // Route 1: Standard road traffic noise calculation
+                results = EmissionTableGenerator.computeLw(rs, coefficientVersion, sourceFieldsCache)
+            }
+            
             def lday = AcousticIndicatorsFunctions.wToDb(results[0])
             def levening = AcousticIndicatorsFunctions.wToDb(results[1])
             def lnight = AcousticIndicatorsFunctions.wToDb(results[2])
             // fill the LW_ROADS table
-            ps.addBatch(rs.getLong(pkIndex) as Integer, geo as Geometry,
+            ps.addBatch(rs.getLong(pkIndex) as Integer, geo as Geometry, sourceType as String, bridgePk,
                     lday[0] as Double, lday[1] as Double, lday[2] as Double,
                     lday[3] as Double, lday[4] as Double, lday[5] as Double,
                     lday[6] as Double, lday[7] as Double,
@@ -227,7 +513,10 @@ def exec(Connection connection, input) {
     }
 
     // Add Z dimension to the road segments
-    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,0.05);")
+    // ROAD sources: z=0.05m (standard road surface height)
+    // BRIDGE sources: z=-0.05m (below deck for structural vibration sources)
+    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,0.05) WHERE SOURCE_TYPE = 'ROAD';")
+    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,-0.05) WHERE SOURCE_TYPE = 'BRIDGE';")
 
     // Add primary key to the road table
     sql.execute("ALTER TABLE LW_ROADS ALTER COLUMN PK INT NOT NULL;")

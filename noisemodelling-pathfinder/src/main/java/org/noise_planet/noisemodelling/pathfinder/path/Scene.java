@@ -68,6 +68,8 @@ public class Scene {
     public static final String IS_VIRTUAL_SOURCE_DATABASE_FIELD = "ISVIRTUALSOURCE";
     /** Database field name for bridge primary key */
     public static final String BRIDGE_PK_DATABASE_FIELD = "BRIDGEPK";
+    /** Database field name for source type (ROAD or BRIDGE) */
+    public static final String SOURCE_TYPE_DATABASE_FIELD = "SOURCE_TYPE";
 
     /** Coordinate of receivers - observation points where noise levels are calculated */
     public List<Coordinate> receivers = new ArrayList<>();
@@ -204,8 +206,30 @@ public class Scene {
      * @param orientation Directional orientation (can be null for omnidirectional sources)
      * @param sourceBridgeProperty Bridge-related properties (height, virtual source flags, etc.)
      * @return Actual registered primary key
+     * @throws IllegalArgumentException if bridgePkOn >= 0 but source geometry does not intersect bridge footprint
      */
     public long addSource(Long pk, Geometry geom, Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
+        // Validate bridge-source geometry intersection if bridge is specified
+        if (sourceBridgeProperty != null && sourceBridgeProperty.getBridgePkOn() >= 0) {
+            long bridgePk = sourceBridgeProperty.getBridgePkOn();
+            
+            // Retrieve bridge by primary key
+            var bridge = profileBuilder.getBridgeByPk(bridgePk);
+            if (bridge == null) {
+                throw new IllegalArgumentException(
+                    "Bridge with PK=" + bridgePk + " not found in ProfileBuilder. ");
+            }
+            
+            // Check if source is contained within bridge footprint
+            Geometry bridgeFootprint = bridge.getFootprintGeometry();
+            if (bridgeFootprint == null || !bridgeFootprint.contains(geom)) {
+                throw new IllegalArgumentException(
+                    "Source geometry is not fully contained within bridge footprint. " +
+                    "bridgePk=" + bridgePk + ", sourcePk=" + pk + ". " +
+                    "Sources marked as ACTUAL_SOURCE_ON_BRIDGE must be completely within the bridge geometry.");
+            }
+        }
+        
         long returnedPk = addSource(pk, geom);
         if (orientation != null) {
             sourceOrientation.put(returnedPk, orientation);

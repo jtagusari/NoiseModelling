@@ -255,6 +255,7 @@ Sound sources are added using the `Scene.addSource(...)` family of methods to re
 1. Prepare a JTS `Geometry` for the source (use `Point` for point sources and `LineString` for linear sources). If Z is missing, NaN values are normalized to 0 by the code paths that build `SourcePointInfo`.
 2. Use your database primary key (PK) when available; otherwise choose a stable unique key (for example via `UniqueKeyGenerator`). `Scene` will also generate a non-conflicting key if a supplied PK collides.
 3. Call an appropriate `addSource(...)` overload. Provide `Orientation` for directional sources or `SourceBridgeProperty` for bridge/virtual-source handling when needed.
+4. **Bridge Footprint Validation**: If the source is located on a bridge (`SourceBridgeProperty.bridgePkOn >= 0`), `addSource(...)` validates that the source geometry is fully contained within the bridge footprint using `Bridge.getFootprintGeometry()` and JTS `contains()` method. If the source geometry is not completely within the bridge footprint, an `IllegalArgumentException` is thrown to ensure geometric consistency.
 
 ```plantuml
 @startuml

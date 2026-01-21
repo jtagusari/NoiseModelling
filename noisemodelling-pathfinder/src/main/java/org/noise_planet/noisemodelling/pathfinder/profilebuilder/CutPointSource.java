@@ -81,15 +81,17 @@ public class CutPointSource  extends CutPoint {
 
     /**
      * Generate default point source without information on DEM (source at 0.05 above ground level).
+     * Ground elevation (zGround) is initialized to NaN and must be set later via ProfileRetriever.
      * 
      * @param sourcePointInfo source information containing coordinates and metadata
      */
     public CutPointSource(SourcePointInfo sourcePointInfo) {
-        super(sourcePointInfo.getCoordinate(), sourcePointInfo.getCoordinate().z - 0.05, 0);
+        super(sourcePointInfo.getCoordinate());
         this.sourcePk = sourcePointInfo.getSourcePk();
         this.li = sourcePointInfo.getLineLength();
         this.orientation = sourcePointInfo.getOrientation();
         this.id = sourcePointInfo.getSourceIndex();
+        this.groundCoefficient = 0.0;
     }
 
     /**

@@ -96,8 +96,8 @@ public class CutPointSourceTest {
         assertEquals(789L, sourceFromInfo.getSourcePk());
         assertEquals(1.5, sourceFromInfo.getLineLength(), 1e-9);
         assertEquals(101, sourceFromInfo.getSourceId());
-        // zGround should be 0.05 below the coordinate z (8.0 - 0.05 = 7.95)
-        assertEquals(7.95, sourceFromInfo.getzGround(), 1e-9);
+        // zGround is not set in constructor - must be set later via ProfileRetriever
+        assertTrue(Double.isNaN(sourceFromInfo.getzGround()));
     }
 
     @Test
