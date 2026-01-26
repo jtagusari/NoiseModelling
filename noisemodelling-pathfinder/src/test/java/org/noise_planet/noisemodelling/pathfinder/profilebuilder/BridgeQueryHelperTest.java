@@ -280,7 +280,7 @@ public class BridgeQueryHelperTest {
     // Helper methods
 
     private BridgeTriangulation createMockTriangulation() {
-        return new BridgeTriangulation() {
+        return new BridgeTriangulation(GeometryFactoryProvider.SHARED) {
             @Override
             public double getDeckHeightAtPoint(Coordinate point) {
                 // Return a constant deck height for testing
@@ -296,7 +296,7 @@ public class BridgeQueryHelperTest {
     }
 
     private BridgeTriangulation createVariableHeightTriangulation() {
-        return new BridgeTriangulation() {
+        return new BridgeTriangulation(GeometryFactoryProvider.SHARED) {
             @Override
             public double getDeckHeightAtPoint(Coordinate point) {
                 // Return height based on X coordinate for slope testing
@@ -312,7 +312,7 @@ public class BridgeQueryHelperTest {
     }
 
     private BridgeTriangulation createNaNTriangulation() {
-        return new BridgeTriangulation() {
+        return new BridgeTriangulation(GeometryFactoryProvider.SHARED) {
             @Override
             public double getDeckHeightAtPoint(Coordinate point) {
                 return Double.NaN;

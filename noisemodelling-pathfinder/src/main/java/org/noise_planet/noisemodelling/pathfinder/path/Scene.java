@@ -62,12 +62,8 @@ public class Scene {
     public static final String DIRECTIVITY_DATABASE_FIELD = "DIR_ID";
     /** Database field name for ground surface type */
     public static final String GS_DATABASE_FIELD = "GS";
-    /** Database field name for bridge location flag */
-    public static final String IS_ON_BRIDGE_DATABASE_FIELD = "ISONBRIDGE";
-    /** Database field name for virtual source flag */
-    public static final String IS_VIRTUAL_SOURCE_DATABASE_FIELD = "ISVIRTUALSOURCE";
     /** Database field name for bridge primary key */
-    public static final String BRIDGE_PK_DATABASE_FIELD = "BRIDGEPK";
+    public static final String BRIDGE_PK_DATABASE_FIELD = "BRIDGE_PK";
     /** Database field name for source type (ROAD or BRIDGE) */
     public static final String SOURCE_TYPE_DATABASE_FIELD = "SOURCE_TYPE";
     /** Database field name for height type (RELATIVE or ABSOLUTE) */
@@ -195,6 +191,7 @@ public class Scene {
         long registeredPk = UniqueKeyGenerator.generateLongKey(pk == null ? 0L : pk.longValue(), sourcesPk);
         sourcesPk.add(registeredPk);
         sourceHeightType.put(registeredPk, heightType);
+        sourceBridgeProperties.put(registeredPk, new SourceBridgeProperty(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L));
         return registeredPk;
     }
 

@@ -116,14 +116,25 @@ public class BridgeGeometryBuilder {
             throw new IllegalArgumentException("Point manager required to create bridge geometry is null or has insufficient points");
         }
         
-        BridgePointManager pointManagerForEdge = new BridgePointManager(BridgePointManager.SortOrder.CLOCKWISE);
-        pointManagerForEdge.addBridgePoints(createBridgeEdgePoints(pointManager, profileBuilder, Position.RIGHT, false));
-        pointManagerForEdge.addBridgePoints(createBridgeEdgePoints(pointManager, profileBuilder, Position.LEFT, false));
+        // Create edge points for right and left sides
+        List<BridgePoint> rightEdgePoints = createBridgeEdgePoints(pointManager, profileBuilder, Position.RIGHT, false);
+        List<BridgePoint> leftEdgePoints = createBridgeEdgePoints(pointManager, profileBuilder, Position.LEFT, false);
 
+        // Build polygon coordinates in correct order to avoid self-intersection:
+        // Right side forward + Left side backward forms a closed ring
         List<Coordinate> coordinates = new ArrayList<>();
-        for (int i = 0; i < pointManagerForEdge.size(); i++) {
-            coordinates.add(pointManagerForEdge.getBridgePointByIndex(i).getCoordinate());
+        
+        // Add right edge points (forward direction)
+        for (BridgePoint point : rightEdgePoints) {
+            coordinates.add(point.getCoordinate());
         }
+        
+        // Add left edge points (reverse direction)
+        for (int i = leftEdgePoints.size() - 1; i >= 0; i--) {
+            coordinates.add(leftEdgePoints.get(i).getCoordinate());
+        }
+        
+        // Close the ring
         coordinates.add(new Coordinate(coordinates.get(0)));
         
         Coordinate[] coordArray = coordinates.toArray(new Coordinate[0]);

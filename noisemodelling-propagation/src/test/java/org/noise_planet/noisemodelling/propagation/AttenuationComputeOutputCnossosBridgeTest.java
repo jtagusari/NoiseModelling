@@ -96,17 +96,17 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         // Create a rectangular bridge: 20x10 units
         BridgePoint bp1 = 
             new BridgePoint(
-                new Coordinate(10, 0), 1, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0);
+                new Coordinate(10, 0), 1, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
         points.add(bp1);
         
         BridgePoint bp2 = 
             new BridgePoint(
-                new Coordinate(10, 10), 2, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0);
+                new Coordinate(10, 10), 2, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
         points.add(bp2);
         
         BridgePoint bp3 = 
             new BridgePoint(
-                new Coordinate(10, 20), 3, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0);
+                new Coordinate(10, 20), 3, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
         points.add(bp3);
 
         return new Bridge(points, defaultAlphas, 100L);

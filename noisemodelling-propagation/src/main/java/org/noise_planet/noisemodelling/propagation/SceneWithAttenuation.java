@@ -141,7 +141,7 @@ public class SceneWithAttenuation extends Scene {
      * @param geom Source geometry
      * @param rs Additional attributes fetched from database
      */
-    public List<Long> addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
+    public Long addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
         return doAddSourceDb(pk, geom, (java.sql.ResultSet) rs);
     }
 
@@ -152,7 +152,7 @@ public class SceneWithAttenuation extends Scene {
      * it easier to unit-test addSourceDb without requiring a full H2GIS
      * SpatialResultSet instance.
      */
-    public List<Long> addSourceDb(Long pk, Geometry geom, java.sql.ResultSet rs) throws SQLException {
+    public Long addSourceDb(Long pk, Geometry geom, java.sql.ResultSet rs) throws SQLException {
         return doAddSourceDb(pk, geom, rs);
     }
 
@@ -172,14 +172,15 @@ public class SceneWithAttenuation extends Scene {
     * actual registered key. This helps detect when the scene assigns or
     * rewrites identifiers during ingestion.
      */
-    private List<Long> doAddSourceDb(Long pk, Geometry geom, java.sql.ResultSet rs) throws SQLException {
+    private Long doAddSourceDb(Long pk, Geometry geom, java.sql.ResultSet rs) throws SQLException {
         if(sourceFieldNames.isEmpty()) {
             List<String> fieldNames = JDBCUtilities.getColumnNames(rs.getMetaData());
             for(int idField = 0; idField < fieldNames.size(); idField++) {
                 sourceFieldNames.put(fieldNames.get(idField).toUpperCase(Locale.ROOT), idField + 1);
             }
         }
-        List<Long> returnedPks = new ArrayList<>();
+        // List<Long> returnedPks = new ArrayList<>();
+        long returnedPk;
         float yaw = 0;
         float pitch = 0;
         float roll = 0;
@@ -226,23 +227,33 @@ public class SceneWithAttenuation extends Scene {
         }
 
         if (!profileBuilder.hasBridges()) {
-            returnedPks.add(addSource(pk, geom, heightType, orientation, null));
+            returnedPk = addSource(pk, geom, heightType, orientation, null);
+            // returnedPks.add(addSource(pk, geom, heightType, orientation, null));
             // Log when the registered key differs from the candidate key
-            for (Long registered : returnedPks) {
-                if (!Objects.equals(pk, registered)) {
-                    LOGGER.info("Registered source key differs from candidate: candidate={}, registered={}", pk, registered);
-                }
-            }
-            return returnedPks;
+            // for (Long registered : returnedPks) {
+            //     if (!Objects.equals(pk, registered)) {
+            //         LOGGER.info("Registered source key differs from candidate: candidate={}, registered={}", pk, registered);
+            //     }
+            // }
+            // return returnedPks;
+            return returnedPk;
         }
 
         long bridgePk = -1;
         if(sourceFieldNames.containsKey(BRIDGE_PK_DATABASE_FIELD)) {
-            bridgePk = rs.getLong(JDBCUtilities.getFieldIndex(rs.getMetaData(), BRIDGE_PK_DATABASE_FIELD));
+            int bridgePkCol = JDBCUtilities.getFieldIndex(rs.getMetaData(), BRIDGE_PK_DATABASE_FIELD);
+            bridgePk = rs.getLong(bridgePkCol);
+            // SQL NULLの場合はwasNull()で-1にする
+            if (rs.wasNull()) {
+                bridgePk = -1;
+            }
         }
         if(bridgePk == -1){
-            returnedPks.add(addSource(pk, geom, heightType, orientation, null));
-            return returnedPks;
+            SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L);
+            returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+            // returnedPks.add(returnedPk);
+            // return returnedPks;
+            return returnedPk;
         }
 
         // Read SOURCE_TYPE field to determine the appropriate SourceBridgeProperty.sourceType
@@ -253,14 +264,16 @@ public class SceneWithAttenuation extends Scene {
 
         if(sourceType.equals("ROAD")){
             SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, bridgePk, -1L);
-            long returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
-            returnedPks.add(returnedPk);
-            return returnedPks;
+            returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+            // returnedPks.add(returnedPk);
+            // return returnedPks;
+            return returnedPk;
         } else if(sourceType.equals("BRIDGE")){
             SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1L, bridgePk);
-            long returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
-            returnedPks.add(returnedPk);
-            return returnedPks;
+            returnedPk = addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+            // returnedPks.add(returnedPk);
+            // return returnedPks;
+            return returnedPk;
         } else {
             throw new IllegalArgumentException(
                 "Unknown SOURCE_TYPE value for bridge source. " +

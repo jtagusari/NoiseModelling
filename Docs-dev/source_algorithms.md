@@ -11,6 +11,7 @@
   - [Step 5: Geometry Loading](#step-5-geometry-loading)
   - [Step 6: Scene Registration](#step-6-scene-registration)
   - [Step 7: LineString Point Sampling and Elevation Conversion](#step-7-linestring-point-sampling-and-elevation-conversion)
+  - [Implementation Details: Call Chain from NoiseMapByReceiverMaker.run() to LineStringSplitter.splitLineStringIntoPoints()](#implementation-details-call-chain-from-noisemapbyreceivermakerrun-to-linestringsplittersplitlinestringintopoints)
 
 ## Concepts & Overview — Road Emission Processing
 
@@ -358,6 +359,32 @@ Scene populated with source geometries, attributes, and emission data, ready for
 ## Step 7: LineString Point Sampling and Elevation Conversion
 
 This step samples Scene-registered LineString geometries into discrete point sources with absolute elevations for propagation calculations. The implementation uses `LineStringSplitter.splitLineStringIntoPoints()` and `SourceCollector.calculateAbsoluteElevation()` to convert LineString geometries into discrete point samples with correct absolute elevations in a single integrated process. During propagation calculation, this process is performed for each receiver based on receiver-source distance.
+
+## Implementation Details: Call Chain from NoiseMapByReceiverMaker.run() to LineStringSplitter.splitLineStringIntoPoints()
+
+The following call chain illustrates how `LineStringSplitter.splitLineStringIntoPoints()` is invoked during the execution of `NoiseMapByReceiverMaker.run()`:
+
+1. **NoiseMapByReceiverMaker.run()**: Main execution method that iterates over computation cells and calls `evaluateCell()` for each.
+
+2. **evaluateCell()**: Prepares the scene for a cell and initiates propagation calculation by calling `PathFinder.run()`.
+
+3. **PathFinder.run()**: Orchestrates propagation computation and delegates parallel execution to `PathExecutionManager.executeInParallel()`.
+
+4. **PathExecutionManager.executeInParallel()**: Manages thread pool and calls `PathFinder.computeRaysAtPosition()` for each receiver.
+
+5. **PathFinder.computeRaysAtPosition()**: Handles computation for a single receiver position, delegating to `ReceiverProcessor.processReceiver()`.
+
+6. **ReceiverProcessor.processReceiver()**: Orchestrates per-receiver workflow, including source collection via `collectVisibleSources()`.
+
+7. **collectVisibleSources()**: Collects visible sources by calling `SourceCollector.collectSourcePoints()`.
+
+8. **SourceCollector.collectSourcePoints()**: Queries spatial index and dispatches geometry handling via `handleSourceGeometryForReceiver()`.
+
+9. **handleSourceGeometryForReceiver()**: Routes LineString geometries to `addLineSource()`.
+
+10. **addLineSource()**: Performs LineString point sampling by calling `LineStringSplitter.splitLineStringIntoPoints()`.
+
+This call chain ensures that LineString point sampling occurs per receiver during propagation, with sampling density adapted based on receiver-source distance.
 
 **Algorithm:**
 

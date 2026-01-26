@@ -10,6 +10,11 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.locationtech.jts.geom.LineString;
 
 import static java.lang.Double.NaN;
 
@@ -76,6 +81,10 @@ public class BridgePoint {
     /** Height of the left side barrier/parapet in meters */
     private double leftBarrierHeight = NaN;
 
+    private Bridge.GirderType girderType = null;
+
+    private Bridge.SlabType slabType = null;
+
     /**
      * Default constructor.
      */
@@ -90,7 +99,7 @@ public class BridgePoint {
         // Create a defensive copy to ensure independence from the original coordinate
         this.coordinate = coordinate != null ? new Coordinate(coordinate) : null;
     }
-
+    
     /**
      * Full constructor with all parameters.
      * @param coordinate The 3D coordinate of the bridge point
@@ -103,11 +112,13 @@ public class BridgePoint {
      * @param leftWidth Width of the bridge deck on the left side in meters
      * @param rightBarrierHeight Height of the right side barrier/parapet in meters
      * @param leftBarrierHeight Height of the left side barrier/parapet in meters
+     * @param girderType Girder type of the bridge
+     * @param slabType Slab type of the bridge
      */
     public BridgePoint(Coordinate coordinate, long primaryKey, long bridgePrimaryKey,
                       double absoluteDeckHeight, double relativeDeckHeight,
                       double deckThickness, double rightWidth, double leftWidth,
-                      double rightBarrierHeight, double leftBarrierHeight) {
+                      double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
         // Create a defensive copy to ensure independence from the original coordinate
         this.coordinate = coordinate != null ? new Coordinate(coordinate) : null;
         this.primaryKey = primaryKey;
@@ -120,6 +131,8 @@ public class BridgePoint {
         this.rightBarrierHeight = rightBarrierHeight;
         this.leftBarrierHeight = leftBarrierHeight;
         this.position = Position.CENTER; // Default position
+        this.girderType = girderType != null ? girderType : Bridge.GirderType.STEEL_BOX; // Default girder type
+        this.slabType = slabType != null ? slabType : Bridge.SlabType.STEEL; // Default slab type
     }
 
     /**
@@ -146,8 +159,96 @@ public class BridgePoint {
         this.leftWidth = other.leftWidth;
         this.rightBarrierHeight = other.rightBarrierHeight;
         this.leftBarrierHeight = other.leftBarrierHeight;
+        this.girderType = other.girderType;
+        this.slabType = other.slabType;
     }
 
+    /**
+     * Create a list of BridgePoints from a list of coordinates.
+     * Each coordinate is converted to a BridgePoint with the specified structural properties.
+     * The height interpretation depends on the heightType parameter (ABSOLUTE or RELATIVE).
+     * 
+     * @param coordinates List of 3D coordinates representing bridge point positions
+     * @param bridgePrimaryKey Primary key identifier for the bridge
+     * @param heightType Type of height interpretation (ABSOLUTE for elevation, RELATIVE for height above ground)
+     * @param deckThickness Thickness of the bridge deck in meters
+     * @param rightWidth Width of the bridge deck on the right side in meters
+     * @param leftWidth Width of the bridge deck on the left side in meters
+     * @param rightBarrierHeight Height of the right side barrier in meters
+     * @param leftBarrierHeight Height of the left side barrier in meters
+     * @param girderType Type of bridge girder structure
+     * @param slabType Type of bridge slab material
+     * @return List of BridgePoint objects created from the coordinates
+     */
+    public static List<BridgePoint> createBridgePoints(
+        List<Coordinate> coordinates, long bridgePrimaryKey,
+        Scene.HeightType heightType, double deckThickness, double rightWidth, double leftWidth,
+        double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
+
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+        for (long pk = 0; pk < coordinates.size(); pk++) {
+            Coordinate coord = coordinates.get((int) pk);
+            double absoluteDeckHeight = NaN;
+            double relativeDeckHeight = NaN;
+            if (heightType == Scene.HeightType.ABSOLUTE) {
+                absoluteDeckHeight = coord.getZ();
+            } else if (heightType == Scene.HeightType.RELATIVE) {
+                relativeDeckHeight = coord.getZ();
+            }
+            BridgePoint point = new BridgePoint(
+                coord, pk, bridgePrimaryKey,
+                absoluteDeckHeight, relativeDeckHeight,
+                deckThickness, rightWidth, leftWidth,
+                rightBarrierHeight, leftBarrierHeight,
+                girderType, slabType);
+            bridgePoints.add(point);
+        }
+        return bridgePoints;
+    }
+
+    /**
+     * Create a list of BridgePoints from a LineString geometry.
+     * Extracts all coordinates from the LineString and converts them to BridgePoints
+     * with the specified structural properties.
+     * The height interpretation depends on the heightType parameter (ABSOLUTE or RELATIVE).
+     * 
+     * @param lineString LineString geometry representing the bridge center line
+     * @param bridgePrimaryKey Primary key identifier for the bridge
+     * @param heightType Type of height interpretation (ABSOLUTE for elevation, RELATIVE for height above ground)
+     * @param deckThickness Thickness of the bridge deck in meters
+     * @param rightWidth Width of the bridge deck on the right side in meters
+     * @param leftWidth Width of the bridge deck on the left side in meters
+     * @param rightBarrierHeight Height of the right side barrier in meters
+     * @param leftBarrierHeight Height of the left side barrier in meters
+     * @param girderType Type of bridge girder structure
+     * @param slabType Type of bridge slab material
+     * @return List of BridgePoint objects created from the LineString coordinates
+     */
+    public static List<BridgePoint> createBridgePoints(
+        LineString lineString, long bridgePrimaryKey,
+        Scene.HeightType heightType, double deckThickness, double rightWidth, double leftWidth,
+        double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
+
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+        for (int i = 0; i < lineString.getNumPoints(); i++) {
+            Coordinate coord = lineString.getCoordinateN(i);
+            double absoluteDeckHeight = NaN;
+            double relativeDeckHeight = NaN;
+            if (heightType == Scene.HeightType.ABSOLUTE) {
+                absoluteDeckHeight = coord.getZ();
+            } else if (heightType == Scene.HeightType.RELATIVE) {
+                relativeDeckHeight = coord.getZ();
+            }
+            BridgePoint point = new BridgePoint(
+                coord, (long) i, bridgePrimaryKey,
+                absoluteDeckHeight, relativeDeckHeight,
+                deckThickness, rightWidth, leftWidth,
+                rightBarrierHeight, leftBarrierHeight,
+                girderType, slabType);
+            bridgePoints.add(point);
+        }
+        return bridgePoints;
+    }
     // Getters
     
     /**
@@ -167,8 +268,8 @@ public class BridgePoint {
     }
 
     /**
-     * Get the primary key identifier of this bridge point.
-     * @return The primary key
+     * Get the primary key identifier of the bridge this point belongs to.
+     * @return The bridge primary key
      */
     public long getBridgePrimaryKey() {
         return bridgePrimaryKey;
@@ -199,8 +300,8 @@ public class BridgePoint {
     }
 
     /**
-     * Get the relative deck height in meters (height above ground surface).
-     * @return The relative deck height, or NaN if not set
+     * Get the deck thickness in meters (vertical thickness of the bridge deck).
+     * @return The deck thickness, or NaN if not set
      */
     public double getDeckThickness() {
         return deckThickness;
@@ -222,6 +323,14 @@ public class BridgePoint {
         return leftWidth;
     }
 
+    /**
+     * Get the width of the bridge deck on the specified side.
+     * Convenience method that returns left or right width based on the position parameter.
+     * 
+     * @param side Position side (LEFT or RIGHT) - CENTER is not valid for this method
+     * @return The width on the specified side, or NaN if not set
+     * @throws IllegalArgumentException if side is CENTER instead of LEFT or RIGHT
+     */
     public double getWidth(Position side) {
         if(side == Position.LEFT) {
             return getLeftWidth();
@@ -248,6 +357,14 @@ public class BridgePoint {
         return leftBarrierHeight;
     }
 
+    /**
+     * Get the barrier height on the specified side of the bridge.
+     * Convenience method that returns left or right barrier height based on the position parameter.
+     * 
+     * @param side Position side (LEFT or RIGHT) - CENTER is not valid for this method
+     * @return The barrier height on the specified side, or NaN if not set
+     * @throws IllegalArgumentException if side is CENTER instead of LEFT or RIGHT
+     */
     public double getBarrierHeight(Position side) {
         if(side == Position.LEFT) {
             return getLeftBarrierHeight();
@@ -278,8 +395,8 @@ public class BridgePoint {
     }
 
     /**
-     * Set the primary key identifier of this bridge point.
-     * @param bridgePrimaryKey The primary key to set
+     * Set the primary key identifier of the bridge this point belongs to.
+     * @param bridgePrimaryKey The bridge primary key to set
      */
     public void setBridgePrimaryKey(long bridgePrimaryKey) {
         this.bridgePrimaryKey = bridgePrimaryKey;
@@ -309,7 +426,7 @@ public class BridgePoint {
     }
 
     /**
-     * Set the relative deck thickness in meters.
+     * Set the deck thickness in meters (vertical thickness of the bridge deck).
      * @param deckThickness The deck thickness to set
      */
     public void setDeckThickness(double deckThickness) {
@@ -388,7 +505,31 @@ public class BridgePoint {
     public boolean hasBarrierHeightData() {
         return !Double.isNaN(rightBarrierHeight) || !Double.isNaN(leftBarrierHeight);
     }
+
+    /**
+     * Get the girder type of the bridge at this point.
+     * 
+     * @return Girder type (STEEL_BOX, STEEL_PLATE, CONCRETE_BOX, etc.)
+     */
+    public Bridge.GirderType getGirderType() {
+        return girderType;
+    }
     
+    /**
+     * Get the slab type (deck material) of the bridge at this point.
+     * 
+     * @return Slab type (STEEL or CONCRETE)
+     */
+    public Bridge.SlabType getSlabType() {
+        return slabType;
+    }
+    
+    /**
+     * Returns a string representation of this BridgePoint.
+     * Includes all non-null and non-NaN fields for debugging and logging purposes.
+     * 
+     * @return String representation of this BridgePoint with all available data
+     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -422,4 +563,57 @@ public class BridgePoint {
         sb.append('}');
         return sb.toString();
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        
+        BridgePoint that = (BridgePoint) obj;
+        
+        if (primaryKey != that.primaryKey) return false;
+        if (bridgePrimaryKey != that.bridgePrimaryKey) return false;
+        if (Double.compare(that.absoluteDeckHeight, absoluteDeckHeight) != 0) return false;
+        if (Double.compare(that.relativeDeckHeight, relativeDeckHeight) != 0) return false;
+        if (Double.compare(that.deckThickness, deckThickness) != 0) return false;
+        if (Double.compare(that.rightWidth, rightWidth) != 0) return false;
+        if (Double.compare(that.leftWidth, leftWidth) != 0) return false;
+        if (Double.compare(that.rightBarrierHeight, rightBarrierHeight) != 0) return false;
+        if (Double.compare(that.leftBarrierHeight, leftBarrierHeight) != 0) return false;
+        
+        if (coordinate != null ? !coordinate.equals(that.coordinate) : that.coordinate != null) return false;
+        if (position != that.position) return false;
+        if (girderType != that.girderType) return false;
+        if (slabType != that.slabType) return false;
+        
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result;
+        long temp;
+        result = coordinate != null ? coordinate.hashCode() : 0;
+        result = 31 * result + (int) (primaryKey ^ (primaryKey >>> 32));
+        result = 31 * result + (int) (bridgePrimaryKey ^ (bridgePrimaryKey >>> 32));
+        temp = Double.doubleToLongBits(absoluteDeckHeight);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(relativeDeckHeight);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(deckThickness);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(rightWidth);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(leftWidth);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(rightBarrierHeight);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(leftBarrierHeight);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        result = 31 * result + (position != null ? position.hashCode() : 0);
+        result = 31 * result + (girderType != null ? girderType.hashCode() : 0);
+        result = 31 * result + (slabType != null ? slabType.hashCode() : 0);
+        return result;
+    }
+
 }

@@ -286,7 +286,11 @@ public class BridgeQueryHelper {
      */
     public void updateGeometry(Polygon deckGeometry, Polygon footprintGeometry, BridgeTriangulation triangulation) {
         this.deckGeometry = deckGeometry;
-        this.footprintGeometry = footprintGeometry;
+        if (footprintGeometry != null) {
+            this.footprintGeometry = footprintGeometry;
+        } else {
+            this.footprintGeometry = removeZFromPolygon(deckGeometry);
+        }
         this.triangulation = triangulation;
     }
 }

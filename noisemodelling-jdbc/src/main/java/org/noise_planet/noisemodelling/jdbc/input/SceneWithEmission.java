@@ -187,9 +187,10 @@ public class SceneWithEmission extends SceneWithAttenuation {
      * @throws SQLException forwarded when reading from the result set fails
      */
     @Override
-    public List<Long> addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
-        List<Long> returnedPks = super.addSourceDb(pk, geom, rs);
-        for (long returnedPk : returnedPks) {
+    public Long addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
+        Long returnedPk = super.addSourceDb(pk, geom, rs);
+        // List<Long> returnedPks = super.addSourceDb(pk, geom, rs);
+        // for (long returnedPk : returnedPks) {
             SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
             // If sourceBridgeProperty is null, create a default instance (source not related to bridge)
             if (sourceBridgeProperty == null) {
@@ -212,8 +213,9 @@ public class SceneWithEmission extends SceneWithAttenuation {
                     // This keeps the switch forward-compatible with new enum values.
                     break;
             }
-        }
-        return returnedPks;
+        // }
+        // return returnedPks;
+        return returnedPk;
     }
 
     private void registerDENValuesUsingEmission(Long pk, SpatialResultSet rs) throws SQLException {

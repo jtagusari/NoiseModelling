@@ -10,6 +10,8 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.triangulate.DelaunayTriangulationBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,17 @@ public class BridgeTriangulation {
     
     /** List of triangles for interpolation */
     private List<Triangle> deckTriangles = new ArrayList<>();
+    
+    /** Geometry factory for creating JTS geometries */
+    private final GeometryFactory geometryFactory;
+    
+    /**
+     * Create BridgeTriangulation with geometry factory.
+     * @param geometryFactory Geometry factory for JTS operations
+     */
+    public BridgeTriangulation(GeometryFactory geometryFactory) {
+        this.geometryFactory = geometryFactory;
+    }
     
     /**
      * Simple triangle representation for interpolation.
@@ -222,17 +235,47 @@ public class BridgeTriangulation {
         // Validate that LEFT and RIGHT positions are equal in count
         validatePositionBalance(bridgeEdgePoints);
         
-        // General fan triangulation: create triangles using vertex 0 as common vertex
-        for (int i = 0; i < numVertices - 2; i++) {
-            BridgePoint point1 = bridgeEdgePoints.get(i);
-            BridgePoint point2 = bridgeEdgePoints.get(i + 1);
-            BridgePoint point3 = bridgeEdgePoints.get(i + 2);
-            
-            // Only create triangle if all three coordinates are different
-            if (areCoordinatesDifferent(point1.getCoordinate(), point2.getCoordinate(), point3.getCoordinate())) {
-                deckTriangles.add(new Triangle(point1, point2, point3));
+        // Use Delaunay triangulation for better coverage
+        List<Coordinate> coordinates = new ArrayList<>();
+        for (BridgePoint point : bridgeEdgePoints) {
+            coordinates.add(point.getCoordinate());
+        }
+        
+        DelaunayTriangulationBuilder builder = new DelaunayTriangulationBuilder();
+        builder.setSites(coordinates);
+        
+        // Get the triangulation
+        org.locationtech.jts.geom.Geometry triangulation = builder.getTriangles(geometryFactory);
+        
+        // Extract triangles
+        for (int i = 0; i < triangulation.getNumGeometries(); i++) {
+            org.locationtech.jts.geom.Polygon poly = (org.locationtech.jts.geom.Polygon) triangulation.getGeometryN(i);
+            Coordinate[] coords = poly.getCoordinates();
+            if (coords.length >= 4) { // Triangle has 4 coords (closed)
+                // Find corresponding BridgePoints
+                BridgePoint bp1 = findBridgePointByCoordinate(bridgeEdgePoints, coords[0]);
+                BridgePoint bp2 = findBridgePointByCoordinate(bridgeEdgePoints, coords[1]);
+                BridgePoint bp3 = findBridgePointByCoordinate(bridgeEdgePoints, coords[2]);
+                if (bp1 != null && bp2 != null && bp3 != null) {
+                    deckTriangles.add(new Triangle(bp1, bp2, bp3));
+                }
             }
         }
+    }
+    
+    /**
+     * Find BridgePoint by coordinate from the list.
+     * @param bridgeEdgePoints List of bridge points
+     * @param coord Coordinate to find
+     * @return BridgePoint or null if not found
+     */
+    private BridgePoint findBridgePointByCoordinate(List<BridgePoint> bridgeEdgePoints, Coordinate coord) {
+        for (BridgePoint point : bridgeEdgePoints) {
+            if (point.getCoordinate().equals2D(coord)) {
+                return point;
+            }
+        }
+        return null;
     }
     
     /**

@@ -28,7 +28,7 @@ public class BridgeTriangulationTest {
 
     @BeforeEach
     public void setUp() {
-        triangulation = new BridgeTriangulation();
+        triangulation = new BridgeTriangulation(GeometryFactoryProvider.SHARED);
     }
 
     /**
@@ -38,19 +38,19 @@ public class BridgeTriangulationTest {
         List<BridgePoint> points = new ArrayList<>();
         
         // Rectangle bridge deck: 4 corners with balanced LEFT/RIGHT positions
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
         points.add(bp1);
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
         points.add(bp2);
         
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 20), 3, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 20), 3, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         points.add(bp3);
         
-        BridgePoint bp4 = new BridgePoint(new Coordinate(0, 20), 4, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp4 = new BridgePoint(new Coordinate(0, 20), 4, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp4.setPosition(BridgePoint.Position.RIGHT);
         points.add(bp4);
         
@@ -76,13 +76,13 @@ public class BridgeTriangulationTest {
         List<BridgePoint> unbalancedPoints = new ArrayList<>();
         
         // Create points with more LEFT than RIGHT
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.LEFT);
         
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.RIGHT);
         
         unbalancedPoints.add(bp1);
@@ -104,13 +104,13 @@ public class BridgeTriangulationTest {
         List<BridgePoint> unbalancedPoints = new ArrayList<>();
         
         // Create points with more RIGHT than LEFT
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
         
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.RIGHT);
         
         unbalancedPoints.add(bp1);
@@ -146,12 +146,12 @@ public class BridgeTriangulationTest {
         int numPairs = 10;
         for (int i = 0; i < numPairs; i++) {
             // LEFT point
-            BridgePoint leftPoint = new BridgePoint(new Coordinate(i, 0), i * 2 + 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+            BridgePoint leftPoint = new BridgePoint(new Coordinate(i, 0), i * 2 + 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
             leftPoint.setPosition(BridgePoint.Position.LEFT);
             largeBalancedPoints.add(leftPoint);
             
             // RIGHT point
-            BridgePoint rightPoint = new BridgePoint(new Coordinate(i, 1), i * 2 + 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+            BridgePoint rightPoint = new BridgePoint(new Coordinate(i, 1), i * 2 + 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
             rightPoint.setPosition(BridgePoint.Position.RIGHT);
             largeBalancedPoints.add(rightPoint);
         }
@@ -176,8 +176,8 @@ public class BridgeTriangulationTest {
     @Test
     public void testTriangulateInvalidGeometry() {
         List<BridgePoint> twoPoints = new ArrayList<>();
-        twoPoints.add(new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0));
-        twoPoints.add(new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0));
+        twoPoints.add(new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null));
+        twoPoints.add(new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null));
         
         triangulation.triangulateGeometry(twoPoints);
         
@@ -199,15 +199,15 @@ public class BridgeTriangulationTest {
         // This test should fail due to unbalanced positions (2 LEFT, 1 RIGHT)
         List<BridgePoint> unbalancedTrianglePoints = new ArrayList<>();
         
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
         unbalancedTrianglePoints.add(bp1);
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
         unbalancedTrianglePoints.add(bp2);
         
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         unbalancedTrianglePoints.add(bp3);
         
@@ -219,11 +219,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleContainsPoint() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -240,11 +240,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testDeckHeightInterpolation() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -261,11 +261,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testDeckHeightInterpolationWithNaN() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, Double.NaN, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, Double.NaN, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -276,11 +276,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testDeckThicknessInterpolation() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 1.0, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 1.0, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 10.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 10.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -379,13 +379,13 @@ public class BridgeTriangulationTest {
     @Test
     public void testBarrierInterpolationOnOuterEdge() {
         // Create bridge points with different barrier heights
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 0.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 0.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 0.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 0.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
         
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 1.0, 1.5);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 1.0, 1.5, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -403,9 +403,9 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleInterpolateWeight() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
         
@@ -426,9 +426,9 @@ public class BridgeTriangulationTest {
     @Test
     public void testTriangleInterpolateWeightDegenerateTriangle() {
         // Create a degenerate triangle (all points on a line)
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(5, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 0), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(5, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 0), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         BridgeTriangulation.Triangle degenerateTriangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
         
@@ -438,11 +438,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleOnOuterEdgeDetection() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp2.setPosition(BridgePoint.Position.LEFT); // Same position as bp1
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.RIGHT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -462,9 +462,9 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleContainsBoundaryPoints() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
         
@@ -480,9 +480,9 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleInterpolationConsistency() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 1.0, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 30.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 1.0, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 30.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0, null, null);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
         
@@ -517,7 +517,7 @@ public class BridgeTriangulationTest {
             double y = radius * Math.sin(angle);
             double height = 10.0 + i; // Variable height
             
-            BridgePoint bp = new BridgePoint(new Coordinate(x, y), i + 1, 100, height, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+            BridgePoint bp = new BridgePoint(new Coordinate(x, y), i + 1, 100, height, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
             bp.setPosition(i % 2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT);
             hexagonPoints.add(bp);
         }
@@ -554,7 +554,7 @@ public class BridgeTriangulationTest {
             double y = radius * Math.sin(angle);
             double height = 15.0 + Math.sin(angle * 3) * 2.0; // Sinusoidal height variation
             
-            BridgePoint bp = new BridgePoint(new Coordinate(x, y), i + 1, 100, height, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+            BridgePoint bp = new BridgePoint(new Coordinate(x, y), i + 1, 100, height, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
             bp.setPosition(i % 2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT);
             largePolygonPoints.add(bp);
         }
@@ -605,9 +605,9 @@ public class BridgeTriangulationTest {
     public void testTriangulationWithNaNValues() {
         List<BridgePoint> pointsWithNaN = new ArrayList<>();
         
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, Double.NaN, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, Double.NaN, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, Double.NaN, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, Double.NaN, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0, null, null);
         
         pointsWithNaN.add(bp1);
         pointsWithNaN.add(bp2);
@@ -630,9 +630,9 @@ public class BridgeTriangulationTest {
         List<BridgePoint> extremePoints = new ArrayList<>();
         
         // Use very large coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(1000000, 1000000), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(1000010, 1000000), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(1000005, 1000010), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(1000000, 1000000), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(1000010, 1000000), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(1000005, 1000010), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         extremePoints.add(bp1);
         extremePoints.add(bp2);
@@ -651,9 +651,9 @@ public class BridgeTriangulationTest {
         List<BridgePoint> smallPoints = new ArrayList<>();
         
         // Use very small triangle (millimeter scale)
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0.001, 0.001), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0.002, 0.001), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0.0015, 0.002), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0.001, 0.001), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(0.002, 0.001), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0.0015, 0.002), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         smallPoints.add(bp1);
         smallPoints.add(bp2);
@@ -671,11 +671,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testBarrierHeightInterpolationWithMixedPositions() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 1.0, 2.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 1.0, 2.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 3.0, 4.0);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 3.0, 4.0, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -691,11 +691,11 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testBarrierHeightWithNaNValues() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, Double.NaN, 2.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, Double.NaN, 2.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 3.0, Double.NaN);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 3.0, Double.NaN, null, null);
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp3.setPosition(BridgePoint.Position.LEFT);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
@@ -708,9 +708,9 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleContainmentPrecision() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(1, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0.5, 1), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(1, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0.5, 1), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
         
@@ -730,9 +730,9 @@ public class BridgeTriangulationTest {
     @Test
     public void testInterpolationAccuracy() {
         // Create a triangle with known linear variation
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 0.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 0.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
         
@@ -753,10 +753,10 @@ public class BridgeTriangulationTest {
         List<BridgePoint> problematicPoints = new ArrayList<>();
         
         // Points with very similar coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0.00001, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 0.00001), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(1, 1), 4, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp2 = new BridgePoint(new Coordinate(0.00001, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 0.00001), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint bp4 = new BridgePoint(new Coordinate(1, 1), 4, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
         problematicPoints.add(bp1);
         problematicPoints.add(bp2);
@@ -779,13 +779,13 @@ public class BridgeTriangulationTest {
         List<BridgePoint> duplicatePoints = new ArrayList<>();
         
         // Create points with identical coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Same coordinates as bp1
+        BridgePoint bp2 = new BridgePoint(new Coordinate(0, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Same coordinates as bp1
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 0), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Same coordinates as bp1
+        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 0), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Same coordinates as bp1
         bp3.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(10, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Different coordinates
+        BridgePoint bp4 = new BridgePoint(new Coordinate(10, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Different coordinates
         bp4.setPosition(BridgePoint.Position.RIGHT);
         
         duplicatePoints.add(bp1);
@@ -813,13 +813,13 @@ public class BridgeTriangulationTest {
         List<BridgePoint> partialDuplicatePoints = new ArrayList<>();
         
         // Create points where some have identical coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Same as bp1
+        BridgePoint bp2 = new BridgePoint(new Coordinate(0, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Same as bp1
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 0), 3, 100, 12.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Different
+        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 0), 3, 100, 12.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Different
         bp3.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(5, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Different
+        BridgePoint bp4 = new BridgePoint(new Coordinate(5, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Different
         bp4.setPosition(BridgePoint.Position.RIGHT);
         
         partialDuplicatePoints.add(bp1);
@@ -857,13 +857,13 @@ public class BridgeTriangulationTest {
         List<BridgePoint> nearIdenticalPoints = new ArrayList<>();
         
         // Create points with coordinates very close to each other (within tolerance)
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0);
+        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(1e-11, 1e-11), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Very close to bp1
+        BridgePoint bp2 = new BridgePoint(new Coordinate(1e-11, 1e-11), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Very close to bp1
         bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(2e-11, 0), 3, 100, 12.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Very close to bp1
+        BridgePoint bp3 = new BridgePoint(new Coordinate(2e-11, 0), 3, 100, 12.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Very close to bp1
         bp3.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(10, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0); // Far from others
+        BridgePoint bp4 = new BridgePoint(new Coordinate(10, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Far from others
         bp4.setPosition(BridgePoint.Position.RIGHT);
         
         nearIdenticalPoints.add(bp1);

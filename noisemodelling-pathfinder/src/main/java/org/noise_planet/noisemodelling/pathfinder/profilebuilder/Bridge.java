@@ -10,6 +10,8 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.*;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.GeometryFactoryProvider;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,12 +41,52 @@ public class Bridge extends Obstruction {
         STEEL_PLATE,
         CONCRETE_BOX,
         CONCRETE_PLATE,
-        CONCRETE_HOLLOW_SLAB
+        CONCRETE_HOLLOW_SLAB;
+        
+        /**
+         * Convert string representation to GirderType enum value.
+         * Case-insensitive matching is supported.
+         * 
+         * @param value String representation of girder type
+         * @return Corresponding GirderType enum value
+         * @throws IllegalArgumentException if the value doesn't match any enum constant
+         */
+        public static GirderType fromString(String value) {
+            if (value == null) {
+                return STEEL_BOX; // Default value
+            }
+            try {
+                return GirderType.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unknown GirderType: " + value + 
+                        ". Valid values are: STEEL_BOX, STEEL_PLATE, CONCRETE_BOX, CONCRETE_PLATE, CONCRETE_HOLLOW_SLAB");
+            }
+        }
     }
 
     public enum SlabType {
-        CONCRETE,
-        STEEL
+        STEEL,
+        CONCRETE;
+        
+        /**
+         * Convert string representation to SlabType enum value.
+         * Case-insensitive matching is supported.
+         * 
+         * @param value String representation of slab type
+         * @return Corresponding SlabType enum value
+         * @throws IllegalArgumentException if the value doesn't match any enum constant
+         */
+        public static SlabType fromString(String value) {
+            if (value == null) {
+                return STEEL; // Default value
+            }
+            try {
+                return SlabType.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unknown SlabType: " + value + 
+                        ". Valid values are: STEEL, CONCRETE");
+            }
+        }
     }
 
     private GirderType girderType = null;
@@ -71,6 +113,9 @@ public class Bridge extends Obstruction {
     /** Primary key of the bridge in the database. */
     private long primaryKey = -1;
 
+    /** Geometry factory for creating JTS geometries */
+    private final GeometryFactory geometryFactory = GeometryFactoryProvider.SHARED;
+
     private static final double OFFSET = 0.001;
         
     /**
@@ -92,23 +137,47 @@ public class Bridge extends Obstruction {
         
         // Group bridge points by bridgePrimaryKey
         Map<Long, List<BridgePoint>> bridgePointGroups = new HashMap<>();
+        Map<Long, GirderType> bridgeGirderType = new HashMap<>();
+        Map<Long, SlabType> bridgeSlabType = new HashMap<>();
         for (BridgePoint point : bridgePoints) {
             long bridgePrimaryKey = point.getBridgePrimaryKey();
             bridgePointGroups.computeIfAbsent(bridgePrimaryKey, k -> new ArrayList<>()).add(point);
+            // if bridgeGirderType is not set, set it. else, check consistency
+            if (!bridgeGirderType.containsKey(bridgePrimaryKey)) {
+                bridgeGirderType.put(bridgePrimaryKey, point.getGirderType());
+            } else {
+                GirderType existingType = bridgeGirderType.get(bridgePrimaryKey);
+                if (existingType != point.getGirderType()) {
+                    throw new IllegalArgumentException("Inconsistent GirderType for bridge primary key: " + bridgePrimaryKey);
+                }
+            }
+            // if bridgeSlabType is not set, set it. else, check consistency
+            if (!bridgeSlabType.containsKey(bridgePrimaryKey)) {
+                bridgeSlabType.put(bridgePrimaryKey, point.getSlabType());
+            } else {
+                SlabType existingType = bridgeSlabType.get(bridgePrimaryKey);
+                if (existingType != point.getSlabType()) {
+                    throw new IllegalArgumentException("Inconsistent SlabType for bridge primary key: " + bridgePrimaryKey);
+                }
+            }
+
         }
         
         // Create Bridge instances for each group
         for (Map.Entry<Long, List<BridgePoint>> entry : bridgePointGroups.entrySet()) {
             long bridgePrimaryKey = entry.getKey();
             List<BridgePoint> pointsForBridge = entry.getValue();
+            GirderType girderType = bridgeGirderType.get(bridgePrimaryKey);
+            SlabType slabType = bridgeSlabType.get(bridgePrimaryKey);
             
             // Create Bridge instance using the bridge points
-            Bridge bridge = new Bridge(pointsForBridge, defaultAlphas, bridgePrimaryKey);
+            Bridge bridge = new Bridge(pointsForBridge, defaultAlphas, bridgePrimaryKey, girderType, slabType);
             bridges.add(bridge);
         }
         
         return bridges;
     }
+
 
     /**
      * Create Bridge instances from a list of BridgePoints grouped by their bridgePrimaryKey
@@ -122,9 +191,11 @@ public class Bridge extends Obstruction {
     }
 
     /**
-     * Main constructor using bridge points.
+     * Main constructor using bridge points without girder/slab type specification.
+     * Creates a bridge with default girder and slab types (STEEL_BOX and STEEL).
+     * 
      * @param bridgePoints List of bridge points defining the bridge geometry
-     * @param alphas Absorption coefficients by frequency band
+     * @param alphas Absorption coefficients by frequency band (can be null for defaults)
      * @param primaryKey Primary key in database
      */
     public Bridge(List<BridgePoint> bridgePoints, List<Double> alphas, long primaryKey) {
@@ -134,7 +205,7 @@ public class Bridge extends Obstruction {
         // Initialize components
         this.pointManager = new BridgePointManager(bridgePoints);
         this.geometryBuilder = new BridgeGeometryBuilder();
-        this.triangulation = new BridgeTriangulation();
+        this.triangulation = new BridgeTriangulation(geometryFactory);
         // Create query helper and provide builders so it can generate footprint when needed
         this.queryHelper = new BridgeQueryHelper(null, null, triangulation, pointManager, geometryBuilder);
         
@@ -143,12 +214,84 @@ public class Bridge extends Obstruction {
         if (alphas != null) {
             setAlpha(alphas);
         }
+
+        // Set default Girder and Slab types
+        this.girderType = GirderType.STEEL_BOX;
+        this.slabType = SlabType.STEEL;
     }
 
     /**
-     * Main constructor.
+     * Main constructor using bridge points with explicit girder and slab types.
+     * This constructor allows full specification of bridge structural properties.
+     * 
+     * @param bridgePoints List of bridge points defining the bridge geometry
+     * @param alphas Absorption coefficients by frequency band (can be null for defaults)
+     * @param primaryKey Primary key in database
+     * @param girderType Type of bridge girder structure
+     * @param slabType Type of bridge slab material
+     */
+    public Bridge(List<BridgePoint> bridgePoints, List<Double> alphas, long primaryKey, GirderType girderType, SlabType slabType) {
+        super();
+        this.primaryKey = primaryKey;
+        
+        // Initialize components
+        this.pointManager = new BridgePointManager(bridgePoints);
+        this.geometryBuilder = new BridgeGeometryBuilder();
+        this.triangulation = new BridgeTriangulation(geometryFactory);
+        // Create query helper and provide builders so it can generate footprint when needed
+        this.queryHelper = new BridgeQueryHelper(null, null, triangulation, pointManager, geometryBuilder);
+        
+
+        // Set absorption coefficients
+        if (alphas != null) {
+            setAlpha(alphas);
+        }
+
+        // Set default Girder and Slab types
+        this.girderType = girderType;
+        this.slabType = slabType;
+    }
+
+    /**
+     * Constructor for creating a bridge from a LineString geometry.
+     * Automatically generates bridge points along the line with specified widths and heights.
+     * 
+     * @param lineString Center line geometry of the bridge
+     * @param defaultAlphas Default absorption coefficients by frequency band
+     * @param bridgePrimaryKey Primary key for the bridge in the database
+     * @param heightType Type of height reference (ground height type)
+     * @param deckThickness Thickness of the bridge deck in meters
+     * @param rightWidth Width of the bridge deck on the right side in meters
+     * @param leftWidth Width of the bridge deck on the left side in meters
+     * @param rightBarrierHeight Height of the barrier on the right side in meters
+     * @param leftBarrierHeight Height of the barrier on the left side in meters
+     * @param girderType Type of bridge girder structure
+     * @param slabType Type of bridge slab material
+     */
+    public Bridge(LineString lineString, List<Double> defaultAlphas, long bridgePrimaryKey, Scene.HeightType heightType, double deckThickness, double rightWidth, double leftWidth, double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
+        List<BridgePoint> bridgePoints = BridgePoint.createBridgePoints(lineString, bridgePrimaryKey, heightType, deckThickness, rightWidth, leftWidth, rightBarrierHeight, leftBarrierHeight, girderType, slabType);
+        
+        // Create Bridge instance using the bridge points
+        Bridge bridge = new Bridge(bridgePoints, defaultAlphas, bridgePrimaryKey, girderType, slabType);
+        this.pointManager = bridge.pointManager;
+        this.geometryBuilder = bridge.geometryBuilder;
+        this.triangulation = bridge.triangulation;
+        this.queryHelper = bridge.queryHelper;
+        this.deckGeometry = bridge.deckGeometry;
+        this.primaryKey = bridgePrimaryKey;
+        this.girderType = girderType;
+        this.slabType = slabType;
+
+    }
+
+    /**
+     * Constructor using pre-defined 3D deck geometry polygon.
+     * This constructor is useful when deck geometry is already calculated.
+     * Automatically extracts bridge points from geometry for triangulation.
+     * Creates default girder and slab types (STEEL_BOX and STEEL).
+     * 
      * @param deckGeometry 3D bridge deck geometry with Z coordinates representing deck height
-     * @param alphas Absorption coefficients by frequency band
+     * @param alphas Absorption coefficients by frequency band (can be null for defaults)
      * @param primaryKey Primary key in database
      */
     public Bridge(Polygon deckGeometry, List<Double> alphas, long primaryKey) {
@@ -159,7 +302,7 @@ public class Bridge extends Obstruction {
         // Initialize components
         this.pointManager = new BridgePointManager();
         this.geometryBuilder = new BridgeGeometryBuilder();
-        this.triangulation = new BridgeTriangulation();
+        this.triangulation = new BridgeTriangulation(geometryFactory);
         
         // Initialize triangulation with deck geometry if available
         if (deckGeometry != null) {
@@ -180,6 +323,10 @@ public class Bridge extends Obstruction {
         if (alphas != null) {
             setAlpha(alphas);
         }
+        // Set default Girder and Slab types
+        this.girderType = GirderType.STEEL_BOX;
+        this.slabType = SlabType.STEEL;
+
     }
 
     /**
@@ -212,8 +359,14 @@ public class Bridge extends Obstruction {
 
     /**
      * Create bridge deck geometry from bridge points.
+     * This method performs the following operations:
+     * 1. Creates 3D deck geometry polygon from bridge points
+     * 2. Generates edge points for diffraction calculations
+     * 3. Initializes triangulation for height interpolation
+     * 4. Creates edge geometry for acoustic calculations
+     * 5. Updates query helper with the new geometry
+     * 
      * @param profileBuilder Profile builder for ground height calculation
-     * @return Created deck geometry polygon
      */
     public void createDeckGeometry(ProfileBuilder profileBuilder) {
         // Create deck geometry using the builder
@@ -225,7 +378,7 @@ public class Bridge extends Obstruction {
             edgePointManager.addBridgePoints(geometryBuilder.createBridgeEdgePoints(pointManager, profileBuilder, BridgePoint.Position.RIGHT, false));
             edgePointManager.addBridgePoints(geometryBuilder.createBridgeEdgePoints(pointManager, profileBuilder, BridgePoint.Position.LEFT, false));
 
-            // Create triangulation for interpolation
+            // // Create triangulation for interpolation
             triangulation.triangulateGeometry(edgePointManager.getBridgePoints());
             
             // Create edge for acoustic calculations
@@ -288,6 +441,12 @@ public class Bridge extends Obstruction {
         return queryHelper.isPointWithinBridgeFootprint(point);
     }
 
+    /**
+     * Check if the bridge deck geometry intersects with the specified geometry.
+     * 
+     * @param geom Geometry to test for intersection
+     * @return true if the geometries intersect, false otherwise
+     */
     public boolean intersects(Geometry geom) {
         return deckGeometry.intersects(geom);
     }
@@ -296,6 +455,11 @@ public class Bridge extends Obstruction {
 
     // Getters and Setters
     
+    /**
+     * Get the 2D bounding envelope of the bridge footprint.
+     * 
+     * @return 2D envelope (bounding box) of the bridge
+     */
     public Envelope getEnvelope2D() {
         return queryHelper.getEnvelope2D();
     }
@@ -309,13 +473,15 @@ public class Bridge extends Obstruction {
     }
 
     /**
-     * Get the 2D footprint geometry of the bridge (projection).
+     * Get the 2D footprint geometry of the bridge (projection without Z coordinates).
      * If a footprint was explicitly created it is returned. Otherwise if a deck
      * geometry exists a 2D copy without Z is produced and returned.
-     * @return footprint polygon (2D) or null
+     * This is useful for spatial queries that don't require height information.
+     * 
+     * @return footprint polygon (2D) or null if no geometry available
      */
     public Geometry getFootprintGeometry() {
-    return queryHelper.getFootprintGeometry();
+        return queryHelper.getFootprintGeometry();
     }
 
     /**
@@ -326,10 +492,21 @@ public class Bridge extends Obstruction {
         return pointManager;
     }
 
+    /**
+     * Get the edge polygon of the bridge for diffraction calculations.
+     * Returns a copy of the edge geometry to prevent external modifications.
+     * 
+     * @return Copy of edge polygon or null if not created
+     */
     public Polygon getEdge() {
         return edge != null ? (Polygon) edge.copy() : null;
     }
 
+    /**
+     * Get the primary key of the bridge in the database.
+     * 
+     * @return Primary key value, or -1 if not set
+     */
     public long getPrimaryKey() {
         return primaryKey;
     }
@@ -388,30 +565,55 @@ public class Bridge extends Obstruction {
     }
 
 
+    /**
+     * Get the girder type of the bridge structure.
+     * 
+     * @return Girder type (STEEL_BOX, STEEL_PLATE, CONCRETE_BOX, etc.)
+     */
     public GirderType getGirderType() {
         return girderType;
     }
 
+    /**
+     * Set the girder type of the bridge structure.
+     * This affects the structural acoustic properties of the bridge.
+     * 
+     * @param girderType Girder type to set
+     */
     public void setGirderType(GirderType girderType) {
         this.girderType = girderType;
     }
 
+    /**
+     * Get the slab type (deck material) of the bridge.
+     * 
+     * @return Slab type (STEEL or CONCRETE)
+     */
     public SlabType getSlabType() {
         return slabType;
     }
 
+    /**
+     * Set the slab type (deck material) of the bridge.
+     * This affects the acoustic absorption and reflection properties.
+     * 
+     * @param slabType Slab type to set (STEEL or CONCRETE)
+     */
     public void setSlabType(SlabType slabType) {
         this.slabType = slabType;
     }
     
 
     /**
-     * Generate sources on the bridge deck.
-     * This method creates sources on the bridge deck.
+     * Generate sources on the bridge deck at specified height.
+     * Creates virtual sources on top of the bridge deck to simulate sound sources
+     * located at a specific height above the deck surface. This is used for traffic
+     * noise sources or other elevated sources on the bridge.
+     * Returns empty list if source is not below the bridge or deck height cannot be determined.
      * 
-     * @param sourcePos Source position
-     * @param sourceHeight Source height on the deck
-     * @return List of virtual source positions
+     * @param sourcePos Source position (X, Y coordinates)
+     * @param sourceHeight Source height above the deck surface in meters
+     * @return List of virtual source coordinates with absolute Z values, empty if not applicable
      */
     public List<Coordinate> generateSourcesOnBridge(Coordinate sourcePos, double sourceHeight) {
         List<Coordinate> onSources = new ArrayList<>();
@@ -434,11 +636,12 @@ public class Bridge extends Obstruction {
     }    
 
     /**
-     * Generate sources on the bridge deck.
-     * This method creates sources on the bridge deck.
+     * Generate sources on the bridge deck at default height (0.05m above deck).
+     * Convenience method that uses a default source height of 5 centimeters above the deck surface.
+     * This is typically used for road traffic noise sources on bridges.
      * 
-     * @param sourcePos Source position
-     * @return List of virtual source positions
+     * @param sourcePos Source position (X, Y coordinates)
+     * @return List of virtual source coordinates with absolute Z values, empty if not applicable
      */
     public List<Coordinate> generateSourcesOnBridge(Coordinate sourcePos) {
         return generateSourcesOnBridge(sourcePos, 0.05);
@@ -447,10 +650,12 @@ public class Bridge extends Obstruction {
     /**
      * Generate virtual sources at bridge bottom for structural noise propagation.
      * This method creates virtual sources below the bridge deck to simulate sound 
-     * transmission through the bridge structure.
+     * transmission through the bridge structure (structure-borne noise).
+     * The virtual source is placed 1mm below the deck bottom surface.
+     * Only generates sources if the original source is ON the bridge deck.
      * 
-     * @param sourcePos Source position
-     * @return List of virtual source positions
+     * @param sourcePos Source position (must be on bridge deck)
+     * @return List of virtual source coordinates below bridge, empty if source not on bridge
      */
     public List<Coordinate> generateVirtualSourcesAtBridgeBottom(Coordinate sourcePos) {
         List<Coordinate> virtualSources = new ArrayList<>();
@@ -473,14 +678,15 @@ public class Bridge extends Obstruction {
         return virtualSources;
     }
 
-    
     /**
-     * Generate mirror image sources by the bridge bottom.
+     * Generate mirror image sources by reflection at the bridge bottom surface.
      * This method creates virtual sources above the bridge deck to simulate sound 
-     * reflection by the bridge plane.
+     * reflection by the bridge bottom plane. The mirror source is placed symmetrically
+     * relative to the bridge bottom surface.
+     * Only generates mirror sources if the original source is BELOW the bridge.
      * 
-     * @param sourcePos Source position
-     * @return List of virtual source positions
+     * @param sourcePos Source position (must be below bridge)
+     * @return List of mirror source coordinates above bridge, empty if source not below bridge
      */
     public List<Coordinate> generateMirrorImageSourcesByBridge(Coordinate sourcePos) {
         List<Coordinate> mirrorSources = new ArrayList<>();
@@ -541,6 +747,59 @@ public class Bridge extends Obstruction {
         }
         
         return bridgePoints;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        
+        Bridge bridge = (Bridge) obj;
+        
+        // Compare primary key
+        if (primaryKey != bridge.primaryKey) return false;
+        
+        // Compare girder type
+        if (girderType != bridge.girderType) return false;
+        
+        // Compare slab type
+        if (slabType != bridge.slabType) return false;
+        
+        // Compare deck geometry
+        if (deckGeometry == null ? bridge.deckGeometry != null : !deckGeometry.equals(bridge.deckGeometry)) return false;
+        
+        // Compare edge geometry
+        if (edge == null ? bridge.edge != null : !edge.equals(bridge.edge)) return false;
+        
+        // Compare bridge points if pointManager exists
+        if (pointManager != null && bridge.pointManager != null) {
+            List<BridgePoint> thisPoints = pointManager.getBridgePoints();
+            List<BridgePoint> otherPoints = bridge.pointManager.getBridgePoints();
+            if (thisPoints.size() != otherPoints.size()) return false;
+            for (int i = 0; i < thisPoints.size(); i++) {
+                if (!thisPoints.get(i).equals(otherPoints.get(i))) return false;
+            }
+        } else if (pointManager != bridge.pointManager) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Long.hashCode(primaryKey);
+        result = 31 * result + (girderType != null ? girderType.hashCode() : 0);
+        result = 31 * result + (slabType != null ? slabType.hashCode() : 0);
+        result = 31 * result + (deckGeometry != null ? deckGeometry.hashCode() : 0);
+        result = 31 * result + (edge != null ? edge.hashCode() : 0);
+        if (pointManager != null) {
+            List<BridgePoint> points = pointManager.getBridgePoints();
+            for (BridgePoint point : points) {
+                result = 31 * result + (point != null ? point.hashCode() : 0);
+            }
+        }
+        return result;
     }
 
 }

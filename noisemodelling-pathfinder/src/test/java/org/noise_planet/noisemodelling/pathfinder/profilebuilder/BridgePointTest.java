@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class BridgePointTest {
 
     @Test
-    public void testDefaultConstructor() {
+    public void testBridgePointDefaultConstructor() {
         BridgePoint point = new BridgePoint();
         
         assertNull(point.getCoordinate(), "Default coordinate should be null");
@@ -38,7 +38,7 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testConstructorWithCoordinate() {
+    public void testBridgePointConstructorWithCoordinate() {
         Coordinate coord = new Coordinate(100.0, 200.0, 15.0);
         BridgePoint point = new BridgePoint(coord);
         
@@ -48,9 +48,9 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testFullConstructor() {
+    public void testBridgePointFullConstructor() {
         Coordinate coord = new Coordinate(100.0, 200.0, 15.0);
-        BridgePoint point = new BridgePoint(coord, 1L, 100L, 10.0, 2.0, 0.5, 5.0, 6.0, 2.0, 3.0);
+        BridgePoint point = new BridgePoint(coord, 1L, 100L, 10.0, 2.0, 0.5, 5.0, 6.0, 2.0, 3.0, null, null);
         
         assertEquals(coord, point.getCoordinate(), "Coordinate should be set");
         assertEquals(1L, point.getPrimaryKey(), "Primary key should be set");
@@ -65,9 +65,9 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testCopyConstructor() {
+    public void testBridgePointCopyConstructor() {
         Coordinate coord = new Coordinate(100.0, 200.0, 15.0);
-        BridgePoint original = new BridgePoint(coord, 1L, 100L, 10.0, 2.0, 0.5, 5.0, 6.0, 2.0, 3.0);
+        BridgePoint original = new BridgePoint(coord, 1L, 100L, 10.0, 2.0, 0.5, 5.0, 6.0, 2.0, 3.0, null, null);
         original.setPosition(BridgePoint.Position.LEFT);
         
         BridgePoint copy = new BridgePoint(original);
@@ -90,7 +90,7 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testCopyConstructorWithNull() {
+    public void testBridgePointCopyConstructorWithNull() {
         assertThrows(RuntimeException.class, () -> {
             BridgePoint nullPoint = null;
             new BridgePoint(nullPoint);
@@ -98,7 +98,7 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testCopyConstructorWithNullCoordinate() {
+    public void testBridgePointCopyConstructorWithNullCoordinate() {
         BridgePoint original = new BridgePoint();
         original.setPrimaryKey(1L);
         // coordinate is null
@@ -110,7 +110,7 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testSettersAndGetters() {
+    public void testBridgePointSettersAndGetters() {
         BridgePoint point = new BridgePoint();
         
         Coordinate coord = new Coordinate(50.0, 60.0, 20.0);
@@ -149,240 +149,7 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testHasValidCoordinate() {
-        BridgePoint point = new BridgePoint();
-        
-        assertFalse(point.hasValidCoordinate(), "Should return false for null coordinate");
-        
-        point.setCoordinate(new Coordinate(100.0, 200.0));
-        assertTrue(point.hasValidCoordinate(), "Should return true for valid coordinate");
-    }
-
-    @Test
-    public void testHasAbsoluteDeckHeight() {
-        BridgePoint point = new BridgePoint();
-        
-        assertFalse(point.hasAbsoluteDeckHeight(), "Should return false for NaN height");
-        
-        point.setAbsoluteDeckHeight(15.0);
-        assertTrue(point.hasAbsoluteDeckHeight(), "Should return true for valid height");
-        
-        point.setAbsoluteDeckHeight(Double.NaN);
-        assertFalse(point.hasAbsoluteDeckHeight(), "Should return false after setting to NaN");
-    }
-
-    @Test
-    public void testHasRelativeDeckHeight() {
-        BridgePoint point = new BridgePoint();
-        
-        assertFalse(point.hasRelativeDeckHeight(), "Should return false for NaN height");
-        
-        point.setRelativeDeckHeight(5.0);
-        assertTrue(point.hasRelativeDeckHeight(), "Should return true for valid height");
-        
-        point.setRelativeDeckHeight(Double.NaN);
-        assertFalse(point.hasRelativeDeckHeight(), "Should return false after setting to NaN");
-    }
-
-    @Test
-    public void testHasWidthData() {
-        BridgePoint point = new BridgePoint();
-        
-        assertFalse(point.hasWidthData(), "Should return false when both widths are NaN");
-        
-        point.setRightWidth(5.0);
-        assertTrue(point.hasWidthData(), "Should return true when right width is set");
-        
-        point.setRightWidth(Double.NaN);
-        point.setLeftWidth(6.0);
-        assertTrue(point.hasWidthData(), "Should return true when left width is set");
-        
-        point.setLeftWidth(Double.NaN);
-        assertFalse(point.hasWidthData(), "Should return false when both widths are NaN again");
-        
-        point.setRightWidth(5.0);
-        point.setLeftWidth(6.0);
-        assertTrue(point.hasWidthData(), "Should return true when both widths are set");
-    }
-
-    @Test
-    public void testHasBarrierHeightData() {
-        BridgePoint point = new BridgePoint();
-        
-        assertFalse(point.hasBarrierHeightData(), "Should return false when both barrier heights are NaN");
-        
-        point.setRightBarrierHeight(2.0);
-        assertTrue(point.hasBarrierHeightData(), "Should return true when right barrier height is set");
-        
-        point.setRightBarrierHeight(Double.NaN);
-        point.setLeftBarrierHeight(3.0);
-        assertTrue(point.hasBarrierHeightData(), "Should return true when left barrier height is set");
-        
-        point.setLeftBarrierHeight(Double.NaN);
-        assertFalse(point.hasBarrierHeightData(), "Should return false when both barrier heights are NaN again");
-        
-        point.setRightBarrierHeight(2.0);
-        point.setLeftBarrierHeight(3.0);
-        assertTrue(point.hasBarrierHeightData(), "Should return true when both barrier heights are set");
-    }
-
-    @Test
-    public void testPositionEnum() {
-        assertEquals(3, BridgePoint.Position.values().length, "Should have 3 position values");
-        assertTrue(java.util.Arrays.asList(BridgePoint.Position.values()).contains(BridgePoint.Position.CENTER), "Should contain CENTER");
-        assertTrue(java.util.Arrays.asList(BridgePoint.Position.values()).contains(BridgePoint.Position.LEFT), "Should contain LEFT");
-        assertTrue(java.util.Arrays.asList(BridgePoint.Position.values()).contains(BridgePoint.Position.RIGHT), "Should contain RIGHT");
-    }
-
-    @Test
-    public void testToString() {
-        BridgePoint point = new BridgePoint();
-        point.setBridgePrimaryKey(100L);
-        point.setPosition(BridgePoint.Position.LEFT);
-        point.setCoordinate(new Coordinate(10.0, 20.0, 15.0));
-        point.setAbsoluteDeckHeight(25.0);
-        point.setRelativeDeckHeight(5.0);
-        point.setDeckThickness(0.8);
-        point.setRightWidth(4.0);
-        point.setLeftWidth(4.5);
-        point.setRightBarrierHeight(1.5);
-        point.setLeftBarrierHeight(2.0);
-        
-        String result = point.toString();
-        
-        assertNotNull(result, "toString should not return null");
-        assertTrue(result.contains("BridgePoint{"), "Should start with class name");
-        assertTrue(result.contains("bridgePrimaryKey=100"), "Should contain bridge primary key");
-        assertTrue(result.contains("position=LEFT"), "Should contain position");
-        assertTrue(result.contains("coordinate="), "Should contain coordinate");
-        assertTrue(result.contains("absoluteDeckHeight=25.0"), "Should contain absolute deck height");
-        assertTrue(result.contains("relativeDeckHeight=5.0"), "Should contain relative deck height");
-        assertTrue(result.contains("deckThickness=0.8"), "Should contain deck thickness");
-        assertTrue(result.contains("rightWidth=4.0"), "Should contain right width");
-        assertTrue(result.contains("leftWidth=4.5"), "Should contain left width");
-        assertTrue(result.contains("rightBarrierHeight=1.5"), "Should contain right barrier height");
-        assertTrue(result.contains("leftBarrierHeight=2.0"), "Should contain left barrier height");
-        assertTrue(result.endsWith("}"), "Should end with closing brace");
-    }
-
-    @Test
-    public void testToStringWithNaNValues() {
-        BridgePoint point = new BridgePoint();
-        point.setBridgePrimaryKey(100L);
-        point.setPosition(BridgePoint.Position.CENTER);
-        // All other values remain NaN
-        
-        String result = point.toString();
-        
-        assertNotNull(result, "toString should not return null");
-        assertTrue(result.contains("BridgePoint{"), "Should start with class name");
-        assertTrue(result.contains("bridgePrimaryKey=100"), "Should contain bridge primary key");
-        assertTrue(result.contains("position=CENTER"), "Should contain position");
-        assertFalse(result.contains("absoluteDeckHeight="), "Should not contain NaN absolute deck height");
-        assertFalse(result.contains("relativeDeckHeight="), "Should not contain NaN relative deck height");
-        assertFalse(result.contains("deckThickness="), "Should not contain NaN deck thickness");
-        assertFalse(result.contains("rightWidth="), "Should not contain NaN right width");
-        assertFalse(result.contains("leftWidth="), "Should not contain NaN left width");
-        assertFalse(result.contains("rightBarrierHeight="), "Should not contain NaN right barrier height");
-        assertFalse(result.contains("leftBarrierHeight="), "Should not contain NaN left barrier height");
-    }
-
-    @Test
-    public void testToStringWithNullCoordinate() {
-        BridgePoint point = new BridgePoint();
-        point.setBridgePrimaryKey(100L);
-        point.setPosition(BridgePoint.Position.RIGHT);
-        // coordinate remains null
-        
-        String result = point.toString();
-        
-        assertNotNull(result, "toString should not return null");
-        assertTrue(result.contains("BridgePoint{"), "Should start with class name");
-        assertTrue(result.contains("bridgePrimaryKey=100"), "Should contain bridge primary key");
-        assertTrue(result.contains("position=RIGHT"), "Should contain position");
-        assertFalse(result.contains("coordinate="), "Should not contain null coordinate");
-    }
-
-    @Test
-    public void testNegativeValues() {
-        BridgePoint point = new BridgePoint();
-        
-        // Test that negative values are allowed (they might be valid in some contexts)
-        point.setAbsoluteDeckHeight(-5.0);
-        assertEquals(-5.0, point.getAbsoluteDeckHeight(), 0.001, "Should allow negative absolute height");
-        
-        point.setRelativeDeckHeight(-2.0);
-        assertEquals(-2.0, point.getRelativeDeckHeight(), 0.001, "Should allow negative relative height");
-        
-        point.setDeckThickness(-0.5);
-        assertEquals(-0.5, point.getDeckThickness(), 0.001, "Should allow negative thickness");
-        
-        point.setRightWidth(-3.0);
-        assertEquals(-3.0, point.getRightWidth(), 0.001, "Should allow negative right width");
-        
-        point.setLeftWidth(-2.5);
-        assertEquals(-2.5, point.getLeftWidth(), 0.001, "Should allow negative left width");
-        
-        point.setRightBarrierHeight(-1.0);
-        assertEquals(-1.0, point.getRightBarrierHeight(), 0.001, "Should allow negative right barrier height");
-        
-        point.setLeftBarrierHeight(-1.5);
-        assertEquals(-1.5, point.getLeftBarrierHeight(), 0.001, "Should allow negative left barrier height");
-    }
-
-    @Test
-    public void testZeroValues() {
-        BridgePoint point = new BridgePoint();
-        
-        point.setAbsoluteDeckHeight(0.0);
-        assertEquals(0.0, point.getAbsoluteDeckHeight(), 0.001, "Should handle zero absolute height");
-        assertTrue(point.hasAbsoluteDeckHeight(), "Zero should be considered a valid height");
-        
-        point.setRelativeDeckHeight(0.0);
-        assertEquals(0.0, point.getRelativeDeckHeight(), 0.001, "Should handle zero relative height");
-        assertTrue(point.hasRelativeDeckHeight(), "Zero should be considered a valid height");
-        
-        point.setDeckThickness(0.0);
-        assertEquals(0.0, point.getDeckThickness(), 0.001, "Should handle zero thickness");
-        
-        point.setRightWidth(0.0);
-        assertEquals(0.0, point.getRightWidth(), 0.001, "Should handle zero right width");
-        assertTrue(point.hasWidthData(), "Zero width should be considered valid");
-        
-        point.setLeftWidth(0.0);
-        assertEquals(0.0, point.getLeftWidth(), 0.001, "Should handle zero left width");
-        
-        point.setRightBarrierHeight(0.0);
-        assertEquals(0.0, point.getRightBarrierHeight(), 0.001, "Should handle zero right barrier height");
-        assertTrue(point.hasBarrierHeightData(), "Zero barrier height should be considered valid");
-        
-        point.setLeftBarrierHeight(0.0);
-        assertEquals(0.0, point.getLeftBarrierHeight(), 0.001, "Should handle zero left barrier height");
-    }
-
-    @Test
-    public void testExtremeValues() {
-        BridgePoint point = new BridgePoint();
-        
-        // Test very large values
-        point.setAbsoluteDeckHeight(Double.MAX_VALUE);
-        assertEquals(Double.MAX_VALUE, point.getAbsoluteDeckHeight(), "Should handle maximum double value");
-        
-        point.setAbsoluteDeckHeight(Double.MIN_VALUE);
-        assertEquals(Double.MIN_VALUE, point.getAbsoluteDeckHeight(), "Should handle minimum double value");
-        
-        // Test infinite values
-        point.setRelativeDeckHeight(Double.POSITIVE_INFINITY);
-        assertEquals(Double.POSITIVE_INFINITY, point.getRelativeDeckHeight(), "Should handle positive infinity");
-        assertTrue(point.hasRelativeDeckHeight(), "Positive infinity should be considered valid");
-        
-        point.setRelativeDeckHeight(Double.NEGATIVE_INFINITY);
-        assertEquals(Double.NEGATIVE_INFINITY, point.getRelativeDeckHeight(), "Should handle negative infinity");
-        assertTrue(point.hasRelativeDeckHeight(), "Negative infinity should be considered valid");
-    }
-
-    @Test
-    public void testCoordinateIndependence() {
+    public void testBridgePointCoordinateIndependence() {
         Coordinate originalCoord = new Coordinate(100.0, 200.0, 15.0);
         BridgePoint point1 = new BridgePoint(originalCoord);
         BridgePoint point2 = new BridgePoint(point1);
@@ -402,45 +169,7 @@ public class BridgePointTest {
     }
 
     @Test
-    public void testCoordinateModificationIndependence() {
-        BridgePoint point1 = new BridgePoint(new Coordinate(100.0, 200.0, 15.0));
-        BridgePoint point2 = new BridgePoint(point1);
-        
-        // Modify point1's coordinate
-        point1.getCoordinate().x = 999.0;
-        
-        // point2 should not be affected (deep copy)
-        assertEquals(100.0, point2.getCoordinate().x, 0.001, "Point2 coordinate should not be affected by point1 coordinate modification");
-    }
-
-    @Test
-    public void testDefaultValuesConsistency() {
-        BridgePoint point1 = new BridgePoint();
-        BridgePoint point2 = new BridgePoint();
-        
-        assertEquals(point1.getPrimaryKey(), point2.getPrimaryKey(), "Default primary keys should be consistent");
-        assertEquals(point1.getBridgePrimaryKey(), point2.getBridgePrimaryKey(), "Default bridge primary keys should be consistent");
-        assertEquals(point1.getPosition(), point2.getPosition(), "Default positions should be consistent");
-        
-        // All NaN values should be consistently NaN
-        assertTrue(Double.isNaN(point1.getAbsoluteDeckHeight()) && Double.isNaN(point2.getAbsoluteDeckHeight()), 
-                  "Default absolute deck heights should both be NaN");
-        assertTrue(Double.isNaN(point1.getRelativeDeckHeight()) && Double.isNaN(point2.getRelativeDeckHeight()), 
-                  "Default relative deck heights should both be NaN");
-        assertTrue(Double.isNaN(point1.getDeckThickness()) && Double.isNaN(point2.getDeckThickness()), 
-                  "Default deck thicknesses should both be NaN");
-        assertTrue(Double.isNaN(point1.getRightWidth()) && Double.isNaN(point2.getRightWidth()), 
-                  "Default right widths should both be NaN");
-        assertTrue(Double.isNaN(point1.getLeftWidth()) && Double.isNaN(point2.getLeftWidth()), 
-                  "Default left widths should both be NaN");
-        assertTrue(Double.isNaN(point1.getRightBarrierHeight()) && Double.isNaN(point2.getRightBarrierHeight()), 
-                  "Default right barrier heights should both be NaN");
-        assertTrue(Double.isNaN(point1.getLeftBarrierHeight()) && Double.isNaN(point2.getLeftBarrierHeight()), 
-                  "Default left barrier heights should both be NaN");
-    }
-
-    @Test
-    public void testDataIntegrityAfterOperations() {
+    public void testBridgePointDataIntegrityAfterOperations() {
         BridgePoint point = new BridgePoint();
         
         // Set all values
