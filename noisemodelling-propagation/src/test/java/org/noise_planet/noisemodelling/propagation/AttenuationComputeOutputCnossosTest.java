@@ -23,6 +23,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 import org.noise_planet.noisemodelling.propagation.cnossos.*;
@@ -5607,9 +5608,9 @@ public class AttenuationComputeOutputCnossosTest {
         //Propagation data building
         GeometryFactory f = new GeometryFactory();
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
-        scene.addSource(f.createPoint(new Coordinate(0, 0, 2)));
-        scene.addReceiver(new Coordinate(30, 0, 2));
-        scene.addReceiver(new Coordinate(-30, 0, 2));
+        scene.addSource(0L, f.createPoint(new Coordinate(0, 0, 2)), Scene.HeightType.RELATIVE);
+        scene.addReceiver(0L, new Coordinate(30, 0, 2));
+        scene.addReceiver(1L, new Coordinate(-30, 0, 2));
         scene.setDefaultGroundAttenuation(0.0);
         scene.setReflexionOrder(0);
 
@@ -5659,9 +5660,9 @@ public class AttenuationComputeOutputCnossosTest {
         //Propagation data building
         GeometryFactory f = new GeometryFactory();
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
-        scene.addSource(f.createPoint(new Coordinate(0, 0, 2)));
-        scene.addReceiver(new Coordinate(0, 30, 2));
-        scene.addReceiver(new Coordinate(0, -30, 2));
+        scene.addSource(0L, f.createPoint(new Coordinate(0, 0, 2)), Scene.HeightType.RELATIVE);
+        scene.addReceiver(0L, new Coordinate(0, 30, 2));
+        scene.addReceiver(1L, new Coordinate(0, -30, 2));
 
         scene.setReflexionOrder(0);
 
@@ -5711,7 +5712,7 @@ public class AttenuationComputeOutputCnossosTest {
         //Propagation data building
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
 
-        scene.addSource(f.createPoint(new Coordinate(0.5, 0, 0.)));
+        scene.addSource(0L, f.createPoint(new Coordinate(0.5, 0, 0.)));
         scene.addReceiver(new Coordinate(25, 0, 4));
         scene.setDefaultGroundAttenuation(1.0);
         scene.setReflexionOrder(1);
@@ -5810,7 +5811,7 @@ public class AttenuationComputeOutputCnossosTest {
 
         //Propagation data building
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
-        scene.addSource(f.createPoint(new Coordinate(30, -10, 2)));
+        scene.addSource(0L, f.createPoint(new Coordinate(30, -10, 2)));
         scene.addReceiver(new Coordinate(30, 20, 2));
         scene.setDefaultGroundAttenuation(0.0);
 
@@ -5850,9 +5851,9 @@ public class AttenuationComputeOutputCnossosTest {
         //Propagation data building
         GeometryFactory f = new GeometryFactory();
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
-        scene.addSource(f.createPoint(new Coordinate(0, 0, 2)));
-        scene.addReceiver(new Coordinate(0, 30, 2));
-        scene.addReceiver(new Coordinate(0, -30, 2));
+        scene.addSource(0L, f.createPoint(new Coordinate(0, 0, 2)), Scene.HeightType.RELATIVE);
+        scene.addReceiver(0L, new Coordinate(0, 30, 2));
+        scene.addReceiver(1L, new Coordinate(0, -30, 2));
 
         scene.setReflexionOrder(0);
 
@@ -5890,9 +5891,9 @@ public class AttenuationComputeOutputCnossosTest {
         //Propagation data building
         GeometryFactory f = new GeometryFactory();
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
-        scene.addSource(f.createPoint(new Coordinate(0, 0, 2)));
-        scene.addReceiver(new Coordinate(30, 0, 2));
-        scene.addReceiver(new Coordinate(-30, 0, 2));
+        scene.addSource(0L, f.createPoint(new Coordinate(0, 0, 2)), Scene.HeightType.RELATIVE);
+        scene.addReceiver(0L, new Coordinate(30, 0, 2));
+        scene.addReceiver(1L, new Coordinate(-30, 0, 2));
         scene.setDefaultGroundAttenuation(0.0);
         scene.setReflexionOrder(0);
 
@@ -5921,7 +5922,7 @@ public class AttenuationComputeOutputCnossosTest {
      * Check if favorable propagation condition is well processed on each direction provided in the wind rose
      */
     @Test
-    public void TestFavorableConditionAttenuationRose() {
+    public void testFavorableConditionAttenuationRose() {
         //Create obstruction test object
         ProfileBuilder builder = new ProfileBuilder();
 
@@ -5940,13 +5941,14 @@ public class AttenuationComputeOutputCnossosTest {
         receivers.add(Orientation.rotate(new Orientation(315, 0, 0), northReceiver)); // NE
         GeometryFactory gf = new GeometryFactory();
         SceneWithAttenuation scene = new SceneWithAttenuation(builder);
-        scene.addSource(gf.createPoint(new Coordinate(0, 0, 4)));
+        scene.addSource(0L, gf.createPoint(new Coordinate(0, 0, 4)), Scene.HeightType.RELATIVE);
         scene.setDefaultGroundAttenuation(0.5);
         scene.setComputeHorizontalDiffraction(true);
         scene.setReflexionOrder(1);
         scene.setMaxSrcDist(1500);
-        for(Vector3D receiver : receivers) {
-            scene.addReceiver(new Coordinate(receiver.getX(), receiver.getY(), receiver.getZ()));
+        for(int i = 0; i < receivers.size(); i++) {
+            Vector3D receiver = receivers.get(i);
+            scene.addReceiver((long)i, new Coordinate(receiver.getX(), receiver.getY(), receiver.getZ()));
         }
 
         double[][] windRoseTest = new double[receivers.size()][];

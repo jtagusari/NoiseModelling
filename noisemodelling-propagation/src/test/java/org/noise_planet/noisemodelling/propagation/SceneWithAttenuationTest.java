@@ -19,10 +19,10 @@ public class SceneWithAttenuationTest {
         GeometryFactory gf = new GeometryFactory();
         Point p = gf.createPoint(new Coordinate(10, 20));
 
-        long pk = scene.addSource(123L, p, null, 2.5);
-        assertEquals(1, scene.getSourceCount());
+        scene.addSource(123L, p, null, 2.5);
+        assertEquals(1, scene.countSources());
         assertEquals(1, scene.getSourcePks().size());
-        assertEquals(2.5, scene.sourceGs.get(pk));
+        assertEquals(2.5, scene.sourceGs.get(123L));
 
         // getSourceGs by index
         double gsByIndex = scene.getSourceGs(0);
@@ -30,7 +30,7 @@ public class SceneWithAttenuationTest {
 
         // Clear and ensure maps are empty
         scene.clearSources();
-        assertEquals(0, scene.getSourceCount());
+        assertEquals(0, scene.countSources());
         assertEquals(0, scene.getSourcePks().size());
         assertEquals(0, scene.sourceGs.size());
     }

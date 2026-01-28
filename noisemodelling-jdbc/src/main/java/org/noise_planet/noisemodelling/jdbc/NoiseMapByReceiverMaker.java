@@ -283,7 +283,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
 
         if(verbose) {
             logger.info(String.format("This computation area contains %d receivers %d sound sources and %d buildings",
-                    scene.receivers.size(), scene.getSourceCount(),
+                    scene.receivers.size(), scene.countSources(),
                     scene.profileBuilder.getBuildingCount()));
         }
 

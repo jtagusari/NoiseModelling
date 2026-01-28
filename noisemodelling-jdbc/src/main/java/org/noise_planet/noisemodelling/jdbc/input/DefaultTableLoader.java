@@ -322,7 +322,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                                     " contain at least one receiver without Z ordinate." +
                                     " You must specify X,Y,Z for each receiver");
                         }
-                        scene.addReceiver(receiverPk, pt.getCoordinate(), rs);
+                        scene.addReceiver(receiverPk, pt.getCoordinate());
                     }
                 }
             }
@@ -749,7 +749,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                                             " You must specify X,Y,Z for each source");
                                 }
                             }
-                            Long returnedPk = scene.addSourceDb(rs.getLong(pkIndex), geo, rs);
+                            scene.addSourceDb(rs.getLong(pkIndex), geo, rs);
                         }
                     }
                 }

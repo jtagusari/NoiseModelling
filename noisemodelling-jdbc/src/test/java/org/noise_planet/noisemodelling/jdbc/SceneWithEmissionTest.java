@@ -189,12 +189,12 @@ public class SceneWithEmissionTest {
         double[] roadLvl = AcousticIndicatorsFunctions.dBToW(new double[]{25.65, 38.15, 54.35, 60.35, 74.65, 66.75, 59.25, 53.95});
 
         SceneWithEmission scene = new SceneWithEmission(builder);
-        scene.addReceiver(new Coordinate(50, 50, 0.05));
-        scene.addReceiver(new Coordinate(48, 50, 4));
-        scene.addReceiver(new Coordinate(44, 50, 4));
-        scene.addReceiver(new Coordinate(40, 50, 4));
-        scene.addReceiver(new Coordinate(20, 50, 4));
-        scene.addReceiver(new Coordinate(0, 50, 4));
+        scene.addReceiver(0L, new Coordinate(50, 50, 0.05));
+        scene.addReceiver(1L, new Coordinate(48, 50, 4));
+        scene.addReceiver(2L, new Coordinate(44, 50, 4));
+        scene.addReceiver(3L, new Coordinate(40, 50, 4));
+        scene.addReceiver(4L, new Coordinate(20, 50, 4));
+        scene.addReceiver(5L, new Coordinate(0, 50, 4));
 
         List<Coordinate> srcPtsRef = new ArrayList<>();
         PathFinder.splitLineStringIntoPoints(geomSource, 1.0, srcPtsRef);
@@ -215,7 +215,7 @@ public class SceneWithEmissionTest {
         AttenuationOutputMultiThread propDataOut = new AttenuationOutputMultiThread(scene);
 
         PathFinder computeRays = new PathFinder(scene);
-        computeRays.makeRelativeZToAbsolute();
+        computeRays.makeReceiverRelativeZToAbsolute();
         computeRays.setThreadCount(1);
         computeRays.run(propDataOut);
 

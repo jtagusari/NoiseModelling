@@ -69,7 +69,7 @@ public class TestWallReflection {
         assertEquals(5, profileBuilder.getBuildingCount());
         Scene inputData = new Scene(profileBuilder);
         inputData.addReceiver(new Coordinate(599093.85,646227.90, 4));
-        inputData.addSource(factory.createPoint(new Coordinate(599095.21, 646283.77, 1)));
+        inputData.addSource(0L, factory.createPoint(new Coordinate(599095.21, 646283.77, 1)));
         inputData.setComputeHorizontalDiffraction(false);
         inputData.setComputeVerticalDiffraction(false);
         inputData.maxRefDist = 80;
@@ -155,7 +155,7 @@ public class TestWallReflection {
         assertEquals(5, profileBuilder.getBuildingCount());
         Scene inputData = new Scene(profileBuilder);
         inputData.addReceiver(new Coordinate(599093.85,646227.90, 504));
-        inputData.addSource(factory.createPoint(new Coordinate(599095.21, 646283.77, 501)));
+        inputData.addSource(0L, factory.createPoint(new Coordinate(599095.21, 646283.77, 501)));
         inputData.setComputeHorizontalDiffraction(false);
         inputData.setComputeVerticalDiffraction(false);
         inputData.maxRefDist = 80;

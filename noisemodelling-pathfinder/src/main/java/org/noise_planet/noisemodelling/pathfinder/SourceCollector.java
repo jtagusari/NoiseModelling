@@ -161,7 +161,7 @@ public final class SourceCollector {
                 
                 Orientation orientation;
                 LOGGER.debug("About to check orientation");
-                if(scene.getSourceCount() > srcIndex && scene.getSourceOrientations().containsKey(scene.getSourcePkById(srcIndex))) {
+                if(scene.countSources() > srcIndex && scene.getSourceOrientations().containsKey(scene.getSourcePkById(srcIndex))) {
                     // If the line source already provide an orientation then alter the line orientation
                     orientation = scene.getSourceOrientationByPk(scene.getSourcePkById(srcIndex));
                     if (orientation != null) {

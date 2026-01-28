@@ -8,18 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.h2gis.utilities.SpatialResultSet;
-import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
-import org.noise_planet.noisemodelling.pathfinder.LineStringSplitter;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.SourceCollector;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
-import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
@@ -33,7 +28,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -661,7 +655,7 @@ public class SourceIdentificationTest {
             LOGGER.info("--- Validation: Loaded and Registered Sources ---");
             
             // Validate number of loaded sources
-            int sourceCount = scene.getSourceCount();
+            int sourceCount = scene.countSources();
             assertEquals(4, sourceCount, "Should load and register 4 sources within envelope");
             LOGGER.info(String.format("Total sources in scene: %d", sourceCount));
             

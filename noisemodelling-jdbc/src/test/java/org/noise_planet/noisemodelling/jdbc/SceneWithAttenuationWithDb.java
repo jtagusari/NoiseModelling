@@ -62,10 +62,9 @@ public class SceneWithAttenuationWithDb {
 			assertTrue(rs.next());
 			long pk = rs.getLong("PK");
 			Geometry geom = rs.getGeometry("THE_GEOM");
-			Long registered = scene.addSourceDb(pk, geom, rs);
+			scene.addSourceDb(pk, geom, rs);
 			// 検証
 			assertEquals(1, scene.sourceBridgeProperties.size());
-			assertEquals(pk, registered);
 			assertEquals(0.7, scene.sourceGs.get(pk));
 			assertEquals(2, scene.sourceEmissionAttenuation.get(pk));
 			assertEquals("RELATIVE", scene.getSourceHeightTypeByPk(pk).name());
@@ -96,8 +95,7 @@ public class SceneWithAttenuationWithDb {
 			while (rs.next()) {
 				long pk = rs.getLong("PK");
 				Geometry geom = rs.getGeometry("THE_GEOM");
-				Long registered = scene.addSourceDb(pk, geom, rs);
-				assertEquals(pk, registered);
+				scene.addSourceDb(pk, geom, rs);
 				if (pk == 1L) {
 					assertEquals(0.7, scene.sourceGs.get(pk));
 					assertEquals(2, scene.sourceEmissionAttenuation.get(pk));

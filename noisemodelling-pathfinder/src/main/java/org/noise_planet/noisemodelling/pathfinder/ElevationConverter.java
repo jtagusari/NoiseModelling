@@ -35,7 +35,6 @@ public class ElevationConverter {
     Scene scene;
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
     private static final double MIN_INTERPOLATION_DISTANCE = 0.1;
-    private static final double OFFSET = 0.05;
 
 
     /**
@@ -173,50 +172,24 @@ public class ElevationConverter {
      *        replacement list and assigns it locally (callers should replace the
      *        original if needed)
      */
-    public void changeGeometries(List<Geometry> geometries) {
-        List<Geometry> convertedGeometries = convertAllGeometries(geometries);
-        replaceGeometryList(geometries, convertedGeometries);
-    }
-
-    /**
-     * Converts all geometries in the list from relative to absolute coordinates.
-     * 
-     * @param geometries list of input geometries to convert
-     * @return new list containing converted geometries
-     */
-    private List<Geometry> convertAllGeometries(List<Geometry> geometries) {
-        List<Geometry> geometriesCopy = new ArrayList<>(geometries.size());
+    public void changeGeometries(List<Geometry> geometries) {        
+        List<Geometry> convertedGeometries = new ArrayList<>(geometries.size());
         for (Geometry geom : geometries) {
-            Geometry convertedGeom = convertSingleGeometry(geom);
-            geometriesCopy.add(convertedGeom);
+            Geometry convertedGeom;            
+            if (geom instanceof LineString) {
+                convertedGeom = projectLineStringOntoDEM((LineString) geom, MIN_INTERPOLATION_DISTANCE);
+            } else if (geom instanceof MultiLineString) {
+                convertedGeom = convertMultiLineStringToAbsolute((MultiLineString) geom);
+            } else {
+                convertedGeom = geom.copy();
+            }
+            convertedGeometries.add(convertedGeom);
         }
-        return geometriesCopy;
+        
+        geometries.clear();
+        geometries.addAll(convertedGeometries);
     }
 
-    /**
-     * Converts a single geometry from relative to absolute coordinates.
-     * 
-     * @param geom geometry to convert
-     * @return converted geometry
-     */
-    private Geometry convertSingleGeometry(Geometry geom) {
-        return convertToAbsolute(geom);
-    }
-
-    /**
-     * Converts geometry from relative to absolute coordinates by projecting onto DEM.
-     * 
-     * @param geom geometry to convert
-     * @return geometry with absolute coordinates
-     */
-    private Geometry convertToAbsolute(Geometry geom) {
-        if (geom instanceof LineString) {
-            return projectLineStringOntoDEM((LineString) geom, MIN_INTERPOLATION_DISTANCE);
-        } else if (geom instanceof MultiLineString) {
-            return convertMultiLineStringToAbsolute((MultiLineString) geom);
-        }
-        return geom.copy();
-    }
 
     /**
      * Converts MultiLineString from relative to absolute coordinates.
@@ -231,17 +204,6 @@ public class ElevationConverter {
                 (LineString) multiLineString.getGeometryN(idGeom), MIN_INTERPOLATION_DISTANCE);
         }
         return GEOMETRY_FACTORY.createMultiLineString(newGeom);
-    }
-
-    /**
-     * Replaces the contents of the original geometry list with converted geometries.
-     * 
-     * @param originalList original list to be modified
-     * @param convertedList list containing converted geometries
-     */
-    private void replaceGeometryList(List<Geometry> originalList, List<Geometry> convertedList) {
-        originalList.clear();
-        originalList.addAll(convertedList);
     }
 
     
@@ -285,132 +247,33 @@ public class ElevationConverter {
         newGeomCoordinates.ensureCapacity(newGeomCoordinates.size() + groundProfileCoordinates.size());
 
         if (groundProfileCoordinates.size() < 2) {
-            handleSimpleSegment(p0, p1, newGeomCoordinates);
+            newGeomCoordinates.add(p0);
+            newGeomCoordinates.add(p1);
         } else {
-            handleComplexSegment(p0, p1, groundProfileCoordinates, newGeomCoordinates, 
-                               minInterpolationDistanceMm, isFirstSegment);
-        }
-    }
 
-    /**
-     * Handles a simple segment without sufficient topographic profile data.
-     * 
-     * @param p0 start point of the segment
-     * @param p1 end point of the segment
-     * @param newGeomCoordinates output list to accumulate coordinates
-     */
-    private void handleSimpleSegment(Coordinate p0, Coordinate p1, ArrayList<Coordinate> newGeomCoordinates) {
-        // if(profileBuilder.hasDem()) {
-        //     if(!warned) {
-        //         LOGGER.warn( "Source line out of DEM area {}",
-        //                 new WKTWriter(3).write(lineString));
-        //         warned = true;
-        //     }
-        // }
-        newGeomCoordinates.add(p0);
-        newGeomCoordinates.add(p1);
-    }
-
-    /**
-     * Handles a complex segment with topographic profile data by interpolating and filtering points.
-     * 
-     * @param p0 start point of the segment
-     * @param p1 end point of the segment
-     * @param groundProfileCoordinates topographic profile coordinates
-     * @param newGeomCoordinates output list to accumulate coordinates
-     * @param minInterpolationDistanceMm minimum interpolation distance in millimetres
-     * @param isFirstSegment true if this is the first segment in the line
-     */
-    private void handleComplexSegment(Coordinate p0, Coordinate p1, List<Coordinate> groundProfileCoordinates,
-                                     ArrayList<Coordinate> newGeomCoordinates, double minInterpolationDistanceMm,
-                                     boolean isFirstSegment) {
-        if (isFirstSegment) {
-            addFirstSegmentStartPoint(p0, groundProfileCoordinates, newGeomCoordinates);
-        }
-
-        addFilteredIntermediatePoints(p0, p1, groundProfileCoordinates, newGeomCoordinates, minInterpolationDistanceMm);
-        addSegmentEndPoint(p1, groundProfileCoordinates, newGeomCoordinates);
-    }
-
-    /**
-     * Adds the start point of the first segment with ground elevation applied.
-     * 
-     * @param p0 start point of the segment
-     * @param groundProfileCoordinates topographic profile coordinates
-     * @param newGeomCoordinates output list to accumulate coordinates
-     */
-    private void addFirstSegmentStartPoint(Coordinate p0, List<Coordinate> groundProfileCoordinates,
-                                          ArrayList<Coordinate> newGeomCoordinates) {
-        newGeomCoordinates.add(new Coordinate(p0.x, p0.y, p0.z + groundProfileCoordinates.get(0).z));
-    }
-
-    /**
-     * Adds filtered intermediate points that are not simply linear interpolations.
-     * 
-     * @param p0 start point of the segment for Z interpolation
-     * @param p1 end point of the segment for Z interpolation
-     * @param groundProfileCoordinates topographic profile coordinates
-     * @param newGeomCoordinates output list to accumulate coordinates
-     * @param minInterpolationDistanceMm minimum interpolation distance in millimetres
-     */
-    private void addFilteredIntermediatePoints(Coordinate p0, Coordinate p1, List<Coordinate> groundProfileCoordinates,
-                                              ArrayList<Coordinate> newGeomCoordinates, double minInterpolationDistanceMm) {
-        Coordinate previous = groundProfileCoordinates.get(0);
-        
-        for (int groundPoint = 1; groundPoint < groundProfileCoordinates.size() - 1; groundPoint++) {
-            final Coordinate current = groundProfileCoordinates.get(groundPoint);
-            final Coordinate next = groundProfileCoordinates.get(groundPoint + 1);
-            
-            if (shouldIncludeIntermediatePoint(current, previous, next, minInterpolationDistanceMm)) {
-                previous = current;
-                Coordinate interpolatedPoint = createInterpolatedPoint(current, p0, p1);
-                newGeomCoordinates.add(interpolatedPoint);
+            // Handle complex segment with topographic profile            
+            if (isFirstSegment) {
+                // Add the start point of the first segment with ground elevation
+                newGeomCoordinates.add(new Coordinate(p0.x, p0.y, p0.z + groundProfileCoordinates.get(0).z));
             }
+            // Add filtered intermediate points
+            Coordinate previous = groundProfileCoordinates.get(0);
+            
+            for (int groundPoint = 1; groundPoint < groundProfileCoordinates.size() - 1; groundPoint++) {
+                final Coordinate current = groundProfileCoordinates.get(groundPoint);
+                final Coordinate next = groundProfileCoordinates.get(groundPoint + 1);
+                
+                if (CGAlgorithms3D.distancePointSegment(current, previous, next) >= minInterpolationDistanceMm) {
+                    previous = current;
+                    Coordinate interpolatedPoint = new Coordinate(current.x, current.y, current.z + Vertex.interpolateZ(current, p0, p1));
+                    newGeomCoordinates.add(interpolatedPoint);
+                }
+            }
+
+            // Add the end point of the segment with ground elevation
+            newGeomCoordinates.add(new Coordinate(p1.x, p1.y, p1.z + groundProfileCoordinates.get(groundProfileCoordinates.size() - 1).z));
+
         }
     }
-
-    /**
-     * Determines whether an intermediate point should be included based on distance filtering.
-     * 
-     * @param current current topographic point
-     * @param previous previous topographic point
-     * @param next next topographic point
-     * @param minInterpolationDistanceMm minimum interpolation distance in millimetres
-     * @return true if the point should be included, false otherwise
-     */
-    private boolean shouldIncludeIntermediatePoint(Coordinate current, Coordinate previous, Coordinate next,
-                                                  double minInterpolationDistanceMm) {
-        // Do not add topographic points which are simply the linear interpolation between two points
-        // triangulation add a lot of interpolated lines from line segment DEM
-        return CGAlgorithms3D.distancePointSegment(current, previous, next) >= minInterpolationDistanceMm;
-    }
-
-    /**
-     * Creates an interpolated point with ground elevation and interpolated Z value.
-     * 
-     * @param current current topographic point (provides X, Y, and ground Z)
-     * @param p0 start point of original segment for Z interpolation
-     * @param p1 end point of original segment for Z interpolation
-     * @return new coordinate with interpolated Z value
-     */
-    private Coordinate createInterpolatedPoint(Coordinate current, Coordinate p0, Coordinate p1) {
-        // interpolate the Z (height) values of the source then add the altitude
-        return new Coordinate(current.x, current.y, current.z + Vertex.interpolateZ(current, p0, p1));
-    }
-
-    /**
-     * Adds the end point of the segment with ground elevation applied.
-     * 
-     * @param p1 end point of the segment
-     * @param groundProfileCoordinates topographic profile coordinates
-     * @param newGeomCoordinates output list to accumulate coordinates
-     */
-    private void addSegmentEndPoint(Coordinate p1, List<Coordinate> groundProfileCoordinates,
-                                   ArrayList<Coordinate> newGeomCoordinates) {
-        newGeomCoordinates.add(new Coordinate(p1.x, p1.y, p1.z +
-                groundProfileCoordinates.get(groundProfileCoordinates.size() - 1).z));
-    }
-
-    
 
 }

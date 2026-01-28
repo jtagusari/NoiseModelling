@@ -938,83 +938,24 @@ public class ProfileBuilder {
         // High-level phased workflow. Each phase is extracted to a small helper
         // to make the intent and ordering explicit and easy to document/test.
         LOGGER.debug("finishFeeding: starting topography processing");
-        processTopography();
+        topographyService.buildDelaunayTriangulation();
 
         LOGGER.debug("finishFeeding: computing building/wall elevations");
-        computeElevations();
-
-        LOGGER.debug("finishFeeding: indexing building/bridge facets into wall service");
-        exportFacetsToProcessedWalls();
-
-        LOGGER.debug("finishFeeding: finalizing processed walls and ground effects indexes");
-        finalizeIndexes();
-
-        LOGGER.debug("finishFeeding: initializing frequency dependent data");
-        initializeFrequencyDependentData();
-
-        LOGGER.info("finishFeeding completed");
-        return this;
-    }
-
-    // --- extracted helper phases for clarity ---
-    /**
-     * Phase 1 — build the topography (TIN/DEM) representation.
-     *
-     * This method runs the Delaunay triangulation and populates the
-     * TopographyService internal structures (triangles, vertices, topo index)
-     * used by elevation queries. Must be executed before elevation-dependent
-     * computations.
-     */
-    private void processTopography() {
-        // buildDelaunayTriangulation has important side-effects (triangles, vertices, topoTree)
-        topographyService.buildDelaunayTriangulation();
-    }
-
-    /**
-     * Phase 2 — compute elevations for buildings, bridges and walls.
-     *
-     * Each service reads the topography (via this builder) and updates
-     * geometry Z coordinates where necessary. This phase depends on
-     * {@link #processTopography()} having been run.
-     */
-    private void computeElevations() {
         buildingService.computeElevations(this);
         bridgeService.computeElevations(this);
         wallService.computeElevations(this);
-    }
 
-    /**
-     * Phase 3 — export facets and raw walls into the ProcessedWallService.
-     *
-     * Buildings and bridges facets, and walls are exported
-     * into the ProcessedWallService processed walls list. 
-     * GroundServic is asked to index ground absorption features.
-     */
-    private void exportFacetsToProcessedWalls() {
+        LOGGER.debug("finishFeeding: indexing building/bridge facets into wall service");
         buildingService.exportFacetsToProcessedWalls(processedWallService);
         bridgeService.exportFacetsToProcessedWalls(processedWallService);
         wallService.exportFacetsToProcessedWalls(processedWallService);
         groundService.exportFacetsToProcessedWalls(processedWallService);
-    }
 
-    /**
-     * Phase 4 — finalize spatial indexes used for runtime queries.
-     *
-     * Build the STRtree structures after all inserts to ensure index
-     * integrity and optimal query performance.
-     */
-    private void finalizeIndexes() {
+        LOGGER.debug("finishFeeding: finalizing processed walls and ground effects indexes");
         processedWallService.buildProcessedWallRtree();
         groundService.buildGroundEffectsRtree();
-    }
 
-    /**
-     * Phase 5 — initialize per-frequency data on objects.
-     *
-     * This method initializes frequency-dependent arrays (alpha coefficients
-     * and related data) and must run after geometries and indices are final.
-     */
-    private void initializeFrequencyDependentData() {
+        LOGGER.debug("finishFeeding: initializing frequency dependent data");
         // Ensure frequency config is properly initialized
         if (frequencyConfig.getExactFrequencyArray().isEmpty()) {
             LOGGER.warn("FrequencyConfig has empty arrays, initializing with default ONE_THIRD_OCTAVE configuration");
@@ -1022,7 +963,7 @@ public class ProfileBuilder {
         }
         
         // Log frequency configuration for debugging
-        LOGGER.info("ProfileBuilder.setFrequencyArray: called with size={} values={}", 
+        LOGGER.debug("ProfileBuilder.setFrequencyArray: called with size={} values={}", 
                    frequencyConfig.getFrequencyArray().size(), 
                    frequencyConfig.getFrequencyArray());
         
@@ -1030,6 +971,9 @@ public class ProfileBuilder {
         buildingService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
         bridgeService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
         processedWallService.initializeFrequencyDependentData(frequencyConfig.getExactFrequencyArray());
+
+        LOGGER.debug("finishFeeding completed");
+        return this;
     }
 
     /**

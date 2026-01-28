@@ -42,6 +42,16 @@ import org.noise_planet.noisemodelling.pathfinder.utils.UniqueKeyGenerator;
  * @author Adrien Le Bellec
  */
 public class Scene {
+    /**
+     * Enumerates how source height is interpreted.
+     */
+    public enum HeightType {
+        /** Height value is relative to ground elevation (or bridge deck for bridge sources). */
+        RELATIVE,
+        /** Height value is absolute elevation in the same coordinate system as DEM. */
+        ABSOLUTE
+    }
+
     /** Default maximum propagation distance in meters */
     public static final double DEFAULT_MAX_PROPAGATION_DISTANCE = 1200;
     /** Default maximum reflection distance in meters */
@@ -88,18 +98,12 @@ public class Scene {
     /** Bridge properties for sources located on bridges (height, virtual source flags, etc.) */
     public Map<Long, SourceBridgeProperty> sourceBridgeProperties = new HashMap<>();
 
-    /**
-     * Enumerates how source height is interpreted.
-     */
-    public enum HeightType {
-        /** Height value is relative to ground elevation (or bridge deck for bridge sources). */
-        RELATIVE,
-        /** Height value is absolute elevation in the same coordinate system as DEM. */
-        ABSOLUTE
-    }
 
     /** Source height type for each source - determines how Z coordinates are interpreted */
     public Map<Long, HeightType> sourceHeightType = new HashMap<>();
+
+    /** Receiver height type for each receiver - determines how Z coordinates are interpreted */
+    public Map<Long, HeightType> receiverHeightType = new HashMap<>();
 
     /** Maximum reflection order - number of reflections to consider in ray tracing */
     public int reflexionOrder = 1;
@@ -168,13 +172,19 @@ public class Scene {
      * @return Generated unique primary key for the source
      */
     @Deprecated
-    public long addSource(Geometry geom) {
+    public void addSource(Geometry geom) {
+        if (sourceGeometries.size() > 0) {
+            throw new UnsupportedOperationException("Adding sources when some are already defined is not supported. Use addSource(Long pk, Geometry geom) instead.");
+        }
+
         sourceGeometries.add(geom);
-        sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
-        // Add default primary key for consistency with getSourcePkById
-        long registeredPk = UniqueKeyGenerator.generateLongKey((long)(sourceGeometries.size() - 1), sourcesPk); 
-        sourcesPk.add(registeredPk);
-        return registeredPk;
+        sourcesPk.add(0L);
+        return;
+    }
+
+    
+    public void addSource(Long pk, Geometry geom) {
+        addSource(pk, geom, HeightType.RELATIVE, null, null);
     }
 
     /**
@@ -185,14 +195,8 @@ public class Scene {
      * @param geom Source geometry (Point for point sources, LineString for linear sources)
      * @return Actual registered primary key (may differ from requested pk if conflict occurred)
      */
-    public long addSource(Long pk, Geometry geom, HeightType heightType) {
-        sourceGeometries.add(geom);
-        sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
-        long registeredPk = UniqueKeyGenerator.generateLongKey(pk == null ? 0L : pk.longValue(), sourcesPk);
-        sourcesPk.add(registeredPk);
-        sourceHeightType.put(registeredPk, heightType);
-        sourceBridgeProperties.put(registeredPk, new SourceBridgeProperty(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L));
-        return registeredPk;
+    public void addSource(Long pk, Geometry geom, HeightType heightType) {
+        addSource(pk, geom, heightType, null, null);
     }
 
     /**
@@ -204,10 +208,8 @@ public class Scene {
      * @param orientation Directional orientation (yaw, pitch, roll angles in degrees)
      * @return Actual registered primary key
      */
-    public long addSource(Long pk, Geometry geom, HeightType heightType, Orientation orientation) {
-        long returnedPk = addSource(pk, geom, heightType);
-        sourceOrientation.put(returnedPk, orientation);
-        return returnedPk;
+    public void addSource(Long pk, Geometry geom, HeightType heightType, Orientation orientation) {
+        addSource(pk, geom, heightType, orientation, null);
     }
 
     /**
@@ -222,52 +224,29 @@ public class Scene {
      * @return Actual registered primary key
      * @throws IllegalArgumentException if bridgePkOn >= 0 but source geometry does not intersect bridge footprint
      */
-    public long addSource(Long pk, Geometry geom,HeightType heightType,  Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
-        // Validate bridge-source geometry intersection if bridge is specified
-        if (sourceBridgeProperty != null && sourceBridgeProperty.getBridgePkOn() >= 0) {
-            long bridgePk = sourceBridgeProperty.getBridgePkOn();
-            
-            // Retrieve bridge by primary key
-            var bridge = profileBuilder.getBridgeByPk(bridgePk);
-            if (bridge == null) {
-                throw new IllegalArgumentException(
-                    "Bridge with PK=" + bridgePk + " not found in ProfileBuilder. ");
-            }
-            
-            // Check if source is contained within bridge footprint
-            Geometry bridgeFootprint = bridge.getFootprintGeometry();
-            if (bridgeFootprint == null || !bridgeFootprint.contains(geom)) {
-                throw new IllegalArgumentException(
-                    "Source geometry is not fully contained within bridge footprint. " +
-                    "bridgePk=" + bridgePk + ", sourcePk=" + pk + ". " +
-                    "Sources marked as ACTUAL_SOURCE_ON_BRIDGE must be completely within the bridge geometry.");
-            }
+    public void addSource(Long pk, Geometry geom,HeightType heightType,  Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
+        sourceGeometries.add(geom);
+        sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
+        sourcesPk.add(pk);
+
+        if (heightType != null) {
+            sourceHeightType.put(pk, heightType);
+        } else {
+            sourceHeightType.put(pk, HeightType.RELATIVE);
+        }
+
+        if (orientation != null) {
+            sourceOrientation.put(pk, orientation);
+        } else {
+            sourceOrientation.put(pk, new Orientation(0,0,0));
         }
         
-        long returnedPk = addSource(pk, geom, heightType, orientation);
         if (sourceBridgeProperty != null) {
-            this.sourceBridgeProperties.put(returnedPk, sourceBridgeProperty);
+            sourceBridgeProperties.put(pk, sourceBridgeProperty);
+        } else {
+            sourceBridgeProperties.put(pk, new SourceBridgeProperty(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L));
         }
-        return returnedPk;
-    }
-
-    /**
-     * Set all source geometries at once and rebuild the spatial index.
-     * Warning: This replaces all existing sources and resets their primary keys.
-     * Use this method when loading sources from a database or external source.
-     * 
-     * @param sourceGeometries List of source geometries to set
-     */
-    public void setSources(List<Geometry> sourceGeometries, List<HeightType> heightTypes) {
-        int i = 0;
-        for(Geometry source : sourceGeometries) {
-            sourcesIndex.appendGeometry(source, i++);
-        }
-        this.sourceGeometries = sourceGeometries;
-        this.sourceHeightType = new HashMap<>();
-        for (int j = 0; j < heightTypes.size(); j++) {
-            this.sourceHeightType.put((long) j, heightTypes.get(j));
-        }
+        return;
     }
 
     /**
@@ -319,13 +298,22 @@ public class Scene {
         return sourceGeometries.get(index);
     }
 
+    
+    public Coordinate getReceiverCoordinateByIndex(int index) {
+        return receivers.get(index);
+    }
+
     /**
      * Get total number of sources in the scene.
      * 
      * @return Number of source geometries
      */
-    public int getSourceCount() {
+    public int countSources() {
         return sourceGeometries.size();
+    }
+
+    public int countReceivers() {
+        return receivers.size();
     }
 
     /**
@@ -360,11 +348,19 @@ public class Scene {
      * @return HeightType enum value (RELATIVE or ABSOLUTE)
      */
     public HeightType getSourceHeightTypeByPk(long pk) {
-        HeightType heightType = sourceHeightType.get(pk);
-        if (heightType == null) {
-            return HeightType.RELATIVE;
-        }
-        return heightType;
+        return sourceHeightType.get(pk);
+    }
+
+    
+    /**
+     * Get height type for a specific source by primary key.
+     * Returns RELATIVE if no height type is specified.
+     * 
+     * @param pk Source primary key
+     * @return HeightType enum value (RELATIVE or ABSOLUTE)
+     */
+    public HeightType getReceiverHeightTypeByPk(long pk) {
+        return receiverHeightType.get(pk);
     }
 
     /**
@@ -425,7 +421,13 @@ public class Scene {
      * @param receiver Receiver coordinates (variable number of arguments)
      */
     public void addReceiver(Coordinate... receiver) {
-        receivers.addAll(Arrays.asList(receiver));
+        if(receivers.size() > 0) {
+            throw new UnsupportedOperationException("Adding receivers when some are already defined is not supported. Use addReceiver(long pk, Coordinate position) instead.");
+        }
+
+        for (int i = 0; i < receiver.length; i++) {
+            addReceiver((long)i, receiver[i]);
+        }
     }
 
     /**
@@ -435,8 +437,19 @@ public class Scene {
      * @param position Receiver coordinate
      */
     public void addReceiver(long pk, Coordinate position) {
+        addReceiver(pk, position, HeightType.RELATIVE);
+    }
+    
+    /**
+     * Add a receiver with primary key for database correlation.
+     * 
+     * @param pk Primary key for database correlation
+     * @param position Receiver coordinate
+     */
+    public void addReceiver(long pk, Coordinate position, HeightType heightType) {
         receivers.add(position);
         receiversPk.add(pk);
+        receiverHeightType.put(pk, heightType);
     }
 
     /**
@@ -447,7 +460,8 @@ public class Scene {
      * @param rs Database result set (for future extensions)
      */
     public void addReceiver(long pk, Coordinate position, SpatialResultSet rs) {
-        addReceiver(pk, position);
+        throw new UnsupportedOperationException("Not implemented yet");
+        // addReceiver(pk, position, HeightType.RELATIVE);
     }
 
     /**

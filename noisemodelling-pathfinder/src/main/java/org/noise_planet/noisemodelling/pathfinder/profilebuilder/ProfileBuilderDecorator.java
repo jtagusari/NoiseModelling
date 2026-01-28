@@ -31,7 +31,7 @@ public class ProfileBuilderDecorator {
      * @return
      */
     public ProfileBuilderDecorator addSource(double x, double y, double z) {
-        data.addSource(FACTORY.createPoint(new Coordinate(x, y, z)));
+        data.addSource(0L, FACTORY.createPoint(new Coordinate(x, y, z)));
         return this;
     }
 
@@ -41,7 +41,7 @@ public class ProfileBuilderDecorator {
      * @return
      */
     public ProfileBuilderDecorator addSource(Geometry geom) {
-        data.addSource(geom);
+        data.addSource(0L, geom);
         return this;
     }
 

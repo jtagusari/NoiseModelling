@@ -187,35 +187,32 @@ public class SceneWithEmission extends SceneWithAttenuation {
      * @throws SQLException forwarded when reading from the result set fails
      */
     @Override
-    public Long addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
-        Long returnedPk = super.addSourceDb(pk, geom, rs);
-        // List<Long> returnedPks = super.addSourceDb(pk, geom, rs);
-        // for (long returnedPk : returnedPks) {
-            SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
-            // If sourceBridgeProperty is null, create a default instance (source not related to bridge)
-            if (sourceBridgeProperty == null) {
-                sourceBridgeProperty = new SourceBridgeProperty();
-            }
-            switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
-                case INPUT_MODE_TRAFFIC_FLOW_DEN:
-                    if (sourceBridgeProperty.getSourceType() == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-                        Bridge bridge = profileBuilder.getBridgeByPk(sourceBridgeProperty.getBridgePkOn());
-                        registerBridgeStructuralDENValues(returnedPk, rs, bridge);
-                    } else {
-                        registerDENValuesUsingTrafficFlow(returnedPk, rs);
-                    }
-                    break;
-                case INPUT_MODE_LW_DEN:
-                    registerDENValuesUsingEmission(returnedPk, rs);
-                    break;
-                default:
-                    // For input modes that don't carry emission data here, do nothing.
-                    // This keeps the switch forward-compatible with new enum values.
-                    break;
-            }
-        // }
-        // return returnedPks;
-        return returnedPk;
+    public void addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
+        super.addSourceDb(pk, geom, rs);
+        
+        SourceBridgeProperty sourceBridgeProperty = super.getSourceBridgePropertyByPk(pk);
+        // If sourceBridgeProperty is null, create a default instance (source not related to bridge)
+        if (sourceBridgeProperty == null) {
+            sourceBridgeProperty = new SourceBridgeProperty();
+        }
+        switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
+            case INPUT_MODE_TRAFFIC_FLOW_DEN:
+                if (sourceBridgeProperty.getSourceType() == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+                    Bridge bridge = profileBuilder.getBridgeByPk(sourceBridgeProperty.getBridgePkOn());
+                    registerBridgeStructuralDENValues(pk, rs, bridge);
+                } else {
+                    registerDENValuesUsingTrafficFlow(pk, rs);
+                }
+                break;
+            case INPUT_MODE_LW_DEN:
+                registerDENValuesUsingEmission(pk, rs);
+                break;
+            default:
+                // For input modes that don't carry emission data here, do nothing.
+                // This keeps the switch forward-compatible with new enum values.
+                break;
+        }
+        return;
     }
 
     private void registerDENValuesUsingEmission(Long pk, SpatialResultSet rs) throws SQLException {

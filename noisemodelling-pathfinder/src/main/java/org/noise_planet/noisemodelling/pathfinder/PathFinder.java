@@ -238,18 +238,20 @@ public class PathFinder {
     }
 
     /**
-     * Convert both source and receiver Z coordinates from relative to absolute elevation.
-     */
-    public void makeRelativeZToAbsolute() {
-        makeSourceRelativeZToAbsolute();
-        makeReceiverRelativeZToAbsolute();
-    }
-
-    /**
      * Convert receiver Z coordinates from relative to absolute elevation.
      */
     public void makeReceiverRelativeZToAbsolute() {
         ElevationConverter receiverConverter = new ElevationConverter(data);
         receiverConverter.changeCoordinates(data.receivers);
+        
+        for (int i = 0; i < data.countReceivers(); i++) {
+            Coordinate coord = data.getReceiverCoordinateByIndex(i);
+            long pk = data.getReceiverPkByIndex(i);
+            Scene.HeightType heightType = data.getReceiverHeightTypeByPk(pk);
+            if(heightType == Scene.HeightType.RELATIVE) {
+                coord.setZ(coord.getZ() + data.profileBuilder.getZGround(coord));
+                heightType = Scene.HeightType.ABSOLUTE;
+            }
+        }
     }
 }

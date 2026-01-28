@@ -38,14 +38,12 @@ public class SceneTest {
         Scene scene = new Scene(new ProfileBuilder());
         GeometryFactory gf = new GeometryFactory();
         Point p = gf.createPoint(new Coordinate(1,2));
-        long registeredPk = scene.addSource(42L, p, null);
-        assertEquals(1, scene.getSourceCount());
-        // Scene stores a registered key in sourcesPk
-        assertTrue(registeredPk == 42L);
-        assertEquals(1, scene.getSourceCount());
+        scene.addSource(42L, p);
+        assertEquals(1, scene.countSources());
+        assertEquals(1, scene.countSources());
 
         scene.clearSources();
-        assertEquals(0, scene.getSourceCount());
+        assertEquals(0, scene.countSources());
     }
 
     /**
@@ -93,7 +91,7 @@ public class SceneTest {
     public void testAddReceiversAndSetters() {
         Scene scene = new Scene();
         scene.addReceiver(1L, new Coordinate(0,0));
-        scene.addReceiver(new Coordinate(1,1));
+        scene.addReceiver(2L, new Coordinate(1,1));
         assertEquals(2, scene.receivers.size());
 
         scene.setReflexionOrder(3);

@@ -291,7 +291,7 @@ class DirectAndDiffractionEvaluatorTest {
         }
 
         @Override
-        public int getSourceCount() {
+        public int countSources() {
             return sourceCount;
         }
 

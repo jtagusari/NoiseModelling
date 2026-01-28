@@ -22,7 +22,7 @@ public class SourceCollectorTest {
         Scene scene = new Scene();
         // Point source at (10,0,0)
         Point p = gf.createPoint(new Coordinate(10, 0, 0));
-        scene.addSource(p);
+        scene.addSource(0L, p);
 
         ReceiverPointInfo rcv = new ReceiverPointInfo(0, 0L, new Coordinate(0, 0, 0));
 
@@ -46,7 +46,7 @@ public class SourceCollectorTest {
         // Line from (10,0,0) to (20,0,0)
         Coordinate[] coords = new Coordinate[]{new Coordinate(10, 0, 0), new Coordinate(20, 0, 0)};
         LineString ls = gf.createLineString(coords);
-        scene.addSource(ls);
+        scene.addSource(0L, ls);
 
         ReceiverPointInfo rcv = new ReceiverPointInfo(0, 0L, new Coordinate(0, 0, 0));
 
@@ -72,7 +72,7 @@ public class SourceCollectorTest {
         LineString ls1 = gf.createLineString(new Coordinate[]{new Coordinate(10, 0, 0), new Coordinate(20, 0, 0)});
         LineString ls2 = gf.createLineString(new Coordinate[]{new Coordinate(30, 0, 0), new Coordinate(40, 0, 0)});
         MultiLineString mls = gf.createMultiLineString(new LineString[]{ls1, ls2});
-        scene.addSource(mls);
+        scene.addSource(0L, mls);
 
         ReceiverPointInfo rcv = new ReceiverPointInfo(0, 0L, new Coordinate(0, 0, 0));
 

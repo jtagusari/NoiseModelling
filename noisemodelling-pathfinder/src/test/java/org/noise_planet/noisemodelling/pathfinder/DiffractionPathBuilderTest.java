@@ -332,7 +332,7 @@ class DiffractionPathBuilderTest {
         }
 
         @Override
-        public int getSourceCount() {
+        public int countSources() {
             return sourceCount;
         }
 

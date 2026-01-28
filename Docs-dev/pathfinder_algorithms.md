@@ -353,7 +353,6 @@ class PathFinder {
   + List<Coordinate> computeSideHull(...)
   + void makeSourceRelativeZToAbsolute()
   + void makeReceiverRelativeZToAbsolute()
-  + void makeRelativeZToAbsolute()
   + double splitLineStringIntoPoints(...)
 }
 

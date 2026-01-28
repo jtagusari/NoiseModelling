@@ -9,7 +9,8 @@
   - [Step 1: RECEIVERS Table Creation](#step-1-receivers-table-creation)
   - [Step 2: Geometry Loading](#step-2-geometry-loading)
   - [Step 3: Scene Registration](#step-3-scene-registration)
-  - [Step 4: ReceiverPointInfo Creation](#step-4-receiverpointinfo-creation)
+  - [Step 5: ReceiverPointInfo Creation](#step-5-receiverpointinfo-creation)
+  - [Step 4: Z-Coordinate Conversion in Pathfinder](#step-4-z-coordinate-conversion-in-pathfinder)
   - [Integration with NoiseMapByReceiverMaker](#integration-with-noisemapbyreceivermaker)
 
 ## Concepts & Overview — Receiver Processing
@@ -62,17 +63,26 @@ note right of step3
   • Skip duplicate receivers
 end note
 
-rectangle "Step 4: ReceiverPointInfo Creation" as step4 #F0F8E8
+rectangle "Step 4: Z-Coordinate Conversion in Pathfinder" as step4 #F0F8E8
 note right of step4
+  **Process:**
+  • During propagation, topographic profiles are built
+  • DEM data queried for ground elevation at receiver location
+  • zGround set on CutPointReceiver for absolute height calculation
+end note
+
+rectangle "Step 5: ReceiverPointInfo Creation" as step5 #F0F8E8
+note right of step5
   **Process:**
   • Create ReceiverPointInfo objects
   • Assign receiver index and PK
-  • Convert relative Z to absolute if needed
+  • Position coordinate retains relative Z (height above ground)
 end note
 
 step1 --> step2 : Query by cell envelope
 step2 --> step3 : Add to scene
-step3 --> step4 : Create ReceiverPointInfo
+step3 --> step4 : During path finding
+step4 --> step5 : Create ReceiverPointInfo
 @enduml
 ```
 
@@ -81,9 +91,10 @@ step3 --> step4 : Create ReceiverPointInfo
 Before processing receivers, the `RECEIVERS` table must be created. There are several methods to generate or provide receiver locations:
 
 ### DelaunayReceiversMaker
+
 - **Purpose**: Generates receivers using Delaunay triangulation for uniform coverage
 - **Class**: `org.noise_planet.noisemodelling.jdbc.DelaunayReceiversMaker`
-- **Process**: 
+- **Process**:
   - Performs Delaunay triangulation on the computation domain
   - Places receivers at triangle vertices
   - Considers building obstacles and source geometries
@@ -91,6 +102,7 @@ Before processing receivers, the `RECEIVERS` table must be created. There are se
 - **Output**: Populates `RECEIVERS` table with generated points
 
 ### Building_Grid (WPS Script)
+
 - **Purpose**: Generates receivers around building facades at specified distances
 - **Script**: `Building_Grid.groovy`
 - **Process**:
@@ -101,6 +113,7 @@ Before processing receivers, the `RECEIVERS` table must be created. There are se
 - **Output**: Creates `RECEIVERS` table with facade-based receiver points
 
 ### Manual or External Data
+
 - Receivers can also be provided manually or from external sources
 - Ensure the table follows the required schema (PK, THE_GEOM with Z coordinate)
 
@@ -160,7 +173,7 @@ Loaded receivers are registered in the computation scene for propagation process
 - Maintains mapping between receiver index and database primary key
 - Prevents duplicate processing in grid-based computation
 
-## Step 4: ReceiverPointInfo Creation
+## Step 5: ReceiverPointInfo Creation
 
 Final step creates `ReceiverPointInfo` objects that encapsulate receiver data for propagation algorithms.
 
@@ -200,150 +213,37 @@ end note
 - Passed to attenuation calculation algorithms
 - Enables correlation of results back to database records
 
+## Step 4: Z-Coordinate Conversion in Pathfinder
+
+In the pathfinder phase, receiver coordinates are prepared for accurate propagation calculations by converting relative heights to absolute elevations using Digital Elevation Model (DEM) data.
+
+**Process:**
+1. During ray path computation between sources and receivers, topographic profiles are constructed
+2. For each receiver in the profile, the ground elevation is queried from DEM data
+3. The `zGround` field of `CutPointReceiver` is set to the absolute elevation from DEM
+4. This allows calculation of absolute receiver height as `zGround + relativeZ` where `relativeZ` is the height above ground
+
+**Key Classes and Methods:**
+- `ProfileRetriever.getProfile()`: Initiates profile building and calls topography services
+- `TopographyService.addTopoCutPts()`: Queries DEM and sets `zGround` on receivers
+- `CutPointReceiver.setZGround(double zGround)`: Sets the absolute ground elevation
+
+**Code Implementation:**
+```java
+// In TopographyService.addTopoCutPts()
+CutPointReceiver cutPointReceiver = profile.getReceiver();
+double groundElevation = coordinates.get(coordinates.size() - 1).z; // From DEM
+cutPointReceiver.setZGround(groundElevation);
+profile.setReceiver(cutPointReceiver);
+```
+
+**Integration with Propagation:**
+- Absolute receiver height is calculated as needed during terrain intersection checks
+- Maintains relative Z coordinate for height-above-ground semantics
+- Enables accurate modeling of receiver positions relative to terrain
+
 ## Integration with NoiseMapByReceiverMaker
 
 For details on how `NoiseMapByReceiverMaker` orchestrates receiver processing within the cell-based computation framework, including the call chain from `run()` to `ReceiverPointInfo` creation, threading considerations, and coordinate system handling, see `noisemapbyreceivermaker_algorithms.md`.
 
 This receiver processing pipeline integrates seamlessly with the broader noise mapping workflow, ensuring efficient and accurate acoustic computation.
-
-## Z-Coordinate Handling and Absolute Height Conversion
-
-### Relative vs. Absolute Heights
-
-Receiver Z coordinates in NoiseModelling represent **height above ground level**, not absolute elevation. This relative height is maintained throughout the receiver processing pipeline:
-
-- **Input (RECEIVERS table):** Z coordinate represents height above ground (e.g., 2.0 meters for a receiver 2 meters above ground)
-- **ReceiverPointInfo:** Position coordinate contains relative height above ground
-- **CutPointReceiver initialization:** Created with relative Z coordinate from ReceiverPointInfo
-
-Source Z coordinates are converted to absolute elevations earlier in the process:
-
-- **Input (SOURCES table):** Z coordinate may be relative or absolute depending on height type
-- **SourceCollector processing:** Converts relative Z to absolute using DEM data via `ElevationConverter.calculateAbsoluteElevation()`
-- **SourcePointInfo:** Position coordinate contains absolute elevation
-- **CutPointSource initialization:** Created with absolute Z coordinate from SourcePointInfo
-
-### Conversion to Absolute Heights in Propagation
-
-**For Receivers:**
-The conversion to absolute heights occurs during propagation calculations when topographic profiles are built. This conversion occurs in `ProfileRetriever.getProfile()`:
-
-```plantuml
-@startuml
-!theme plain
-skinparam rectangle {
-  BackgroundColor #E8F4FD
-  BorderColor #2196F3
-  FontSize 11
-}
-skinparam note {
-  BackgroundColor #FFF3E0
-  BorderColor #FF9800
-}
-
-title Receiver Z-Coordinate Conversion: Relative → Absolute Height
-
-rectangle "CutPointReceiver" as receiver #E8F4FD
-note right of receiver
-  **Initial State:**
-  • coordinate.z = relative height above ground
-  • zGround = NaN (not set)
-end note
-
-rectangle "ProfileRetriever.getProfile()" as retriever #E8F4FD
-note right of retriever
-  Calls TopographyService.addTopoCutPts()
-end note
-
-rectangle "TopographyService.addTopoCutPts()" as topo #E8F4FD
-note right of topo
-  **DEM Query:**
-  • Fetches topographic profile coordinates
-  • Sets zGround from DEM elevation data
-end note
-
-rectangle "CutPointReceiver" as receiver2 #E8F4FD
-note right of receiver2
-  **Final State:**
-  • coordinate.z = relative height above ground
-  • zGround = absolute elevation from DEM
-end note
-
-receiver --> retriever : relative Z
-retriever --> topo : coordinates
-topo --> receiver2 : set zGround
-@enduml
-```
-
-**For Sources:**
-Sources are converted to absolute elevations during scene processing in `SourceCollector.handlePointSource()`:
-
-```plantuml
-@startuml
-!theme plain
-skinparam rectangle {
-  BackgroundColor #F0F8E8
-  BorderColor #4CAF50
-  FontSize 11
-}
-skinparam note {
-  BackgroundColor #FFF9E6
-  BorderColor #D4A520
-}
-
-title Source Z-Coordinate Conversion: Relative → Absolute Height
-
-rectangle "Source Input" as input #F0F8E8
-note right of input
-  **Input State:**
-  • coordinate.z = relative or absolute
-  • heightType = RELATIVE or ABSOLUTE
-end note
-
-rectangle "SourceCollector.handlePointSource()" as collector #F0F8E8
-note right of collector
-  Checks heightType
-end note
-
-rectangle "ElevationConverter.calculateAbsoluteElevation()" as converter #F0F8E8
-note right of converter
-  **If RELATIVE:**
-  • DEM elevation + relative Z
-  • coordinate.z = absolute elevation
-end note
-
-rectangle "SourcePointInfo" as sourceInfo #F0F8E8
-note right of sourceInfo
-  **Final State:**
-  • position.z = absolute elevation
-end note
-
-input --> collector : coordinate
-collector --> converter : if RELATIVE
-converter --> sourceInfo : absolute Z
-@enduml
-```
-
-**Key Code Implementation:**
-
-**For Receivers (TopographyService.addTopoCutPts()):**
-```java
-CutPointReceiver cutPointReceiver = profile.getReceiver();
-cutPointReceiver.setZGround(coordinates.get(coordinates.size() - 1).z);
-profile.setReceiver(cutPointReceiver);
-```
-
-**For Sources (ElevationConverter.calculateAbsoluteElevation()):**
-```java
-// Ground elevation + original relative Z
-return profileBuilder.getZGround(coord) + coord.z;
-```
-
-Where `coordinates.get(coordinates.size() - 1).z` and `profileBuilder.getZGround(coord)` are absolute elevations obtained from the Digital Elevation Model (DEM) at the respective locations.
-
-### Why Different Approaches?
-
-- **Sources:** Converted early because source positions are fixed and needed for receiver-source distance calculations during scene building
-- **Receivers:** Converted late because topographic profiles are built per source-receiver pair, and absolute heights are only needed for terrain intersection calculations
-
-This design allows NoiseModelling to handle sources and receivers at varying heights while accurately modeling acoustic effects of terrain and obstacles.
