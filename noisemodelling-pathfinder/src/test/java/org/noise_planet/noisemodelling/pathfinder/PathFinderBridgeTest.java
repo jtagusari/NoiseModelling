@@ -156,42 +156,55 @@ public class PathFinderBridgeTest {
     }
     
     private Bridge createBridge1() {
-        
-        List<BridgePoint> points = new ArrayList<>();
-        
+
         List<Double> defaultAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         
-        // Create a rectangular bridge: 20x10 units
-        BridgePoint bp1 = new BridgePoint(new Coordinate(10, 0), 1, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
-        points.add(bp1);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 10), 2, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
-        points.add(bp2);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 20), 3, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
-        points.add(bp3);
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(10, 0, 10),
+                new Coordinate(10, 10, 10),
+                new Coordinate(10, 20, 10)
+        ); 
+        List<BridgePoint> bridgePoints = new ArrayList<>();
 
-        return new Bridge(points, defaultAlphas, 100L);
+        for (long pk = 0; pk < bridgePointCoords.size(); pk++) {
+                Coordinate coord = bridgePointCoords.get((int)pk);
+                BridgePoint point = new BridgePoint.Builder(pk, 100L, coord)
+                    .withGirderType(Bridge.GirderType.STEEL_BOX)
+                    .withSlabType(Bridge.SlabType.STEEL)
+                    .build();
+                bridgePoints.add(point);
+        }
+
+        return new Bridge.Builder(bridgePoints).withAlphas(defaultAlphas).setPrimaryKey(100L).build();
     }
 
 
     private Bridge createBridge2() {
         
-        List<BridgePoint> points = new ArrayList<>();
-        
-        List<Double> defaultAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        
-        // Create a rectangular bridge: 20x10 units
-        BridgePoint bp1 = new BridgePoint(new Coordinate(12, 0), 1, 101, 5.0, Double.NaN, 0.5, 10.0, 1.0, 2.0, 2.0, null, null);
-        points.add(bp1);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(12, 10), 2, 101, 5.0, Double.NaN, 0.5, 10.0, 1.0, 2.0, 2.0, null, null);
-        points.add(bp2);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(12, 20), 3, 101, 5.0, Double.NaN, 0.5, 10.0, 1.0, 2.0, 2.0, null, null);
-        points.add(bp3);
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(12, 0, 5),
+                new Coordinate(12, 10, 5),
+                new Coordinate(12, 20, 5)
+        ); 
 
-        return new Bridge(points, defaultAlphas, 101L);
+        List<Double> defaultAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+
+        for (long pk = 0; pk < bridgePointCoords.size(); pk++) {
+                Coordinate coord = bridgePointCoords.get((int)pk);
+                BridgePoint point = new BridgePoint.Builder(pk, 101L, coord)
+                    .withWidth(10.0,10.0)
+                    .withBarrierHeight(1.0,1.0)
+                    .withPosition(BridgePoint.Position.CENTER)
+                    .withGirderType(Bridge.GirderType.STEEL_BOX)
+                    .withSlabType(Bridge.SlabType.STEEL)
+                    .build();
+                bridgePoints.add(point);
+        }
+        
+
+        return new Bridge.Builder(bridgePoints).withAlphas(defaultAlphas).setPrimaryKey(101L).build();
     }
 
     /**

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.*;
-
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -60,22 +60,27 @@ public class BridgeTest {
      * Create test bridge points for a simple rectangular bridge.
      */
     private List<BridgePoint> createTestBridgePoints() {
-        List<BridgePoint> points = new ArrayList<>();
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(0, 20, 10),
+                new Coordinate(50, 20, 10),
+                new Coordinate(100, 20, 10)
+        ); 
+
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+        for (long i = 0; i < bridgePointCoords.size(); i++) {
+            BridgePoint point = new BridgePoint.Builder(i, 100L, bridgePointCoords.get((int)i))
+                .withHeightType(Scene.HeightType.ABSOLUTE)
+                .withDeckThickness(0.5)
+                .withWidth(5.0, 5.0)
+                .withBarrierHeight(1.0, 1.0)
+                .withPosition(BridgePoint.Position.CENTER)
+                .withGirderType(Bridge.GirderType.STEEL_BOX)
+                .withSlabType(Bridge.SlabType.STEEL)
+                .build();
+            bridgePoints.add(point);
+        }
         
-        // Create bridge points matching testCreateBridgeFromDatabase: Y=20, X=0, 50, 100
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 20), 1, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        bp1.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp1);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(50, 20), 2, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        bp2.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp2);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(100, 20), 3, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        bp3.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp3);
-        
-        return points;
+        return bridgePoints;
     }
 
     
@@ -83,38 +88,51 @@ public class BridgeTest {
      * Create test bridge points for a simple rectangular bridge.
      */
     private List<BridgePoint> createTestBridgePointsWithRelativeHeight() {
-        List<BridgePoint> points = new ArrayList<>();
         
-        // Create bridge points matching testCreateBridgeFromDatabase: Y=20, X=0, 50, 100
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 20), 1, 100, Double.NaN,10.0,  0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        bp1.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp1);
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(10, 0, 10),
+                new Coordinate(10, 10, 10),
+                new Coordinate(10, 20, 10)
+        ); 
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(50, 20), 2, 100, Double.NaN, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        bp2.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp2);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(100, 20), 3, 100, Double.NaN, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        bp3.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp3);
-        
-        return points;
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+
+        for (long pk = 0; pk < bridgePointCoords.size(); pk++) {
+                Coordinate coord = bridgePointCoords.get((int)pk);
+                BridgePoint point = new BridgePoint.Builder(pk, 101L, coord)
+                    .withHeightType(Scene.HeightType.RELATIVE)
+                    .withBarrierHeight(1.0,1.0)
+                    .withPosition(BridgePoint.Position.CENTER)
+                    .withGirderType(Bridge.GirderType.STEEL_BOX)
+                    .withSlabType(Bridge.SlabType.STEEL)
+                    .build();
+                bridgePoints.add(point);
+        }
+
+        return bridgePoints;
     }
 
     private List<BridgePoint> createTestBridgePoints2() {
-        List<BridgePoint> points = new ArrayList<>();
+
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(70, 0, 15),
+                new Coordinate(70, 80, 15)
+        ); 
         
-        // Create bridge points matching testCreateBridgeFromDatabase: Y=20, X=0, 50, 100
-        BridgePoint bp1 = new BridgePoint(new Coordinate(70, 0), 1, 101, 10.0, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.CONCRETE_PLATE, Bridge.SlabType.CONCRETE);
-        bp1.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp1);
-        
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(70, 80), 3, 101, 10.0, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, Bridge.GirderType.CONCRETE_PLATE, Bridge.SlabType.CONCRETE);
-        bp3.setPosition(BridgePoint.Position.CENTER);
-        points.add(bp3);
-        
-        return points;
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+
+        for (long pk = 0; pk < bridgePointCoords.size(); pk++) {
+                Coordinate coord = bridgePointCoords.get((int)pk);
+                BridgePoint point = new BridgePoint.Builder(pk, 101L, coord)
+                    .withBarrierHeight(1.0,1.0)
+                    .withPosition(BridgePoint.Position.CENTER)
+                    .withGirderType(Bridge.GirderType.CONCRETE_PLATE)
+                    .withSlabType(Bridge.SlabType.CONCRETE)
+                    .build();
+                bridgePoints.add(point);
+        }
+
+        return bridgePoints;
     }
 
     
@@ -141,45 +159,22 @@ public class BridgeTest {
 
             // Insert bridge points for Bridge 100
             // Center points at Y=20, X=0, 50, 100
-            st.execute("INSERT INTO BRIDGE_POINTS VALUES (1, ST_GeomFromText('POINT(0 20)'), 100, 'CENTER', 10.0, NULL, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
-            st.execute("INSERT INTO BRIDGE_POINTS VALUES (2, ST_GeomFromText('POINT(50 20)'), 100, 'CENTER', 10.0, NULL, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
-            st.execute("INSERT INTO BRIDGE_POINTS VALUES (3, ST_GeomFromText('POINT(100 20)'), 100, 'CENTER', 10.0, NULL, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
+            st.execute("INSERT INTO BRIDGE_POINTS VALUES (0, ST_GeomFromText('POINT(0 20)'), 100, 'CENTER', 10.0, NULL, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
+            st.execute("INSERT INTO BRIDGE_POINTS VALUES (1, ST_GeomFromText('POINT(50 20)'), 100, 'CENTER', 10.0, NULL, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
+            st.execute("INSERT INTO BRIDGE_POINTS VALUES (2, ST_GeomFromText('POINT(100 20)'), 100, 'CENTER', 10.0, NULL, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
         }
 
         // Load bridge points from database
         List<BridgePoint> bridgePointsList = new ArrayList<>();
         try (Statement st = connection.createStatement();
              ResultSet rs = st.executeQuery(
-                    "SELECT PK, ST_X(THE_GEOM) as X, ST_Y(THE_GEOM) as Y, " +
+                    "SELECT PK, THE_GEOM, " +
                     "BRIDGE_PK, POSITION, ABSOLUTE_DECK_HEIGHT, RELATIVE_DECK_HEIGHT, " +
                     "DECK_THICKNESS, RIGHT_WIDTH, LEFT_WIDTH, RIGHT_BARRIER_HEIGHT, LEFT_BARRIER_HEIGHT, GIRDER_TYPE, SLAB_TYPE " +
                     "FROM BRIDGE_POINTS WHERE BRIDGE_PK=100 ORDER BY PK")) {
 
             while (rs.next()) {
-                Coordinate coord = new Coordinate(rs.getDouble("X"), rs.getDouble("Y"));
-                BridgePoint.Position position = BridgePoint.Position.valueOf(rs.getString("POSITION"));
-
-                double absHeight = rs.getDouble("ABSOLUTE_DECK_HEIGHT");
-                double relHeight = rs.getDouble("RELATIVE_DECK_HEIGHT");
-                if (rs.wasNull()) {
-                    relHeight = Double.NaN;
-                }
-
-                BridgePoint bridgePoint = new BridgePoint(
-                        coord,
-                        rs.getLong("PK"), // primaryKey from database
-                        100L, // bridgePrimaryKey
-                        absHeight,
-                        relHeight,
-                        rs.getDouble("DECK_THICKNESS"),
-                        rs.getDouble("RIGHT_WIDTH"),
-                        rs.getDouble("LEFT_WIDTH"),
-                        rs.getDouble("RIGHT_BARRIER_HEIGHT"),
-                        rs.getDouble("LEFT_BARRIER_HEIGHT"),
-                        Bridge.GirderType.fromString(rs.getString("GIRDER_TYPE")),
-                        Bridge.SlabType.fromString(rs.getString("SLAB_TYPE"))
-                );
-                bridgePoint.setPosition(position);
+                BridgePoint bridgePoint = new BridgePoint(rs);
                 bridgePointsList.add(bridgePoint);
             }
         }
@@ -233,10 +228,30 @@ public class BridgeTest {
         List<BridgePoint> bridgePointsDb = createTestBridgePointsFromDatabase(connection);
 
         // Create bridges using different constructors
-        Bridge bridge1 = new Bridge(bridgePoints, defaultAlphas, 1L, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        Bridge bridgeRel = new Bridge(bridgePointsRel, defaultAlphas, 1L, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
-        Bridge bridge2 = new Bridge(bridgePoints2, defaultAlphas, 2L, Bridge.GirderType.CONCRETE_PLATE, Bridge.SlabType.CONCRETE);
-        Bridge bridgeDb = new Bridge(bridgePointsDb, defaultAlphas, 1L, Bridge.GirderType.STEEL_BOX, Bridge.SlabType.STEEL);
+        Bridge bridge1 = new Bridge.Builder(bridgePoints)
+            .withAlphas(defaultAlphas)
+            .setPrimaryKey(1L)
+            .setGirderType(Bridge.GirderType.STEEL_BOX)
+            .setSlabType(Bridge.SlabType.STEEL)
+            .build();
+        Bridge bridgeRel = new Bridge.Builder(bridgePointsRel)
+            .withAlphas(defaultAlphas)
+            .setPrimaryKey(1L)
+            .setGirderType(Bridge.GirderType.STEEL_BOX)
+            .setSlabType(Bridge.SlabType.STEEL)
+            .build();
+        Bridge bridge2 = new Bridge.Builder(bridgePoints2)
+            .withAlphas(defaultAlphas)
+            .setPrimaryKey(2L)
+            .setGirderType(Bridge.GirderType.CONCRETE_PLATE)
+            .setSlabType(Bridge.SlabType.CONCRETE)
+            .build();
+        Bridge bridgeDb = new Bridge.Builder(bridgePointsDb)
+            .withAlphas(defaultAlphas)
+            .setPrimaryKey(1L)
+            .setGirderType(Bridge.GirderType.STEEL_BOX)
+            .setSlabType(Bridge.SlabType.STEEL)
+            .build();
 
         // Generate deck geometries for the bridges
         ProfileBuilder profileBuilder = createProfileBuilder();
@@ -358,43 +373,13 @@ public class BridgeTest {
         }
     }
 
-    @Test
-    public void testConstructorWithDeckGeometry() {
-        Polygon deckGeometry = createTestDeckGeometry();
-        Bridge bridge = new Bridge(deckGeometry, defaultAlphas, 2L);
-        
-        assertNotNull(bridge, "Bridge should be created");
-        assertEquals(2L, bridge.getPrimaryKey(), "Primary key should be set");
-        assertNotNull(bridge.getDeckGeometry(), "Deck geometry should be set");
-        assertFalse(bridge.getEdge().isEmpty(), "Edge should be created");
-    }
-
 
     @Test
     public void testConstructorWithNullAlphas() {
         List<BridgePoint> bridgePoints = createTestBridgePoints();
-        Bridge bridge = new Bridge(bridgePoints, null, 1L);
+        Bridge bridge = new Bridge.Builder(bridgePoints).setPrimaryKey(1L).build();
         
         assertNotNull(bridge, "Bridge should be created even with null alphas");
-    }
-
-    // Static factory method tests
-
-    @Test
-    public void testCreateBridgesFromPoints() {
-        List<BridgePoint> bridgePoints = createTestBridgePoints();
-        List<BridgePoint> bridgePoints2 = createTestBridgePoints2();
-        bridgePoints.addAll(bridgePoints2);
-        
-        List<Bridge> bridges = Bridge.createBridgesFromPoints(bridgePoints, defaultAlphas);
-        
-        assertEquals(2, bridges.size(), "Should create two bridges");
-
-        assertEquals(100L, bridges.get(0).getPrimaryKey(), "Bridge should have correct primary key");
-        assertEquals(3, bridges.get(0).getBridgePointCount(), "Bridge should have all points");
-        
-        assertEquals(101L, bridges.get(1).getPrimaryKey(), "Bridge should have correct primary key");
-        assertEquals(2, bridges.get(1).getBridgePointCount(), "Bridge should have all points");
     }
 
 
@@ -404,9 +389,18 @@ public class BridgeTest {
     @Test
     public void testAddAndRemoveBridgePoint() {
         List<BridgePoint> bridgePoints = createTestBridgePoints();
-        Bridge bridge = new Bridge(bridgePoints, defaultAlphas, 1L);
+        Bridge bridge = new Bridge.Builder(bridgePoints).withAlphas(defaultAlphas).setPrimaryKey(1L).build();
         
-        BridgePoint newPoint = new BridgePoint(new Coordinate(120, 25), 5, 100, 15.5, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
+        BridgePoint newPoint = new BridgePoint.Builder(5L, 100L, new Coordinate(120, 25, 2.0))
+            .withHeightType(Scene.HeightType.RELATIVE)
+            .withDeckThickness(0.5)
+            .withWidth(5.0, 5.0)
+            .withBarrierHeight(2.0, 3.0)
+            .withPosition(BridgePoint.Position.CENTER)
+            .withGirderType(Bridge.GirderType.STEEL_BOX)
+            .withSlabType(Bridge.SlabType.STEEL)
+            .build();
+
         bridge.addBridgePoint(newPoint);
         
         assertEquals(4, bridge.getBridgePointCount(), "Should have 4 bridge points");
@@ -420,16 +414,5 @@ public class BridgeTest {
         assertFalse(removedAgain, "Should not remove non-existing point");
     }
 
-
-    // Geometry tests
-
-    @Test
-    public void testGetEnvelope2D() {
-        Polygon deckGeometry = createTestDeckGeometry();
-        Bridge bridge = new Bridge(deckGeometry, defaultAlphas, 1L);
-        
-        Envelope envelope = bridge.getEnvelope2D();
-        assertNotNull(envelope, "Envelope should not be null");
-    }
 
 }

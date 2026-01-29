@@ -13,6 +13,8 @@ import org.locationtech.jts.geom.*;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.GeometryFactoryProvider;
 
+import static java.lang.Double.NaN;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -114,9 +116,99 @@ public class Bridge extends Obstruction {
     private long primaryKey = -1;
 
     /** Geometry factory for creating JTS geometries */
-    private final GeometryFactory geometryFactory = GeometryFactoryProvider.SHARED;
+    private static final GeometryFactory geometryFactory = GeometryFactoryProvider.SHARED;
 
     private static final double OFFSET = 0.001;
+
+    public static class Builder{
+        private final List<BridgePoint> bridgePoints;
+        private List<Double> alphas = null;
+        private long primaryKey = -1;
+        private GirderType girderType = null;
+        private SlabType slabType = null;
+        
+        private BridgePointManager pointManager;
+        private BridgeGeometryBuilder geometryBuilder;
+        private BridgeTriangulation triangulation;
+        private BridgeQueryHelper queryHelper;
+
+        public Builder(List<BridgePoint> bridgePoints){
+            this.bridgePoints = bridgePoints;
+        }
+
+        public Builder withAlphas(List<Double> alphas){
+            this.alphas = alphas;
+            return this;
+        }
+
+        public Builder setPrimaryKey(long primaryKey){
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
+        public Builder setGirderType(GirderType girderType){
+            this.girderType = girderType;
+            return this;
+        }
+
+        public Builder setSlabType(SlabType slabType){
+            this.slabType = slabType;
+            return this;
+        }
+
+        public Bridge build(){
+            if (this.primaryKey == -1L){
+                this.primaryKey = this.bridgePoints.get(0).getBridgePrimaryKey();
+                for (BridgePoint bp : this.bridgePoints){
+                    if (bp.getBridgePrimaryKey() != this.primaryKey){
+                        throw new IllegalArgumentException("All BridgePoints must have the same bridgePrimaryKey to build a Bridge.");
+                    }
+                }
+            }
+            
+            this.pointManager = new BridgePointManager(bridgePoints);
+            this.geometryBuilder = new BridgeGeometryBuilder();
+            this.triangulation = new BridgeTriangulation(geometryFactory);
+            this.queryHelper = new BridgeQueryHelper(null, null, triangulation, pointManager, geometryBuilder);
+
+            if (this.girderType == null) {
+                this.girderType = this.bridgePoints.get(0).getGirderType();
+                for (BridgePoint bp : this.bridgePoints){
+                    if (bp.getGirderType() != this.girderType){
+                        throw new IllegalArgumentException("Inconsistent GirderType among BridgePoints to build a Bridge.");
+                    }
+                }
+            }
+
+            if (this.slabType == null) {
+                this.slabType = this.bridgePoints.get(0).getSlabType();
+                for (BridgePoint bp : this.bridgePoints){
+                    if (bp.getSlabType() != this.slabType){
+                        throw new IllegalArgumentException("Inconsistent SlabType among BridgePoints to build a Bridge.");
+                    }
+                }
+            }
+
+            return new Bridge(this);
+        }
+    }
+
+    public Bridge(Builder builder){
+        super();
+        this.primaryKey = builder.primaryKey;
+        this.pointManager = builder.pointManager;
+        this.geometryBuilder = builder.geometryBuilder;
+        this.triangulation = builder.triangulation;
+        this.queryHelper = builder.queryHelper;
+        
+        if (builder.alphas != null) {
+            setAlpha(builder.alphas);
+        }
+
+        this.girderType = builder.girderType;
+        this.slabType = builder.slabType;
+
+    }
         
     /**
      * Create Bridge instances from a list of BridgePoints grouped by their bridgePrimaryKey.
@@ -137,41 +229,19 @@ public class Bridge extends Obstruction {
         
         // Group bridge points by bridgePrimaryKey
         Map<Long, List<BridgePoint>> bridgePointGroups = new HashMap<>();
-        Map<Long, GirderType> bridgeGirderType = new HashMap<>();
-        Map<Long, SlabType> bridgeSlabType = new HashMap<>();
         for (BridgePoint point : bridgePoints) {
             long bridgePrimaryKey = point.getBridgePrimaryKey();
             bridgePointGroups.computeIfAbsent(bridgePrimaryKey, k -> new ArrayList<>()).add(point);
-            // if bridgeGirderType is not set, set it. else, check consistency
-            if (!bridgeGirderType.containsKey(bridgePrimaryKey)) {
-                bridgeGirderType.put(bridgePrimaryKey, point.getGirderType());
-            } else {
-                GirderType existingType = bridgeGirderType.get(bridgePrimaryKey);
-                if (existingType != point.getGirderType()) {
-                    throw new IllegalArgumentException("Inconsistent GirderType for bridge primary key: " + bridgePrimaryKey);
-                }
-            }
-            // if bridgeSlabType is not set, set it. else, check consistency
-            if (!bridgeSlabType.containsKey(bridgePrimaryKey)) {
-                bridgeSlabType.put(bridgePrimaryKey, point.getSlabType());
-            } else {
-                SlabType existingType = bridgeSlabType.get(bridgePrimaryKey);
-                if (existingType != point.getSlabType()) {
-                    throw new IllegalArgumentException("Inconsistent SlabType for bridge primary key: " + bridgePrimaryKey);
-                }
-            }
-
         }
         
         // Create Bridge instances for each group
         for (Map.Entry<Long, List<BridgePoint>> entry : bridgePointGroups.entrySet()) {
-            long bridgePrimaryKey = entry.getKey();
             List<BridgePoint> pointsForBridge = entry.getValue();
-            GirderType girderType = bridgeGirderType.get(bridgePrimaryKey);
-            SlabType slabType = bridgeSlabType.get(bridgePrimaryKey);
-            
-            // Create Bridge instance using the bridge points
-            Bridge bridge = new Bridge(pointsForBridge, defaultAlphas, bridgePrimaryKey, girderType, slabType);
+
+            Bridge bridge = new Builder(pointsForBridge)
+                .withAlphas(defaultAlphas)
+                .build();
+
             bridges.add(bridge);
         }
         
@@ -188,145 +258,6 @@ public class Bridge extends Obstruction {
      */
     public static List<Bridge> createBridgesFromPoints(List<BridgePoint> bridgePoints) {
         return createBridgesFromPoints(bridgePoints, null);
-    }
-
-    /**
-     * Main constructor using bridge points without girder/slab type specification.
-     * Creates a bridge with default girder and slab types (STEEL_BOX and STEEL).
-     * 
-     * @param bridgePoints List of bridge points defining the bridge geometry
-     * @param alphas Absorption coefficients by frequency band (can be null for defaults)
-     * @param primaryKey Primary key in database
-     */
-    public Bridge(List<BridgePoint> bridgePoints, List<Double> alphas, long primaryKey) {
-        super();
-        this.primaryKey = primaryKey;
-        
-        // Initialize components
-        this.pointManager = new BridgePointManager(bridgePoints);
-        this.geometryBuilder = new BridgeGeometryBuilder();
-        this.triangulation = new BridgeTriangulation(geometryFactory);
-        // Create query helper and provide builders so it can generate footprint when needed
-        this.queryHelper = new BridgeQueryHelper(null, null, triangulation, pointManager, geometryBuilder);
-        
-
-        // Set absorption coefficients
-        if (alphas != null) {
-            setAlpha(alphas);
-        }
-
-        // Set default Girder and Slab types
-        this.girderType = GirderType.STEEL_BOX;
-        this.slabType = SlabType.STEEL;
-    }
-
-    /**
-     * Main constructor using bridge points with explicit girder and slab types.
-     * This constructor allows full specification of bridge structural properties.
-     * 
-     * @param bridgePoints List of bridge points defining the bridge geometry
-     * @param alphas Absorption coefficients by frequency band (can be null for defaults)
-     * @param primaryKey Primary key in database
-     * @param girderType Type of bridge girder structure
-     * @param slabType Type of bridge slab material
-     */
-    public Bridge(List<BridgePoint> bridgePoints, List<Double> alphas, long primaryKey, GirderType girderType, SlabType slabType) {
-        super();
-        this.primaryKey = primaryKey;
-        
-        // Initialize components
-        this.pointManager = new BridgePointManager(bridgePoints);
-        this.geometryBuilder = new BridgeGeometryBuilder();
-        this.triangulation = new BridgeTriangulation(geometryFactory);
-        // Create query helper and provide builders so it can generate footprint when needed
-        this.queryHelper = new BridgeQueryHelper(null, null, triangulation, pointManager, geometryBuilder);
-        
-
-        // Set absorption coefficients
-        if (alphas != null) {
-            setAlpha(alphas);
-        }
-
-        // Set default Girder and Slab types
-        this.girderType = girderType;
-        this.slabType = slabType;
-    }
-
-    /**
-     * Constructor for creating a bridge from a LineString geometry.
-     * Automatically generates bridge points along the line with specified widths and heights.
-     * 
-     * @param lineString Center line geometry of the bridge
-     * @param defaultAlphas Default absorption coefficients by frequency band
-     * @param bridgePrimaryKey Primary key for the bridge in the database
-     * @param heightType Type of height reference (ground height type)
-     * @param deckThickness Thickness of the bridge deck in meters
-     * @param rightWidth Width of the bridge deck on the right side in meters
-     * @param leftWidth Width of the bridge deck on the left side in meters
-     * @param rightBarrierHeight Height of the barrier on the right side in meters
-     * @param leftBarrierHeight Height of the barrier on the left side in meters
-     * @param girderType Type of bridge girder structure
-     * @param slabType Type of bridge slab material
-     */
-    public Bridge(LineString lineString, List<Double> defaultAlphas, long bridgePrimaryKey, Scene.HeightType heightType, double deckThickness, double rightWidth, double leftWidth, double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
-        List<BridgePoint> bridgePoints = BridgePoint.createBridgePoints(lineString, bridgePrimaryKey, heightType, deckThickness, rightWidth, leftWidth, rightBarrierHeight, leftBarrierHeight, girderType, slabType);
-        
-        // Create Bridge instance using the bridge points
-        Bridge bridge = new Bridge(bridgePoints, defaultAlphas, bridgePrimaryKey, girderType, slabType);
-        this.pointManager = bridge.pointManager;
-        this.geometryBuilder = bridge.geometryBuilder;
-        this.triangulation = bridge.triangulation;
-        this.queryHelper = bridge.queryHelper;
-        this.deckGeometry = bridge.deckGeometry;
-        this.primaryKey = bridgePrimaryKey;
-        this.girderType = girderType;
-        this.slabType = slabType;
-
-    }
-
-    /**
-     * Constructor using pre-defined 3D deck geometry polygon.
-     * This constructor is useful when deck geometry is already calculated.
-     * Automatically extracts bridge points from geometry for triangulation.
-     * Creates default girder and slab types (STEEL_BOX and STEEL).
-     * 
-     * @param deckGeometry 3D bridge deck geometry with Z coordinates representing deck height
-     * @param alphas Absorption coefficients by frequency band (can be null for defaults)
-     * @param primaryKey Primary key in database
-     */
-    public Bridge(Polygon deckGeometry, List<Double> alphas, long primaryKey) {
-        super();
-        this.primaryKey = primaryKey;
-        this.deckGeometry = deckGeometry;
-        
-        // Initialize components
-        this.pointManager = new BridgePointManager();
-        this.geometryBuilder = new BridgeGeometryBuilder();
-        this.triangulation = new BridgeTriangulation(geometryFactory);
-        
-        // Initialize triangulation with deck geometry if available
-        if (deckGeometry != null) {
-            // Create bridge points from deck geometry coordinates for triangulation
-            List<BridgePoint> bridgePointsFromGeometry = createBridgePointsFromDeckGeometry(deckGeometry);
-            if (!bridgePointsFromGeometry.isEmpty()) {
-                triangulation.triangulateGeometry(bridgePointsFromGeometry);
-            }
-
-            // Initialize edge
-            this.edge = deckGeometry;
-        }
-        
-        // Let BridgeQueryHelper generate 2D footprint from deckGeometry when needed
-        this.queryHelper = new BridgeQueryHelper(deckGeometry, null, triangulation);
-        
-        // Set absorption coefficients
-        if (alphas != null) {
-            setAlpha(alphas);
-        }
-        // Set default Girder and Slab types
-        this.girderType = GirderType.STEEL_BOX;
-        this.slabType = SlabType.STEEL;
-
     }
 
     /**
@@ -707,46 +638,6 @@ public class Bridge extends Obstruction {
         }
 
         return mirrorSources;
-    }
-
-    /**
-     * Create bridge points from deck geometry coordinates for triangulation.
-     * This is a helper method to initialize triangulation when only deck geometry is available.
-     * @param deckGeometry 3D bridge deck polygon
-     * @return List of bridge points created from deck geometry
-     */
-    private List<BridgePoint> createBridgePointsFromDeckGeometry(Polygon deckGeometry) {
-        List<BridgePoint> bridgePoints = new ArrayList<>();
-        
-        if (deckGeometry == null) {
-            return bridgePoints;
-        }
-        
-        Coordinate[] coords = deckGeometry.getExteriorRing().getCoordinates();
-        
-        for (int i = 0; i < coords.length - 1; i++) { // -1 to skip duplicate closing coordinate
-            Coordinate coord = coords[i];
-            
-            // Create a basic bridge point with the coordinate and height information
-            BridgePoint bridgePoint = new BridgePoint(coord);
-            bridgePoint.setPrimaryKey(i + 1);
-            bridgePoint.setBridgePrimaryKey(primaryKey);
-            
-            // Set absolute deck height from Z coordinate
-            if (!Double.isNaN(coord.z)) {
-                bridgePoint.setAbsoluteDeckHeight(coord.z);
-            }
-            
-            // Set default values for other properties
-            bridgePoint.setDeckThickness(0.5); // Default thickness
-            bridgePoint.setPosition(BridgePoint.Position.CENTER);
-            bridgePoint.setLeftWidth(5.0);
-            bridgePoint.setRightWidth(5.0);
-            
-            bridgePoints.add(bridgePoint);
-        }
-        
-        return bridgePoints;
     }
 
     @Override

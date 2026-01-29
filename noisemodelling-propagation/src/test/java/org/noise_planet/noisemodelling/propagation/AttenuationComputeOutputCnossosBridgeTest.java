@@ -24,6 +24,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
@@ -88,28 +89,28 @@ public class AttenuationComputeOutputCnossosBridgeTest {
      * Create a bridge for testing (same as PathFinderBridgeTest.createBridge1())
      */
     private Bridge createBridge1() {
-        
-        List<BridgePoint> points = new ArrayList<>();
-        
+
         List<Double> defaultAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         
-        // Create a rectangular bridge: 20x10 units
-        BridgePoint bp1 = 
-            new BridgePoint(
-                new Coordinate(10, 0), 1, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
-        points.add(bp1);
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(10, 0, 10),
+                new Coordinate(10, 10, 10),
+                new Coordinate(10, 20, 10)
+        ); 
         
-        BridgePoint bp2 = 
-            new BridgePoint(
-                new Coordinate(10, 10), 2, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
-        points.add(bp2);
-        
-        BridgePoint bp3 = 
-            new BridgePoint(
-                new Coordinate(10, 20), 3, 100, 10.0, Double.NaN, 0.5, 5.0, 5.0, 2.0, 2.0, null, null);
-        points.add(bp3);
+        List<BridgePoint> bridgePoints = new ArrayList<>();
 
-        return new Bridge(points, defaultAlphas, 100L);
+        for (long pk = 0; pk < bridgePointCoords.size(); pk++) {
+                Coordinate coord = bridgePointCoords.get((int)pk);
+                BridgePoint point = new BridgePoint.Builder(pk, 100L, coord)
+                    .withBarrierHeight(1.0,1.0)
+                    .withGirderType(Bridge.GirderType.STEEL_BOX)
+                    .withSlabType(Bridge.SlabType.STEEL)
+                    .build();
+                bridgePoints.add(point);
+        }
+
+        return new Bridge.Builder(bridgePoints).withAlphas(defaultAlphas).setPrimaryKey(100L).build();
     }
 
     public static double[] addArray(double[] first, double[] second) {

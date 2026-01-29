@@ -63,7 +63,7 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithSinglePoint() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point = createTestPoint(1, 100.0, 200.0, 10.0);
+        BridgePoint point = new BridgePoint.Builder(1L, 100L, new Coordinate(100.0, 200.0, 10.0)).build();
         pointManager.addBridgePoint(point);
 
         assertThrows(IllegalArgumentException.class, () -> {
@@ -74,8 +74,8 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithTwoPoints() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 100.0, 0.0, 12.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -90,9 +90,9 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithMultiplePoints() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 50.0, 0.0, 11.0);
-        BridgePoint point3 = createTestPoint(3, 100.0, 0.0, 12.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(50.0, 0.0, 11.0)).build();
+        BridgePoint point3 = new BridgePoint.Builder(3L, 100L, new Coordinate(100.0, 0.0, 12.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -108,8 +108,12 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithZeroWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, 0.0, 0.0);
-        BridgePoint point2 = createTestPointWithWidths(2, 100.0, 0.0, 12.0, 0.0, 0.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(0.0, 0.0)
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(0.0, 0.0)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -125,8 +129,13 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithNaNWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, Double.NaN, Double.NaN);
-        BridgePoint point2 = createTestPointWithWidths(2, 100.0, 0.0, 12.0, Double.NaN, Double.NaN);
+        
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(Double.NaN, Double.NaN)
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(Double.NaN, Double.NaN)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -189,11 +198,11 @@ public class BridgeGeometryBuilderTest {
         BridgePointManager pointManager = new BridgePointManager();
         
         // Create a curved bridge path
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 25.0, 25.0, 11.0);
-        BridgePoint point3 = createTestPoint(3, 50.0, 25.0, 12.0);
-        BridgePoint point4 = createTestPoint(4, 75.0, 0.0, 11.0);
-        BridgePoint point5 = createTestPoint(5, 100.0, 0.0, 10.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(25.0, 25.0, 11.0)).build();
+        BridgePoint point3 = new BridgePoint.Builder(3L, 100L, new Coordinate(50.0, 25.0, 12.0)).build();
+        BridgePoint point4 = new BridgePoint.Builder(4L, 100L, new Coordinate(75.0, 0.0, 11.0)).build();
+        BridgePoint point5 = new BridgePoint.Builder(5L, 100L, new Coordinate(100.0, 0.0, 10.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -215,8 +224,8 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testDeckGeometryHeightPropagation() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 100.0, 0.0, 20.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 20.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -234,28 +243,6 @@ public class BridgeGeometryBuilderTest {
     }
 
     // Helper methods
-
-    private BridgePoint createTestPoint(long pk, double x, double y, double absoluteHeight) {
-        Coordinate coord = new Coordinate(x, y, 0.0);
-        BridgePoint point = new BridgePoint(coord);
-        point.setPrimaryKey(pk);
-        point.setAbsoluteDeckHeight(absoluteHeight);
-        point.setLeftWidth(5.0);
-        point.setRightWidth(5.0);
-        return point;
-    }
-
-    private BridgePoint createTestPointWithWidths(long pk, double x, double y, double absoluteHeight, 
-                                                  double leftWidth, double rightWidth) {
-        Coordinate coord = new Coordinate(x, y, 0.0);
-        BridgePoint point = new BridgePoint(coord);
-        point.setPrimaryKey(pk);
-        point.setAbsoluteDeckHeight(absoluteHeight);
-        point.setLeftWidth(leftWidth);
-        point.setRightWidth(rightWidth);
-        return point;
-    }
-
     private ProfileBuilder createMockProfileBuilder(double groundHeight) {
         return new ProfileBuilder() {
             @Override
@@ -277,7 +264,7 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateBridgeEdgePointsWithSinglePoint() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point = createTestPoint(1, 100.0, 200.0, 10.0);
+        BridgePoint point = new BridgePoint.Builder(1L, 100L, new Coordinate(100.0, 200.0, 10.0)).build();
         pointManager.addBridgePoint(point);
 
         List<BridgePoint> edgePoints = geometryBuilder.createBridgeEdgePoints(pointManager, createMockProfileBuilder(5.0), BridgePoint.Position.RIGHT, false);
@@ -287,8 +274,8 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateBridgeEdgePointsRightDirection() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 100.0, 0.0, 12.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -306,8 +293,8 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateBridgeEdgePointsLeftDirection() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 100.0, 0.0, 12.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -325,8 +312,12 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateBridgeEdgePointsWithNaNWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, Double.NaN, Double.NaN);
-        BridgePoint point2 = createTestPointWithWidths(2, 100.0, 0.0, 12.0, Double.NaN, Double.NaN);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(Double.NaN, Double.NaN)
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(Double.NaN, Double.NaN)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -349,8 +340,8 @@ public class BridgeGeometryBuilderTest {
     public void testCreateBridgeEdgePointsOffsetCalculation() {
         BridgePointManager pointManager = new BridgePointManager();
         // Create a horizontal line from (0,0) to (100,0)
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 100.0, 0.0, 12.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -387,7 +378,7 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithInsufficientEdgePoints() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point = createTestPoint(1, 100.0, 200.0, 10.0);
+        BridgePoint point = new BridgePoint.Builder(1L, 100L, new Coordinate(100.0, 200.0, 10.0)).build();
         pointManager.addBridgePoint(point);
 
         assertThrows(IllegalArgumentException.class, () -> {
@@ -447,8 +438,12 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithAsymmetricWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, 3.0, 7.0); // Different left/right widths
-        BridgePoint point2 = createTestPointWithWidths(2, 100.0, 0.0, 12.0, 4.0, 6.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(7.0, 3.0) // Different right/left widths
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(6.0, 4.0)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -465,9 +460,15 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithVaryingWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, 2.0, 2.0);
-        BridgePoint point2 = createTestPointWithWidths(2, 50.0, 0.0, 11.0, 5.0, 5.0);  // Wider middle
-        BridgePoint point3 = createTestPointWithWidths(3, 100.0, 0.0, 12.0, 3.0, 3.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(2.0, 2.0)
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(50.0, 0.0, 11.0))
+            .withWidth(5.0, 5.0)
+            .build();
+        BridgePoint point3 = new BridgePoint.Builder(3L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(3.0, 3.0)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -487,9 +488,9 @@ public class BridgeGeometryBuilderTest {
         BridgePointManager pointManager = new BridgePointManager();
         
         // Create a curved bridge (quarter circle)
-        BridgePoint point1 = createTestPoint(1, 0.0, 0.0, 10.0);
-        BridgePoint point2 = createTestPoint(2, 10.0, 10.0, 11.0);
-        BridgePoint point3 = createTestPoint(3, 0.0, 20.0, 12.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0)).build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(10.0, 10.0, 11.0)).build();
+        BridgePoint point3 = new BridgePoint.Builder(3L, 100L, new Coordinate(0.0, 20.0, 12.0)).build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -509,8 +510,12 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithVerySmallWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, 0.001, 0.001); // Very small widths
-        BridgePoint point2 = createTestPointWithWidths(2, 100.0, 0.0, 12.0, 0.001, 0.001);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(0.001, 0.001)
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(0.001, 0.001)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);
@@ -524,8 +529,12 @@ public class BridgeGeometryBuilderTest {
     @Test
     public void testCreateDeckGeometryWithLargeWidths() {
         BridgePointManager pointManager = new BridgePointManager();
-        BridgePoint point1 = createTestPointWithWidths(1, 0.0, 0.0, 10.0, 100.0, 100.0); // Very large widths
-        BridgePoint point2 = createTestPointWithWidths(2, 100.0, 0.0, 12.0, 100.0, 100.0);
+        BridgePoint point1 = new BridgePoint.Builder(1L, 100L, new Coordinate(0.0, 0.0, 10.0))
+            .withWidth(100.0, 100.0)
+            .build();
+        BridgePoint point2 = new BridgePoint.Builder(2L, 100L, new Coordinate(100.0, 0.0, 12.0))
+            .withWidth(100.0, 100.0)
+            .build();
         
         pointManager.addBridgePoint(point1);
         pointManager.addBridgePoint(point2);

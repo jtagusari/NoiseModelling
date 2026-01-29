@@ -12,8 +12,10 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,26 +37,25 @@ public class BridgeTriangulationTest {
      * Create test bridge points for a simple rectangle bridge deck with balanced LEFT/RIGHT positions.
      */
     private List<BridgePoint> createRectangleBridgePoints() {
-        List<BridgePoint> points = new ArrayList<>();
         
-        // Rectangle bridge deck: 4 corners with balanced LEFT/RIGHT positions
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        points.add(bp1);
+        List<Coordinate> bridgePointCoords = Arrays.asList(
+                new Coordinate(0, 0, 10),
+                new Coordinate(10, 0, 10),
+                new Coordinate(10, 20, 10),
+                new Coordinate(0, 20, 10)
+        ); 
         
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        points.add(bp2);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 20), 3, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        points.add(bp3);
-        
-        BridgePoint bp4 = new BridgePoint(new Coordinate(0, 20), 4, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp4.setPosition(BridgePoint.Position.RIGHT);
-        points.add(bp4);
-        
-        return points;
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+
+        for (long pk = 0; pk < bridgePointCoords.size(); pk++) {
+                Coordinate coord = bridgePointCoords.get((int)pk);
+                BridgePoint point = new BridgePoint.Builder(pk, 101L, coord)
+                    .withBarrierHeight(2.0,3.0)
+                    .withPosition(pk %2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT)
+                    .build();
+                bridgePoints.add(point);
+        }        
+        return bridgePoints;
     }
 
     // Test validation of position balance
@@ -73,21 +74,26 @@ public class BridgeTriangulationTest {
     
     @Test
     public void testValidatePositionBalanceInvalidMoreLeft() {
+
         List<BridgePoint> unbalancedPoints = new ArrayList<>();
-        
-        // Create points with more LEFT than RIGHT
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.RIGHT);
-        
-        unbalancedPoints.add(bp1);
-        unbalancedPoints.add(bp2);
-        unbalancedPoints.add(bp3);
+
+        unbalancedPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft().build()
+        );
+
+        unbalancedPoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(10,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft().build()
+        );
+
+        unbalancedPoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(5,10,10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight().build()
+        );
         
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, 
                                                          () -> triangulation.triangulateGeometry(unbalancedPoints),
@@ -101,22 +107,28 @@ public class BridgeTriangulationTest {
     
     @Test
     public void testValidatePositionBalanceInvalidMoreRight() {
+
         List<BridgePoint> unbalancedPoints = new ArrayList<>();
+
+        unbalancedPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft().build()
+        );
+
+        unbalancedPoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(10,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight().build()
+        );
+
+        unbalancedPoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(5,10,10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight().build()
+        );
         
-        // Create points with more RIGHT than LEFT
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.RIGHT);
-        
-        unbalancedPoints.add(bp1);
-        unbalancedPoints.add(bp2);
-        unbalancedPoints.add(bp3);
-        
+
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, 
                                                          () -> triangulation.triangulateGeometry(unbalancedPoints),
                                                          "Should throw exception for unbalanced positions");
@@ -142,17 +154,27 @@ public class BridgeTriangulationTest {
     public void testValidatePositionBalanceLargeBalancedList() {
         List<BridgePoint> largeBalancedPoints = new ArrayList<>();
         
-        // Create a large polygon with balanced positions
+        // Create a large polygon with balanced positions        
         int numPairs = 10;
         for (int i = 0; i < numPairs; i++) {
             // LEFT point
-            BridgePoint leftPoint = new BridgePoint(new Coordinate(i, 0), i * 2 + 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-            leftPoint.setPosition(BridgePoint.Position.LEFT);
+            BridgePoint leftPoint = new BridgePoint.Builder(i * 2 + 1, 100L, new Coordinate(i, 0))
+                .withAbsoluteDeckHeight(10.0)
+                .withDeckThickness(0.5)
+                .withWidth(5.0, 5.0)
+                .withBarrierHeight(2.0, 3.0)
+                .withPosition(BridgePoint.Position.LEFT)
+                .build();
             largeBalancedPoints.add(leftPoint);
             
             // RIGHT point
-            BridgePoint rightPoint = new BridgePoint(new Coordinate(i, 1), i * 2 + 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-            rightPoint.setPosition(BridgePoint.Position.RIGHT);
+            BridgePoint rightPoint = new BridgePoint.Builder(i * 2 + 2, 100L, new Coordinate(i, 1))
+                .withAbsoluteDeckHeight(10.0)
+                .withDeckThickness(0.5)
+                .withWidth(5.0, 5.0)
+                .withBarrierHeight(2.0, 3.0)
+                .withPosition(BridgePoint.Position.RIGHT)
+                .build();
             largeBalancedPoints.add(rightPoint);
         }
         
@@ -176,8 +198,16 @@ public class BridgeTriangulationTest {
     @Test
     public void testTriangulateInvalidGeometry() {
         List<BridgePoint> twoPoints = new ArrayList<>();
-        twoPoints.add(new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null));
-        twoPoints.add(new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null));
+        twoPoints.add(
+            new BridgePoint.Builder(1L,100L,new Coordinate(0, 0, 10))
+            .withBarrierHeight(2.0, 3.0)
+            .build()
+        );
+        twoPoints.add(
+            new BridgePoint.Builder(2L,100L,new Coordinate(10, 0, 10))
+            .withBarrierHeight(2.0, 3.0)
+            .build()
+        );
         
         triangulation.triangulateGeometry(twoPoints);
         
@@ -195,38 +225,39 @@ public class BridgeTriangulationTest {
     }
 
     @Test
-    public void testTriangulateInvalidTriangleGeometry() {
-        // This test should fail due to unbalanced positions (2 LEFT, 1 RIGHT)
+    public void testTriangulateInvalidTriangleGeometry() {       
+        
         List<BridgePoint> unbalancedTrianglePoints = new ArrayList<>();
-        
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        unbalancedTrianglePoints.add(bp1);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        unbalancedTrianglePoints.add(bp2);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 12.0, 4.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        unbalancedTrianglePoints.add(bp3);
+
+        unbalancedTrianglePoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft().build()
+        );
+
+        unbalancedTrianglePoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(10,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight().build()
+        );
+
+        unbalancedTrianglePoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(5,10,10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight().build()
+        );
         
         // This should throw an exception due to unbalanced positions
         assertThrows(IllegalArgumentException.class, 
                     () -> triangulation.triangulateGeometry(unbalancedTrianglePoints),
                     "Should throw exception for unbalanced triangle (2 LEFT, 1 RIGHT)");
-    }
 
-    @Test
-    public void testTriangleContainsPoint() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+                    
+        unbalancedTrianglePoints.get(0).setPosition(BridgePoint.Position.LEFT);
+        unbalancedTrianglePoints.get(1).setPosition(BridgePoint.Position.RIGHT);
+        unbalancedTrianglePoints.get(2).setPosition(BridgePoint.Position.LEFT);
+
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(unbalancedTrianglePoints.get(0), unbalancedTrianglePoints.get(1), unbalancedTrianglePoints.get(2));
         
         // Point inside triangle
         assertTrue(triangle.contains(new Coordinate(5, 3)), "Point should be inside triangle");
@@ -239,15 +270,29 @@ public class BridgeTriangulationTest {
     }
 
     @Test
-    public void testDeckHeightInterpolation() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
+    public void testDeckHeightInterpolation() {        
+        List<BridgePoint> trianglePoints = new ArrayList<>();
+
+        trianglePoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0,0,10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft().build()
+        );
+
+        trianglePoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(10,0,20))
+                .withBarrierHeight(2.0,3.0)
+                .withRight().build()
+        );
+
+        trianglePoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(0,10,15))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft().build()
+        );
+
         
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(trianglePoints.get(0), trianglePoints.get(1), trianglePoints.get(2));
         
         // Test interpolation at vertices
         assertEquals(10.0, triangle.interpolateDeckHeight(new Coordinate(0, 0)), 0.001, "Height at vertex 1 should match");
@@ -257,33 +302,47 @@ public class BridgeTriangulationTest {
         // Test interpolation at midpoint of edge
         double midpointHeight = triangle.interpolateDeckHeight(new Coordinate(5, 0));
         assertEquals(15.0, midpointHeight, 0.001, "Height at midpoint should be average of endpoints");
-    }
 
-    @Test
-    public void testDeckHeightInterpolationWithNaN() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, Double.NaN, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
+        trianglePoints.get(0).setAbsoluteDeckHeight(Double.NaN);
         
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangleNan = new BridgeTriangulation.Triangle(trianglePoints.get(0), trianglePoints.get(1), trianglePoints.get(2));
         
-        double height = triangle.interpolateDeckHeight(new Coordinate(5, 5));
+        double height = triangleNan.interpolateDeckHeight(new Coordinate(5, 5));
         assertTrue(Double.isNaN(height), "Should return NaN when one vertex has NaN height");
+        
+        // Test weight calculation at vertices
+        List<Double> weights1 = triangle.interpolateWeight(new Coordinate(0, 0));
+        assertEquals(3, weights1.size(), "Should return 3 weights");
+        assertEquals(1.0, weights1.get(0), 0.001, "Weight for vertex 1 should be 1.0 at vertex 1");
+        assertEquals(0.0, weights1.get(1), 0.001, "Weight for vertex 2 should be 0.0 at vertex 1");
+        assertEquals(0.0, weights1.get(2), 0.001, "Weight for vertex 3 should be 0.0 at vertex 1");
+        
+        // Test weight calculation at center (barycentric coordinates should sum to 1)
+        List<Double> centerWeights = triangle.interpolateWeight(new Coordinate(3.33, 3.33));
+        assertEquals(3, centerWeights.size(), "Should return 3 weights");
+        double weightSum = centerWeights.get(0) + centerWeights.get(1) + centerWeights.get(2);
+        assertEquals(1.0, weightSum, 0.01, "Weights should sum to 1.0");
+
+        
+        // Test points on edges
+        assertTrue(triangle.contains(new Coordinate(10, 0)), "Point on edge should be contained");
+        assertTrue(triangle.contains(new Coordinate(5.0, 5)), "Point on edge should be contained");
+        
+        // Test points just outside edges
+        assertFalse(triangle.contains(new Coordinate(5, -0.1)), "Point just outside should not be contained");
+        assertFalse(triangle.contains(new Coordinate(-0.1, 0)), "Point just outside should not be contained");
     }
 
     @Test
-    public void testDeckThicknessInterpolation() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 1.0, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 10.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+    public void testDeckThicknessInterpolation() {        
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withDeckThickness(0.5).build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 10))
+            .withDeckThickness(1.0).build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(0, 10, 10))
+            .withDeckThickness(0.75).build()
+        );
         
         // Test interpolation at vertices
         assertEquals(0.5, triangle.interpolateDeckThickness(new Coordinate(0, 0)), 0.001, "Thickness at vertex 1 should match");
@@ -379,16 +438,14 @@ public class BridgeTriangulationTest {
     @Test
     public void testBarrierInterpolationOnOuterEdge() {
         // Create bridge points with different barrier heights
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 0.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 0.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 1.0, 1.5, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withBarrierHeight(2.0,0.0).withLeft().build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 10))
+            .withBarrierHeight(0.0,3.0).withRight().build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(5, 10, 10))
+            .withBarrierHeight(1.0, 1.5).withLeft().build()
+        );
         
         // Test points that might be on outer edges
         double barrierHeight1 = triangle.interpolateBarrier(new Coordinate(2.5, 0));
@@ -403,11 +460,15 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleInterpolateWeight() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 10))
+            .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(0, 10, 10))
+            .withBarrierHeight(2.0,3.0).build()
+        );
         
         // Test weight calculation at vertices
         List<Double> weights1 = triangle.interpolateWeight(new Coordinate(0, 0));
@@ -425,66 +486,30 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleInterpolateWeightDegenerateTriangle() {
-        // Create a degenerate triangle (all points on a line)
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(5, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 0), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
         
-        BridgeTriangulation.Triangle degenerateTriangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(5, 0, 10))
+            .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(10, 0, 10))
+            .withBarrierHeight(2.0,3.0).build()
+        );
         
-        List<Double> weights = degenerateTriangle.interpolateWeight(new Coordinate(2.5, 0));
+        List<Double> weights = triangle.interpolateWeight(new Coordinate(2.5, 0));
         assertTrue(weights.isEmpty(), "Should return empty list for degenerate triangle");
     }
 
     @Test
-    public void testTriangleOnOuterEdgeDetection() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp2.setPosition(BridgePoint.Position.LEFT); // Same position as bp1
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.RIGHT);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
-        
-        // Point on edge between bp1 and bp2 (both LEFT position - outer edge)
-        assertTrue(triangle.onOuterEdge(new Coordinate(5, 0)), 
-                  "Point on edge between same-position vertices should be on outer edge");
-        
-        // Point inside triangle
-        assertFalse(triangle.onOuterEdge(new Coordinate(5, 3)), 
-                   "Point inside triangle should not be on outer edge");
-        
-        // Point on edge between different positions
-        assertFalse(triangle.onOuterEdge(new Coordinate(2.5, 5)), 
-                   "Point on edge between different-position vertices should not be on outer edge");
-    }
-
-    @Test
-    public void testTriangleContainsBoundaryPoints() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
-        
-        // Test points on edges
-        assertTrue(triangle.contains(new Coordinate(5, 0)), "Point on edge should be contained");
-        assertTrue(triangle.contains(new Coordinate(2.5, 5)), "Point on edge should be contained");
-        assertTrue(triangle.contains(new Coordinate(7.5, 5)), "Point on edge should be contained");
-        
-        // Test points just outside edges
-        assertFalse(triangle.contains(new Coordinate(5, -0.1)), "Point just outside should not be contained");
-        assertFalse(triangle.contains(new Coordinate(-0.1, 0)), "Point just outside should not be contained");
-    }
-
-    @Test
     public void testTriangleInterpolationConsistency() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, 1.0, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 30.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withDeckThickness(0.5).withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 20))
+            .withDeckThickness(1.0).withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(5, 10, 30))
+            .withDeckThickness(0.75).withBarrierHeight(2.0,3.0).build()
+        );
         
         // Test that interpolated values at vertices match vertex values
         assertEquals(10.0, triangle.interpolateDeckHeight(new Coordinate(0, 0)), 0.001, 
@@ -517,9 +542,12 @@ public class BridgeTriangulationTest {
             double y = radius * Math.sin(angle);
             double height = 10.0 + i; // Variable height
             
-            BridgePoint bp = new BridgePoint(new Coordinate(x, y), i + 1, 100, height, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-            bp.setPosition(i % 2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT);
-            hexagonPoints.add(bp);
+            hexagonPoints.add(
+                new BridgePoint.Builder(i+1, 100L, new Coordinate(x, y, height))
+                    .withBarrierHeight(2.0,3.0)
+                    .withPosition(i % 2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT)
+                    .build()
+            );
         }
         
         triangulation.triangulateGeometry(hexagonPoints);
@@ -553,10 +581,13 @@ public class BridgeTriangulationTest {
             double x = radius * Math.cos(angle);
             double y = radius * Math.sin(angle);
             double height = 15.0 + Math.sin(angle * 3) * 2.0; // Sinusoidal height variation
-            
-            BridgePoint bp = new BridgePoint(new Coordinate(x, y), i + 1, 100, height, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-            bp.setPosition(i % 2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT);
-            largePolygonPoints.add(bp);
+
+            largePolygonPoints.add(
+                new BridgePoint.Builder(i + 1, 100L, new Coordinate(x, y, height))
+                    .withBarrierHeight(2.0,3.0)
+                    .withPosition(i % 2 == 0 ? BridgePoint.Position.LEFT : BridgePoint.Position.RIGHT)
+                    .build()
+            );
         }
         
         triangulation.triangulateGeometry(largePolygonPoints);
@@ -601,63 +632,26 @@ public class BridgeTriangulationTest {
                   "Empty triangulation should return null for containing triangle");
     }
 
-    @Test
-    public void testTriangulationWithNaNValues() {
-        List<BridgePoint> pointsWithNaN = new ArrayList<>();
-        
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, Double.NaN, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 20.0, 2.0, Double.NaN, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 15.0, 2.0, 0.75, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        pointsWithNaN.add(bp1);
-        pointsWithNaN.add(bp2);
-        pointsWithNaN.add(bp3);
-        
-        triangulation.triangulateGeometry(pointsWithNaN);
-        
-        assertTrue(triangulation.hasTriangles(), "Should still create triangles with NaN values");
-        
-        // Test interpolation with NaN values
-        double height = triangulation.getDeckHeightAtPoint(new Coordinate(5, 3));
-        assertTrue(Double.isNaN(height), "Should return NaN when interpolating with NaN vertex height");
-        
-        double thickness = triangulation.getDeckThicknessAtPoint(new Coordinate(5, 3));
-        assertTrue(Double.isNaN(thickness), "Should return NaN when interpolating with NaN vertex thickness");
-    }
-
-    @Test
-    public void testTriangulationWithExtremeCoordinates() {
-        List<BridgePoint> extremePoints = new ArrayList<>();
-        
-        // Use very large coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(1000000, 1000000), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(1000010, 1000000), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(1000005, 1000010), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        extremePoints.add(bp1);
-        extremePoints.add(bp2);
-        extremePoints.add(bp3);
-        
-        triangulation.triangulateGeometry(extremePoints);
-        
-        assertTrue(triangulation.hasTriangles(), "Should handle extreme coordinates");
-        
-        double height = triangulation.getDeckHeightAtPoint(new Coordinate(1000005, 1000003));
-        assertFalse(Double.isNaN(height), "Should interpolate correctly with extreme coordinates");
-    }
 
     @Test
     public void testTriangulationWithVerySmallTriangles() {
         List<BridgePoint> smallPoints = new ArrayList<>();
         
-        // Use very small triangle (millimeter scale)
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0.001, 0.001), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0.002, 0.001), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0.0015, 0.002), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        smallPoints.add(bp1);
-        smallPoints.add(bp2);
-        smallPoints.add(bp3);
+        smallPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0.001, 0.001, 10))
+                .withBarrierHeight(2.0,3.0)
+                .build()
+        );
+        smallPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0.002, 0.001, 20))
+                .withBarrierHeight(2.0,3.0)
+                .build()
+        );
+        smallPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0.0015, 0.002, 15))
+                .withBarrierHeight(2.0,3.0)
+                .build()
+        );
         
         triangulation.triangulateGeometry(smallPoints);
         
@@ -671,14 +665,15 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testBarrierHeightInterpolationWithMixedPositions() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 1.0, 2.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 3.0, 4.0, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
         
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withBarrierHeight(1.0,2.0).withLeft().build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 10))
+            .withBarrierHeight(3.0,4.0).withRight().build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(5, 10, 10))
+            .withBarrierHeight(2.0,3.0).withLeft().build()
+        );
         
         // Test barrier interpolation at various points
         double barrierHeightCenter = triangle.interpolateBarrier(new Coordinate(5, 3));
@@ -691,14 +686,15 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testBarrierHeightWithNaNValues() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, Double.NaN, 2.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 3.0, Double.NaN, null, null);
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(5, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp3.setPosition(BridgePoint.Position.LEFT);
         
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+            .withBarrierHeight(Double.NaN,2.0).withLeft().build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 10))
+            .withBarrierHeight(3.0,Double.NaN).withRight().build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(5, 10, 10))
+            .withBarrierHeight(2.0,3.0).withLeft().build()
+        );
         
         double barrierHeight = triangle.interpolateBarrier(new Coordinate(5, 3));
         assertEquals(0.0, barrierHeight, 0.001, "Should return 0 when barrier heights contain NaN");
@@ -708,11 +704,15 @@ public class BridgeTriangulationTest {
 
     @Test
     public void testTriangleContainmentPrecision() {
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(1, 0), 2, 100, 20.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0.5, 1), 3, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 10))
+                .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(1, 0, 20))
+                .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(0.5, 1, 15))
+                .withBarrierHeight(2.0,3.0).build()
+        );
         
         // Test points very close to edges and vertices
         assertTrue(triangle.contains(new Coordinate(0.0001, 0.0001)), 
@@ -728,13 +728,15 @@ public class BridgeTriangulationTest {
     }
 
     @Test
-    public void testInterpolationAccuracy() {
-        // Create a triangle with known linear variation
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 0.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(10, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 10), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(bp1, bp2, bp3);
+    public void testInterpolationAccuracy() {        
+        BridgeTriangulation.Triangle triangle = new BridgeTriangulation.Triangle(
+            new BridgePoint.Builder(1L,100L, new Coordinate(0, 0, 0))
+                .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(2L,100L, new Coordinate(10, 0, 10))
+                .withBarrierHeight(2.0,3.0).build(),
+            new BridgePoint.Builder(3L,100L, new Coordinate(0, 10, 10))
+                .withBarrierHeight(2.0,3.0).build()
+        );
         
         // Test interpolation at known points with predictable results
         double heightAt25 = triangle.interpolateDeckHeight(new Coordinate(2.5, 2.5));
@@ -752,17 +754,24 @@ public class BridgeTriangulationTest {
         // Test triangulation with points that might cause numerical issues
         List<BridgePoint> problematicPoints = new ArrayList<>();
         
-        // Points with very similar coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0.00001, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 0.00001), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(1, 1), 4, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        
-        problematicPoints.add(bp1);
-        problematicPoints.add(bp2);
-        problematicPoints.add(bp3);
-        problematicPoints.add(bp4);
-        
+        problematicPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0, 0))
+                .withBarrierHeight(2.0,3.0).build()
+        );
+
+        problematicPoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(0.00001, 0))
+                .withBarrierHeight(2.0,3.0).build()
+        );
+        problematicPoints.add(
+            new BridgePoint.Builder(3L, 100L, new Coordinate(0, 0.00001))
+                .withBarrierHeight(2.0,3.0).build()
+        );
+        problematicPoints.add(
+            new BridgePoint.Builder(4L, 100L, new Coordinate(1, 1))
+                .withBarrierHeight(2.0,3.0).build()
+        );
+
         triangulation.triangulateGeometry(problematicPoints);
         
         // Should either create triangles or handle gracefully
@@ -778,20 +787,30 @@ public class BridgeTriangulationTest {
         // Test with identical coordinates - should skip creating degenerate triangles
         List<BridgePoint> duplicatePoints = new ArrayList<>();
         
-        // Create points with identical coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Same coordinates as bp1
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(0, 0), 3, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Same coordinates as bp1
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(10, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Different coordinates
-        bp4.setPosition(BridgePoint.Position.RIGHT);
-        
-        duplicatePoints.add(bp1);
-        duplicatePoints.add(bp2);
-        duplicatePoints.add(bp3);
-        duplicatePoints.add(bp4);
+        duplicatePoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0, 0))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft()
+                .build()
+        );
+        duplicatePoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(0, 0))
+                .withBarrierHeight(2.0,3.0)
+                .withRight()
+                .build()
+        );
+        duplicatePoints.add(
+            new BridgePoint.Builder(3L, 100L, new Coordinate(0, 0))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft()
+                .build()
+        );
+        duplicatePoints.add(
+            new BridgePoint.Builder(4L, 100L, new Coordinate(10, 10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight()
+                .build()
+        );
         
         triangulation.triangulateGeometry(duplicatePoints);
         
@@ -812,20 +831,30 @@ public class BridgeTriangulationTest {
         // Test with some identical coordinates - should only create triangles from valid combinations
         List<BridgePoint> partialDuplicatePoints = new ArrayList<>();
         
-        // Create points where some have identical coordinates
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(0, 0), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Same as bp1
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(10, 0), 3, 100, 12.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Different
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(5, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Different
-        bp4.setPosition(BridgePoint.Position.RIGHT);
-        
-        partialDuplicatePoints.add(bp1);
-        partialDuplicatePoints.add(bp2);
-        partialDuplicatePoints.add(bp3);
-        partialDuplicatePoints.add(bp4);
+        partialDuplicatePoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0, 0, 10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft()
+                .build()
+        );
+        partialDuplicatePoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(0, 0, 10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight()
+                .build()
+        );
+        partialDuplicatePoints.add(
+            new BridgePoint.Builder(3L, 100L, new Coordinate(10, 0, 12.0))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft()
+                .build()
+        );
+        partialDuplicatePoints.add(
+            new BridgePoint.Builder(4L, 100L, new Coordinate(5, 10, 15.0))
+                .withBarrierHeight(2.0,3.0)
+                .withRight()
+                .build()
+        );
         
         triangulation.triangulateGeometry(partialDuplicatePoints);
         
@@ -856,20 +885,30 @@ public class BridgeTriangulationTest {
         // Test with coordinates that are very close but not identical
         List<BridgePoint> nearIdenticalPoints = new ArrayList<>();
         
-        // Create points with coordinates very close to each other (within tolerance)
-        BridgePoint bp1 = new BridgePoint(new Coordinate(0, 0), 1, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null);
-        bp1.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp2 = new BridgePoint(new Coordinate(1e-11, 1e-11), 2, 100, 10.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Very close to bp1
-        bp2.setPosition(BridgePoint.Position.RIGHT);
-        BridgePoint bp3 = new BridgePoint(new Coordinate(2e-11, 0), 3, 100, 12.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Very close to bp1
-        bp3.setPosition(BridgePoint.Position.LEFT);
-        BridgePoint bp4 = new BridgePoint(new Coordinate(10, 10), 4, 100, 15.0, 2.0, 0.5, 5.0, 5.0, 2.0, 3.0, null, null); // Far from others
-        bp4.setPosition(BridgePoint.Position.RIGHT);
-        
-        nearIdenticalPoints.add(bp1);
-        nearIdenticalPoints.add(bp2);
-        nearIdenticalPoints.add(bp3);
-        nearIdenticalPoints.add(bp4);
+        nearIdenticalPoints.add(
+            new BridgePoint.Builder(1L, 100L, new Coordinate(0, 0, 10))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft()
+                .build()
+        );
+        nearIdenticalPoints.add(
+            new BridgePoint.Builder(2L, 100L, new Coordinate(1e-11, 1e-11, 10))
+                .withBarrierHeight(2.0,3.0)
+                .withRight()
+                .build()
+        );
+        nearIdenticalPoints.add(
+            new BridgePoint.Builder(3L, 100L, new Coordinate(2e-11, 0, 12))
+                .withBarrierHeight(2.0,3.0)
+                .withLeft()
+                .build()
+        );
+        nearIdenticalPoints.add(
+            new BridgePoint.Builder(4L, 100L, new Coordinate(10, 10, 15))
+                .withBarrierHeight(2.0,3.0)
+                .withRight()
+                .build()
+        );
         
         triangulation.triangulateGeometry(nearIdenticalPoints);
         

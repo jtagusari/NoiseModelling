@@ -10,11 +10,16 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import org.locationtech.jts.geom.LineString;
+import java.sql.SQLException;
 
 import static java.lang.Double.NaN;
 
@@ -45,20 +50,40 @@ public class BridgePoint {
     public enum Position {
         CENTER,
         LEFT,
-        RIGHT
+        RIGHT;
+        
+        /**
+         * Convert string representation to Position enum value.
+         * Case-insensitive matching is supported.
+         * 
+         * @param value String representation of girder type
+         * @return Corresponding GirderType enum value
+         * @throws IllegalArgumentException if the value doesn't match any enum constant
+         */
+        public static Position fromString(String value) {
+            if (value == null) {
+                return CENTER; // Default value
+            }
+            try {
+                return Position.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unknown Position: " + value + 
+                        ". Valid values are: CENTER, LEFT, RIGHT");
+            }
+        }
     }
 
     /** 3D coordinate of the bridge point */
     private Coordinate coordinate;
     
     /** Primary key identifier for this bridge point */
-    private long primaryKey = -1;
+    private long primaryKey = -1L;
     
     /** Primary key identifier for this bridge */
-    private long bridgePrimaryKey = -1;
+    private long bridgePrimaryKey = -1L;
 
     /** Position of the bridge point (center, left, or right) */
-    private Position position = Position.CENTER;
+    private Position position;
 
     /** Absolute deck height in meters (elevation above sea level) */
     private double absoluteDeckHeight = NaN;
@@ -85,54 +110,179 @@ public class BridgePoint {
 
     private Bridge.SlabType slabType = null;
 
-    /**
-     * Default constructor.
-     */
-    public BridgePoint() {
+    public static class Builder{
+        private final long primaryKey;
+        private final long bridgePrimaryKey;
+        private final Coordinate coordinate;
+        private Scene.HeightType heightType = Scene.HeightType.ABSOLUTE;
+        private double absoluteDeckHeight = NaN;
+        private double relativeDeckHeight = NaN;
+        private double deckThickness = 0.5;
+        private double rightWidth = 5.0;
+        private double leftWidth = 5.0;
+        private double rightBarrierHeight = 1.0;
+        private double leftBarrierHeight = 1.0;
+        private Position position = Position.CENTER;
+        private Bridge.GirderType girderType = Bridge.GirderType.STEEL_BOX;
+        private Bridge.SlabType slabType = Bridge.SlabType.STEEL;
+
+        public Builder(long primaryKey, long bridgePrimaryKey, Coordinate coordinate){
+            this.primaryKey = primaryKey;
+            this.bridgePrimaryKey = bridgePrimaryKey;
+            this.coordinate = new Coordinate(coordinate);
+            this.absoluteDeckHeight = this.coordinate.getZ();
+            this.relativeDeckHeight = NaN;
+        }
+
+        public Builder withHeightType(Scene.HeightType heightType){
+            this.heightType = heightType;
+            if (heightType == Scene.HeightType.ABSOLUTE){
+                this.absoluteDeckHeight = this.coordinate.getZ();
+                this.relativeDeckHeight = NaN;
+            } else if (heightType == Scene.HeightType.RELATIVE){
+                this.relativeDeckHeight = this.coordinate.getZ();
+                this.absoluteDeckHeight = NaN;
+            }
+            return this;
+        }
+
+        public Builder withAbsoluteDeckHeight(double absoluteDeckHeight){
+            this.heightType = Scene.HeightType.ABSOLUTE;
+            this.absoluteDeckHeight = absoluteDeckHeight;
+            this.relativeDeckHeight = NaN;
+            return this;
+        }
+
+        public Builder withRelativeDeckHeight(double relativeDeckHeight){
+            this.heightType = Scene.HeightType.RELATIVE;
+            this.relativeDeckHeight = relativeDeckHeight;
+            this.absoluteDeckHeight = NaN;
+            return this;
+        }
+
+        public Builder withDeckThickness(double deckThickness){
+            this.deckThickness = deckThickness;
+            return this;
+        }
+
+        public Builder withWidth(double rightWidth, double leftWidth){
+            this.rightWidth = rightWidth;
+            this.leftWidth = leftWidth;
+            return this;
+        }
+        
+        public Builder withWidth(double width){
+            this.rightWidth = width;
+            this.leftWidth = width;
+            return this;
+        }
+
+        public Builder withBarrierHeight(double rightBarrierHeight, double leftBarrierHeight){
+            this.rightBarrierHeight = rightBarrierHeight;
+            this.leftBarrierHeight = leftBarrierHeight;
+            return this;
+        }
+
+        public Builder withBarrierHeight(double barrierHeight){
+            this.rightBarrierHeight = barrierHeight;
+            this.leftBarrierHeight = barrierHeight;
+            return this;
+        }
+
+        public Builder withPosition(Position position){
+            this.position = position;
+            return this;
+        }
+
+        
+        public Builder withCenter(){
+            this.position = BridgePoint.Position.CENTER;
+            return this;
+        }
+
+        public Builder withLeft(){
+            this.position = BridgePoint.Position.LEFT;
+            return this;
+        }
+
+        public Builder withRight(){
+            this.position = BridgePoint.Position.RIGHT;
+            return this;
+        }
+
+
+        public Builder withGirderType(Bridge.GirderType girderType){
+            this.girderType = girderType;
+            return this;
+        }
+
+        public Builder withSlabType(Bridge.SlabType slabType){
+            this.slabType = slabType;
+            return this;
+        }
+
+        public BridgePoint build(){
+            return new BridgePoint(this);
+        }
+    }
+
+
+    public BridgePoint(Builder builder){
+        this.coordinate = builder.coordinate;
+        this.primaryKey = builder.primaryKey;
+        this.bridgePrimaryKey = builder.bridgePrimaryKey;
+        this.absoluteDeckHeight = builder.absoluteDeckHeight;
+        this.relativeDeckHeight = builder.relativeDeckHeight;
+        this.deckThickness = builder.deckThickness;
+        this.rightWidth = builder.rightWidth;
+        this.leftWidth = builder.leftWidth;
+        this.rightBarrierHeight = builder.rightBarrierHeight;
+        this.leftBarrierHeight = builder.leftBarrierHeight;
+        this.position = builder.position;
+        this.girderType = builder.girderType;
+        this.slabType = builder.slabType;
     }
 
     /**
      * Constructor with coordinate.
      * @param coordinate The coordinate of the bridge point
      */
-    public BridgePoint(Coordinate coordinate) {
-        // Create a defensive copy to ensure independence from the original coordinate
-        this.coordinate = coordinate != null ? new Coordinate(coordinate) : null;
-    }
-    
-    /**
-     * Full constructor with all parameters.
-     * @param coordinate The 3D coordinate of the bridge point
-     * @param primaryKey Primary key identifier of the bridge point
-     * @param bridgePrimaryKey Primary key identifier of the bridge
-     * @param absoluteDeckHeight Absolute deck height in meters (elevation above sea level)
-     * @param relativeDeckHeight Relative deck height in meters (height above ground surface)
-     * @param deckThickness Deck thickness in meters
-     * @param rightWidth Width of the bridge deck on the right side in meters
-     * @param leftWidth Width of the bridge deck on the left side in meters
-     * @param rightBarrierHeight Height of the right side barrier/parapet in meters
-     * @param leftBarrierHeight Height of the left side barrier/parapet in meters
-     * @param girderType Girder type of the bridge
-     * @param slabType Slab type of the bridge
-     */
-    public BridgePoint(Coordinate coordinate, long primaryKey, long bridgePrimaryKey,
-                      double absoluteDeckHeight, double relativeDeckHeight,
-                      double deckThickness, double rightWidth, double leftWidth,
-                      double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
-        // Create a defensive copy to ensure independence from the original coordinate
-        this.coordinate = coordinate != null ? new Coordinate(coordinate) : null;
-        this.primaryKey = primaryKey;
-        this.bridgePrimaryKey = bridgePrimaryKey;
+    // public BridgePoint(Coordinate coordinate) {
+    //     // Create a defensive copy to ensure independence from the original coordinate
+    //     this.coordinate = coordinate != null ? new Coordinate(coordinate) : null;
+    // }
+
+    public BridgePoint(ResultSet rs)  throws SQLException{
+        
+        Geometry geom = (Geometry) rs.getObject("THE_GEOM");
+
+        if (!(geom instanceof Point)){
+            throw new SQLException("Expected POINT geometry for bridge point, got: " + geom.getGeometryType());
+        }
+
+        double absoluteDeckHeight = rs.getDouble("ABSOLUTE_DECK_HEIGHT");
+        if (rs.wasNull()) {
+            absoluteDeckHeight = Double.NaN;
+        }
+
+        double relativeDeckHeight = rs.getDouble("RELATIVE_DECK_HEIGHT");
+        if (rs.wasNull()) {
+            relativeDeckHeight = Double.NaN;
+        }
+
+        this.coordinate = new Coordinate(geom.getCoordinate());
+        this.primaryKey = rs.getLong("PK");
+        this.bridgePrimaryKey = rs.getLong("BRIDGE_PK");
         this.absoluteDeckHeight = absoluteDeckHeight;
         this.relativeDeckHeight = relativeDeckHeight;
-        this.deckThickness = deckThickness;
-        this.rightWidth = rightWidth;
-        this.leftWidth = leftWidth;
-        this.rightBarrierHeight = rightBarrierHeight;
-        this.leftBarrierHeight = leftBarrierHeight;
-        this.position = Position.CENTER; // Default position
-        this.girderType = girderType != null ? girderType : Bridge.GirderType.STEEL_BOX; // Default girder type
-        this.slabType = slabType != null ? slabType : Bridge.SlabType.STEEL; // Default slab type
+        this.deckThickness = rs.getDouble("DECK_THICKNESS");
+        this.rightWidth = rs.getDouble("RIGHT_WIDTH");
+        this.leftWidth = rs.getDouble("LEFT_WIDTH");
+        this.rightBarrierHeight = rs.getDouble("RIGHT_BARRIER_HEIGHT");
+        this.leftBarrierHeight = rs.getDouble("LEFT_BARRIER_HEIGHT");
+        this.position = BridgePoint.Position.fromString(rs.getString("POSITION"));
+        this.girderType = Bridge.GirderType.fromString(rs.getString("GIRDER_TYPE"));
+        this.slabType = Bridge.SlabType.fromString(rs.getString("SLAB_TYPE"));
     }
 
     /**
@@ -183,10 +333,10 @@ public class BridgePoint {
     public static List<BridgePoint> createBridgePoints(
         List<Coordinate> coordinates, long bridgePrimaryKey,
         Scene.HeightType heightType, double deckThickness, double rightWidth, double leftWidth,
-        double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
+        double rightBarrierHeight, double leftBarrierHeight, Position position, Bridge.GirderType girderType, Bridge.SlabType slabType) {
 
         List<BridgePoint> bridgePoints = new ArrayList<>();
-        for (long pk = 0; pk < coordinates.size(); pk++) {
+        for (long pk = 0L; pk < coordinates.size(); pk++) {
             Coordinate coord = coordinates.get((int) pk);
             double absoluteDeckHeight = NaN;
             double relativeDeckHeight = NaN;
@@ -195,17 +345,21 @@ public class BridgePoint {
             } else if (heightType == Scene.HeightType.RELATIVE) {
                 relativeDeckHeight = coord.getZ();
             }
-            BridgePoint point = new BridgePoint(
-                coord, pk, bridgePrimaryKey,
-                absoluteDeckHeight, relativeDeckHeight,
-                deckThickness, rightWidth, leftWidth,
-                rightBarrierHeight, leftBarrierHeight,
-                girderType, slabType);
+            BridgePoint point = new BridgePoint.Builder(pk, bridgePrimaryKey, coord)
+                .withHeightType(heightType)
+                .withDeckThickness(deckThickness)
+                .withWidth(rightWidth, leftWidth)
+                .withBarrierHeight(rightBarrierHeight, leftBarrierHeight)
+                .withPosition(position)
+                .withGirderType(girderType)
+                .withSlabType(slabType)
+                .build();
             bridgePoints.add(point);
         }
         return bridgePoints;
     }
 
+    
     /**
      * Create a list of BridgePoints from a LineString geometry.
      * Extracts all coordinates from the LineString and converts them to BridgePoints
@@ -227,7 +381,7 @@ public class BridgePoint {
     public static List<BridgePoint> createBridgePoints(
         LineString lineString, long bridgePrimaryKey,
         Scene.HeightType heightType, double deckThickness, double rightWidth, double leftWidth,
-        double rightBarrierHeight, double leftBarrierHeight, Bridge.GirderType girderType, Bridge.SlabType slabType) {
+        double rightBarrierHeight, double leftBarrierHeight, Position position, Bridge.GirderType girderType, Bridge.SlabType slabType) {
 
         List<BridgePoint> bridgePoints = new ArrayList<>();
         for (int i = 0; i < lineString.getNumPoints(); i++) {
@@ -239,12 +393,15 @@ public class BridgePoint {
             } else if (heightType == Scene.HeightType.RELATIVE) {
                 relativeDeckHeight = coord.getZ();
             }
-            BridgePoint point = new BridgePoint(
-                coord, (long) i, bridgePrimaryKey,
-                absoluteDeckHeight, relativeDeckHeight,
-                deckThickness, rightWidth, leftWidth,
-                rightBarrierHeight, leftBarrierHeight,
-                girderType, slabType);
+            BridgePoint point = new BridgePoint.Builder((long) i, bridgePrimaryKey, coord)
+                .withHeightType(heightType)
+                .withDeckThickness(deckThickness)
+                .withWidth(rightWidth, leftWidth)
+                .withBarrierHeight(rightBarrierHeight, leftBarrierHeight)
+                .withPosition(position)
+                .withGirderType(girderType)
+                .withSlabType(slabType)
+                .build();
             bridgePoints.add(point);
         }
         return bridgePoints;
@@ -581,7 +738,10 @@ public class BridgePoint {
         if (Double.compare(that.rightBarrierHeight, rightBarrierHeight) != 0) return false;
         if (Double.compare(that.leftBarrierHeight, leftBarrierHeight) != 0) return false;
         
-        if (coordinate != null ? !coordinate.equals(that.coordinate) : that.coordinate != null) return false;
+        if (coordinate != null){
+            if(coordinate.getX() != that.coordinate.getX()) return false;
+            if(coordinate.getY() != that.coordinate.getY()) return false;
+        } 
         if (position != that.position) return false;
         if (girderType != that.girderType) return false;
         if (slabType != that.slabType) return false;
