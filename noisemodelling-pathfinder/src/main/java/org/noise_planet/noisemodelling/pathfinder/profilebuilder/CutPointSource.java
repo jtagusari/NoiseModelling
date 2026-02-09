@@ -15,7 +15,9 @@ import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
+
+import java.util.Objects;
 
 /**
  * Represents a sound source point in a vertical cut profile.
@@ -38,7 +40,7 @@ public class CutPointSource  extends CutPoint {
     private int id = -1;
 
     @JsonIgnore
-    private SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty();
+    private BridgeRelationship bridgeRelationship = new BridgeRelationship();
 
     @JsonIgnore
     private double bridgeHeight = Double.NaN;
@@ -75,7 +77,7 @@ public class CutPointSource  extends CutPoint {
         this.li = cutPointSource.li;
         this.orientation = cutPointSource.orientation;
         this.id = cutPointSource.id;
-        this.sourceBridgeProperty = cutPointSource.sourceBridgeProperty;
+        this.bridgeRelationship = cutPointSource.bridgeRelationship;
         this.bridgeHeight = cutPointSource.bridgeHeight;
     }
 
@@ -107,7 +109,7 @@ public class CutPointSource  extends CutPoint {
         this.id = sourcePointInfo.getSourceIndex();
         this.li = sourcePointInfo.getLineLength();
         this.orientation = sourcePointInfo.getOrientation();
-        this.sourceBridgeProperty = sourcePointInfo.getSourceBridgeProperty();
+        this.bridgeRelationship = sourcePointInfo.getBridgeRelationship();
         this.sourcePk = sourcePointInfo.getSourcePk();
         return this;
     }
@@ -159,12 +161,12 @@ public class CutPointSource  extends CutPoint {
     }
 
 
-    public SourceBridgeProperty getSourceBridgeProperty() {
-        return this.sourceBridgeProperty;
+    public BridgeRelationship getBridgeRelationship() {
+        return this.bridgeRelationship;
     }
 
-    public void setSourceBridgeProperty(SourceBridgeProperty sourceBridgeProperty) {
-        this.sourceBridgeProperty = sourceBridgeProperty;
+    public void setBridgeRelationship(BridgeRelationship bridgeRelationship) {
+        this.bridgeRelationship = bridgeRelationship;
     }
 
     /**
@@ -229,16 +231,21 @@ public class CutPointSource  extends CutPoint {
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
 
         CutPointSource that = (CutPointSource) o;
-        return sourcePk == that.sourcePk && id == that.id;
+        return sourcePk == that.sourcePk && 
+               id == that.id && 
+               Double.compare(that.li, li) == 0 &&
+               Double.compare(that.bridgeHeight, bridgeHeight) == 0 &&
+               Objects.equals(orientation, that.orientation) &&
+               Objects.equals(bridgeRelationship, that.bridgeRelationship);
     }
 
     @Override
     public int hashCode() {
-        int result = Long.hashCode(sourcePk);
-        result = 31 * result + id;
-        return result;
+        return Objects.hash(super.hashCode(), sourcePk, id, li, bridgeHeight, orientation, bridgeRelationship);
     }
 }

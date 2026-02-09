@@ -14,7 +14,7 @@ import org.locationtech.jts.triangulate.quadedge.Vertex;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
     
 
 /**
@@ -69,30 +69,30 @@ public class ElevationConverter {
      * other components (e.g., SourceCollector) during source point sampling.
      * 
      * @param coord Source coordinate (relative Z from LW_ROADS)
-     * @param sourceBridgeProperty Source bridge relationship
+     * @param bridgeRelationship Source bridge relationship
      * @param scene Scene containing DEM and bridge data
      * @return Absolute elevation (sea level reference)
      */
-    public static double calculateAbsoluteElevation(Coordinate coord, SourceBridgeProperty sourceBridgeProperty, Scene scene) {
+    public static double calculateAbsoluteElevation(Coordinate coord, BridgeRelationship bridgeRelationship, Scene scene) {
         ProfileBuilder profileBuilder = scene.getProfileBuilder();
         if (profileBuilder == null) {
             throw new IllegalStateException("ProfileBuilder is required for elevation calculation");
         }
         
-        // If sourceBridgeProperty is null, treat as SOURCE_NOT_RELATED_TO_BRIDGE (default behavior)
-        if (sourceBridgeProperty == null) {
+        // If bridgeRelationship is null, treat as SOURCE_NOT_RELATED_TO_BRIDGE (default behavior)
+        if (bridgeRelationship == null) {
             return profileBuilder.getZGround(coord) + coord.z;
         }
         
-        SourceBridgeProperty.SourceType sourceType = sourceBridgeProperty.getSourceType();
+        BridgeRelationship.RelationType relationType = bridgeRelationship.getRelationType();
         
-        switch (sourceType) {
+        switch (relationType) {
             case SOURCE_NOT_RELATED_TO_BRIDGE:
                 // Ground elevation + original relative Z
                 return profileBuilder.getZGround(coord) + coord.z;
                 
             case ACTUAL_SOURCE_ON_BRIDGE:
-                long bridgePkOn = sourceBridgeProperty.getBridgePkOn();
+                long bridgePkOn = bridgeRelationship.getBridgePkOn();
                 Bridge bridgeOn = profileBuilder.getBridgeByPk(bridgePkOn);
                 if (bridgeOn == null) {
                     throw new IllegalStateException("Bridge not found: " + bridgePkOn);
@@ -105,7 +105,7 @@ public class ElevationConverter {
                 return deckHeightOn + coord.z;
                 
             case IMAGINARY_SOURCE_UNDER_BRIDGE:
-                long bridgePkUnder = sourceBridgeProperty.getBridgePkAbove();
+                long bridgePkUnder = bridgeRelationship.getBridgePkAbove();
                 Bridge bridgeUnder = profileBuilder.getBridgeByPk(bridgePkUnder);
                 if (bridgeUnder == null) {
                     throw new IllegalStateException("Bridge not found: " + bridgePkUnder);
@@ -120,7 +120,7 @@ public class ElevationConverter {
                 
             case MIRROR_SOURCE:
                 // MIRROR_SOURCE elevation calculated using reflection formula
-                long bridgePkAbove = sourceBridgeProperty.getBridgePkAbove();
+                long bridgePkAbove = bridgeRelationship.getBridgePkAbove();
                 Bridge bridgeAbove = profileBuilder.getBridgeByPk(bridgePkAbove);
                 if (bridgeAbove == null) {
                     throw new IllegalStateException("Bridge above not found: " + bridgePkAbove);
@@ -132,7 +132,7 @@ public class ElevationConverter {
                 }
                 
                 // Get original source elevation (before reflection)
-                long bridgePkOnForMirror = sourceBridgeProperty.getBridgePkOn();
+                long bridgePkOnForMirror = bridgeRelationship.getBridgePkOn();
                 double originalSourceZ;
                 if (bridgePkOnForMirror >= 0) {
                     // Original source was on a bridge
@@ -151,7 +151,7 @@ public class ElevationConverter {
                 return originalSourceZ + 2.0 * (bridgeBottom - originalSourceZ);
                 
             default:
-                throw new IllegalArgumentException("Unknown source type: " + sourceType);
+                throw new IllegalArgumentException("Unknown source type: " + relationType);
         }
     }
 

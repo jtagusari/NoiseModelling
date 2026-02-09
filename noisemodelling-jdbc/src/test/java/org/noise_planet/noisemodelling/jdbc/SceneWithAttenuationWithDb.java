@@ -43,12 +43,12 @@ public class SceneWithAttenuationWithDb {
 	public void testAddSourceDbWithH2GIS() throws Exception {
 		try (Statement st = connection.createStatement()) {
 			// テーブル作成
-			st.execute("CREATE TABLE SOURCES (PK BIGINT PRIMARY KEY, THE_GEOM GEOMETRY, GS DOUBLE, DIR_ID INTEGER, YAW FLOAT, PITCH FLOAT, ROLL FLOAT, HEIGHT_TYPE VARCHAR(20), BRIDGE_PK BIGINT, SOURCE_TYPE VARCHAR(20))");
+			st.execute("CREATE TABLE SOURCES (PK BIGINT PRIMARY KEY, THE_GEOM GEOMETRY, GS DOUBLE, DIR_ID INTEGER, YAW FLOAT, PITCH FLOAT, ROLL FLOAT, HEIGHT_TYPE VARCHAR(10), BRIDGE_PK BIGINT, EMISSION_TYPE VARCHAR(20))");
 			// テスト用LineStringジオメトリ作成
 			GeometryFactory gf = new GeometryFactory();
 			LineString line = gf.createLineString(new Coordinate[]{new Coordinate(0,0), new Coordinate(10,0)});
 			// データ挿入
-			st.execute("INSERT INTO SOURCES (PK, THE_GEOM, GS, DIR_ID, YAW, PITCH, ROLL, HEIGHT_TYPE, BRIDGE_PK, SOURCE_TYPE) VALUES (1, ST_GeomFromText('LINESTRING(0 0, 10 0)'), 0.7, 2, 0.0, 0.0, 0.0, 'RELATIVE', NULL, 'ROAD')");
+			st.execute("INSERT INTO SOURCES (PK, THE_GEOM, GS, DIR_ID, YAW, PITCH, ROLL, HEIGHT_TYPE, BRIDGE_PK, EMISSION_TYPE) VALUES (1, ST_GeomFromText('LINESTRING(0 0, 10 0)'), 0.7, 2, 0.0, 0.0, 0.0, 'RELATIVE', NULL, 'ROAD')");
 		
 		}
 
@@ -64,7 +64,7 @@ public class SceneWithAttenuationWithDb {
 			Geometry geom = rs.getGeometry("THE_GEOM");
 			scene.addSourceDb(pk, geom, rs);
 			// 検証
-			assertEquals(1, scene.sourceBridgeProperties.size());
+			assertEquals(1, scene.bridgeRelationships.size());
 			assertEquals(0.7, scene.sourceGs.get(pk));
 			assertEquals(2, scene.sourceEmissionAttenuation.get(pk));
 			assertEquals("RELATIVE", scene.getSourceHeightTypeByPk(pk).name());
@@ -78,12 +78,12 @@ public class SceneWithAttenuationWithDb {
 	public void testAddMultipleSourcesDbWithH2GIS() throws Exception {
 		try (Statement st = connection.createStatement()) {
 			// テーブル作成
-			st.execute("CREATE TABLE SOURCES (PK BIGINT PRIMARY KEY, THE_GEOM GEOMETRY, GS DOUBLE, DIR_ID INTEGER, YAW FLOAT, PITCH FLOAT, ROLL FLOAT, HEIGHT_TYPE VARCHAR(20), BRIDGE_PK BIGINT, SOURCE_TYPE VARCHAR(20))");
+			st.execute("CREATE TABLE SOURCES (PK BIGINT PRIMARY KEY, THE_GEOM GEOMETRY, GS DOUBLE, DIR_ID INTEGER, YAW FLOAT, PITCH FLOAT, ROLL FLOAT, HEIGHT_TYPE VARCHAR(10), BRIDGE_PK BIGINT, EMISSION_TYPE VARCHAR(20))");
 			GeometryFactory gf = new GeometryFactory();
 			// 1つ目の音源
-			st.execute("INSERT INTO SOURCES (PK, THE_GEOM, GS, DIR_ID, YAW, PITCH, ROLL, HEIGHT_TYPE, BRIDGE_PK, SOURCE_TYPE) VALUES (1, ST_GeomFromText('LINESTRING(0 0, 10 0)'), 0.7, 2, 0.0, 0.0, 0.0, 'RELATIVE', NULL, 'ROAD')");
+			st.execute("INSERT INTO SOURCES (PK, THE_GEOM, GS, DIR_ID, YAW, PITCH, ROLL, HEIGHT_TYPE, BRIDGE_PK, EMISSION_TYPE) VALUES (1, ST_GeomFromText('LINESTRING(0 0, 10 0)'), 0.7, 2, 0.0, 0.0, 0.0, 'RELATIVE', NULL, 'ROAD')");
 			// 2つ目の音源
-			st.execute("INSERT INTO SOURCES (PK, THE_GEOM, GS, DIR_ID, YAW, PITCH, ROLL, HEIGHT_TYPE, BRIDGE_PK, SOURCE_TYPE) VALUES (2, ST_GeomFromText('LINESTRING(20 0, 30 0)'), 1.2, 3, 10.0, 0.0, 0.0, 'ABSOLUTE', NULL, 'ROAD')");
+			st.execute("INSERT INTO SOURCES (PK, THE_GEOM, GS, DIR_ID, YAW, PITCH, ROLL, HEIGHT_TYPE, BRIDGE_PK, EMISSION_TYPE) VALUES (2, ST_GeomFromText('LINESTRING(20 0, 30 0)'), 1.2, 3, 10.0, 0.0, 0.0, 'ABSOLUTE', NULL, 'ROAD')");
 		}
 
 		ProfileBuilder profileBuilder = new ProfileBuilder();

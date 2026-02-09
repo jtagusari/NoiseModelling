@@ -22,6 +22,7 @@ import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerTinfour;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.Triangle;
 import org.noise_planet.noisemodelling.pathfinder.utils.IntegerTuple;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -976,5 +977,16 @@ public class TopographyService implements ElevationComputable, ClearableService 
 
     public double getZGround(Coordinate coordinate) {
         return getZGround(coordinate, new AtomicInteger(-1));
+    }
+
+    /**
+     * Compute a hash code representing the current state of this TopographyService.
+     * The hash is based on the triangulation and vertices.
+     * 
+     * @return Hash code representing the service state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(triangles.size(), vertices.size(), topoPoints.size(), topoLines.size());
     }
 }

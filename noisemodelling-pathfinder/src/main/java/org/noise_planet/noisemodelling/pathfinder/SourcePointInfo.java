@@ -2,8 +2,9 @@ package org.noise_planet.noisemodelling.pathfinder;
 
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.locationtech.jts.geom.Coordinate;
+import java.util.Objects;
 import static java.lang.Double.isNaN;
 /**
  * Attribute of the source point.
@@ -28,7 +29,7 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
     /** Source position with absolute elevation in Z coordinate (elevation in DEM coordinate system) */
     private final Coordinate position;
     private final Orientation orientation;
-    private final SourceBridgeProperty sourceBridgeProperty;
+    private final BridgeRelationship bridgeRelationship;
 
 
     /**
@@ -39,10 +40,10 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
      * @param position Source position with absolute elevation in Z coordinate (not relative height)
      * @param li Line segment length
      * @param orientation Source orientation
-     * @param sourceBridgeProperty Bridge properties
+     * @param bridgeRelationship Bridge properties
      */
     public SourcePointInfo(int sourceIndex, long sourcePrimaryKey, Coordinate position, double li,
-                            Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
+                            Orientation orientation, BridgeRelationship bridgeRelationship) {
         this.sourceIndex = sourceIndex;
         this.sourcePk = sourcePrimaryKey;
         if (isNaN(position.z)) {
@@ -52,8 +53,8 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         }
         this.li = li;
         this.orientation = orientation;
-        this.sourceBridgeProperty = sourceBridgeProperty != null ? 
-                                   sourceBridgeProperty : new SourceBridgeProperty();
+        this.bridgeRelationship = bridgeRelationship != null ? 
+                                   bridgeRelationship : new BridgeRelationship();
     }
 
     public SourcePointInfo(int sourceIndex, long sourcePrimaryKey, Coordinate position, double li,
@@ -67,7 +68,7 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         }
         this.li = li;
         this.orientation = orientation;
-        this.sourceBridgeProperty = new SourceBridgeProperty();
+        this.bridgeRelationship = new BridgeRelationship();
     }
 
     public SourcePointInfo(CutPointSource source) {
@@ -76,8 +77,8 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.position = source.getCoordinate();
         this.li = source.getLineLength();
         this.orientation = source.getOrientation();
-        this.sourceBridgeProperty = source.getSourceBridgeProperty() != null ? 
-                                   source.getSourceBridgeProperty() : new SourceBridgeProperty();
+        this.bridgeRelationship = source.getBridgeRelationship() != null ? 
+                                   source.getBridgeRelationship() : new BridgeRelationship();
     }
 
     public SourcePointInfo(){
@@ -86,7 +87,7 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.position = new Coordinate(0, 0, 0);
         this.li = 0;
         this.orientation = new Orientation();
-        this.sourceBridgeProperty = new SourceBridgeProperty();
+        this.bridgeRelationship = new BridgeRelationship();
     }
 
     public SourcePointInfo(Coordinate coordinate){
@@ -95,14 +96,14 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.position = new Coordinate(coordinate);
         this.li = 0;
         this.orientation = new Orientation();
-        this.sourceBridgeProperty = new SourceBridgeProperty();
+        this.bridgeRelationship = new BridgeRelationship();
     }
     public Orientation getOrientation() {
         return orientation;
     }
 
-    public SourceBridgeProperty getSourceBridgeProperty(){
-        return sourceBridgeProperty;
+    public BridgeRelationship getBridgeRelationship(){
+        return bridgeRelationship;
     }
 
     /**
@@ -136,20 +137,17 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
+        
         SourcePointInfo that = (SourcePointInfo) o;
-        return sourceIndex == that.getSourceIndex() && 
-               position.equals(that.getCoordinate()) && 
-               (sourceBridgeProperty == null ? that.getSourceBridgeProperty() == null :
-                sourceBridgeProperty.equals(that.getSourceBridgeProperty()));
+        return sourceIndex == that.sourceIndex && 
+               Objects.equals(position, that.position) && 
+               Objects.equals(bridgeRelationship, that.bridgeRelationship);
     }
 
     @Override
     public int hashCode() {
-        int result = sourceIndex;
-        result = 31 * result + position.hashCode() + 
-                 (sourceBridgeProperty != null ? sourceBridgeProperty.hashCode() : 0);
-        return result;
+        return Objects.hash(sourceIndex, position, bridgeRelationship);
     }
 }

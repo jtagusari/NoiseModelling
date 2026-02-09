@@ -24,6 +24,7 @@ import org.noise_planet.noisemodelling.emission.railway.cnossos.RailWayCnossosPa
 import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
@@ -34,6 +35,8 @@ import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.flatbuffers.Table;
 
 import java.sql.*;
 import java.util.*;
@@ -73,7 +76,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         directionAttributes.clear();
         directionAttributes.put(0, new OmnidirectionalDirection());
         int i=1;
-        for(String typeSource : RailWayCnossosParameters.sourceType) {
+        for(String typeSource : RailWayCnossosParameters.emissionType) {
             directionAttributes.put(i, new RailwayCnossosDirectivitySphere(new LineSource(typeSource)));
             i++;
         }
@@ -101,7 +104,8 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                 }
             } else {
                 List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesTableName());
-                for (EmissionTableGenerator.STANDARD_PERIOD period : EmissionTableGenerator.STANDARD_PERIOD.values()) {
+
+                for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
                     String periodFieldName = EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()];
                     List<Integer> frequencyValues = readFrequenciesFromLwTable(
                             noiseMapByReceiverMaker.getFrequencyFieldPrepend()+
@@ -135,7 +139,8 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         } else if (inputSettings.inputMode == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN) {
             List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesTableName());
             Set<Integer> frequencySet = new HashSet<>();
-            for (EmissionTableGenerator.STANDARD_PERIOD period : EmissionTableGenerator.STANDARD_PERIOD.values()) {
+
+            for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
                 String periodFieldName = EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()];
                 frequencySet.addAll(readFrequenciesFromLwTable(noiseMapByReceiverMaker.getFrequencyFieldPrepend()+periodFieldName, sourceFields));
             }
@@ -291,42 +296,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         fetchCellSource(connection, expandedCellEnvelop, scene, true);
 
         // Fetch receivers
-        String receiverTableName = noiseMapByReceiverMaker.getReceiverTableName();
-        String receiverGeomName = GeometryTableUtilities.getGeometryColumnNames(connection,
-                TableLocation.parse(receiverTableName)).get(0);
-        int intPk = JDBCUtilities.getIntegerPrimaryKey(connection.unwrap(Connection.class), TableLocation.parse(receiverTableName, dbType));
-        String pkSelect = "";
-        if(intPk >= 1) {
-            pkSelect = ", " + TableLocation.quoteIdentifier(JDBCUtilities.getColumnName(connection, receiverTableName, intPk), dbType);
-        } else {
-            throw new SQLException(String.format("Table %s missing primary key for receiver identification", receiverTableName));
-        }
-        try (PreparedStatement st = connection.prepareStatement(
-                "SELECT " + TableLocation.quoteIdentifier(receiverGeomName, dbType ) + pkSelect + " FROM " +
-                        receiverTableName + " WHERE " +
-                        TableLocation.quoteIdentifier(receiverGeomName, dbType) + " && ?::geometry")) {
-            st.setObject(1, geometryFactory.toGeometry(cellEnvelope));
-            try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
-                while (rs.next()) {
-                    long receiverPk = rs.getLong(2);
-                    if(skipReceivers.contains(receiverPk)) {
-                        continue;
-                    } else {
-                        skipReceivers.add(receiverPk);
-                    }
-                    Geometry pt = rs.getGeometry();
-                    if(pt != null && !pt.isEmpty()) {
-                        // check z value
-                        if(pt.getCoordinate().getZ() == Coordinate.NULL_ORDINATE) {
-                            throw new IllegalArgumentException("The table " + receiverTableName +
-                                    " contain at least one receiver without Z ordinate." +
-                                    " You must specify X,Y,Z for each receiver");
-                        }
-                        scene.addReceiver(receiverPk, pt.getCoordinate());
-                    }
-                }
-            }
-        }
+        fetchCellReceiver(connection, cellEnvelope, scene, skipReceivers);
 
         return scene;
     }
@@ -699,6 +669,88 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
     }
 
     /**
+     * Fetches receivers data for the specified cell envelope and adds them to the profile builder.
+     * @param connection         the database connection to use for querying the receivers data.
+     * @param cellEnvelope       the envelope representing the cell to fetch receivers data for.
+     * @param builder            the profile builder to which the receivers data will be added.
+     * @param skipReceivers      set of receiver primary keys to skip (already processed in other cells).
+     * @param geometryFactory    geometry factory instance with SRID set.
+     * @throws SQLException      if an SQL exception occurs while fetching the receivers data.
+     */
+    public void fetchCellReceiver(Connection connection, Envelope cellEnvelope, SceneWithEmission scene,
+                                     Set<Long> skipReceivers) throws SQLException {
+        String receiverTableName = noiseMapByReceiverMaker.getReceiverTableName();
+        DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
+        String receiverGeomName = GeometryTableUtilities.getGeometryColumnNames(connection,
+                TableLocation.parse(receiverTableName)).get(0);
+        String receiverPkName = "PK";
+        String receiverHeightTypeName = "HEIGHT_TYPE";
+
+        GeometryFactory geometryFactory = noiseMapByReceiverMaker.getGeometryFactory();
+
+        // check if primary key exists
+        int intPk = JDBCUtilities.getIntegerPrimaryKey(connection.unwrap(Connection.class), TableLocation.parse(receiverTableName, dbType));
+        
+        if(intPk < 1) {
+            throw new SQLException(String.format("Table %s missing primary key for receiver identification", receiverTableName));
+        }
+
+        // get dbType specific name
+        receiverGeomName = TableLocation.quoteIdentifier(receiverGeomName, dbType);
+        receiverPkName = TableLocation.quoteIdentifier(JDBCUtilities.getColumnName(connection, receiverTableName, intPk), dbType);
+
+        String pkSelectPart = "SELECT " + receiverGeomName + ", " + receiverPkName;
+
+        // check if height type field (optional) exists
+        if(JDBCUtilities.hasField(connection, receiverTableName, receiverHeightTypeName)) {
+            receiverHeightTypeName = TableLocation.quoteIdentifier(receiverHeightTypeName, dbType);
+            pkSelectPart += ", " +
+                   TableLocation.quoteIdentifier(receiverHeightTypeName, dbType); 
+        }
+
+        try (PreparedStatement st = connection.prepareStatement(
+                pkSelectPart + " FROM " + receiverTableName + " WHERE " +
+                        TableLocation.quoteIdentifier(receiverGeomName, dbType) + " && ?::geometry")) {
+            st.setObject(1, geometryFactory.toGeometry(cellEnvelope));
+            try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
+                while (rs.next()) {
+                    long receiverPk = rs.getLong(receiverPkName);
+                    if(receiverPk < 0) {
+                        throw new IllegalArgumentException("The table " + receiverTableName +
+                                " must have a primary key field named PK of type INTEGER");
+                    }
+                    if(skipReceivers.contains(receiverPk)) {
+                        continue;
+                    } else {
+                        skipReceivers.add(receiverPk);
+                    }
+                    Geometry pt = rs.getGeometry();
+
+                    if(pt == null || pt.isEmpty()) {
+                        throw new IllegalArgumentException("The table " + receiverTableName +
+                                " contain at least one receiver without geometry.");
+                    }
+                    // check z value
+                    if(pt.getCoordinate().getZ() == Coordinate.NULL_ORDINATE) {
+                        throw new IllegalArgumentException("The table " + receiverTableName +
+                                " contain at least one receiver without Z ordinate." +
+                                " You must specify X,Y,Z for each receiver");
+                    }
+
+                    Scene.HeightType heightType = Scene.HeightType.ABSOLUTE;
+                    try {
+                        heightType = Scene.HeightType.fromString(rs.getString(receiverHeightTypeName));
+                    } catch (SQLException ex) {
+                        // ignore, use default
+                    }
+                    
+                    scene.addReceiver(receiverPk, pt.getCoordinate(), heightType);
+                }
+            }
+        }
+    }
+
+    /**
      * Fetch source geometries and power
      * @param connection Active connection
      * @param fetchEnvelope Fetch envelope
@@ -775,7 +827,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                 st.setFetchDirection(ResultSet.FETCH_FORWARD);
                 try (ResultSet rs = st.executeQuery()) {
                     while (rs.next()) {
-                        scene.registerSourceEmission(rs.getLong(scene.getSceneDatabaseInputSettings().sourceEmissionPrimaryKeyField), rs);
+                        scene.registerSourceEmissionFromDb(rs.getLong(scene.getSceneDatabaseInputSettings().sourceEmissionPrimaryKeyField), rs);
                     }
                 } finally {
                     if (autoCommit) {

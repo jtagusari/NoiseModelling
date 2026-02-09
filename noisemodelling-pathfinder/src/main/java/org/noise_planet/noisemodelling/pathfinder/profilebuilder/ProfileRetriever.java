@@ -154,7 +154,7 @@ public class ProfileRetriever {
             sourcePoint.setGroundCoefficient(defaultGroundAttenuation);
         }
 
-        long bridgePkOn = sourcePoint.getSourceBridgeProperty().getBridgePkOn();
+        long bridgePkOn = sourcePoint.getBridgeRelationship().getBridgePkOn();
         if (bridgePkOn >= 0) {
             Bridge bridge = bridgeService.getBridgeByPk(bridgePkOn);
             sourcePoint.setBridgeHeight(bridge.getDeckHeightAtPoint(sourceCoordinate));

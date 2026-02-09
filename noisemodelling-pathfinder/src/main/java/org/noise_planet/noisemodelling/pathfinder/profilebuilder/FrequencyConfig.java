@@ -1,5 +1,6 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
+import java.util.Objects;
 import java.util.Arrays;
 import java.util.ArrayList;
 import org.slf4j.Logger;
@@ -246,6 +247,17 @@ public final class FrequencyConfig {
      */
     public List<Double> getAWeightingArray() {
         return Collections.unmodifiableList(aWeightingArray);
+    }
+
+    /**
+     * Compute a hash code representing the current state of this FrequencyConfig.
+     * The hash is based on the frequency band and frequency arrays.
+     * 
+     * @return Hash code representing the configuration state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(frequencyBand, frequencyArray, exactFrequencyArray, aWeightingArray);
     }
 
 }

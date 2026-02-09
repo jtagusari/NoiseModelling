@@ -91,7 +91,7 @@ public final class CutPointBuilder {
     //     List<LineSegment> segments = splitSegment(fullLine.p0, fullLine.p1);
     //     boolean sortCutPoints = true;
         
-    //     SourceType sourceType = profile.getSource().getSourceBridgeProperty().getSourceType();
+    //     RelationType relationType = profile.getSource().getBridgeRelationship().getRelationType();
     //     PropagationType propagationType = bridgeService.checkPropagationType(profile);
 
     //     if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER || propagationType == PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER) {

@@ -3,6 +3,8 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 
+import java.util.Objects;
+
 
 
 public class Wall extends Obstruction {
@@ -112,5 +114,10 @@ public class Wall extends Obstruction {
 
     public ProfileBuilder.IntersectionType getType() {
         return type;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(p0, p1, originId, type, primaryKey, height);
     }
 }

@@ -62,10 +62,15 @@ public class PathExecutionManager {
      * @param progressVisitor Progress visitor for cancellation and progress reporting
      */
     public void executeInParallel(PathFinder pathFinder, CutPlaneVisitorFactory computeRaysOut, ProgressVisitor progressVisitor) {
-        ThreadPool threadManager = createThreadPool();
-        List<ReceiverBatchScheduler.Range> batches = createBatches();
+        ThreadPool threadManager = new ThreadPool(threadCount, threadCount + 1, Long.MAX_VALUE, TimeUnit.SECONDS);
+        List<ReceiverBatchScheduler.Range> batches = ReceiverBatchScheduler.computeBatches(data.countReceivers(), threadCount);
         List<Future<Boolean>> tasks = new ArrayList<>();
-        ProgressVisitor cellProgress = createProgressVisitor(progressVisitor);
+        ProgressVisitor cellProgress;
+        if(progressVisitor == null) {
+            cellProgress = new EmptyProgressVisitor();
+        } else {
+            cellProgress = progressVisitor.subProcess(data.countReceivers());
+        }
         
         try {
             submitBatchTasks(pathFinder, computeRaysOut, cellProgress, batches, threadManager, tasks);
@@ -76,27 +81,6 @@ public class PathExecutionManager {
             forceShutdown(threadManager);
             throw e;
         }
-    }
-    
-    /**
-     * Create and configure the thread pool for parallel execution.
-     */
-    private ThreadPool createThreadPool() {
-        return new ThreadPool(threadCount, threadCount + 1, Long.MAX_VALUE, TimeUnit.SECONDS);
-    }
-    
-    /**
-     * Create receiver batches for parallel processing.
-     */
-    private List<ReceiverBatchScheduler.Range> createBatches() {
-        return ReceiverBatchScheduler.computeBatches(data.getReceiverCount(), threadCount);
-    }
-    
-    /**
-     * Create progress visitor for tracking overall progress.
-     */
-    private ProgressVisitor createProgressVisitor(ProgressVisitor progressVisitor) {
-        return progressVisitor == null ? new EmptyProgressVisitor() : progressVisitor.subProcess(data.getReceiverCount());
     }
     
     /**
@@ -111,34 +95,19 @@ public class PathExecutionManager {
                 break;
             }
             
-            ThreadPathFinder batchThread = createBatchThread(pathFinder, computeRaysOut, cellProgress, batch);
+            ThreadPathFinder batchThread = new ThreadPathFinder(batch.start, batch.end, pathFinder, cellProgress, 
+                                   computeRaysOut.subProcess(cellProgress), data);
             
             if (threadCount != 1) {
                 tasks.add(threadManager.submitBlocking(batchThread));
             } else {
                 // Single-threaded execution for debugging or simple cases
-                executeSingleThreaded(batchThread);
+                try {
+                    batchThread.call();
+                } catch (Exception e) {
+                    throw new RuntimeException("Error in single-threaded batch execution", e);
+                }
             }
-        }
-    }
-    
-    /**
-     * Create a batch thread for processing a range of receivers.
-     */
-    private ThreadPathFinder createBatchThread(PathFinder pathFinder, CutPlaneVisitorFactory computeRaysOut,
-                                               ProgressVisitor cellProgress, ReceiverBatchScheduler.Range batch) {
-        return new ThreadPathFinder(batch.start, batch.end, pathFinder, cellProgress, 
-                                   computeRaysOut.subProcess(cellProgress), data);
-    }
-    
-    /**
-     * Execute a batch thread in single-threaded mode.
-     */
-    private void executeSingleThreaded(ThreadPathFinder batchThread) {
-        try {
-            batchThread.call();
-        } catch (Exception e) {
-            throw new RuntimeException("Error in single-threaded batch execution", e);
         }
     }
     

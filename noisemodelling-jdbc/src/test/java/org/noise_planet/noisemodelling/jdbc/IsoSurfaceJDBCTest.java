@@ -72,7 +72,7 @@ public class IsoSurfaceJDBCTest {
         isoSurface.setPointTableField("LAEQ");
         isoSurface.setSmooth(true);
         isoSurface.createTable(connection);
-        System.out.println("Contouring done in " + (System.currentTimeMillis() - start) + " ms");
+        LOGGER.info("Contouring done in " + (System.currentTimeMillis() - start) + " ms");
 
         assertTrue(JDBCUtilities.tableExists(connection, "CONTOURING_NOISE_MAP"));
 
@@ -122,7 +122,7 @@ public class IsoSurfaceJDBCTest {
         isoSurface.setSmooth(false);
         isoSurface.setMergeTriangles(false);
         isoSurface.createTable(connection);
-        System.out.println("Contouring done in " + (System.currentTimeMillis() - start) + " ms");
+        LOGGER.info("Contouring done in " + (System.currentTimeMillis() - start) + " ms");
 
         assertTrue(JDBCUtilities.tableExists(connection, "CONTOURING_NOISE_MAP"));
 
@@ -168,7 +168,7 @@ public class IsoSurfaceJDBCTest {
         isoSurface.setPointTableField("HEIGHT");
         isoSurface.setSmooth(false);
         isoSurface.createTable(connection);
-        System.out.println("Contouring done in " + (System.currentTimeMillis() - start) + " ms");
+        LOGGER.info("Contouring done in " + (System.currentTimeMillis() - start) + " ms");
 
         assertTrue(JDBCUtilities.tableExists(connection, "CONTOURING_NOISE_MAP"));
 

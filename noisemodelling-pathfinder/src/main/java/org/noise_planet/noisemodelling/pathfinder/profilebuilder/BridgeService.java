@@ -3,8 +3,8 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship.RelationType;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall.WallDirection;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
@@ -16,6 +16,7 @@ import org.locationtech.jts.algorithm.LineIntersector;
 import org.locationtech.jts.algorithm.RobustLineIntersector;
 import org.locationtech.jts.index.strtree.STRtree;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -276,10 +277,10 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         long bridgePkTarget = -1;
         CutPointBridgeWall.WallDirection wallDirection = null;
         if (propagationType == PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER) {
-            bridgePkTarget = src.getSourceBridgeProperty().getBridgePkAbove();
+            bridgePkTarget = src.getBridgeRelationship().getBridgePkAbove();
             wallDirection = CutPointBridgeWall.WallDirection.DOWNWARD;
         } else if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER) {
-            bridgePkTarget = src.getSourceBridgeProperty().getBridgePkOn();
+            bridgePkTarget = src.getBridgeRelationship().getBridgePkOn();
             wallDirection = CutPointBridgeWall.WallDirection.OTHER;
         } else {
             throw new IllegalStateException("Unsupported propagation type for bridge cut point calculation: " + propagationType);
@@ -311,7 +312,7 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             bridgeCutPoint.setMirrorRelax(true);
         }
         bridgeCutPoint.modifyIntersectionHeight(bridge);
-        long bridgePkOn = src.getSourceBridgeProperty().getBridgePkOn();
+        long bridgePkOn = src.getBridgeRelationship().getBridgePkOn();
         if (bridgePkOn >= 0) {
             bridgeCutPoint.setBridgeHeight(bridge.getDeckHeightAtPoint(intersection3D));
         }
@@ -468,27 +469,27 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
      */
     public PropagationType checkPropagationType(CutProfile profile) {
         CutPointSource src = profile.getSource();
-        SourceBridgeProperty srcProperty = src.getSourceBridgeProperty();
+        BridgeRelationship srcProperty = src.getBridgeRelationship();
         if (srcProperty == null) {
             return PropagationType.NOT_RELATED_TO_BRIDGE;
         }
 
-        SourceType srcType = srcProperty.getSourceType();
-        if (srcType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+        RelationType srcType = srcProperty.getRelationType();
+        if (srcType == RelationType.SOURCE_NOT_RELATED_TO_BRIDGE) {
             return PropagationType.NOT_RELATED_TO_BRIDGE;
         }
 
         if (srcProperty.getBridgePkOn() < 0 && srcProperty.getBridgePkAbove() < 0) {
-            throw new IllegalStateException("SourceBridgeProperty must have valid bridge primary keys for ON and/or ABOVE bridges.");
+            throw new IllegalStateException("BridgeRelationship must have valid bridge primary keys for ON and/or ABOVE bridges.");
         }
 
         long bridgePkTarget;
-        if (srcType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
+        if (srcType == RelationType.ACTUAL_SOURCE_ON_BRIDGE) {
             bridgePkTarget = srcProperty.getBridgePkOn();
-        } else if (srcType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE || srcType == SourceType.MIRROR_SOURCE) {
+        } else if (srcType == RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE || srcType == RelationType.MIRROR_SOURCE) {
             bridgePkTarget = srcProperty.getBridgePkAbove();
         } else {
-            throw new IllegalStateException("Unsupported SourceType for propagation type check: " + srcType);
+            throw new IllegalStateException("Unsupported RelationType for propagation type check: " + srcType);
         }
 
         Bridge bridge = this.getBridgeByPk(bridgePkTarget);
@@ -503,12 +504,12 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
 
         boolean isRcvAboveBridgeDeck = bridge.isPointAboveBridge(rcv.getCoordinate());
 
-        if (srcType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
+        if (srcType == RelationType.ACTUAL_SOURCE_ON_BRIDGE) {
             return isRcvAboveBridgeDeck ? PropagationType.ACTUAL_SOURCE_TO_UPPER_RECEIVER : PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER;
-        } else if (srcType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE || srcType == SourceType.MIRROR_SOURCE) {
+        } else if (srcType == RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE || srcType == RelationType.MIRROR_SOURCE) {
             return isRcvAboveBridgeDeck ? PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER : PropagationType.IMAGINARY_SOURCE_TO_LOWER_RECEIVER;
         } else {
-            throw new IllegalStateException("Unsupported SourceType for propagation type check: " + srcType);
+            throw new IllegalStateException("Unsupported RelationType for propagation type check: " + srcType);
         }
     }
     
@@ -548,9 +549,9 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(processedWallIndex, intersection, facetLine.getLineSegment(), facetLine.getAlphas(), bridgePk);
         
         WallDirection wallDirection = WallDirection.UPWARD;
-        SourceType sourceType = cutPointSource.getSourceBridgeProperty().getSourceType();
-        if (sourceType == SourceType.MIRROR_SOURCE || sourceType == SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-            if (bridgePk == cutPointSource.getSourceBridgeProperty().getBridgePkAbove()) {
+        RelationType relationType = cutPointSource.getBridgeRelationship().getRelationType();
+        if (relationType == RelationType.MIRROR_SOURCE || relationType == RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+            if (bridgePk == cutPointSource.getBridgeRelationship().getBridgePkAbove()) {
                 bridgeCutPoint.setMirrorRelax(true);
                 wallDirection = WallDirection.DOWNWARD;
             }
@@ -607,8 +608,8 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
     public void setEffectiveBridgeCutPoint(CutProfile profile) {
         List<Coordinate> cutPointCoordinates2D = profile.generateCutPointCoordinates2D();
         ArrayList<CutPoint> newCutPoints3D = new ArrayList<>();
-        long bridgePkOn = profile.getSource().getSourceBridgeProperty().getBridgePkOn();
-        long bridgePkAbove = profile.getSource().getSourceBridgeProperty().getBridgePkAbove();
+        long bridgePkOn = profile.getSource().getBridgeRelationship().getBridgePkOn();
+        long bridgePkAbove = profile.getSource().getBridgeRelationship().getBridgePkAbove();
         double bridgeHeightOn = profile.getSource().getBridgeHeight();
 
         List<CutPointBridgeWall> nextBridges = new ArrayList<>();
@@ -708,5 +709,15 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         return coordinate.y < lineSegment.pointAlong((coordinate.x - lineSegment.p0.x) / (lineSegment.p1.x - lineSegment.p0.x)).y;
     }
 
+    /**
+     * Compute a hash code representing the current state of this BridgeService.
+     * The hash is based on the number of bridges and their basic properties.
+     * 
+     * @return Hash code representing the service state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(bridges);
+    }
 
 }

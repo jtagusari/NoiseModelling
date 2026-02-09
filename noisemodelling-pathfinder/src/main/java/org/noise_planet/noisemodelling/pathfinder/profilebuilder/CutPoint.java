@@ -16,6 +16,8 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.locationtech.jts.geom.Coordinate;
 
+import java.util.Objects;
+
 
 /**
  * Abstract base class representing a point on a vertical cut profile between source and receiver.
@@ -204,16 +206,7 @@ public abstract class CutPoint implements Comparable<CutPoint> {
      */
     @Override
     public int hashCode() {
-        int result = coordinate != null ? coordinate.hashCode() : 0;
-        
-        // Handle NaN values in hash computation
-        long zGroundBits = Double.isNaN(zGround) ? 0L : Double.doubleToLongBits(zGround);
-        result = 31 * result + (int) (zGroundBits ^ (zGroundBits >>> 32));
-        
-        long groundCoeffBits = Double.isNaN(groundCoefficient) ? 0L : Double.doubleToLongBits(groundCoefficient);
-        result = 31 * result + (int) (groundCoeffBits ^ (groundCoeffBits >>> 32));
-        
-        return result;
+        return Objects.hash(coordinate, zGround, groundCoefficient);
     }
 
     @Override

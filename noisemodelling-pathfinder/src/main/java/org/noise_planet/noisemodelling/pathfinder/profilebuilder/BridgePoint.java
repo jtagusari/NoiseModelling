@@ -14,6 +14,8 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
+import java.util.Objects;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -751,29 +753,10 @@ public class BridgePoint {
 
     @Override
     public int hashCode() {
-        int result;
-        long temp;
-        result = coordinate != null ? coordinate.hashCode() : 0;
-        result = 31 * result + (int) (primaryKey ^ (primaryKey >>> 32));
-        result = 31 * result + (int) (bridgePrimaryKey ^ (bridgePrimaryKey >>> 32));
-        temp = Double.doubleToLongBits(absoluteDeckHeight);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        temp = Double.doubleToLongBits(relativeDeckHeight);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        temp = Double.doubleToLongBits(deckThickness);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        temp = Double.doubleToLongBits(rightWidth);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        temp = Double.doubleToLongBits(leftWidth);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        temp = Double.doubleToLongBits(rightBarrierHeight);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        temp = Double.doubleToLongBits(leftBarrierHeight);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        result = 31 * result + (position != null ? position.hashCode() : 0);
-        result = 31 * result + (girderType != null ? girderType.hashCode() : 0);
-        result = 31 * result + (slabType != null ? slabType.hashCode() : 0);
-        return result;
+        return Objects.hash(coordinate, primaryKey, bridgePrimaryKey, 
+            absoluteDeckHeight, relativeDeckHeight, deckThickness, 
+            rightWidth, leftWidth, rightBarrierHeight, leftBarrierHeight, 
+            position, girderType, slabType);
     }
 
 }

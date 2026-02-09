@@ -17,11 +17,9 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.QueryGeometryStructure;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.QueryRTree;
-//import org.noise_planet.noisemodelling.pathfinder.aeffacer.GeoWithSoilType;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 
 import java.util.*;
-import org.noise_planet.noisemodelling.pathfinder.utils.UniqueKeyGenerator;
 
 
 /**
@@ -49,7 +47,26 @@ public class Scene {
         /** Height value is relative to ground elevation (or bridge deck for bridge sources). */
         RELATIVE,
         /** Height value is absolute elevation in the same coordinate system as DEM. */
-        ABSOLUTE
+        ABSOLUTE;
+        /**
+         * Convert string representation to Position enum value.
+         * Case-insensitive matching is supported.
+         * 
+         * @param value String representation of girder type
+         * @return Corresponding GirderType enum value
+         * @throws IllegalArgumentException if the value doesn't match any enum constant
+         */
+        public static HeightType fromString(String value) {
+            if (value == null) {
+                return RELATIVE; // Default value
+            }
+            try {
+                return HeightType.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unknown HeightType: " + value + 
+                        ". Valid values are: RELATIVE, ABSOLUTE");
+            }
+        }
     }
 
     /** Default maximum propagation distance in meters */
@@ -75,7 +92,7 @@ public class Scene {
     /** Database field name for bridge primary key */
     public static final String BRIDGE_PK_DATABASE_FIELD = "BRIDGE_PK";
     /** Database field name for source type (ROAD or BRIDGE) */
-    public static final String SOURCE_TYPE_DATABASE_FIELD = "SOURCE_TYPE";
+    public static final String EMISSION_TYPE_DATABASE_FIELD = "EMISSION_TYPE";
     /** Database field name for height type (RELATIVE or ABSOLUTE) */
     public static final String HEIGHT_TYPE_DATABASE_FIELD = "HEIGHT_TYPE";
 
@@ -83,6 +100,11 @@ public class Scene {
     public List<Coordinate> receivers = new ArrayList<>();
     /** Primary keys of receivers for database correlation */
     public List<Long> receiversPk = new ArrayList<>();
+    /** Receiver height type for each receiver - determines how Z coordinates are interpreted */
+    public Map<Long, HeightType> receiverHeightType = new HashMap<>();
+    /** Receiver relative height above ground level for each receiver */
+    public Map<Long, Double> receiverRelativeHeight = new HashMap<>();
+
     /** Primary keys of sources for database correlation and unique identification */
     public List<Long> sourcesPk = new ArrayList<>();
     /** Profile builder for terrain and building height profiles between sources and receivers */
@@ -91,19 +113,13 @@ public class Scene {
     public QueryGeometryStructure sourcesIndex = new QueryRTree();
     /** Sources geometries. Can be LINESTRING (linear sources) or POINT (point sources) */
     public List<Geometry> sourceGeometries = new ArrayList<>();
-
     /** Source orientation for directional emission computation (yaw, pitch, roll angles) */
     public Map<Long, Orientation> sourceOrientation = new HashMap<>();
-
     /** Bridge properties for sources located on bridges (height, virtual source flags, etc.) */
-    public Map<Long, SourceBridgeProperty> sourceBridgeProperties = new HashMap<>();
-
-
+    public Map<Long, BridgeRelationship> bridgeRelationships = new HashMap<>();
     /** Source height type for each source - determines how Z coordinates are interpreted */
     public Map<Long, HeightType> sourceHeightType = new HashMap<>();
 
-    /** Receiver height type for each receiver - determines how Z coordinates are interpreted */
-    public Map<Long, HeightType> receiverHeightType = new HashMap<>();
 
     /** Maximum reflection order - number of reflections to consider in ray tracing */
     public int reflexionOrder = 1;
@@ -126,27 +142,6 @@ public class Scene {
      */
     public Scene(ProfileBuilder profileBuilder) {
         this.profileBuilder = profileBuilder;
-    }
-
-    /**
-     * Check if body barrier effect is enabled.
-     * Body barrier considers the shadowing effect of the receiver's body.
-     * 
-     * @return true if body barrier effect is enabled
-     */
-    public boolean isBodyBarrier() {
-        return bodyBarrier;
-    }
-
-    /**
-     * Enable or disable body barrier effect.
-     * When enabled, considers the shadowing effect of the receiver's body
-     * which can reduce noise levels by typically 5-10 dB depending on frequency.
-     * 
-     * @param bodyBarrier true to enable body barrier effect
-     */
-    public void setBodyBarrier(boolean bodyBarrier) {
-        this.bodyBarrier = bodyBarrier;
     }
 
     /** Body barrier effect - considers receiver body shadowing */
@@ -182,49 +177,49 @@ public class Scene {
         return;
     }
 
-    
+    /**
+     * Add a source with primary key and default relative height type.
+     * 
+     * @param pk Source primary key for database correlation
+     * @param geom Source geometry (Point or LineString)
+     */
     public void addSource(Long pk, Geometry geom) {
         addSource(pk, geom, HeightType.RELATIVE, null, null);
     }
 
     /**
-     * Add a source geometry with specified primary key.
-     * If the provided primary key conflicts with existing keys, a new unique key will be generated.
+     * Add a source with primary key and specified height type.
      * 
-     * @param pk Desired primary key (null for auto-generation)
-     * @param geom Source geometry (Point for point sources, LineString for linear sources)
-     * @return Actual registered primary key (may differ from requested pk if conflict occurred)
+     * @param pk Source primary key for database correlation
+     * @param geom Source geometry (Point or LineString)
+     * @param heightType Height interpretation (RELATIVE or ABSOLUTE)
      */
     public void addSource(Long pk, Geometry geom, HeightType heightType) {
         addSource(pk, geom, heightType, null, null);
     }
 
     /**
-     * Add a source geometry with primary key and directional orientation.
-     * Useful for directional sources like vehicle traffic with specific emission patterns.
+     * Add a source with primary key, height type, and orientation.
      * 
-     * @param pk Desired primary key (null for auto-generation)
-     * @param geom Source geometry (Point for point sources, LineString for linear sources)
-     * @param orientation Directional orientation (yaw, pitch, roll angles in degrees)
-     * @return Actual registered primary key
+     * @param pk Source primary key for database correlation
+     * @param geom Source geometry (Point or LineString)
+     * @param heightType Height interpretation (RELATIVE or ABSOLUTE)
+     * @param orientation Directional orientation (yaw, pitch, roll)
      */
     public void addSource(Long pk, Geometry geom, HeightType heightType, Orientation orientation) {
         addSource(pk, geom, heightType, orientation, null);
     }
 
     /**
-     * Add a source geometry with full attributes including bridge properties.
-     * Complete method for adding sources with all possible metadata.
+     * Add a source with full attributes including bridge properties.
      * 
-     * @param pk Desired primary key (null for auto-generation)
-     * @param geom Source geometry (Point for point sources, LineString for linear sources)
-     * @param orientation Directional orientation (can be null for omnidirectional sources)
-     * @param heightType Height interpretation type (RELATIVE or ABSOLUTE). If null, defaults to RELATIVE.
-     * @param sourceBridgeProperty Bridge-related properties (height, virtual source flags, etc.)
-     * @return Actual registered primary key
-     * @throws IllegalArgumentException if bridgePkOn >= 0 but source geometry does not intersect bridge footprint
+     * @param pk Source primary key for database correlation
+     * @param geom Source geometry (Point or LineString)
+     * @param heightType Height interpretation (RELATIVE or ABSOLUTE, null defaults to RELATIVE)
+     * @param orientation Directional orientation (null creates omnidirectional source)
+     * @param bridgeRelationship Bridge properties (null for non-bridge sources)
      */
-    public void addSource(Long pk, Geometry geom,HeightType heightType,  Orientation orientation, SourceBridgeProperty sourceBridgeProperty) {
+    public void addSource(Long pk, Geometry geom,HeightType heightType,  Orientation orientation, BridgeRelationship bridgeRelationship) {
         sourceGeometries.add(geom);
         sourcesIndex.appendGeometry(geom, sourceGeometries.size() - 1);
         sourcesPk.add(pk);
@@ -241,47 +236,46 @@ public class Scene {
             sourceOrientation.put(pk, new Orientation(0,0,0));
         }
         
-        if (sourceBridgeProperty != null) {
-            sourceBridgeProperties.put(pk, sourceBridgeProperty);
+        if (bridgeRelationship != null) {
+            bridgeRelationships.put(pk, bridgeRelationship);
         } else {
-            sourceBridgeProperties.put(pk, new SourceBridgeProperty(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L));
+            bridgeRelationships.put(pk, new BridgeRelationship(BridgeRelationship.RelationType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L));
         }
         return;
     }
 
     /**
-     * Get all source primary keys in order.
+     * Get total number of sources.
      * 
-     * @return List of source primary keys corresponding to source geometries
+     * @return Number of source geometries
+     */
+    public int countSources() {
+        return sourceGeometries.size();
+    }
+
+    /**
+     * Get all source primary keys.
+     * 
+     * @return List of source primary keys
      */
     public List<Long> getSourcePks() {
         return sourcesPk;
     }
 
     /**
-     * Get source primary key by index position.
+     * Get source primary key by index.
      * 
-     * @param index Index in the source geometries list
-     * @return Primary key of the source at the specified index
-     * @throws IndexOutOfBoundsException if index is out of bounds
+     * @param index Source index
+     * @return Primary key at the specified index
      */
     public long getSourcePkById(int index) {
         return sourcesPk.get(index);
     }
 
     /**
-     * Get the spatial query structure for efficient source lookups.
-     * 
-     * @return R-tree spatial index for source geometries
-     */
-    public QueryGeometryStructure getSourceQuery(){
-        return sourcesIndex;
-    }
-
-    /**
      * Get all source geometries.
      * 
-     * @return List of source geometries (Points and LineStrings)
+     * @return List of source geometries
      */
     public List<Geometry> getSourceGeometries() {
         return sourceGeometries;
@@ -290,47 +284,36 @@ public class Scene {
     /**
      * Get source geometry by index.
      * 
-     * @param index Index in the source geometries list
+     * @param index Source index
      * @return Geometry at the specified index
-     * @throws IndexOutOfBoundsException if index is out of bounds
      */
     public Geometry getSourceGeometryByIndex(int index) {
         return sourceGeometries.get(index);
     }
 
-    
-    public Coordinate getReceiverCoordinateByIndex(int index) {
-        return receivers.get(index);
-    }
-
     /**
-     * Get total number of sources in the scene.
+     * Get spatial query structure for source lookups.
      * 
-     * @return Number of source geometries
+     * @return R-tree spatial index
      */
-    public int countSources() {
-        return sourceGeometries.size();
-    }
-
-    public int countReceivers() {
-        return receivers.size();
+    public QueryGeometryStructure getSourceQuery(){
+        return sourcesIndex;
     }
 
     /**
-     * Get all source orientations mapped by primary key.
+     * Get all source orientations.
      * 
-     * @return Map of source primary keys to their orientations
+     * @return Map of source primary keys to orientations
      */
     public Map<Long, Orientation> getSourceOrientations() {
         return sourceOrientation;
     }
 
     /**
-     * Get orientation for a specific source by primary key.
-     * Returns default orientation (0,0,0) if no orientation is specified.
+     * Get orientation for a specific source.
      * 
      * @param pk Source primary key
-     * @return Orientation object with yaw, pitch, roll angles, or default (0,0,0)
+     * @return Orientation (yaw, pitch, roll), or default (0,0,0) if not specified
      */
     public Orientation getSourceOrientationByPk(long pk) {
         Orientation orientation = sourceOrientation.get(pk);
@@ -341,31 +324,36 @@ public class Scene {
     }
 
     /**
-     * Get height type for a specific source by primary key.
-     * Returns RELATIVE if no height type is specified.
+     * Get height type for a specific source.
      * 
      * @param pk Source primary key
-     * @return HeightType enum value (RELATIVE or ABSOLUTE)
+     * @return Height type (RELATIVE or ABSOLUTE)
      */
     public HeightType getSourceHeightTypeByPk(long pk) {
         return sourceHeightType.get(pk);
     }
 
-    
     /**
-     * Get height type for a specific source by primary key.
-     * Returns RELATIVE if no height type is specified.
+     * Get bridge properties for a specific source.
      * 
      * @param pk Source primary key
-     * @return HeightType enum value (RELATIVE or ABSOLUTE)
+     * @return Bridge properties or null if not on a bridge
      */
-    public HeightType getReceiverHeightTypeByPk(long pk) {
-        return receiverHeightType.get(pk);
+    public BridgeRelationship getBridgeRelationshipByPk(long pk) {
+        return bridgeRelationships.get(pk);
     }
 
     /**
-     * Remove a source by its primary key.
-     * Removes the source from all collections: geometries, orientations, bridge properties, etc.
+     * Get all bridge properties.
+     * 
+     * @return List of all bridge properties
+     */
+    public List<BridgeRelationship> getBridgeRelationships() {
+        return new ArrayList<>(bridgeRelationships.values());
+    }
+
+    /**
+     * Remove a source by primary key.
      * 
      * @param pk Primary key of the source to remove
      */
@@ -375,33 +363,121 @@ public class Scene {
             sourcesPk.remove(index);
             sourceGeometries.remove(index);
             sourceOrientation.remove(pk);
-            sourceBridgeProperties.remove(pk);
+            bridgeRelationships.remove(pk);
             sourceHeightType.remove(pk);
         }
     }
 
     /**
-     * Add one or more receiver points to the scene.
-     * Receivers are observation points where noise levels will be calculated.
+     * Clear all sources from the scene.
+     */
+    public void clearSources() {
+        sourceGeometries.clear();
+        sourceOrientation.clear();
+        bridgeRelationships.clear();
+        sourcesPk.clear();
+        sourcesIndex = new QueryRTree();
+    }
+
+    /**
+     * Add a receiver with primary key and default absolute height type.
      * 
-     * @param receiver Receiver coordinates (variable number of arguments)
+     * @param pk Receiver primary key for database correlation
+     * @param position Receiver coordinate
+     */
+    public void addReceiver(long pk, Coordinate position) {
+        addReceiver(pk, position, HeightType.ABSOLUTE);
+    }
+    
+    /**
+     * Add a receiver with primary key and specified height type.
+     * 
+     * @param pk Receiver primary key for database correlation
+     * @param position Receiver coordinate
+     * @param heightType Height interpretation (RELATIVE or ABSOLUTE)
+     */
+    public void addReceiver(long pk, Coordinate position, HeightType heightType) {
+        receivers.add(position);
+        receiversPk.add(pk);
+        receiverHeightType.put(pk, heightType);
+        receiverRelativeHeight.put(pk, -9999.0);
+    }
+
+    /**
+     * Add a receiver from database result set (not yet implemented).
+     * 
+     * @param pk Receiver primary key
+     * @param position Receiver coordinate
+     * @param rs Database result set
+     */
+    public void addReceiver(long pk, Coordinate position, SpatialResultSet rs) {
+        throw new UnsupportedOperationException("Not implemented yet");
+        // addReceiver(pk, position, HeightType.RELATIVE);
+    }
+
+    /**
+     * Get total number of receivers.
+     * 
+     * @return Number of receivers
+     */
+    public int countReceivers() {
+        return receivers.size();
+    }
+
+    /**
+     * Get all receiver coordinates.
+     * 
+     * @return List of receiver coordinates
      */
     public List<Coordinate> getReceivers() {
         return receivers;
     }
 
+    /**
+     * Get all receiver primary keys.
+     * 
+     * @return List of receiver primary keys
+     */
     public List<Long> getReceiverPks() {
         return receiversPk;
     }
 
+    /**
+     * Get receiver primary key by index.
+     * 
+     * @param index Receiver index
+     * @return Primary key at the specified index
+     */
     public long getReceiverPkByIndex(int index) {
         return receiversPk.get(index);
     }
 
+    /**
+     * Get receiver coordinate by index.
+     * 
+     * @param index Receiver index
+     * @return Coordinate at the specified index
+     */
     public Coordinate getReceiverByIndex(int index) {
         return receivers.get(index);
     }
 
+    /**
+     * Get receiver coordinate by index (alias method).
+     * 
+     * @param index Receiver index
+     * @return Coordinate at the specified index
+     */
+    public Coordinate getReceiverCoordinateByIndex(int index) {
+        return receivers.get(index);
+    }
+
+    /**
+     * Get receiver coordinate by primary key.
+     * 
+     * @param pk Receiver primary key
+     * @return Receiver coordinate or null if not found
+     */
     public Coordinate getReceiverByPk(long pk) {
         int index = receiversPk.indexOf(pk);
         if (index != -1) {
@@ -410,72 +486,93 @@ public class Scene {
         return null;
     }
 
-    public int getReceiverCount() {
-        return receivers.size();
-    }
-
     /**
-     * Add one or more receiver points to the scene.
-     * Receivers are observation points where noise levels will be calculated.
+     * Get height type for a specific receiver.
      * 
-     * @param receiver Receiver coordinates (variable number of arguments)
+     * @param pk Receiver primary key
+     * @return Height type (RELATIVE or ABSOLUTE)
      */
-    public void addReceiver(Coordinate... receiver) {
-        if(receivers.size() > 0) {
-            throw new UnsupportedOperationException("Adding receivers when some are already defined is not supported. Use addReceiver(long pk, Coordinate position) instead.");
-        }
-
-        for (int i = 0; i < receiver.length; i++) {
-            addReceiver((long)i, receiver[i]);
-        }
+    public HeightType getReceiverHeightTypeByPk(long pk) {
+        return receiverHeightType.get(pk);
     }
 
     /**
-     * Add a receiver with primary key for database correlation.
+     * Set height type for a specific receiver.
      * 
-     * @param pk Primary key for database correlation
-     * @param position Receiver coordinate
+     * @param pk Receiver primary key
+     * @param heightType Height type to set
+     * @return Previous height type
      */
-    public void addReceiver(long pk, Coordinate position) {
-        addReceiver(pk, position, HeightType.RELATIVE);
-    }
-    
-    /**
-     * Add a receiver with primary key for database correlation.
-     * 
-     * @param pk Primary key for database correlation
-     * @param position Receiver coordinate
-     */
-    public void addReceiver(long pk, Coordinate position, HeightType heightType) {
-        receivers.add(position);
-        receiversPk.add(pk);
-        receiverHeightType.put(pk, heightType);
+    public HeightType setReceiverHeightTypeByPk(long pk, HeightType heightType) {
+        return receiverHeightType.put(pk, heightType);
     }
 
     /**
-     * Add a receiver with primary key and database result set context.
+     * Get relative height for a specific receiver.
      * 
-     * @param pk Primary key for database correlation
-     * @param position Receiver coordinate
-     * @param rs Database result set (for future extensions)
+     * @param pk Receiver primary key
+     * @return Relative height above ground
      */
-    public void addReceiver(long pk, Coordinate position, SpatialResultSet rs) {
-        throw new UnsupportedOperationException("Not implemented yet");
-        // addReceiver(pk, position, HeightType.RELATIVE);
+    public double getReceiverRelativeHeightByPk(long pk) {
+        return receiverRelativeHeight.get(pk);
     }
 
     /**
-     * Get the maximum reflection order.
+     * Set relative height for a specific receiver.
      * 
-     * @return Maximum number of reflections to consider in ray tracing
+     * @param pk Receiver primary key
+     * @param relativeHeight Relative height to set
+     */
+    public void setReceiverRelativeHeightByPk(long pk, double relativeHeight) {
+        receiverRelativeHeight.put(pk, relativeHeight);
+    }
+
+    /**
+     * Get profile builder for terrain analysis.
+     * 
+     * @return Profile builder instance
+     */
+    public ProfileBuilder getProfileBuilder() {
+        return profileBuilder;
+    }
+
+    /**
+     * Get terrain and building profile between two points.
+     * 
+     * @param c0 First coordinate
+     * @param c1 Second coordinate
+     * @param sourcePointInfo Source point information
+     * @return Cut profile between the two points
+     */
+    public CutProfile getProfile(Coordinate c0, Coordinate c1, SourcePointInfo sourcePointInfo) {
+        return this.profileBuilder.getProfile(c0, c1, 0.0, false, sourcePointInfo);
+    }
+
+    /**
+     * Get terrain and building profile with additional parameters.
+     * 
+     * @param sourceCoordinate Source coordinate
+     * @param receiverCoordinate Receiver coordinate
+     * @param defaultGroundAttenuation Default ground attenuation coefficient
+     * @param stopAtObstacleOverSourceReceiver Stop profile at first obstacle
+     * @param sourcePointInfo Source point information
+     * @return Cut profile between source and receiver
+     */
+    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
+        return this.profileBuilder.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, sourcePointInfo);
+    }
+
+    /**
+     * Get maximum reflection order.
+     * 
+     * @return Maximum number of reflections
      */
     public int getReflexionOrder() {
         return reflexionOrder;
     }
 
     /**
-     * Set the maximum reflection order for ray tracing.
-     * Higher values provide more accurate results but increase computation time exponentially.
+     * Set maximum reflection order.
      * 
      * @param reflexionOrder Maximum number of reflections (typically 0-3)
      */
@@ -484,50 +581,52 @@ public class Scene {
     }
 
     /**
-     * Enable or disable horizontal diffraction computation.
-     * Horizontal diffraction considers sound bending around vertical edges of buildings.
+     * Enable or disable horizontal diffraction.
      * 
-     * @param computeHorizontalDiffraction true to enable horizontal diffraction
+     * @param computeHorizontalDiffraction true to enable
      */
     public void setComputeHorizontalDiffraction(boolean computeHorizontalDiffraction) {
         this.computeHorizontalDiffraction = computeHorizontalDiffraction;
     }
 
     /**
-     * Enable or disable vertical diffraction computation.
-     * Vertical diffraction considers sound bending over horizontal edges like building tops.
+     * Enable or disable vertical diffraction.
      * 
-     * @param computeVerticalDiffraction true to enable vertical diffraction
+     * @param computeVerticalDiffraction true to enable
      */
     public void setComputeVerticalDiffraction(boolean computeVerticalDiffraction) {
         this.computeVerticalDiffraction = computeVerticalDiffraction;
     }
 
+    /**
+     * Check if body barrier effect is enabled.
+     * 
+     * @return true if enabled
+     */
+    public boolean isBodyBarrier() {
+        return bodyBarrier;
+    }
+
+    /**
+     * Enable or disable body barrier effect.
+     * 
+     * @param bodyBarrier true to enable
+     */
+    public void setBodyBarrier(boolean bodyBarrier) {
+        this.bodyBarrier = bodyBarrier;
+    }
+
+    /**
+     * Get default ground attenuation coefficient.
+     * 
+     * @return Ground attenuation coefficient
+     */
     public double getDefaultGroundAttenuation() {
         return defaultGroundAttenuation;
     }
 
-    public ProfileBuilder getProfileBuilder() {
-        return profileBuilder;
-    }
-
-    public double getMaxSrcDist() {
-        return maxSrcDist;
-    }
-    public void setMaxSrcDist(double maxSrcDist) {
-        this.maxSrcDist = maxSrcDist;
-    }
-    
-    public double getMaxRefDist() {
-        return maxRefDist;
-    }
-    public void setMaxRefDist(double maxRefDist) {
-        this.maxRefDist = maxRefDist;
-    }
-
     /**
-     * Set the default ground attenuation coefficient.
-     * Used when no specific ground absorption data is available for a location.
+     * Set default ground attenuation coefficient.
      * 
      * @param gS Ground attenuation coefficient (0.0 to 1.0)
      */
@@ -536,44 +635,67 @@ public class Scene {
     }
 
     /**
-     * Get bridge properties for a specific source.
+     * Get maximum source distance.
      * 
-     * @param pk Source primary key
-     * @return Bridge properties or null if source is not on a bridge
+     * @return Maximum propagation distance in meters
      */
-    public SourceBridgeProperty getSourceBridgePropertyByPk(long pk) {
-        return sourceBridgeProperties.get(pk);
+    public double getMaxSrcDist() {
+        return maxSrcDist;
     }
 
     /**
-     * Get all bridge properties in the scene.
+     * Set maximum source distance.
      * 
-     * @return List of all bridge properties for sources located on bridges
+     * @param maxSrcDist Maximum propagation distance in meters
      */
-    public List<SourceBridgeProperty> getSourceBridgeProperties() {
-        return new ArrayList<>(sourceBridgeProperties.values());
+    public void setMaxSrcDist(double maxSrcDist) {
+        this.maxSrcDist = maxSrcDist;
     }
-
-    public CutProfile getProfile(Coordinate c0, Coordinate c1, SourcePointInfo sourcePointInfo) {
-        return this.profileBuilder.getProfile(c0, c1, 0.0, false, sourcePointInfo);
-    }
-
-    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
-        return this.profileBuilder.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, sourcePointInfo);
+    
+    /**
+     * Get maximum reflection distance.
+     * 
+     * @return Maximum reflection distance in meters
+     */
+    public double getMaxRefDist() {
+        return maxRefDist;
     }
 
     /**
-     * Clear all sources from the scene.
-     * Removes all source geometries, orientations, bridge properties, and resets the spatial index.
-     * Receivers are not affected by this operation.
+     * Set maximum reflection distance.
+     * 
+     * @param maxRefDist Maximum reflection distance in meters
      */
-    public void clearSources() {
-        sourceGeometries.clear();
-        sourceOrientation.clear();
-        sourceBridgeProperties.clear();
-        sourcesPk.clear();
-        sourcesIndex = new QueryRTree();
+    public void setMaxRefDist(double maxRefDist) {
+        this.maxRefDist = maxRefDist;
+    }
+
+    /**
+     * Generate hash code for this Scene based on its configuration and data.
+     * Used for caching and equality comparisons.
+     * 
+     * @return Hash code combining all significant scene properties
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+            profileBuilder,
+            receivers,
+            receiversPk,
+            receiverHeightType,
+            receiverRelativeHeight,
+            sourcesPk,
+            sourceGeometries,
+            sourceOrientation,
+            bridgeRelationships,
+            sourceHeightType,
+            reflexionOrder,
+            defaultGroundAttenuation,
+            bodyBarrier,
+            computeHorizontalDiffraction,
+            computeVerticalDiffraction,
+            maxSrcDist,
+            maxRefDist
+        );
     }
 }
-
-

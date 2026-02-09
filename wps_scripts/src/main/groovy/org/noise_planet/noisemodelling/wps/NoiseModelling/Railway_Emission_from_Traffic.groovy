@@ -41,7 +41,7 @@ description = '&#10145;&#65039; Compute Rail Emission Noise Map from Day, Evenin
         '<hr>' +
         '&#x2705; The output table is called <b>LW_RAILWAY</b> and contains the following key columns: </br>' +
         '<ul><li><b>DIR_ID</b>: Directivity pattern identifier (1-6)</li>' +
-        '<li><b>SOURCE_TYPE</b>: Railway noise source type (ROLLING, TRACTIONA, TRACTIONB, AERODYNAMICA, AERODYNAMICB, BRIDGE)</li></ul>'
+        '<li><b>EMISSION_TYPE</b>: Railway noise source type (ROLLING, TRACTIONA, TRACTIONB, AERODYNAMICA, AERODYNAMICB, BRIDGE)</li></ul>'
 
 inputs = [
         tableRailwayTraffic: [

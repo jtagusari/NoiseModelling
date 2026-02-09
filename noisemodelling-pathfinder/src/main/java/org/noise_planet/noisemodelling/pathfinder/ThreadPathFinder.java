@@ -10,6 +10,7 @@
 package org.noise_planet.noisemodelling.pathfinder;
 
 import org.h2gis.api.ProgressVisitor;
+import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
 import java.util.concurrent.Callable;
@@ -23,30 +24,30 @@ import static org.noise_planet.noisemodelling.pathfinder.PathFinder.LOGGER;
 public final class ThreadPathFinder implements Callable<Boolean> {
     int startReceiver; // Included
     int endReceiver; // Excluded
-    PathFinder propagationProcess;
-    ProgressVisitor visitor;
-    CutPlaneVisitor dataOut;
-    Scene data;
+    PathFinder pathFinder;
+    ProgressVisitor progressVisitor;
+    CutPlaneVisitor cutPlaneVisitor;
+    Scene scene;
 
 
     /**
      * Create the ThreadPathFinder constructor
      * @param startReceiver
      * @param endReceiver
-     * @param propagationProcess
-     * @param visitor
-     * @param dataOut
-     * @param data
+     * @param pathFinder
+     * @param progressVisitor
+     * @param cutPlaneVisitor
+     * @param scene
      */
-    public ThreadPathFinder(int startReceiver, int endReceiver, PathFinder propagationProcess,
-                            ProgressVisitor visitor, CutPlaneVisitor dataOut,
-                            Scene data) {
+    public ThreadPathFinder(int startReceiver, int endReceiver, PathFinder pathFinder,
+                            ProgressVisitor progressVisitor, CutPlaneVisitor cutPlaneVisitor,
+                            Scene scene) {
         this.startReceiver = startReceiver;
         this.endReceiver = endReceiver;
-        this.propagationProcess = propagationProcess;
-        this.visitor = visitor;
-        this.dataOut = dataOut;
-        this.data = data;
+        this.pathFinder = pathFinder;
+        this.progressVisitor = progressVisitor;
+        this.cutPlaneVisitor = cutPlaneVisitor;
+        this.scene = scene;
     }
 
     /**
@@ -56,28 +57,43 @@ public final class ThreadPathFinder implements Callable<Boolean> {
     public Boolean call() throws Exception {
         try {
             for (int idReceiver = startReceiver; idReceiver < endReceiver; idReceiver++) {
-                if (visitor != null) {
-                    if (visitor.isCanceled()) {
+                // Cancel if requested
+                if (progressVisitor != null) {
+                    if (progressVisitor.isCanceled()) {
                         break;
                     }
                 }
-                long receiverPk = idReceiver;
-                if(idReceiver < data.receiversPk.size()) {
-                    receiverPk = data.receiversPk.get(idReceiver);
+                // Guard against out-of-range receiver index
+                if(idReceiver >= scene.countReceivers()) {
+                    throw new IllegalArgumentException("Receiver index "+idReceiver+" is out of bounds. Total receivers: "+scene.countReceivers());
                 }
-                ReceiverPointInfo rcv = new ReceiverPointInfo(idReceiver, receiverPk, data.receivers.get(idReceiver));
+                // Resolve receiver attributes used for ray tracing
+                long receiverPk = scene.getReceiverPkByIndex(idReceiver);
+                double receiverRelativeHeight = scene.getReceiverRelativeHeightByPk(receiverPk);
+                Coordinate receiverCoord = scene.receivers.get(idReceiver);
 
+                // Skip invalid receiver heights
+                if(receiverRelativeHeight<0){
+                    LOGGER.warn(String.format("Receiver with PK %d (%.2f, %.2f, %.2f) has non-positive relative height of %.2f. Skipping computation for this receiver.", receiverPk, receiverCoord.getX(), receiverCoord.getY(), receiverCoord.getZ(), receiverRelativeHeight));
+                    
+                    continue;
+                }
+                // Build receiver info object for computation
+                ReceiverPointInfo rcv = new ReceiverPointInfo(idReceiver, receiverPk, receiverCoord);
 
-                propagationProcess.computeRaysAtPosition(rcv, dataOut, visitor);
+                // Compute all ray paths from this receiver
+                pathFinder.computeRaysAtPosition(rcv, cutPlaneVisitor, progressVisitor);
 
-                if (visitor != null) {
-                    visitor.endStep();
+                // Mark progress step complete
+                if (progressVisitor != null) {
+                    progressVisitor.endStep();
                 }
             }
         } catch (Exception ex) {
+            // Log and propagate error, canceling progress if needed
             LOGGER.error(ex.getLocalizedMessage(), ex);
-            if (visitor != null) {
-                visitor.cancel();
+            if (progressVisitor != null) {
+                progressVisitor.cancel();
             }
             throw ex;
         }

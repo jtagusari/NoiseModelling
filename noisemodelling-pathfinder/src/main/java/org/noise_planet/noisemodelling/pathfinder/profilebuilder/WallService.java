@@ -8,6 +8,7 @@ import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.IntersectionType;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -195,5 +196,16 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
         for (Wall w : walls) {
             w.initialize(exactFrequencyArray);
         }
+    }
+
+    /**
+     * Compute a hash code representing the current state of this WallService.
+     * The hash is based on the number of walls and their basic properties.
+     * 
+     * @return Hash code representing the service state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(walls);
     }
 }

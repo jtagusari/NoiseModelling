@@ -59,6 +59,7 @@ public class PathFinder {
 
     /** Propagation data (immutable). */
     private final Scene data;
+    private int sceneHash = 1;
 
     /** Number of threads for parallel execution. */
     private int threadCount;
@@ -69,6 +70,7 @@ public class PathFinder {
     public Scene getData() {
         return data;
     }
+
 
     /**
      * Create PathFinder with progress visitor.
@@ -108,6 +110,9 @@ public class PathFinder {
      * @param computeRaysOut Result output factory.
      */
     public void run(CutPlaneVisitorFactory computeRaysOut) {
+        if(sceneHash != data.hashCode()) {
+            throw new IllegalStateException("Receiver heights are not ensured to be absolute. Call ensureAbsoluteReceiverHeights() before running path computations.");
+        }
         PathExecutionManager executionManager = new PathExecutionManager(threadCount, data);
         executionManager.executeInParallel(this, computeRaysOut, progressVisitor);
     }
@@ -240,18 +245,20 @@ public class PathFinder {
     /**
      * Convert receiver Z coordinates from relative to absolute elevation.
      */
-    public void makeReceiverRelativeZToAbsolute() {
-        ElevationConverter receiverConverter = new ElevationConverter(data);
-        receiverConverter.changeCoordinates(data.receivers);
+    public void ensureAbsoluteReceiverHeights() {
         
         for (int i = 0; i < data.countReceivers(); i++) {
             Coordinate coord = data.getReceiverCoordinateByIndex(i);
             long pk = data.getReceiverPkByIndex(i);
             Scene.HeightType heightType = data.getReceiverHeightTypeByPk(pk);
             if(heightType == Scene.HeightType.RELATIVE) {
+                data.setReceiverRelativeHeightByPk(pk, coord.getZ());
                 coord.setZ(coord.getZ() + data.profileBuilder.getZGround(coord));
-                heightType = Scene.HeightType.ABSOLUTE;
+                data.setReceiverHeightTypeByPk(pk, Scene.HeightType.ABSOLUTE);
+            } else {
+                data.setReceiverRelativeHeightByPk(pk, coord.getZ() - data.profileBuilder.getZGround(coord));
             }
         }
+        this.sceneHash = data.hashCode();
     }
 }

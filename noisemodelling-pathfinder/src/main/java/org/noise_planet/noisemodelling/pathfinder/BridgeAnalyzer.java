@@ -1,7 +1,7 @@
 package org.noise_planet.noisemodelling.pathfinder;
 
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 
@@ -37,7 +37,7 @@ public final class BridgeAnalyzer {
     public static Bridge selectBridgeForMirrorSource(
             Coordinate sourceCoord,
             double sourceZElevation,
-            SourceBridgeProperty sourceProperty,
+            BridgeRelationship sourceProperty,
             ProfileBuilder profileBuilder) {
         
         if (sourceProperty == null || profileBuilder == null) {
@@ -45,7 +45,7 @@ public final class BridgeAnalyzer {
         }
         
         // Do not create MIRROR_SOURCE for IMAGINARY_SOURCE_UNDER_BRIDGE
-        if (sourceProperty.getSourceType() == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+        if (sourceProperty.getRelationType() == BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
             return null;
         }
         
@@ -61,7 +61,7 @@ public final class BridgeAnalyzer {
             }
             
             // Skip if this is the bridge the source is on
-            if (sourceProperty.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE &&
+            if (sourceProperty.getRelationType() == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE &&
                 sourceProperty.getBridgePkOn() == bridge.getPrimaryKey()) {
                 continue;
             }

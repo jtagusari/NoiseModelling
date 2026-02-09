@@ -9,7 +9,7 @@ import org.locationtech.jts.math.Vector3D;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.slf4j.Logger;
@@ -83,7 +83,7 @@ public final class SourceCollector {
         Coordinate sourceCoordinates = new Coordinate(sourcePoint.getCoordinate());
         if (sourceCoordinates.distance(receiverPointInfo.getCoordinate()) < scene.getMaxSrcDist()) {
             long sourcePk = scene.getSourcePkById(srcIndex);
-            SourceBridgeProperty bridgeProperty = scene.getSourceBridgePropertyByPk(sourcePk);
+            BridgeRelationship bridgeProperty = scene.getBridgeRelationshipByPk(sourcePk);
             
             // Convert relative Z to absolute elevation only if HEIGHT_TYPE is RELATIVE
             Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
@@ -184,7 +184,7 @@ public final class SourceCollector {
                     orientation = Orientation.fromVector(Orientation.rotate(new Orientation(0,0,0), orientationVector), 0);
                 }
                 long sourcePk = scene.getSourcePkById(srcIndex);
-                SourceBridgeProperty bridgeProperty = scene.getSourceBridgePropertyByPk(sourcePk);
+                BridgeRelationship bridgeProperty = scene.getBridgeRelationshipByPk(sourcePk);
                 
                 // Convert relative Z to absolute elevation only if HEIGHT_TYPE is RELATIVE
                 Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
@@ -218,7 +218,7 @@ public final class SourceCollector {
     private static void addMirrorSourceIfNeeded(SourcePointInfo originalSource, int srcIndex, long sourcePk,
                                                  double lineLength, Orientation orientation,
                                                  List<SourcePointInfo> sourceList, Scene scene) {
-        SourceBridgeProperty originalProperty = originalSource.getSourceBridgeProperty();
+        BridgeRelationship originalProperty = originalSource.getBridgeRelationship();
         Coordinate coord = originalSource.getCoordinate();
         double sourceZElevation = coord.z; // Already absolute after calculateAbsoluteElevation()
         
@@ -232,12 +232,12 @@ public final class SourceCollector {
         
         // Create MIRROR_SOURCE if qualifying bridge found
         if (selectedBridge != null) {
-            long bridgePkOn = (originalProperty.getSourceType() == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE)
+            long bridgePkOn = (originalProperty.getRelationType() == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE)
                               ? originalProperty.getBridgePkOn()
                               : -1L;
             
-            SourceBridgeProperty mirrorProperty = new SourceBridgeProperty(
-                SourceBridgeProperty.SourceType.MIRROR_SOURCE,
+            BridgeRelationship mirrorProperty = new BridgeRelationship(
+                BridgeRelationship.RelationType.MIRROR_SOURCE,
                 bridgePkOn,
                 selectedBridge.getPrimaryKey()
             );

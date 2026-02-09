@@ -16,6 +16,8 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.noise_planet.noisemodelling.jdbc.utils.MakeParallelLines;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +26,7 @@ import static org.noise_planet.noisemodelling.jdbc.utils.MakeParallelLines.MakeP
 
 public class MakeParallelLinesTest {
 
+    private static Logger LOGGER = LoggerFactory.getLogger(IsoSurfaceJDBCTest.class);
     @Test
     public void makeParallelLine() throws ParseException {
         WKTReader wktReader  = new WKTReader();
@@ -33,7 +36,7 @@ public class MakeParallelLinesTest {
 
         LineString line3 = MakeParallelLines.MakeParallelLine(line, -0.1);
 
-        System.out.println(new GeometryFactory().createMultiLineString(new LineString[]{line, line2, line3}));
+        LOGGER.info(new GeometryFactory().createMultiLineString(new LineString[]{line, line2, line3}).toString());
     }
 
 
@@ -46,7 +49,7 @@ public class MakeParallelLinesTest {
 
         LineString line2 = MakeParallelLines.MakeParallelLine(line, 0.5);
 
-        System.out.println(new GeometryFactory().createMultiLineString(new LineString[]{line, line2}));
+        LOGGER.info(new GeometryFactory().createMultiLineString(new LineString[]{line, line2}).toString());
     }
 
     @Test
@@ -87,7 +90,7 @@ public class MakeParallelLinesTest {
             }
 
         }
-        System.out.println(geometries);
+        LOGGER.info(geometries.toString());
     }
 }
 

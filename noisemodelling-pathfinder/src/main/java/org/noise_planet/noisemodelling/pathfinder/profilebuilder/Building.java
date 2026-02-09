@@ -14,6 +14,7 @@ import org.locationtech.jts.geom.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -155,5 +156,10 @@ public class Building extends Obstruction {
 
     public Collection<? extends Wall> getWalls() {
         return walls;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(poly, height, primaryKey, zBuildings);
     }
 }

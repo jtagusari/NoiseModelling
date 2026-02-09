@@ -230,7 +230,7 @@ class PathExecutionManagerTest {
         }
 
         @Override
-        public int getReceiverCount() {
+        public int countReceivers() {
             return receiverCount;
         }
     }

@@ -424,7 +424,6 @@ public class NoiseMapWriter implements Callable<Boolean> {
      */
     void createKeys()  throws SQLException, IOException {
         // Set primary keys
-        LOGGER.info("Write done, apply primary keys");
         processQuery(forgePkTable(databaseParameters.receiversLevelTable));
         LOGGER.info("Primary keys applied");
     }

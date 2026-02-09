@@ -7,6 +7,7 @@ import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.locationtech.jts.index.strtree.STRtree;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.List;
 import org.locationtech.jts.geom.Polygon;
@@ -221,5 +222,16 @@ public class GroundService implements ClearableService, ProcessedFacetsExportabl
             }
         }
         return true;
+    }
+
+    /**
+     * Compute a hash code representing the current state of this GroundService.
+     * The hash is based on the number of ground absorption areas.
+     * 
+     * @return Hash code representing the service state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(groundAbsorptions);
     }
 }

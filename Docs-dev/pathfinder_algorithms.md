@@ -165,7 +165,7 @@ class Scene {
   - List<Long> sourcesPk
   - QueryGeometryStructure sourcesIndex  \n  (default: QueryRTree)
   - Map<Long,Orientation> sourceOrientation
-  - Map<Long,SourceBridgeProperty> sourceBridgeProperties
+  - Map<Long,BridgeRelationship> bridgeRelationships
   - List<Coordinate> receivers
   - List<Long> receiversPk
   - ProfileBuilder profileBuilder  \n  (finalized builder reference)
@@ -188,7 +188,7 @@ ProfileBuilder <-- Scene : uses
 
 - Per-source metadata maps
   - `sourceOrientation : Map<Long,Orientation>` — optional orientation/directivity metadata keyed by source PK.
-  - `sourceBridgeProperties : Map<Long,SourceBridgeProperty>` — bridge/virtual-source related metadata keyed by source PK.
+  - `bridgeRelationships : Map<Long,BridgeRelationship>` — bridge/virtual-source related metadata keyed by source PK.
 
 - Fields for receivers
   - `receivers : List<Coordinate>` — ordered list of receiver coordinates used as endpoints for profile computation and path-finding tasks.
@@ -220,7 +220,7 @@ ProfileBuilder <-- Scene : uses
 
 - `SceneWithAttenuation` extends `Scene` and adds attenuation-related maps and per-source emission/attenuation attributes (ground factor, directivity identifiers, frequency configuration).
 - `SceneWithEmission` (in the JDBC module) extends `SceneWithAttenuation` and integrates emission-spectrum loading from database rows, bridge virtual-source creation, and emission registration per source PK.
-- `ProfileBuilderDecorator` is a test-friendly convenience that wraps a `ProfileBuilder` into a `Scene` instance and exposes compact `addSource(x,y,z)` / `addReceiver(x,y,z)` builder-style methods. It is commonly used in unit tests to create a ready-to-query `Scene` after calling `finishFeeding()` on the underlying builder.
+- `SceneBuilder` is a test-friendly convenience that wraps a `ProfileBuilder` into a `Scene` instance and exposes compact `addSource(x,y,z)` / `addReceiver(x,y,z)` builder-style methods. It is commonly used in unit tests to create a ready-to-query `Scene` after calling `finishFeeding()` on the underlying builder.
 
 ```plantuml
 @startuml
@@ -230,14 +230,14 @@ title Scene — Subclasses & Test Helpers
 class Scene
 class SceneWithAttenuation
 class SceneWithEmission
-class ProfileBuilderDecorator
+class SceneBuilder
 class ProfileBuilder
 
 Scene <|-- SceneWithAttenuation
 SceneWithAttenuation <|-- SceneWithEmission
 
-ProfileBuilderDecorator --> ProfileBuilder : wraps (test helper)
-ProfileBuilderDecorator ..> Scene : build() -> Scene
+SceneBuilder --> ProfileBuilder : wraps (test helper)
+SceneBuilder ..> Scene : build() -> Scene
 
 @enduml
 ```
@@ -245,7 +245,7 @@ ProfileBuilderDecorator ..> Scene : build() -> Scene
 ### Typical Workflow to Create and Populate a Scene
 
 1. Build, populate and finalize a `ProfileBuilder` instance.
-2. Create a `Scene` (or use `ProfileBuilderDecorator`) passing the finalized `ProfileBuilder`
+2. Create a `Scene` (or use `SceneBuilder`) passing the finalized `ProfileBuilder`
 3. Register sources and receivers via `addSource(...)` and `addReceiver(...)`.
 
 ### Adding Sources
@@ -254,8 +254,8 @@ Sound sources are added using the `Scene.addSource(...)` family of methods to re
 
 1. Prepare a JTS `Geometry` for the source (use `Point` for point sources and `LineString` for linear sources). If Z is missing, NaN values are normalized to 0 by the code paths that build `SourcePointInfo`.
 2. Use your database primary key (PK) when available; otherwise choose a stable unique key (for example via `UniqueKeyGenerator`). `Scene` will also generate a non-conflicting key if a supplied PK collides.
-3. Call an appropriate `addSource(...)` overload. Provide `Orientation` for directional sources or `SourceBridgeProperty` for bridge/virtual-source handling when needed.
-4. **Bridge Footprint Validation**: If the source is located on a bridge (`SourceBridgeProperty.bridgePkOn >= 0`), `addSource(...)` validates that the source geometry is fully contained within the bridge footprint using `Bridge.getFootprintGeometry()` and JTS `contains()` method. If the source geometry is not completely within the bridge footprint, an `IllegalArgumentException` is thrown to ensure geometric consistency.
+3. Call an appropriate `addSource(...)` overload. Provide `Orientation` for directional sources or `BridgeRelationship` for bridge/virtual-source handling when needed.
+4. **Bridge Footprint Validation**: If the source is located on a bridge (`BridgeRelationship.bridgePkOn >= 0`), `addSource(...)` validates that the source geometry is fully contained within the bridge footprint using `Bridge.getFootprintGeometry()` and JTS `contains()` method. If the source geometry is not completely within the bridge footprint, an `IllegalArgumentException` is thrown to ensure geometric consistency.
 
 ```plantuml
 @startuml
@@ -352,7 +352,7 @@ class PathFinder {
   + CutProfile computeVEdgeDiffraction(...)
   + List<Coordinate> computeSideHull(...)
   + void makeSourceRelativeZToAbsolute()
-  + void makeReceiverRelativeZToAbsolute()
+  + void ensureAbsoluteReceiverHeights()
   + double splitLineStringIntoPoints(...)
 }
 
@@ -472,7 +472,7 @@ The bridge that created an imaginary source often has edges that can cause downw
 The repository contains an integration-style test class `PathFinderTest` that exercises the full stack and is the canonical verification harness for the three areas discussed above:
 
 - Setting Geometry Propagation Scene: tests build a `ProfileBuilder`, add topography/buildings/walls/ground effects and call `finishFeeding()` to finalize indexes and processed walls.
-- Finding Paths: tests construct a `Scene` (typically via `ProfileBuilderDecorator`), register sources and receivers, create a `PathFinder`, and call `run(...)` which invokes the path-finding pipeline (source collection, profile retrieval, direct/reflection/diffraction searches).
+- Finding Paths: tests construct a `Scene` (typically via `SceneBuilder`), register sources and receivers, create a `PathFinder`, and call `run(...)` which invokes the path-finding pipeline (source collection, profile retrieval, direct/reflection/diffraction searches).
 - Calculating Profiles: inside the per-receiver processing the test flow triggers profile retrieval (via `ProfileRetriever` / `ProfileBuilder.getProfile(...)`) to build `CutProfile` objects used by propagation algorithms.
 
 Representative test cases (for example `TC01`, `TC02`, `TC04` in `PathFinderTest`) follow the pattern: prepare builder → `finishFeeding()` → build `Scene` with sources/receivers → run `PathFinder` → collect results via a `DefaultCutPlaneVisitor` and assert expected `CutProfile` contents. Use this test class as a starting point when debugging end-to-end behavior or when adding new features that touch the preprocessing, profile retrieval, or propagation logic.
@@ -490,7 +490,7 @@ ProfileBuilder pb = new ProfileBuilder();
 pb.finishFeeding();
 
 // Use the decorator for concise test setup
-ProfileBuilderDecorator d = new ProfileBuilderDecorator(pb)
+SceneBuilder d = new SceneBuilder(pb)
   .addSource(10.0, 20.0, 2.5)   // adds a point source
   .addReceiver(15.0, 25.0, 1.8) // adds a receiver
   .setGs(0.5)                   // optional ground coefficient

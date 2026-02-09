@@ -25,6 +25,8 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.dBToW;
 import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.sumArray;
@@ -35,6 +37,7 @@ import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicator
 public class EmissionTableGenerator {
     public static final List<Integer> roadOctaveFrequencyBands = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
     public static final String DEN_PERIOD = "DEN";
+    private static Logger LOGGER = LoggerFactory.getLogger(EmissionTableGenerator.class);
 
     public enum STANDARD_PERIOD {DAY, EVENING, NIGHT}
     public static final String[] STANDARD_PERIOD_VALUE = new String[] {"D", "E", "N"};
@@ -58,190 +61,191 @@ public class EmissionTableGenerator {
             }
         }
     }
-    /**
-     * Retrieves the emissions for the specified period from the given result set
-     * @param rs result set of source
-     * @param period optional column name to add after attribute fields _D or _E or _N
-     * @param slope Default, gradient percentage of road from -12 % to 12 %
-     * @param coefficientVersion Cnossos coefficient version  (1 = 2015, 2 = 2020)
-     * @return Emission spectrum in dB
-     */
-    public static double[] getEmissionFromTrafficTable(ResultSet rs, String period, double slope, int coefficientVersion, Map<String, Integer> sourceFieldsCache) throws SQLException {
-        cacheFields(sourceFieldsCache, rs);
-        // Set default values
-        double tv = 0; // old format "total vehicles"
-        double hv = 0; // old format "heavy vehicles"
-        double lv_speed = 0;
-        double mv_speed = 0;
-        double hgv_speed = 0;
-        double wav_speed = 0;
-        double wbv_speed = 0;
-        double lvPerHour = 0;
-        double mvPerHour = 0;
-        double hgvPerHour = 0;
-        double wavPerHour = 0;
-        double wbvPerHour = 0;
-        double temperature = 20.0;
-        String roadSurface = "NL08";
-        double tsStud = 0;
-        double pmStud = 0;
-        double junctionDistance = 100; // no acceleration of deceleration changes with dist >= 100
-        int junctionType = 2;
-        int way = 3; // default value 2-way road
+    // /**
+    //  * Retrieves the emissions for the specified period from the given result set
+    //  * @param rs result set of source
+    //  * @param period optional column name to add after attribute fields _D or _E or _N
+    //  * @param slope Default, gradient percentage of road from -12 % to 12 %
+    //  * @param coefficientVersion Cnossos coefficient version  (1 = 2015, 2 = 2020)
+    //  * @return Emission spectrum in dB
+    //  */
+    // public static double[] cmptEmissionFromTrafficDb(ResultSet rs, String period, double slope, int coefficientVersion, Map<String, Integer> sourceFieldsCache) throws SQLException {
+    //     cacheFields(sourceFieldsCache, rs);
+    //     LOGGER.info("Compute emission for period: " + period);
+    //     // Set default values
+    //     double tv = 0; // old format "total vehicles"
+    //     double hv = 0; // old format "heavy vehicles"
+    //     double lv_speed = 0;
+    //     double mv_speed = 0;
+    //     double hgv_speed = 0;
+    //     double wav_speed = 0;
+    //     double wbv_speed = 0;
+    //     double lvPerHour = 0;
+    //     double mvPerHour = 0;
+    //     double hgvPerHour = 0;
+    //     double wavPerHour = 0;
+    //     double wbvPerHour = 0;
+    //     double temperature = 20.0;
+    //     String roadSurface = "NL08";
+    //     double tsStud = 0;
+    //     double pmStud = 0;
+    //     double junctionDistance = 100; // no acceleration of deceleration changes with dist >= 100
+    //     int junctionType = 2;
+    //     int way = 3; // default value 2-way road
 
-        // Read fields
-        if(sourceFieldsCache.containsKey("LV_SPD"+period)) {
-            lv_speed = rs.getDouble(sourceFieldsCache.get("LV_SPD"+period));
-        }
-        if(sourceFieldsCache.containsKey("MV_SPD"+period)) {
-            mv_speed = rs.getDouble(sourceFieldsCache.get("MV_SPD"+period));
-        }
-        if(sourceFieldsCache.containsKey("HGV_SPD"+period)) {
-            hgv_speed = rs.getDouble(sourceFieldsCache.get("HGV_SPD"+period));
-        }
-        if(sourceFieldsCache.containsKey("WAV_SPD"+period)) {
-            wav_speed = rs.getDouble(sourceFieldsCache.get("WAV_SPD"+period));
-        }
-        if(sourceFieldsCache.containsKey("WBV_SPD"+period)) {
-            wbv_speed = rs.getDouble(sourceFieldsCache.get("WBV_SPD"+period));
-        }
-        if(sourceFieldsCache.containsKey("LV"+period)) {
-            lvPerHour = rs.getDouble(sourceFieldsCache.get("LV"+period));
-        }
-        if(sourceFieldsCache.containsKey("MV"+period)) {
-            mvPerHour = rs.getDouble(sourceFieldsCache.get("MV"+period));
-        }
-        if(sourceFieldsCache.containsKey("HGV"+period)) {
-            hgvPerHour = rs.getDouble(sourceFieldsCache.get("HGV"+period));
-        }
-        if(sourceFieldsCache.containsKey("WAV"+period)) {
-            wavPerHour = rs.getDouble(sourceFieldsCache.get("WAV"+period));
-        }
-        if(sourceFieldsCache.containsKey("WBV"+period)) {
-            wbvPerHour = rs.getDouble(sourceFieldsCache.get("WBV"+period));
-        }
-        if(sourceFieldsCache.containsKey("PVMT")) {
-            roadSurface= rs.getString(sourceFieldsCache.get("PVMT"));
-        }
-        if(sourceFieldsCache.containsKey("TEMP"+period)) {
-            temperature = rs.getDouble(sourceFieldsCache.get("TEMP"+period));
-        }
-        if(sourceFieldsCache.containsKey("TS_STUD")) {
-            tsStud = rs.getDouble(sourceFieldsCache.get("TS_STUD"));
-        }
-        if(sourceFieldsCache.containsKey("PM_STUD")) {
-            pmStud = rs.getDouble(sourceFieldsCache.get("PM_STUD"));
-        }
-        if(sourceFieldsCache.containsKey("JUNC_DIST")) {
-            junctionDistance = rs.getDouble(sourceFieldsCache.get("JUNC_DIST"));
-        }
-        if(sourceFieldsCache.containsKey("JUNC_TYPE")) {
-            junctionType = rs.getInt(sourceFieldsCache.get("JUNC_TYPE"));
-        }
+    //     // Read fields
+    //     if(sourceFieldsCache.containsKey("LV_SPD"+period)) {
+    //         lv_speed = rs.getDouble(sourceFieldsCache.get("LV_SPD"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("MV_SPD"+period)) {
+    //         mv_speed = rs.getDouble(sourceFieldsCache.get("MV_SPD"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("HGV_SPD"+period)) {
+    //         hgv_speed = rs.getDouble(sourceFieldsCache.get("HGV_SPD"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("WAV_SPD"+period)) {
+    //         wav_speed = rs.getDouble(sourceFieldsCache.get("WAV_SPD"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("WBV_SPD"+period)) {
+    //         wbv_speed = rs.getDouble(sourceFieldsCache.get("WBV_SPD"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("LV"+period)) {
+    //         lvPerHour = rs.getDouble(sourceFieldsCache.get("LV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("MV"+period)) {
+    //         mvPerHour = rs.getDouble(sourceFieldsCache.get("MV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("HGV"+period)) {
+    //         hgvPerHour = rs.getDouble(sourceFieldsCache.get("HGV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("WAV"+period)) {
+    //         wavPerHour = rs.getDouble(sourceFieldsCache.get("WAV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("WBV"+period)) {
+    //         wbvPerHour = rs.getDouble(sourceFieldsCache.get("WBV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("PVMT")) {
+    //         roadSurface= rs.getString(sourceFieldsCache.get("PVMT"));
+    //     }
+    //     if(sourceFieldsCache.containsKey("TEMP"+period)) {
+    //         temperature = rs.getDouble(sourceFieldsCache.get("TEMP"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("TS_STUD")) {
+    //         tsStud = rs.getDouble(sourceFieldsCache.get("TS_STUD"));
+    //     }
+    //     if(sourceFieldsCache.containsKey("PM_STUD")) {
+    //         pmStud = rs.getDouble(sourceFieldsCache.get("PM_STUD"));
+    //     }
+    //     if(sourceFieldsCache.containsKey("JUNC_DIST")) {
+    //         junctionDistance = rs.getDouble(sourceFieldsCache.get("JUNC_DIST"));
+    //     }
+    //     if(sourceFieldsCache.containsKey("JUNC_TYPE")) {
+    //         junctionType = rs.getInt(sourceFieldsCache.get("JUNC_TYPE"));
+    //     }
 
-        if(sourceFieldsCache.containsKey("WAY")) {
-            way = rs.getInt(sourceFieldsCache.get("WAY"));
-        }
+    //     if(sourceFieldsCache.containsKey("WAY")) {
+    //         way = rs.getInt(sourceFieldsCache.get("WAY"));
+    //     }
 
-        if(sourceFieldsCache.containsKey("SLOPE")) {
-            slope = rs.getDouble(sourceFieldsCache.get("SLOPE"));
-        }else{
-            way = 3;
-        }
+    //     if(sourceFieldsCache.containsKey("SLOPE")) {
+    //         slope = rs.getDouble(sourceFieldsCache.get("SLOPE"));
+    //     }else{
+    //         way = 3;
+    //     }
 
 
-        // old fields
-        if(sourceFieldsCache.containsKey("TV"+period)) {
-            tv = rs.getDouble(sourceFieldsCache.get("TV"+period));
-        }
-        if(sourceFieldsCache.containsKey("HV"+period)) {
-            hv = rs.getDouble(sourceFieldsCache.get("HV"+period));
-        }
-        if(sourceFieldsCache.containsKey("HV_SPD"+period)) {
-            hgv_speed = rs.getDouble(sourceFieldsCache.get("HV_SPD"+period));
-        }
+    //     // old fields
+    //     if(sourceFieldsCache.containsKey("TV"+period)) {
+    //         tv = rs.getDouble(sourceFieldsCache.get("TV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("HV"+period)) {
+    //         hv = rs.getDouble(sourceFieldsCache.get("HV"+period));
+    //     }
+    //     if(sourceFieldsCache.containsKey("HV_SPD"+period)) {
+    //         hgv_speed = rs.getDouble(sourceFieldsCache.get("HV_SPD"+period));
+    //     }
 
-        if(tv > 0) {
-            lvPerHour = tv - (hv + mvPerHour + hgvPerHour + wavPerHour + wbvPerHour);
-        }
-        if(hv > 0) {
-            hgvPerHour = hv;
-        }
-        // Compute emission
-        double[] lvl = new double[roadOctaveFrequencyBands.size()];
-        for (int idFreq = 0; idFreq < roadOctaveFrequencyBands.size(); idFreq++) {
-            int freq = roadOctaveFrequencyBands.get(idFreq);
-            RoadCnossosParameters rsParametersCnossos = new RoadCnossosParameters(lv_speed, mv_speed, hgv_speed, wav_speed,
-                    wbv_speed, lvPerHour, mvPerHour, hgvPerHour, wavPerHour, wbvPerHour, freq, temperature,
-                    roadSurface, tsStud, pmStud, junctionDistance, junctionType);
-            rsParametersCnossos.setSlopePercentage(slope);
-            rsParametersCnossos.setWay(way);
-            rsParametersCnossos.setFileVersion(coefficientVersion);
-            try {
-                lvl[idFreq] = RoadCnossos.evaluate(rsParametersCnossos);
-            } catch (IOException ex) {
-                throw new SQLException(ex);
-            }
-        }
-        return lvl;
-    }
+    //     if(tv > 0) {
+    //         lvPerHour = tv - (hv + mvPerHour + hgvPerHour + wavPerHour + wbvPerHour);
+    //     }
+    //     if(hv > 0) {
+    //         hgvPerHour = hv;
+    //     }
+    //     // Compute emission
+    //     double[] lvl = new double[roadOctaveFrequencyBands.size()];
+    //     for (int idFreq = 0; idFreq < roadOctaveFrequencyBands.size(); idFreq++) {
+    //         int freq = roadOctaveFrequencyBands.get(idFreq);
+    //         RoadCnossosParameters rsParametersCnossos = new RoadCnossosParameters(lv_speed, mv_speed, hgv_speed, wav_speed,
+    //                 wbv_speed, lvPerHour, mvPerHour, hgvPerHour, wavPerHour, wbvPerHour, freq, temperature,
+    //                 roadSurface, tsStud, pmStud, junctionDistance, junctionType);
+    //         rsParametersCnossos.setSlopePercentage(slope);
+    //         rsParametersCnossos.setWay(way);
+    //         rsParametersCnossos.setFileVersion(coefficientVersion);
+    //         try {
+    //             lvl[idFreq] = RoadCnossos.evaluate(rsParametersCnossos);
+    //         } catch (IOException ex) {
+    //             throw new SQLException(ex);
+    //         }
+    //     }
+    //     return lvl;
+    // }
 
-    /**
-     * Computes the sound levels (Lw) for different periods based on the provided spatial result set.
-     * @param rs Result set on a road record
-     * @param coefficientVersion Cnossos coefficient version  (1 = 2015, 2 = 2020)
-     * @param sourceFieldsCache SQL Fields cache
-     * @return a two-dimensional array containing the sound levels (Ld, Le, Ln) for each frequency level.
-     * @throws SQLException Exception while evaluating the lw
-     */
-    public static double[][] computeLw(SpatialResultSet rs, int coefficientVersion, Map<String, Integer> sourceFieldsCache) throws SQLException {
-        double slope = getSlope(rs);
-        // Day
-        double[] ld = AcousticIndicatorsFunctions.dBToW(getEmissionFromTrafficTable(rs, "_D", slope, coefficientVersion, sourceFieldsCache));
+    // /**
+    //  * Computes the sound levels (Lw) for different periods based on the provided spatial result set.
+    //  * @param rs Result set on a road record
+    //  * @param coefficientVersion Cnossos coefficient version  (1 = 2015, 2 = 2020)
+    //  * @param sourceFieldsCache SQL Fields cache
+    //  * @return a two-dimensional array containing the sound levels (Ld, Le, Ln) for each frequency level.
+    //  * @throws SQLException Exception while evaluating the lw
+    //  */
+    // public static double[][] computeLw(SpatialResultSet rs, int coefficientVersion, Map<String, Integer> sourceFieldsCache) throws SQLException {
+    //     double slope = getSlope(rs);
+    //     // Day
+    //     double[] ld = AcousticIndicatorsFunctions.dBToW(cmptEmissionFromTrafficDb(rs, "_D", slope, coefficientVersion, sourceFieldsCache));
 
-        // Evening
-        double[] le = AcousticIndicatorsFunctions.dBToW(getEmissionFromTrafficTable(rs, "_E", slope, coefficientVersion, sourceFieldsCache));
+    //     // Evening
+    //     double[] le = AcousticIndicatorsFunctions.dBToW(cmptEmissionFromTrafficDb(rs, "_E", slope, coefficientVersion, sourceFieldsCache));
 
-        // Night
-        double[] ln = AcousticIndicatorsFunctions.dBToW(getEmissionFromTrafficTable(rs, "_N", slope, coefficientVersion, sourceFieldsCache));
+    //     // Night
+    //     double[] ln = AcousticIndicatorsFunctions.dBToW(cmptEmissionFromTrafficDb(rs, "_N", slope, coefficientVersion, sourceFieldsCache));
 
-        return new double[][] {ld, le, ln};
-    }
+    //     return new double[][] {ld, le, ln};
+    // }
 
-    public static double getSlope(SpatialResultSet rs) {
-        double slope = 0;
-        try {
-            Geometry g = rs.getGeometry();
-            if(g != null && !g.isEmpty()) {
-                Coordinate[] c = g.getCoordinates();
-                if(c.length >= 2) {
-                    double z0 = c[0].z;
-                    double z1 = c[1].z;
-                    if(!Double.isNaN(z0) && !Double.isNaN(z1)) {
-                        slope = Utils.computeSlope(z0, z1, g.getLength());
-                    }
-                }
-            }
-        } catch (SQLException ex) {
-            // ignore
-        }
-        return slope;
-    }
+    // public static double getSlope(SpatialResultSet rs) {
+    //     double slope = 0;
+    //     try {
+    //         Geometry g = rs.getGeometry();
+    //         if(g != null && !g.isEmpty()) {
+    //             Coordinate[] c = g.getCoordinates();
+    //             if(c.length >= 2) {
+    //                 double z0 = c[0].z;
+    //                 double z1 = c[1].z;
+    //                 if(!Double.isNaN(z0) && !Double.isNaN(z1)) {
+    //                     slope = Utils.computeSlope(z0, z1, g.getLength());
+    //                 }
+    //             }
+    //         }
+    //     } catch (SQLException ex) {
+    //         // ignore
+    //     }
+    //     return slope;
+    // }
 
-    public static double getSlope(Geometry g) {
-        double slope = 0;
-        if(g != null && !g.isEmpty()) {
-            Coordinate[] c = g.getCoordinates();
-            if (c.length >= 2) {
-                double z0 = c[0].z;
-                double z1 = c[1].z;
-                if (!Double.isNaN(z0) && !Double.isNaN(z1)) {
-                    slope = Utils.computeSlope(z0, z1, g.getLength());
-                }
-            }
-        }
-        return slope;
-    }
+    // public static double getSlope(Geometry g) {
+    //     double slope = 0;
+    //     if(g != null && !g.isEmpty()) {
+    //         Coordinate[] c = g.getCoordinates();
+    //         if (c.length >= 2) {
+    //             double z0 = c[0].z;
+    //             double z1 = c[1].z;
+    //             if (!Double.isNaN(z0) && !Double.isNaN(z1)) {
+    //                 slope = Utils.computeSlope(z0, z1, g.getLength());
+    //             }
+    //         }
+    //     }
+    //     return slope;
+    // }
 
     /**
      * Generate Train emission from train geometry tracks and train traffic
@@ -258,9 +262,9 @@ public class EmissionTableGenerator {
 
         // Build and execute queries
         StringBuilder createTableQuery = new StringBuilder("create table "+outputTable+" (PK_SECTION int," +
-                " the_geom GEOMETRY, DIR_ID int, SOURCE_TYPE varchar(20), GS double");
+                " the_geom GEOMETRY, DIR_ID int, EMISSION_TYPE varchar(20), GS double");
         StringBuilder insertIntoQuery = new StringBuilder("INSERT INTO "+outputTable+"(PK_SECTION, the_geom," +
-                " DIR_ID, SOURCE_TYPE, GS");
+                " DIR_ID, EMISSION_TYPE, GS");
         StringBuilder insertIntoValuesQuery = new StringBuilder("?,?,?,?,?");
         for(int thirdOctave : FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE) {
             createTableQuery.append(", ").append(frequencyPrepend).append("D");
@@ -313,7 +317,7 @@ public class EmissionTableGenerator {
             Arrays.fill(LWNight, -99.00);
             double heightSource = 0;
             int directivityId = 0;
-            String sourceType = "";
+            String emissionType = "";
             boolean day = (!railWayLWDay.getRailwaySourceList().isEmpty());
             boolean evening = (!railWayLWEvening.getRailwaySourceList().isEmpty());
             boolean night = (!railWayLWNight.getRailwaySourceList().isEmpty());
@@ -327,7 +331,7 @@ public class EmissionTableGenerator {
                         if (night) LWNight = railWayLWNight.getRailwaySourceList().get("ROLLING").getlW();
                         if (day) heightSource = 4; //railWayLWDay.getRailwaySourceList().get("ROLLING").getSourceHeight();
                         directivityId = 1;
-                        sourceType = "ROLLING";
+                        emissionType = "ROLLING";
                         break;
                     case 1:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("TRACTIONA").getlW();
@@ -335,7 +339,7 @@ public class EmissionTableGenerator {
                         if (night) LWNight = railWayLWNight.getRailwaySourceList().get("TRACTIONA").getlW();
                         heightSource = 0.5;
                         directivityId = 2;
-                        sourceType = "TRACTIONA";
+                        emissionType = "TRACTIONA";
                         break;
                     case 2:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("TRACTIONB").getlW();
@@ -343,7 +347,7 @@ public class EmissionTableGenerator {
                         if (night) LWNight = railWayLWNight.getRailwaySourceList().get("TRACTIONB").getlW();
                         heightSource = 4;
                         directivityId = 3;
-                        sourceType = "TRACTIONB";
+                        emissionType = "TRACTIONB";
                         break;
                     case 3:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("AERODYNAMICA").getlW();
@@ -351,7 +355,7 @@ public class EmissionTableGenerator {
                         if (night)  LWNight = railWayLWNight.getRailwaySourceList().get("AERODYNAMICA").getlW();
                         heightSource = 0.5;
                         directivityId = 4;
-                        sourceType = "AERODYNAMICA";
+                        emissionType = "AERODYNAMICA";
                         break;
                     case 4:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("AERODYNAMICB").getlW();
@@ -359,7 +363,7 @@ public class EmissionTableGenerator {
                         if (night)  LWNight = railWayLWNight.getRailwaySourceList().get("AERODYNAMICB").getlW();
                         heightSource = 4;
                         directivityId = 5;
-                        sourceType = "AERODYNAMICB";
+                        emissionType = "AERODYNAMICB";
                         break;
                     case 5:
                         if (day) LWDay = railWayLWDay.getRailwaySourceList().get("BRIDGE").getlW();
@@ -367,7 +371,7 @@ public class EmissionTableGenerator {
                         if (night)  LWNight = railWayLWNight.getRailwaySourceList().get("BRIDGE").getlW();
                         heightSource = 0.5;
                         directivityId = 6;
-                        sourceType = "BRIDGE";
+                        emissionType = "BRIDGE";
                         break;
                 }
 
@@ -380,7 +384,7 @@ public class EmissionTableGenerator {
                     ps.setInt(cursor++, pk);
                     ps.setObject(cursor++, sourceGeometry);
                     ps.setInt(cursor++, directivityId);
-                    ps.setString(cursor++, sourceType);
+                    ps.setString(cursor++, emissionType);
                     ps.setDouble(cursor++, railWayLWGeom.getGs());
                     for (double v : LWDay) {
                         ps.setDouble(cursor++, v);

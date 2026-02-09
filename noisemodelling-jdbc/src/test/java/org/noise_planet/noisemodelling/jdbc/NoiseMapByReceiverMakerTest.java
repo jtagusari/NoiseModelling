@@ -82,9 +82,9 @@ public class NoiseMapByReceiverMakerTest {
                 for(GroundAbsorption soil : scene.profileBuilder.getGroundEffects()) {
                     assertTrue(soil.getGeometry().getArea() < expectedMaxArea);
                 }
-                assertEquals(3, scene.getWjSources().size());
-                assertEquals(1, scene.getWjSources().get(1L).size());
-                assertEquals("D", scene.getWjSources().get(1L).get(0).period);
+                assertEquals(3, scene.getSourceEmissionsMap().size());
+                assertEquals(1, scene.getSourceEmissionsMap().get(1L).size());
+                assertEquals("D", scene.getSourceEmissionsMap().get(1L).get(0).period);
             }
         }
     }

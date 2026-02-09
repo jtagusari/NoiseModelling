@@ -5625,6 +5625,7 @@ public class AttenuationComputeOutputCnossosTest {
         AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -5675,6 +5676,7 @@ public class AttenuationComputeOutputCnossosTest {
         AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -5713,7 +5715,7 @@ public class AttenuationComputeOutputCnossosTest {
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
 
         scene.addSource(0L, f.createPoint(new Coordinate(0.5, 0, 0.)));
-        scene.addReceiver(new Coordinate(25, 0, 4));
+        scene.addReceiver(0L, new Coordinate(25, 0, 4));
         scene.setDefaultGroundAttenuation(1.0);
         scene.setReflexionOrder(1);
         scene.setMaxSrcDist(1000);
@@ -5733,6 +5735,7 @@ public class AttenuationComputeOutputCnossosTest {
 
         PathFinder computeRays0 = new PathFinder(scene);
         computeRays0.setThreadCount(1);
+        computeRays0.ensureAbsoluteReceiverHeights();
         computeRays0.run(propDataOut0);
         double[] values0 = propDataOut0.receiversAttenuationLevels.pop().getLevels();
 
@@ -5741,6 +5744,7 @@ public class AttenuationComputeOutputCnossosTest {
         AttenuationComputeOutput propDataOut1 = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays1 = new PathFinder(scene);
         computeRays1.setThreadCount(1);
+        computeRays1.ensureAbsoluteReceiverHeights();
         computeRays1.run(propDataOut1);
         double[] values1 = propDataOut1.receiversAttenuationLevels.pop().getLevels();
 
@@ -5756,6 +5760,7 @@ public class AttenuationComputeOutputCnossosTest {
 
         AttenuationComputeOutput propDataOut2 = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays2 = new PathFinder(scene);
+        computeRays2.ensureAbsoluteReceiverHeights();
         computeRays2.run(propDataOut2);
         double[] values2 = propDataOut2.receiversAttenuationLevels.pop().getLevels();
 
@@ -5769,6 +5774,7 @@ public class AttenuationComputeOutputCnossosTest {
         scene.setBodyBarrier(false);
         AttenuationComputeOutput propDataOut3 = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays3 = new PathFinder(scene);
+        computeRays3.ensureAbsoluteReceiverHeights();
         computeRays3.run(propDataOut3);
         double[] values3 = propDataOut3.receiversAttenuationLevels.pop().getLevels();
 
@@ -5812,7 +5818,7 @@ public class AttenuationComputeOutputCnossosTest {
         //Propagation data building
         SceneWithAttenuation scene = new SceneWithAttenuation(profileBuilder);
         scene.addSource(0L, f.createPoint(new Coordinate(30, -10, 2)));
-        scene.addReceiver(new Coordinate(30, 20, 2));
+        scene.addReceiver(0L, new Coordinate(30, 20, 2));
         scene.setDefaultGroundAttenuation(0.0);
 
         //Propagation process path data building
@@ -5826,6 +5832,7 @@ public class AttenuationComputeOutputCnossosTest {
         PathFinder pathFinder = new PathFinder(scene);
         pathFinder.setThreadCount(1);
         scene.setReflexionOrder(0);
+        pathFinder.ensureAbsoluteReceiverHeights();
         pathFinder.run(propDataOut0);
         double[] values0 = propDataOut0.receiversAttenuationLevels.pop().getLevels();
 
@@ -5833,6 +5840,7 @@ public class AttenuationComputeOutputCnossosTest {
         PathFinder computeRays1 = new PathFinder(scene);
         computeRays1.setThreadCount(1);
         scene.setReflexionOrder(1);
+        computeRays1.ensureAbsoluteReceiverHeights();
         computeRays1.run(propDataOut1);
         double[] values1 = propDataOut1.receiversAttenuationLevels.pop().getLevels();
         for (int i = 0; i < values0.length; i++) {
@@ -5866,6 +5874,7 @@ public class AttenuationComputeOutputCnossosTest {
         AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -5908,6 +5917,7 @@ public class AttenuationComputeOutputCnossosTest {
         AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -5973,6 +5983,7 @@ public class AttenuationComputeOutputCnossosTest {
             AttenuationComputeOutput propDataOut = new AttenuationComputeOutput(true, true, scene);
             PathFinder pathFinder = new PathFinder(scene);
             pathFinder.setThreadCount(1);
+            pathFinder.ensureAbsoluteReceiverHeights();
             pathFinder.run(propDataOut);
 
             int maxPowerReceiverIndex = -1;

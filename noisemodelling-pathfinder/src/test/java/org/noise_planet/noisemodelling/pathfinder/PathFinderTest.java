@@ -28,7 +28,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilderDecorator;
+import org.noise_planet.noisemodelling.pathfinder.path.SceneBuilder;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.CoordinateMixin;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.LineSegmentMixin;
@@ -156,7 +156,7 @@ public class PathFinderTest {
         ProfileBuilder profileBuilder = new ProfileBuilder().finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 4)
                 .setGs(0.0)
@@ -166,6 +166,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -182,7 +183,7 @@ public class PathFinderTest {
         ProfileBuilder profileBuilder = new ProfileBuilder().finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 4)
                 .setGs(0.5)
@@ -192,6 +193,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -210,7 +212,7 @@ public class PathFinderTest {
         ProfileBuilder profileBuilder = new ProfileBuilder().finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 4)
                 .setGs(1.0)
@@ -220,6 +222,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -241,7 +244,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 4)
                 .setGs(0.2)
@@ -253,6 +256,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -392,7 +396,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 14)
                 .setGs(0.9)
@@ -402,6 +406,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -423,7 +428,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 11.5)
                 .setGs(0.9)
@@ -433,6 +438,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -465,7 +471,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 4)
                 .setGs(0.9)
@@ -477,6 +483,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -509,7 +516,7 @@ public class PathFinderTest {
 
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 4)
                 .setGs(0.9)
@@ -521,6 +528,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -552,7 +560,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 14)
                 .hEdgeDiff(true)
@@ -564,6 +572,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -596,7 +605,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(50, 10, 1)
                 .addReceiver(70, 10, 4)
                 .hEdgeDiff(true)
@@ -608,6 +617,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -640,7 +650,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(50, 10, 1)
                 .addReceiver(70, 10, 15)
                 .hEdgeDiff(true)
@@ -652,6 +662,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         // Run computation
         computeRays.run(propDataOut);
@@ -687,7 +698,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(0, 10, 1)
                 .addReceiver(30, 20, 6)
                 .hEdgeDiff(true)
@@ -699,6 +710,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
 
         //Run computation
@@ -738,7 +750,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 28.5)
                 .hEdgeDiff(true)
@@ -750,6 +762,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -783,7 +796,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(8, 10, 1)
                 .addReceiver(25, 20, 23)
                 .hEdgeDiff(true)
@@ -795,6 +808,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -838,7 +852,7 @@ public class PathFinderTest {
 
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(50, 10, 1)
                 .addReceiver(100, 15, 5)
                 .hEdgeDiff(true)
@@ -850,6 +864,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -879,7 +894,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 14)
                 .setGs(0.9)
@@ -889,6 +904,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -925,7 +941,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 11.5)
                 .setGs(0.9)
@@ -936,6 +952,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -971,7 +988,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 12)
                 .hEdgeDiff(true)
@@ -984,6 +1001,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1019,7 +1037,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 50, 12)
                 .hEdgeDiff(true)
@@ -1032,6 +1050,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1086,7 +1105,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 30, 14)
                 .hEdgeDiff(true)
@@ -1100,6 +1119,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1128,7 +1148,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 25, 14)
                 .hEdgeDiff(true)
@@ -1140,6 +1160,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1177,7 +1198,7 @@ public class PathFinderTest {
         profileBuilder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(10, 10, 1)
                 .addReceiver(200, 25, 14)
                 .hEdgeDiff(true)
@@ -1190,6 +1211,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1237,7 +1259,7 @@ public class PathFinderTest {
         //  .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(10, 10, 1)
                 .addReceiver(187.05, 25, 14)
                 .hEdgeDiff(true)
@@ -1248,6 +1270,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1300,7 +1323,7 @@ public class PathFinderTest {
         builder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(38, 14, 1)
                 .addReceiver(107, 25.95, 4)
                 .hEdgeDiff(true)
@@ -1313,6 +1336,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1365,7 +1389,7 @@ public class PathFinderTest {
         builder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(38, 14, 1)
                 .addReceiver(106, 18.5, 4)
                 .hEdgeDiff(true)
@@ -1379,6 +1403,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1417,7 +1442,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(38, 14, 1)
                 .addReceiver(106, 18.5, 4)
                 .hEdgeDiff(true)
@@ -1430,6 +1455,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1464,7 +1490,7 @@ public class PathFinderTest {
                 .finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(10, 10, 0.05)
                 .addReceiver(120, 50, 8)
                 .hEdgeDiff(true)
@@ -1476,6 +1502,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -1520,7 +1547,7 @@ public class PathFinderTest {
 
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(105, 35, 0.05)  // 0.05m above ground (ground elevation is -0.5m, so absolute elevation is -0.45m)
                 .addReceiver(200, 50, 4)
                 .hEdgeDiff(true)
@@ -1533,6 +1560,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         computeRays.run(propDataOut);
 
@@ -1609,7 +1637,7 @@ public class PathFinderTest {
         builder.finishFeeding();
 
         //Propagation data building
-        Scene rayData = new ProfileBuilderDecorator(builder)
+        Scene rayData = new SceneBuilder(builder)
                 .addSource(0, 50, 4)
                 .addReceiver(1000, 100, 1)
                 .hEdgeDiff(true)
@@ -1621,6 +1649,7 @@ public class PathFinderTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
         computeRays.run(propDataOut);
 
         // Expected Values

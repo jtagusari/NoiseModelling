@@ -15,6 +15,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.GeometryFactory
 
 import static java.lang.Double.NaN;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -679,18 +680,8 @@ public class Bridge extends Obstruction {
 
     @Override
     public int hashCode() {
-        int result = Long.hashCode(primaryKey);
-        result = 31 * result + (girderType != null ? girderType.hashCode() : 0);
-        result = 31 * result + (slabType != null ? slabType.hashCode() : 0);
-        result = 31 * result + (deckGeometry != null ? deckGeometry.hashCode() : 0);
-        result = 31 * result + (edge != null ? edge.hashCode() : 0);
-        if (pointManager != null) {
-            List<BridgePoint> points = pointManager.getBridgePoints();
-            for (BridgePoint point : points) {
-                result = 31 * result + (point != null ? point.hashCode() : 0);
-            }
-        }
-        return result;
+        return Objects.hash(primaryKey, girderType, slabType, deckGeometry, edge,
+                           pointManager != null ? pointManager.getBridgePoints().size() : 0);
     }
 
 }

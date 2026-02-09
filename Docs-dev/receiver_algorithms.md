@@ -9,8 +9,8 @@
   - [Step 1: RECEIVERS Table Creation](#step-1-receivers-table-creation)
   - [Step 2: Geometry Loading](#step-2-geometry-loading)
   - [Step 3: Scene Registration](#step-3-scene-registration)
-  - [Step 5: ReceiverPointInfo Creation](#step-5-receiverpointinfo-creation)
   - [Step 4: Z-Coordinate Conversion in Pathfinder](#step-4-z-coordinate-conversion-in-pathfinder)
+  - [Step 5: ReceiverPointInfo Creation](#step-5-receiverpointinfo-creation)
   - [Integration with NoiseMapByReceiverMaker](#integration-with-noisemapbyreceivermaker)
 
 ## Concepts & Overview — Receiver Processing
@@ -41,10 +41,12 @@ note right of step1
   **Input Fields:**
   • PK (primary key)
   • THE_GEOM (Point with Z coordinate)
+  • HEIGHT_TYPE (optional, defaults to RELATIVE)
   
   **Requirements:**
   • Must have Z ordinate (elevation)
   • Point geometry in projected CRS
+  • HEIGHT_TYPE: RELATIVE or ABSOLUTE (see Step 1 details)
 end note
 
 rectangle "Step 2: Geometry Loading" as step2 #F0F8E8
@@ -66,9 +68,9 @@ end note
 rectangle "Step 4: Z-Coordinate Conversion in Pathfinder" as step4 #F0F8E8
 note right of step4
   **Process:**
-  • During propagation, topographic profiles are built
-  • DEM data queried for ground elevation at receiver location
-  • zGround set on CutPointReceiver for absolute height calculation
+  • After scene registration, convert relative Z to absolute elevation
+  • PathFinder.ensureAbsoluteReceiverHeights()
+  • DEM queried for ground elevation at receiver location
 end note
 
 rectangle "Step 5: ReceiverPointInfo Creation" as step5 #F0F8E8
@@ -76,12 +78,12 @@ note right of step5
   **Process:**
   • Create ReceiverPointInfo objects
   • Assign receiver index and PK
-  • Position coordinate retains relative Z (height above ground)
+  • Position coordinate uses absolute Z after conversion
 end note
 
 step1 --> step2 : Query by cell envelope
 step2 --> step3 : Add to scene
-step3 --> step4 : During path finding
+step3 --> step4 : After scene registration
 step4 --> step5 : Create ReceiverPointInfo
 @enduml
 ```
@@ -125,11 +127,17 @@ The `RECEIVERS` table contains receiver locations where noise levels will be com
 - `PK`: Primary key (integer, auto-increment)
 - `THE_GEOM`: Point geometry with X, Y, Z coordinates (height above ground in meters)
 
+**Optional Fields:**
+- `HEIGHT_TYPE`: Height interpretation mode (VARCHAR, default: 'RELATIVE')
+  - `'RELATIVE'`: Z coordinate represents height above ground level (default if not specified)
+  - `'ABSOLUTE'`: Z coordinate represents absolute elevation in the coordinate reference system
+
 **Database Schema:**
 ```sql
 CREATE TABLE RECEIVERS (
     PK SERIAL PRIMARY KEY,
-    THE_GEOM GEOMETRY(POINTZ, [SRID])
+    THE_GEOM GEOMETRY(POINTZ, [SRID]),
+    HEIGHT_TYPE VARCHAR(10) DEFAULT 'RELATIVE'
 );
 ```
 
@@ -137,6 +145,8 @@ CREATE TABLE RECEIVERS (
 - All receivers must have valid Z coordinates (elevation)
 - Coordinates should be in the same projected coordinate reference system as sources and buildings
 - No duplicate geometries (though PK ensures uniqueness)
+- If `HEIGHT_TYPE` is not specified (NULL), it defaults to 'RELATIVE' during processing
+- `HEIGHT_TYPE` must be either 'RELATIVE' or 'ABSOLUTE' when specified
 
 ## Step 2: Geometry Loading
 
@@ -169,9 +179,56 @@ Loaded receivers are registered in the computation scene for propagation process
 4. Skip receivers that have already been processed in overlapping cells
 
 **Key Operations:**
-- `scene.addReceiver(receiverPk, coordinate, resultSet)`
+- `DefaultTableLoader.fetchCellReceiver()`: Main method for loading and registering receivers
+  - Parameters: `Connection`, `Envelope`, `SceneWithEmission`, `Set<Long> skipReceivers`
+  - Queries RECEIVERS table using spatial index (&&) within cell envelope
+  - Validates Z coordinate presence for all loaded receivers
+  - Calls `scene.addReceiver()` with receiver data and HEIGHT_TYPE
+  
+- `scene.addReceiver(receiverPk, coordinate, resultSet)`: Adds receiver to scene's receiver list
 - Maintains mapping between receiver index and database primary key
 - Prevents duplicate processing in grid-based computation
+
+## Step 4: Z-Coordinate Conversion in Pathfinder
+
+In the pathfinder phase, receiver coordinates are prepared for accurate propagation calculations by converting relative heights to absolute elevations using Digital Elevation Model (DEM) data.
+
+**Process:**
+1. After loading receivers into the scene, convert relative heights to absolute elevations
+2. Call `PathFinder.ensureAbsoluteReceiverHeights()` to perform conversion
+3. For each receiver, query ground elevation from DEM data at receiver's (X, Y) location
+4. Update receiver Z coordinate to absolute elevation (zGround + relativeZ)
+5. Update HEIGHT_TYPE to ABSOLUTE for all receivers after conversion
+
+**Key Classes and Methods:**
+- `PathFinder.ensureAbsoluteReceiverHeights()`: Main conversion method
+  - Iterates through all scene receivers
+  - Queries DEM ground elevation for each receiver's XY position
+  - For RELATIVE receivers: computes `absoluteZ = zGround + relativeZ`
+  - For ABSOLUTE receivers: maintains current Z value as-is
+  - Sets all HEIGHT_TYPE to ABSOLUTE after conversion
+  
+- `ProfileBuilder.getZGround(Coordinate)`: Queries DEM ground elevation at given XY coordinates
+- `Scene.getReceiverHeightTypeByPk()`: Retrieves HEIGHT_TYPE (RELATIVE or ABSOLUTE)
+- `CutPointReceiver.setZGround()`: Sets ground elevation reference in receiver profile
+
+**Code Implementation:**
+```java
+// In PathFinder
+PathFinder pathFinder = new PathFinder(scene);
+pathFinder.ensureAbsoluteReceiverHeights();
+
+// For each receiver:
+// If HEIGHT_TYPE == RELATIVE: receiver.z = zGround + (original_z)
+// If HEIGHT_TYPE == ABSOLUTE: receiver.z = (unchanged)
+// All receivers: HEIGHT_TYPE → ABSOLUTE
+```
+
+**Integration with Propagation:**
+- Conversion happens after scene registration (Step 3) and before propagation
+- Ensures all receivers have absolute elevation for accurate ray tracing
+- Maintains relative Z information for height-above-ground semantics
+- Enables accurate modeling of receiver positions relative to terrain
 
 ## Step 5: ReceiverPointInfo Creation
 
@@ -194,53 +251,29 @@ note right of ReceiverPointInfo
   **Fields:**
   • receiverIndex: Index in scene receiver list
   • receiverPk: Database primary key
-  • position: 3D coordinate (X, Y, Z)
+  • position: 3D coordinate (X, Y, Z absolute elevation)
   
   **Purpose:** Encapsulates receiver data
-  for propagation algorithms
+  for propagation algorithms after Step 4 conversion
 end note
 @enduml
 ```
 
 **Creation Process:**
-1. Iterate through scene receivers during path finding
-2. Create `ReceiverPointInfo` for each receiver
-3. Assign sequential receiver index and database PK
-4. Position coordinate includes height above ground
+1. After Step 4 Z-coordinate conversion, receivers are in ABSOLUTE height mode
+2. Iterate through scene receivers to create `ReceiverPointInfo` for each
+3. Assign sequential receiver index and database primary key
+4. Position coordinate includes absolute Z (sea level + receiver height)
+
+**Where it happens:**
+- The per-receiver `ReceiverPointInfo` is instantiated inside `ThreadPathFinder.call()` right before ray computation.
 
 **Integration with Propagation:**
+- Created during path finding computation
 - Used by `PathFinder` to compute rays from sources to receivers
 - Passed to attenuation calculation algorithms
-- Enables correlation of results back to database records
-
-## Step 4: Z-Coordinate Conversion in Pathfinder
-
-In the pathfinder phase, receiver coordinates are prepared for accurate propagation calculations by converting relative heights to absolute elevations using Digital Elevation Model (DEM) data.
-
-**Process:**
-1. During ray path computation between sources and receivers, topographic profiles are constructed
-2. For each receiver in the profile, the ground elevation is queried from DEM data
-3. The `zGround` field of `CutPointReceiver` is set to the absolute elevation from DEM
-4. This allows calculation of absolute receiver height as `zGround + relativeZ` where `relativeZ` is the height above ground
-
-**Key Classes and Methods:**
-- `ProfileRetriever.getProfile()`: Initiates profile building and calls topography services
-- `TopographyService.addTopoCutPts()`: Queries DEM and sets `zGround` on receivers
-- `CutPointReceiver.setZGround(double zGround)`: Sets the absolute ground elevation
-
-**Code Implementation:**
-```java
-// In TopographyService.addTopoCutPts()
-CutPointReceiver cutPointReceiver = profile.getReceiver();
-double groundElevation = coordinates.get(coordinates.size() - 1).z; // From DEM
-cutPointReceiver.setZGround(groundElevation);
-profile.setReceiver(cutPointReceiver);
-```
-
-**Integration with Propagation:**
-- Absolute receiver height is calculated as needed during terrain intersection checks
-- Maintains relative Z coordinate for height-above-ground semantics
-- Enables accurate modeling of receiver positions relative to terrain
+- Enables correlation of computed results back to database records via primary key
+- Receiver Z coordinate now represents absolute elevation for terrain intersection checks
 
 ## Integration with NoiseMapByReceiverMaker
 

@@ -22,6 +22,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReflect
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.SceneBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 
@@ -67,14 +68,15 @@ public class TestWallReflection {
         }
         profileBuilder.finishFeeding();
         assertEquals(5, profileBuilder.getBuildingCount());
-        Scene inputData = new Scene(profileBuilder);
-        inputData.addReceiver(new Coordinate(599093.85,646227.90, 4));
-        inputData.addSource(0L, factory.createPoint(new Coordinate(599095.21, 646283.77, 1)));
-        inputData.setComputeHorizontalDiffraction(false);
-        inputData.setComputeVerticalDiffraction(false);
-        inputData.maxRefDist = 80;
-        inputData.maxSrcDist = 180;
-        inputData.setReflexionOrder(2);
+        Scene inputData = new SceneBuilder(profileBuilder)
+                .addReceiver(599093.85, 646227.90, 4)
+                .addSource(599095.21, 646283.77, 1)
+                .vEdgeDiff(false)
+                .hEdgeDiff(false)
+                .maxRefDist(80)
+                .maxSrcDist(180)
+                .reflexionOrder(2)
+                .build();
         PathFinder computeRays = new PathFinder(inputData);
         computeRays.setThreadCount(1);
 
@@ -153,14 +155,15 @@ public class TestWallReflection {
         profileBuilder.addTopographicPoint(new Coordinate(598913.00,646104.52,500.00));
         profileBuilder.finishFeeding();
         assertEquals(5, profileBuilder.getBuildingCount());
-        Scene inputData = new Scene(profileBuilder);
-        inputData.addReceiver(new Coordinate(599093.85,646227.90, 504));
-        inputData.addSource(0L, factory.createPoint(new Coordinate(599095.21, 646283.77, 501)));
-        inputData.setComputeHorizontalDiffraction(false);
-        inputData.setComputeVerticalDiffraction(false);
-        inputData.maxRefDist = 80;
-        inputData.maxSrcDist = 180;
-        inputData.setReflexionOrder(2);
+        Scene inputData = new SceneBuilder(profileBuilder)
+                .addReceiver(599093.85, 646227.90, 504)
+                .addSource(599095.21, 646283.77, 501)
+                .vEdgeDiff(false)
+                .hEdgeDiff(false)
+                .maxRefDist(80)
+                .maxSrcDist(180)
+                .reflexionOrder(2)
+                .build();
         PathFinder computeRays = new PathFinder(inputData);
         computeRays.setThreadCount(1);
 

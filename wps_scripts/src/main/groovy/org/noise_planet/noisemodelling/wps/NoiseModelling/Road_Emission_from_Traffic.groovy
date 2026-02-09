@@ -26,7 +26,6 @@ import org.h2gis.utilities.SpatialResultSet
 import org.h2gis.utilities.TableLocation
 import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.locationtech.jts.geom.Geometry
-import org.noise_planet.noisemodelling.jdbc.BridgeStructuralEmissionCalculator
 import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint
@@ -76,7 +75,7 @@ inputs = [
         tableBridgePoints: [
                 name       : 'Bridge points table name (optional)',
                 title      : 'Bridge points table name',
-                description: "<b>Name of the Bridge Points table (optional).</b> Required for bridge structural noise calculation (SOURCE_TYPE='BRIDGE'). </br>" +
+                description: "<b>Name of the Bridge Points table (optional).</b> Required for bridge structural noise calculation (EMISSION_TYPE='BRIDGE'). </br>" +
                         "<br>This table should contain bridge geometry and structure information: </br><ul>" +
                         "<li><b> PK </b>* : Point identifier (INTEGER, PRIMARY KEY)</li>" +
                         "<li><b> BRIDGE_PK </b>* : Bridge identifier linking to ROADS.BRIDGE_PK (INTEGER)</li>" +
@@ -309,7 +308,7 @@ def exec(Connection connection, input) {
     // -------------------
     // Step 2: Bridge Record Duplication and Classification
     // Duplicate bridge road records to enable dual emission calculation:
-    // SOURCE_TYPE='ROAD' for traffic noise, SOURCE_TYPE='BRIDGE' for structural noise
+    // EMISSION_TYPE='ROAD' for traffic noise, EMISSION_TYPE='BRIDGE' for structural noise
     // -------------------
     logger.info('Step 2: Checking for bridge records and duplicating if necessary...')
     
@@ -327,31 +326,31 @@ def exec(Connection connection, input) {
     }
     
     if (hasBridgePkColumn) {
-        // Check if SOURCE_TYPE column already exists - if so, throw exception
-        boolean hasSourceTypeColumn = false
+        // Check if EMISSION_TYPE column already exists - if so, throw exception
+        boolean hasemissionTypeColumn = false
         try {
-            sql.firstRow("SELECT SOURCE_TYPE FROM " + sources_table_name + " LIMIT 1")
-            hasSourceTypeColumn = true
+            sql.firstRow("SELECT EMISSION_TYPE FROM " + sources_table_name + " LIMIT 1")
+            hasemissionTypeColumn = true
         } catch (SQLException e) {
             // Column doesn't exist, which is expected
-            hasSourceTypeColumn = false
+            hasemissionTypeColumn = false
         }
         
-        if (hasSourceTypeColumn) {
-            throw new IllegalArgumentException("Error: SOURCE_TYPE column already exists in " + sources_table_name + 
-                ". This script expects to create this column. Please remove the SOURCE_TYPE column or use a different source table.")
+        if (hasemissionTypeColumn) {
+            throw new IllegalArgumentException("Error: EMISSION_TYPE column already exists in " + sources_table_name + 
+                ". This script expects to create this column. Please remove the EMISSION_TYPE column or use a different source table.")
         }
         
-        // Add SOURCE_TYPE column (now we know it doesn't exist)
-        sql.execute("ALTER TABLE " + sources_table_name + " ADD COLUMN SOURCE_TYPE VARCHAR(20)")
-        logger.info('Added SOURCE_TYPE column to ' + sources_table_name)
+        // Add EMISSION_TYPE column (now we know it doesn't exist)
+        sql.execute("ALTER TABLE " + sources_table_name + " ADD COLUMN EMISSION_TYPE VARCHAR(20)")
+        logger.info('Added EMISSION_TYPE column to ' + sources_table_name)
         
         // Set all existing records to 'ROAD'
-        sql.execute("UPDATE " + sources_table_name + " SET SOURCE_TYPE = 'ROAD'")
-        logger.info('Set SOURCE_TYPE to ROAD for existing records')
+        sql.execute("UPDATE " + sources_table_name + " SET EMISSION_TYPE = 'ROAD'")
+        logger.info('Set EMISSION_TYPE to ROAD for existing records')
         
         // Count bridge records
-        def bridgeCount = sql.firstRow("SELECT COUNT(*) as cnt FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL AND SOURCE_TYPE = 'ROAD'")
+        def bridgeCount = sql.firstRow("SELECT COUNT(*) as cnt FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL AND EMISSION_TYPE = 'ROAD'")
         int numBridgeRecords = bridgeCount.cnt as Integer
         
         if (numBridgeRecords > 0) {
@@ -360,7 +359,7 @@ def exec(Connection connection, input) {
             // Validate that each bridge road is contained within the bridge footprint
             if (!bridgeMap.isEmpty()) {
                 logger.info('Validating bridge road geometries...')
-                sql.eachRow("SELECT PK, BRIDGE_PK, THE_GEOM FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL AND SOURCE_TYPE = 'ROAD'") { row ->
+                sql.eachRow("SELECT PK, BRIDGE_PK, THE_GEOM FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL AND EMISSION_TYPE = 'ROAD'") { row ->
                     Long roadPk = row.PK as Long
                     Long bridgePkValue = row.BRIDGE_PK as Long
                     Geometry roadGeometry = row.THE_GEOM as Geometry
@@ -404,16 +403,16 @@ def exec(Connection connection, input) {
             def columnsExceptPk = columnNames.findAll { it.toUpperCase() != 'PK' }
             def columnList = columnsExceptPk.join(', ')
             
-            // Duplicate bridge records with SOURCE_TYPE='BRIDGE'
+            // Duplicate bridge records with EMISSION_TYPE='BRIDGE'
             String duplicateQuery = "INSERT INTO " + sources_table_name + " (PK, " + columnList + ") " +
                     "SELECT (ROW_NUMBER() OVER () + " + maxPk + ") as new_pk, " + columnList + " " +
                     "FROM " + sources_table_name + " " +
-                    "WHERE BRIDGE_PK IS NOT NULL AND SOURCE_TYPE = 'ROAD'"
+                    "WHERE BRIDGE_PK IS NOT NULL AND EMISSION_TYPE = 'ROAD'"
             
             sql.execute(duplicateQuery)
             
-            // Update the duplicated records to have SOURCE_TYPE='BRIDGE' and HEIGHT_TYPE='RELATIVE'
-            sql.execute("UPDATE " + sources_table_name + " SET SOURCE_TYPE = 'BRIDGE' WHERE PK > " + maxPk)
+            // Update the duplicated records to have EMISSION_TYPE='BRIDGE' and HEIGHT_TYPE='RELATIVE'
+            sql.execute("UPDATE " + sources_table_name + " SET EMISSION_TYPE = 'BRIDGE' WHERE PK > " + maxPk)
             
             // Set HEIGHT_TYPE to 'RELATIVE' for bridge structural sources (if column exists)
             boolean hasHeightTypeColumn = JDBCUtilities.hasField(connection, sources_table_name, "HEIGHT_TYPE")
@@ -422,7 +421,7 @@ def exec(Connection connection, input) {
                 logger.info('Set HEIGHT_TYPE=RELATIVE for duplicated bridge records')
             }
             
-            logger.info('Duplicated ' + numBridgeRecords + ' bridge records with SOURCE_TYPE=BRIDGE')
+            logger.info('Duplicated ' + numBridgeRecords + ' bridge records with EMISSION_TYPE=BRIDGE')
         } else {
             logger.info('No bridge records found to duplicate')
         }
@@ -434,12 +433,12 @@ def exec(Connection connection, input) {
 
     // drop table LW_ROADS if exists and the create and prepare the table
     sql.execute("drop table if exists LW_ROADS;")
-    sql.execute("create table LW_ROADS (pk integer, the_geom Geometry, SOURCE_TYPE varchar(20) DEFAULT 'ROAD', BRIDGE_PK integer, HEIGHT_TYPE varchar(10), " +
+    sql.execute("create table LW_ROADS (pk integer, the_geom Geometry, EMISSION_TYPE varchar(20) DEFAULT 'ROAD', BRIDGE_PK integer, HEIGHT_TYPE varchar(10), " +
             "HZD63 double precision, HZD125 double precision, HZD250 double precision, HZD500 double precision, HZD1000 double precision, HZD2000 double precision, HZD4000 double precision, HZD8000 double precision," +
             "HZE63 double precision, HZE125 double precision, HZE250 double precision, HZE500 double precision, HZE1000 double precision, HZE2000 double precision, HZE4000 double precision, HZE8000 double precision," +
             "HZN63 double precision, HZN125 double precision, HZN250 double precision, HZN500 double precision, HZN1000 double precision, HZN2000 double precision, HZN4000 double precision, HZN8000 double precision);")
 
-    def qry = 'INSERT INTO LW_ROADS(pk,the_geom,SOURCE_TYPE,BRIDGE_PK, ' +
+    def qry = 'INSERT INTO LW_ROADS(pk,the_geom,EMISSION_TYPE,BRIDGE_PK, ' +
             'HZD63, HZD125, HZD250, HZD500, HZD1000,HZD2000, HZD4000, HZD8000,' +
             'HZE63, HZE125, HZE250, HZE500, HZE1000,HZE2000, HZE4000, HZE8000,' +
             'HZN63, HZN125, HZN250, HZN500, HZN1000,HZN2000, HZN4000, HZN8000) ' +
@@ -473,11 +472,11 @@ def exec(Connection connection, input) {
             //logger.info(rs)
             Geometry geo = rs.getGeometry()
             
-            // Get SOURCE_TYPE and BRIDGE_PK from the record
-            String sourceType = 'ROAD'
+            // Get EMISSION_TYPE and BRIDGE_PK from the record
+            String emissionType = 'ROAD'
             Integer bridgePk = null
             try {
-                sourceType = rs.getString('SOURCE_TYPE') ?: 'ROAD'
+                emissionType = rs.getString('EMISSION_TYPE') ?: 'ROAD'
                 bridgePk = rs.getObject('BRIDGE_PK') as Integer
             } catch (SQLException e) {
                 // Columns may not exist, use defaults
@@ -486,9 +485,9 @@ def exec(Connection connection, input) {
             // Compute emission sound level for each road segment
             double[][] results
             
-            // Route 1: CNOSSOS-EU road traffic noise (SOURCE_TYPE='ROAD')
-            // Route 2: ASJ 2023 bridge structural noise (SOURCE_TYPE='BRIDGE')
-            if (sourceType == 'BRIDGE' && bridgePk != null) {
+            // Route 1: CNOSSOS-EU road traffic noise (EMISSION_TYPE='ROAD')
+            // Route 2: ASJ 2023 bridge structural noise (EMISSION_TYPE='BRIDGE')
+            if (emissionType == 'BRIDGE' && bridgePk != null) {
                 // Route 2: Bridge structural noise calculation
                 Bridge bridge = bridgeMap.get(bridgePk as Long)
                 if (bridge == null) {
@@ -497,7 +496,7 @@ def exec(Connection connection, input) {
                 }
                 
                 // Use BridgeStructuralEmissionCalculator for structural noise
-                results = BridgeStructuralEmissionCalculator.computeStructuralLw(rs, bridge, sourceFieldsCache)
+                // results = BridgeStructuralEmissionCalculator.computeStructuralLw(rs, bridge, sourceFieldsCache)
             } else {
                 // Route 1: Standard road traffic noise calculation
                 results = EmissionTableGenerator.computeLw(rs, coefficientVersion, sourceFieldsCache)
@@ -507,7 +506,7 @@ def exec(Connection connection, input) {
             def levening = AcousticIndicatorsFunctions.wToDb(results[1])
             def lnight = AcousticIndicatorsFunctions.wToDb(results[2])
             // fill the LW_ROADS table
-            ps.addBatch(rs.getLong(pkIndex) as Integer, geo as Geometry, sourceType as String, bridgePk,
+            ps.addBatch(rs.getLong(pkIndex) as Integer, geo as Geometry, emissionType as String, bridgePk,
                     lday[0] as Double, lday[1] as Double, lday[2] as Double,
                     lday[3] as Double, lday[4] as Double, lday[5] as Double,
                     lday[6] as Double, lday[7] as Double,
@@ -523,8 +522,8 @@ def exec(Connection connection, input) {
     // Add Z dimension to the road segments
     // ROAD sources: z=0.05m (standard road surface height)
     // BRIDGE sources: z=-0.05m (below deck for structural vibration sources)
-    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,0.05) WHERE SOURCE_TYPE = 'ROAD';")
-    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,-0.05) WHERE SOURCE_TYPE = 'BRIDGE';")
+    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,0.05) WHERE EMISSION_TYPE = 'ROAD';")
+    sql.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom,-0.05) WHERE EMISSION_TYPE = 'BRIDGE';")
     
     // Set HEIGHT_TYPE to RELATIVE since we've assigned fixed relative heights
     sql.execute("UPDATE LW_ROADS SET HEIGHT_TYPE = 'RELATIVE';")

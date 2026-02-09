@@ -19,7 +19,7 @@ public class RootProgressVisitor extends DefaultProgressVisitor {
     private PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
     private boolean canceled = false;
     private boolean logProgression = false;
-    private Logger logger = LoggerFactory.getLogger(RootProgressVisitor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RootProgressVisitor.class);
     private String lastLoggedProgression = "";
     private double minimumSecondsBetweenPrint = 1.0;
     private long lastPrint = 0;
@@ -67,11 +67,19 @@ public class RootProgressVisitor extends DefaultProgressVisitor {
                 lastLoggedProgression = newLogProgress;
                 long t = System.currentTimeMillis();
                 if((t - lastPrint) / 1000.0 > minimumSecondsBetweenPrint) {
-                    logger.info(newLogProgress);
+                    LOGGER.info(newLogProgress);
                     lastPrint = t;
                 }
             }
         }
+    }
+
+    /**
+     * Called when the progress reaches 100%
+     */
+    @Override
+    public void endOfProgress() {
+        LOGGER.info("100.00 %");
     }
 
     /**

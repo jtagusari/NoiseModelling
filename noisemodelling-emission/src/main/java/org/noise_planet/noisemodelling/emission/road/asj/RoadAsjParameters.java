@@ -191,7 +191,7 @@ public class RoadAsjParameters {
     // Bridge parameters
     public boolean hasBridge() { return hasBridge; }
     public void setHasBridge(boolean hasBridge) { this.hasBridge = hasBridge; }
-    
+
     public String getBridgeGirderType() { return bridgeGirderType; }
     public void setBridgeGirderType(String bridgeGirderType) { this.bridgeGirderType = bridgeGirderType; }
     

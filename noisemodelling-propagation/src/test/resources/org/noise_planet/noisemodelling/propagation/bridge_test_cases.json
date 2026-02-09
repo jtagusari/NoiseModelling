@@ -8,7 +8,7 @@
         "z": 4
       },
       "sourceZ": 10.5,
-      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "relationType": "ACTUAL_SOURCE_ON_BRIDGE",
       "bridgeId": 100,
       "mirrorBridgeId": -1
     },
@@ -20,7 +20,7 @@
         "z": 4
       },
       "sourceZ": 10.5,
-      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "relationType": "ACTUAL_SOURCE_ON_BRIDGE",
       "bridgeId": 100,
       "mirrorBridgeId": -1
     },
@@ -32,7 +32,7 @@
         "z": 4
       },
       "sourceZ": 10.5,
-      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "relationType": "ACTUAL_SOURCE_ON_BRIDGE",
       "bridgeId": 100,
       "mirrorBridgeId": -1
     },
@@ -44,7 +44,7 @@
         "z": 4
       },
       "sourceZ": 10.5,
-      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "relationType": "ACTUAL_SOURCE_ON_BRIDGE",
       "bridgeId": 100,
       "mirrorBridgeId": -1
     },
@@ -56,7 +56,7 @@
         "z": 4
       },
       "sourceZ": 10.5,
-      "sourceType": "ACTUAL_SOURCE_ON_BRIDGE",
+      "relationType": "ACTUAL_SOURCE_ON_BRIDGE",
       "bridgeId": 100,
       "mirrorBridgeId": -1
     },
@@ -68,7 +68,7 @@
         "z": 4
       },
       "sourceZ": 10.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -80,7 +80,7 @@
         "z": 4
       },
       "sourceZ": 10.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -92,7 +92,7 @@
         "z": 4
       },
       "sourceZ": 10.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -104,7 +104,7 @@
         "z": 4
       },
       "sourceZ": 10.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -116,7 +116,7 @@
         "z": 4
       },
       "sourceZ": 10.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -128,7 +128,7 @@
         "z": 4
       },
       "sourceZ": 19.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -140,7 +140,7 @@
         "z": 4
       },
       "sourceZ": 19.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -152,7 +152,7 @@
         "z": 4
       },
       "sourceZ": 19.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -164,7 +164,7 @@
         "z": 4
       },
       "sourceZ": 19.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     },
@@ -176,7 +176,7 @@
         "z": 4
       },
       "sourceZ": 19.0,
-      "sourceType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
+      "relationType": "IMAGINARY_SOURCE_UNDER_BRIDGE",
       "bridgeId": -1,
       "mirrorBridgeId": 100
     }

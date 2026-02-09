@@ -27,6 +27,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.propagation.ReceiverNoiseLevel;
+import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -201,7 +202,8 @@ public class SceneWithEmissionTest {
         for (long i = 0; i < srcPtsRef.size(); i++) {
             Coordinate srcPtRef = srcPtsRef.get((int) i);
             scene.addSource(i, factory.createPoint(srcPtRef), null);
-            scene.registerSourceEmission(i, "", roadLvl);
+            SourceEmission emission = new SourceEmission("", roadLvl);
+            scene.registerSourceEmission(i, emission);
         }
 
         scene.setComputeHorizontalDiffraction(true);
@@ -215,17 +217,20 @@ public class SceneWithEmissionTest {
         AttenuationOutputMultiThread propDataOut = new AttenuationOutputMultiThread(scene);
 
         PathFinder computeRays = new PathFinder(scene);
-        computeRays.makeReceiverRelativeZToAbsolute();
+        computeRays.ensureAbsoluteReceiverHeights();
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
         computeRays.run(propDataOut);
 
 
         // Second compute the same scene but with a line source
         scene.clearSources();
         scene.addSource(1L, geomSource, null);
-        scene.registerSourceEmission(1L, "", roadLvl);
+        SourceEmission emission = new SourceEmission("", roadLvl);
+        scene.registerSourceEmission(1L, emission);
 
         AttenuationOutputMultiThread propDataOutTest = new AttenuationOutputMultiThread(scene);
+        computeRays.ensureAbsoluteReceiverHeights();
         computeRays.run(propDataOutTest);
 
         List<ReceiverNoiseLevel> levelsPerReceiver = new ArrayList<>(propDataOut.resultsCache.receiverLevels);
@@ -276,9 +281,10 @@ public class SceneWithEmissionTest {
         SceneWithEmission scene = new SceneWithEmission(profileBuilder);
         GeometryFactory gf = new GeometryFactory();
         scene.addSource(1L, gf.createPoint(new Coordinate(8, 5.5, 0.1)), null);
-        scene.addReceiver(new Coordinate(4.5, 8, 1.6));
+        scene.addReceiver(0L, new Coordinate(4.5, 8, 1.6));
         scene.setDefaultGroundAttenuation(0.5);
-        scene.registerSourceEmission(1L, "", sourcePower);
+        SourceEmission emission = new SourceEmission("", sourcePower);
+        scene.registerSourceEmission(1L, emission);
 
         scene.setMaxSrcDist(100*800);
         scene.maxRefDist = 100*800;
@@ -297,6 +303,7 @@ public class SceneWithEmissionTest {
             scene.setReflexionOrder(i);
             PathFinder computeRays = new PathFinder(scene);
             computeRays.setThreadCount(1);
+            computeRays.ensureAbsoluteReceiverHeights();
 
             //Run computation
             computeRays.run(propDataOut);
@@ -340,11 +347,12 @@ public class SceneWithEmissionTest {
         double[] roadLvl = AcousticIndicatorsFunctions.dBToW(new double[]{25.65, 38.15, 54.35, 60.35, 74.65, 66.75, 59.25, 53.95});
 
         SceneWithEmission scene = new SceneWithEmission(builder);
-        scene.addReceiver(new Coordinate(162, 80, 150));
+        scene.addReceiver(0L, new Coordinate(162, 80, 150));
         scene.addSource(1L, factory.createPoint(new Coordinate(-150, 200, 1)), null);
         scene.setComputeHorizontalDiffraction(true);
         scene.setComputeVerticalDiffraction(true);
-        scene.registerSourceEmission(1L, "", roadLvl);
+        SourceEmission emission = new SourceEmission("", roadLvl);
+        scene.registerSourceEmission(1L, emission);
 
         scene.setMaxSrcDist(2000);
         
@@ -357,6 +365,7 @@ public class SceneWithEmissionTest {
         
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
         AttenuationOutputMultiThread outputMultiThread = new AttenuationOutputMultiThread(scene);
         computeRays.run(outputMultiThread);
 

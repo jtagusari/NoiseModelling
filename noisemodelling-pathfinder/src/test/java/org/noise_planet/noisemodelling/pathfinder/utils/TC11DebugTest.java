@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Timeout;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilderDecorator;
+import org.noise_planet.noisemodelling.pathfinder.path.SceneBuilder;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.DefaultCutPlaneVisitor;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ public class TC11DebugTest {
 
         //Propagation data building
         LOGGER.info("Creating scene with high receiver position...");
-        Scene rayData = new ProfileBuilderDecorator(profileBuilder)
+        Scene rayData = new SceneBuilder(profileBuilder)
                 .addSource(50, 10, 1)      // Source at 1m height
                 .addReceiver(70, 10, 15)   // Receiver at 15m height (high above 10m building)
                 .hEdgeDiff(true)           // Enable horizontal diffraction
@@ -54,6 +54,7 @@ public class TC11DebugTest {
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(rayData);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         LOGGER.info("Starting ray computation...");
         
@@ -65,10 +66,10 @@ public class TC11DebugTest {
         LOGGER.info("Cut profiles generated: {}", propDataOut.getCutProfiles().size());
         
         // Print summary
-        System.out.println("\n=== DEBUG TEST SUMMARY ===");
-        System.out.println("Total execution time: " + elapsedTime + "ms");
-        System.out.println("Cut profiles generated: " + propDataOut.getCutProfiles().size());
-        System.out.println("Check target/diffraction-debug.log for detailed logs");
-        System.out.println("=============================\n");
+        LOGGER.info("\n=== DEBUG TEST SUMMARY ===");
+        LOGGER.info("Total execution time: " + elapsedTime + "ms");
+        LOGGER.info("Cut profiles generated: " + propDataOut.getCutProfiles().size());
+        LOGGER.info("Check target/diffraction-debug.log for detailed logs");
+        LOGGER.info("=============================\n");
     }
 }

@@ -19,6 +19,12 @@ public final class ReceiverBatchScheduler {
         public final int start;
         public final int end; // exclusive
 
+        /**
+         * Create a receiver index range.
+         *
+         * @param start inclusive start index
+         * @param end exclusive end index
+         */
         public Range(int start, int end) {
             this.start = start;
             this.end = end;
@@ -28,6 +34,10 @@ public final class ReceiverBatchScheduler {
     /**
      * Compute contiguous ranges that partition [0, total) into at most threadCount
      * balanced batches. If threadCount <= 1 a single full-range is returned.
+     *
+     * @param total total receiver count
+     * @param threadCount number of threads to split into
+     * @return list of non-overlapping ranges covering [0, total)
      */
     public static List<Range> computeBatches(int total, int threadCount) {
         if (total <= 0) {

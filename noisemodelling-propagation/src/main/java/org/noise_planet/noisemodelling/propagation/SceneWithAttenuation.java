@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.noise_planet.noisemodelling.emission.directivity.DirectivitySphere;
 import org.noise_planet.noisemodelling.emission.directivity.OmnidirectionalDirection;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
@@ -161,10 +161,10 @@ public class SceneWithAttenuation extends Scene {
     * The method reads the ResultSet metadata on first use to build a map of
     * input column names to 1-based indexes. It attempts to extract optional
     * orientation (yaw/pitch/roll), directivity identifier, ground factor (gs)
-    * and bridge-related attributes. When BRIDGE_PK is present, SOURCE_TYPE field
-    * determines the appropriate SourceBridgeProperty:
-    * - SOURCE_TYPE='ROAD': ACTUAL_SOURCE_ON_BRIDGE (road traffic noise)
-    * - SOURCE_TYPE='BRIDGE': IMAGINARY_SOURCE_UNDER_BRIDGE (structural noise)
+    * and bridge-related attributes. When BRIDGE_PK is present, EMISSION_TYPE field
+    * determines the appropriate BridgeRelationship:
+    * - EMISSION_TYPE='ROAD': ACTUAL_SOURCE_ON_BRIDGE (road traffic noise)
+    * - EMISSION_TYPE='BRIDGE': IMAGINARY_SOURCE_UNDER_BRIDGE (structural noise)
     *
     * If the registered PK differs from the provided candidate PK the method
     * will emit an info-level log entry describing the candidate and the
@@ -238,29 +238,29 @@ public class SceneWithAttenuation extends Scene {
             }
         }
         if(bridgePk == -1){
-            SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L);
-            addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+            BridgeRelationship bridgeRelationship = new BridgeRelationship(BridgeRelationship.RelationType.SOURCE_NOT_RELATED_TO_BRIDGE, -1L, -1L);
+            addSource(pk, geom, heightType, orientation, bridgeRelationship);
             return;
         }
 
-        // Read SOURCE_TYPE field to determine the appropriate SourceBridgeProperty.sourceType
-        String sourceType = null;
-        if(sourceFieldNames.containsKey(SOURCE_TYPE_DATABASE_FIELD)) {
-            sourceType = rs.getString(JDBCUtilities.getFieldIndex(rs.getMetaData(), SOURCE_TYPE_DATABASE_FIELD));
+        // Read EMISSION_TYPE field to determine the appropriate BridgeRelationship.relationType
+        String emissionType = null;
+        if(sourceFieldNames.containsKey(EMISSION_TYPE_DATABASE_FIELD)) {
+            emissionType = rs.getString(JDBCUtilities.getFieldIndex(rs.getMetaData(), EMISSION_TYPE_DATABASE_FIELD));
         }
 
-        if(sourceType.equals("ROAD")){
-            SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, bridgePk, -1L);
-            addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+        if(emissionType.equals("ROAD")){
+            BridgeRelationship bridgeRelationship = new BridgeRelationship(BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE, bridgePk, -1L);
+            addSource(pk, geom, heightType, orientation, bridgeRelationship);
             return;
-        } else if(sourceType.equals("BRIDGE")){
-            SourceBridgeProperty sourceBridgeProperty = new SourceBridgeProperty(SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1L, bridgePk);
-            addSource(pk, geom, heightType, orientation, sourceBridgeProperty);
+        } else if(emissionType.equals("BRIDGE")){
+            BridgeRelationship bridgeRelationship = new BridgeRelationship(BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1L, bridgePk);
+            addSource(pk, geom, heightType, orientation, bridgeRelationship);
             return;
         } else {
             throw new IllegalArgumentException(
-                "Unknown SOURCE_TYPE value for bridge source. " +
-                "Expected 'ROAD' or 'BRIDGE', got '" + sourceType + "'. " +
+                "Unknown EMISSION_TYPE value for bridge source. " +
+                "Expected 'ROAD' or 'BRIDGE', got '" + emissionType + "'. " +
                 "sourcePk=" + pk + ", bridgePk=" + bridgePk +".");
         }
 
@@ -305,13 +305,13 @@ public class SceneWithAttenuation extends Scene {
     
     
     @Override
-    public SourceBridgeProperty getSourceBridgePropertyByPk(long pk) {
-        return super.getSourceBridgePropertyByPk(pk);
+    public BridgeRelationship getBridgeRelationshipByPk(long pk) {
+        return super.getBridgeRelationshipByPk(pk);
     }
 
     @Override
-    public List<SourceBridgeProperty> getSourceBridgeProperties() {
-        return super.getSourceBridgeProperties();
+    public List<BridgeRelationship> getBridgeRelationships() {
+        return super.getBridgeRelationships();
     }
 
     @Override

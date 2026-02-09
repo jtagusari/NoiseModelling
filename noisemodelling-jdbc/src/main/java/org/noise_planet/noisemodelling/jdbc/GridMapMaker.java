@@ -29,6 +29,7 @@ import static org.h2gis.utilities.GeometryTableUtilities.getSRID;
  * @author Nicolas Fortin
  */
 public abstract class GridMapMaker {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GridMapMaker.class);
     // When computing cell size, try to keep propagation distance away from the cell
     // inferior to this ratio (in comparison with cell width)
     protected static final double MINIMAL_BUFFER_RATIO = 0.3;
@@ -435,6 +436,13 @@ public abstract class GridMapMaker {
                 subdivisionLevel++;
             }
             gridDim = (int) Math.pow(2, subdivisionLevel);
+            
+            LOGGER.info("Cell subdivision computed:");
+            LOGGER.info(String.format("  Envelope: X_range=[%.1f, %.1f], Y_range=[%.1f, %.1f], Width=%.1f, Height=%.1f",
+                    mainEnvelope.getMinX(), mainEnvelope.getMaxX(),
+                    mainEnvelope.getMinY(), mainEnvelope.getMaxY(),
+                    mainEnvelope.getWidth(), mainEnvelope.getHeight()));
+            LOGGER.info(String.format("  Cells: Number=%dx%d, Width=%.1f, Height=%.1f)", subdivisionLevel+1, subdivisionLevel+1, getCellWidth(), getCellHeight()));
         }
     }
 

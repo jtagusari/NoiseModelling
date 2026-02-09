@@ -367,15 +367,15 @@ public class DelaunayReceiversMaker extends GridMapMaker {
 
         if(!JDBCUtilities.tableExists(connection, receiverTableName)) {
             Statement st = connection.createStatement();
-            st.execute("CREATE TABLE "+TableLocation.parse(receiverTableName)+"(pk serial NOT NULL, the_geom geometry not null, PRIMARY KEY (PK))");
+            st.execute("CREATE TABLE "+TableLocation.parse(receiverTableName)+"(PK serial NOT NULL, THE_GEOM GEOMETRY not null, HEIGHT_TYPE VARCHAR(10) DEFAULT 'RELATIVE', PRIMARY KEY (PK))");
         }
         if(!JDBCUtilities.tableExists(connection, trianglesTableName)) {
             Statement st = connection.createStatement();
-            st.execute("CREATE TABLE "+TableLocation.parse(trianglesTableName)+"(pk serial NOT NULL, the_geom geometry , PK_1 integer not null, PK_2 integer not null, PK_3 integer not null, cell_id integer not null, PRIMARY KEY (PK))");
+            st.execute("CREATE TABLE "+TableLocation.parse(trianglesTableName)+"(PK serial NOT NULL, THE_GEOM geometry , PK_1 integer not null, PK_2 integer not null, PK_3 integer not null, CELL_ID integer not null, PRIMARY KEY (PK))");
         }
         int receiverPkOffset = receiverPK.get();
         // Add vertices to receivers
-        PreparedStatement ps = connection.prepareStatement("INSERT INTO "+TableLocation.parse(receiverTableName)+" VALUES (?, ?);");
+        PreparedStatement ps = connection.prepareStatement("INSERT INTO "+TableLocation.parse(receiverTableName)+"(PK, THE_GEOM)  VALUES (?, ?);");
         int batchSize = 0;
         for(Coordinate v : vertices) {
             ps.setInt(1, receiverPK.getAndAdd(1));
@@ -511,9 +511,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         cellMesh.setMaxArea(maximumArea > 1 ? maximumArea : 0);
 
         try {
-            computeDelaunay(cellMesh, mainEnvelope, cellI,
-                    cellJ,
-                    maximumPropagationDistance, sourceDelaunayGeometries, roadWidth, maximumArea, buildingBuffer, buildings);
+            computeDelaunay(cellMesh, mainEnvelope, cellI, cellJ, maximumPropagationDistance, sourceDelaunayGeometries, roadWidth, maximumArea, buildingBuffer, buildings);
         } catch (LayerDelaunayError err) {
             throw new SQLException(err.getLocalizedMessage(), err);
         }

@@ -39,7 +39,7 @@ public class RailWayCnossosParameters extends RailWayParameters {
 
 
     public static final Integer[] DEFAULT_FREQUENCIES_THIRD_OCTAVE = new Integer[]{50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000};
-    public static final String[] sourceType = new String[] {"ROLLING", "TRACTIONA", "TRACTIONB", "AERODYNAMICA", "AERODYNAMICB", "BRIDGE"};
+    public static final String[] emissionType = new String[] {"ROLLING", "TRACTIONA", "TRACTIONB", "AERODYNAMICA", "AERODYNAMICB", "BRIDGE"};
 
     private double[] lWRolling = new double[DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];
     private double[] lWTractionA = new double[DEFAULT_FREQUENCIES_THIRD_OCTAVE.length];

@@ -50,7 +50,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
     public AtomicBoolean aborted = new AtomicBoolean(false);
     private final NoiseMapDatabaseParameters noiseMapDatabaseParameters = new NoiseMapDatabaseParameters();
     private IComputeRaysOutFactory computeRaysOutFactory = new DefaultCutPlaneProcessing(noiseMapDatabaseParameters, exitWhenDone, aborted);
-    private Logger logger = LoggerFactory.getLogger(NoiseMapByReceiverMaker.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NoiseMapByReceiverMaker.class);
     private int threadCount = 0;
     private ProfilerThread profilerThread;
 
@@ -200,8 +200,10 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             int ij = cellIndex.getLatitudeIndex() * gridDim + cellIndex.getLongitudeIndex() + 1;
             WKTWriter roundWKTWriter = new WKTWriter();
             roundWKTWriter.setPrecisionModel(new PrecisionModel(1.0));
-            logger.info("Begin processing of cell {}/{} Compute domain is:\n {}", ij, gridDim * gridDim,
-                    roundWKTWriter.write(geometryFactory.toGeometry(cellEnvelope)));
+            LOGGER.info(String.format("Begin processing of cell %d/%d Compute domain", ij, gridDim * gridDim));
+            LOGGER.info(String.format("  X_range=[%.1f, %.1f], Y_range=[%.1f, %.1f]",
+                    mainEnvelope.getMinX(), mainEnvelope.getMaxX(),
+                    mainEnvelope.getMinY(), mainEnvelope.getMaxY()));
         }
 
         return tableLoader.create(connection, cellIndex, skipReceivers);
@@ -238,7 +240,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             throw new SQLException("The table "+receiverTableName+" does not contain a Geometry field, then the extent " +
                     "cannot be computed");
         }
-        logger.info("Collect all receivers in order to localize populated cells");
+        LOGGER.info("Collect all receivers in order to localize populated cells");
         geometryField = geometryFields.get(0);
         ResultSet rs = connection.createStatement().executeQuery("SELECT " + geometryField + " FROM " + receiverTableName);
         // Construct RTree with cells envelopes
@@ -282,9 +284,9 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         SceneWithEmission scene = prepareCell(connection, cellIndex, skipReceivers);
 
         if(verbose) {
-            logger.info(String.format("This computation area contains %d receivers %d sound sources and %d buildings",
-                    scene.receivers.size(), scene.countSources(),
-                    scene.profileBuilder.getBuildingCount()));
+            LOGGER.info(String.format("  Number of receivers: %d", scene.receivers.size()));
+            LOGGER.info(String.format("  Number of sound sources: %d", scene.countSources()));
+            LOGGER.info(String.format("  Number of buildings: %d", scene.profileBuilder.getBuildingCount()));
         }
 
         CutPlaneVisitorFactory computeRaysOut = computeRaysOutFactory.create(scene);
@@ -299,9 +301,9 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             computeRays.setThreadCount(threadCount);
         }
 
-        if(!receiverHasAbsoluteZCoordinates) {
-            computeRays.makeReceiverRelativeZToAbsolute();
-        }
+        // if(!receiverHasAbsoluteZCoordinates) {
+        computeRays.ensureAbsoluteReceiverHeights();
+        // }
 
         if(!sourceHasAbsoluteZCoordinates) {
             computeRays.makeSourceRelativeZToAbsolute();
@@ -357,6 +359,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             }
         } finally {
             computeRaysOutFactory.stop();
+            progressLogger.endOfProgress();
         }
     }
 

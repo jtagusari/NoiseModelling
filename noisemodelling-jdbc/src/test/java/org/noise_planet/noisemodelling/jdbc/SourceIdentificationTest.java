@@ -14,12 +14,13 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.SourceCollector;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
 
 import java.sql.Connection;
@@ -28,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +79,7 @@ public class SourceIdentificationTest {
         try (Statement st = connection.createStatement();
              ResultSet rs = st.executeQuery(
                     "SELECT THE_GEOM, " +
-                    "BRIDGE_PK, POSITION, ABSOLUTE_DECK_HEIGHT, RELATIVE_DECK_HEIGHT, " +
+                    "BRIDGE_PK, PK, POSITION, ABSOLUTE_DECK_HEIGHT, RELATIVE_DECK_HEIGHT, " +
                     "DECK_THICKNESS, RIGHT_WIDTH, LEFT_WIDTH, RIGHT_BARRIER_HEIGHT, LEFT_BARRIER_HEIGHT, GIRDER_TYPE, SLAB_TYPE " +
                     "FROM BRIDGE_POINTS WHERE BRIDGE_PK=100 ORDER BY PK")) {
             
@@ -109,7 +111,7 @@ public class SourceIdentificationTest {
      * - Road 3: Crossing road (PK=3, BRIDGE_PK=NULL) intersecting both
      * 
      * After duplication:
-     * - Road 4: Duplicated bridge record (PK=4, SOURCE_TYPE='BRIDGE', HEIGHT_TYPE='RELATIVE')
+     * - Road 4: Duplicated bridge record (PK=4, EMISSION_TYPE='BRIDGE', HEIGHT_TYPE='RELATIVE')
      * 
      * @return Statement for continued test operations
      */
@@ -205,12 +207,12 @@ public class SourceIdentificationTest {
             
             // Step 2: Bridge record duplication
             // As per source_algorithms.md Step 2: Bridge Record Duplication and Classification
-            st.execute("ALTER TABLE ROADS ADD COLUMN SOURCE_TYPE VARCHAR(20)");
-            st.execute("UPDATE ROADS SET SOURCE_TYPE='ROAD'");
+            st.execute("ALTER TABLE ROADS ADD COLUMN EMISSION_TYPE VARCHAR(20)");
+            st.execute("UPDATE ROADS SET EMISSION_TYPE='ROAD'");
             st.execute("INSERT INTO ROADS (THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
                     "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
                     "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, " +
-                    "HEIGHT_TYPE, BRIDGE_PK, SOURCE_TYPE) " +
+                    "HEIGHT_TYPE, BRIDGE_PK, EMISSION_TYPE) " +
                     "SELECT THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
                     "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
                     "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, " +
@@ -238,8 +240,8 @@ public class SourceIdentificationTest {
      * - Road 3: Crossing road (PK=3, BRIDGE_PK=NULL) intersecting both parallel roads
      * 
      * Step 2: Duplicates bridge records (BRIDGE_PK IS NOT NULL):
-     * - Original records: SOURCE_TYPE='ROAD'
-     * - Duplicated records: SOURCE_TYPE='BRIDGE', HEIGHT_TYPE='RELATIVE'
+     * - Original records: EMISSION_TYPE='ROAD'
+     * - Duplicated records: EMISSION_TYPE='BRIDGE', HEIGHT_TYPE='RELATIVE'
      * 
      * Step 3: Calculates emissions:
      * - Road sources: CNOSSOS-EU methodology
@@ -264,7 +266,7 @@ public class SourceIdentificationTest {
             
             // Verify initial data (3 original roads)
             try (ResultSet rs = st.executeQuery("SELECT PK, ST_AsText(THE_GEOM) as GEOM_TEXT, " +
-                    "LV_D, BRIDGE_PK FROM ROADS WHERE SOURCE_TYPE='ROAD' ORDER BY PK")) {
+                    "LV_D, BRIDGE_PK FROM ROADS WHERE EMISSION_TYPE='ROAD' ORDER BY PK")) {
                 
                 // Road 1: Regular road
                 assertTrue(rs.next());
@@ -293,7 +295,7 @@ public class SourceIdentificationTest {
             LOGGER.info("Road 1: Regular road (Y=0), LV_D=600, BRIDGE_PK=NULL");
             LOGGER.info("Road 2: Highway on bridge (Y=20), LV_D=1200, BRIDGE_PK=100");
             LOGGER.info("Road 3: Crossing road, LV_D=600, BRIDGE_PK=NULL");
-            LOGGER.info("Total: 3 roads with SOURCE_TYPE='ROAD'");
+            LOGGER.info("Total: 3 roads with EMISSION_TYPE='ROAD'");
 
             // Verify Bridge PK=100 has exactly 3 CENTER points (no LEFT/RIGHT in database)
             try (ResultSet rs = st.executeQuery(
@@ -319,10 +321,10 @@ public class SourceIdentificationTest {
             LOGGER.info("========================================");
             
             // Verify bridge record duplication
-            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) as cnt FROM ROADS WHERE SOURCE_TYPE='BRIDGE'")) {
+            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) as cnt FROM ROADS WHERE EMISSION_TYPE='BRIDGE'")) {
                 assertTrue(rs.next());
                 assertEquals(1, rs.getInt("cnt"), "Should have 1 duplicated BRIDGE record");
-                LOGGER.info("Duplicated record count: 1 (Road 2 → Road 4 with SOURCE_TYPE='BRIDGE')");
+                LOGGER.info("Duplicated record count: 1 (Road 2 → Road 4 with EMISSION_TYPE='BRIDGE')");
             }
             
             try (ResultSet rs = st.executeQuery("SELECT COUNT(*) as cnt FROM ROADS")) {
@@ -333,10 +335,10 @@ public class SourceIdentificationTest {
             
             // Log duplicated record details
             try (ResultSet rs = st.executeQuery(
-                    "SELECT PK, SOURCE_TYPE, BRIDGE_PK FROM ROADS WHERE SOURCE_TYPE='BRIDGE'")) {
+                    "SELECT PK, EMISSION_TYPE, BRIDGE_PK FROM ROADS WHERE EMISSION_TYPE='BRIDGE'")) {
                 if (rs.next()) {
-                    LOGGER.info(String.format("Duplicated record: PK=%d, SOURCE_TYPE=%s, BRIDGE_PK=%d",
-                            rs.getLong("PK"), rs.getString("SOURCE_TYPE"), rs.getLong("BRIDGE_PK")));
+                    LOGGER.info(String.format("Duplicated record: PK=%d, EMISSION_TYPE=%s, BRIDGE_PK=%d",
+                            rs.getLong("PK"), rs.getString("EMISSION_TYPE"), rs.getLong("BRIDGE_PK")));
                 }
             }
             
@@ -389,7 +391,7 @@ public class SourceIdentificationTest {
                     "ST_Intersects(r.THE_GEOM, b.THE_GEOM) as intersects, " +
                     "ST_Contains(b.THE_GEOM, r.THE_GEOM) as contains " +
                     "FROM ROADS r, TEMP_BRIDGE_DECK b " +
-                    "WHERE r.SOURCE_TYPE='ROAD' AND r.PK IN (1, 2) " +
+                    "WHERE r.EMISSION_TYPE='ROAD' AND r.PK IN (1, 2) " +
                     "ORDER BY r.PK")) {
                 
                 // Road 1 (Y=0) should NOT intersect with bridge deck
@@ -421,7 +423,7 @@ public class SourceIdentificationTest {
             // ============================================================
             // ============================================================
             // Step 4: LW_ROADS Table Creation
-            // Creates LW_ROADS table with emission data and assigns Z coordinates based on SOURCE_TYPE
+            // Creates LW_ROADS table with emission data and assigns Z coordinates based on EMISSION_TYPE
             // as per source_algorithms.md Step 4: LW_ROADS Table Creation
             // ============================================================
             
@@ -430,11 +432,11 @@ public class SourceIdentificationTest {
             LOGGER.info("Step 3, 4: Emission Calculation and LW_ROADS Table Creation");
             LOGGER.info("========================================");
             
-            // Create LW_ROADS table with 28 columns (PK, THE_GEOM, SOURCE_TYPE, BRIDGE_PK + 24 emission levels)
+            // Create LW_ROADS table with 28 columns (PK, THE_GEOM, EMISSION_TYPE, BRIDGE_PK + 24 emission levels)
             st.execute("CREATE TABLE LW_ROADS (" +
                     "PK LONG PRIMARY KEY, " +
                     "THE_GEOM GEOMETRY, " +
-                    "SOURCE_TYPE VARCHAR(20), " +
+                    "EMISSION_TYPE VARCHAR(20), " +
                     "HEIGHT_TYPE VARCHAR(10), " +
                     "BRIDGE_PK LONG, " +
                     // Day period (8 octave bands: 63, 125, 250, 500, 1000, 2000, 4000, 8000 Hz)
@@ -466,16 +468,30 @@ public class SourceIdentificationTest {
                         for (int j = 1; j <= metaData.getColumnCount(); j++) {
                             fieldCache.put(metaData.getColumnName(j), j);
                         }
-                        
-                        String sourceType = rs.getString("SOURCE_TYPE");
-                        
+                                                
                         // Compute emissions based on source type (returns W values)
-                        // ROAD: CNOSSOS-EU methodology, BRIDGE: ASJ methodology
-                        double[][] lwResults;
-                        if ("ROAD".equals(sourceType)) {
-                            lwResults = EmissionTableGenerator.computeLw(rs, 2, fieldCache);
-                        } else { // BRIDGE
-                            lwResults = BridgeStructuralEmissionCalculator.computeStructuralLw(rs, bridge, fieldCache);
+                        List<SourceEmission> emissions = new RoadEmissionBuilder(rs)
+                            .trafficAsInput()
+                            .withPeriods(Arrays.asList("D", "E", "N"))
+                            .build(profileBuilder);
+
+                        double[][] lwResults = new double[3][8];
+                        for (SourceEmission emission : emissions) {
+                            int periodIndex;
+                            switch (emission.period) {
+                                case "D":
+                                    periodIndex = 0;
+                                    break;
+                                case "E":
+                                    periodIndex = 1;
+                                    break;
+                                case "N":
+                                    periodIndex = 2;
+                                    break;
+                                default:
+                                    continue;
+                            }
+                            lwResults[periodIndex] = emission.emissionInWatts;
                         }
                         
                         // Convert W to dB and build emission values SQL fragment (24 values: 8 bands × 3 periods)
@@ -490,20 +506,20 @@ public class SourceIdentificationTest {
                         
                         // Insert calculated emission data into LW_ROADS table
                         st.execute(String.format(
-                                "INSERT INTO LW_ROADS (PK, THE_GEOM, SOURCE_TYPE, HEIGHT_TYPE, BRIDGE_PK, " +
+                                "INSERT INTO LW_ROADS (PK, THE_GEOM, EMISSION_TYPE, HEIGHT_TYPE, BRIDGE_PK, " +
                                 "LWD63, LWD125, LWD250, LWD500, LWD1000, LWD2000, LWD4000, LWD8000, " +
                                 "LWE63, LWE125, LWE250, LWE500, LWE1000, LWE2000, LWE4000, LWE8000, " +
                                 "LWN63, LWN125, LWN250, LWN500, LWN1000, LWN2000, LWN4000, LWN8000) " +
-                                "SELECT %d, THE_GEOM, SOURCE_TYPE, HEIGHT_TYPE, BRIDGE_PK, %s FROM ROADS WHERE PK=%d",
+                                "SELECT %d, THE_GEOM, EMISSION_TYPE, HEIGHT_TYPE, BRIDGE_PK, %s FROM ROADS WHERE PK=%d",
                                 pk, emissionValues.toString(), pk));
                     }
                 }
             }
 
-            // Update Z coordinates based on SOURCE_TYPE as per LW_ROADS table convention
+            // Update Z coordinates based on EMISSION_TYPE as per LW_ROADS table convention
             // ROAD sources: Z=0.05m (above road surface), BRIDGE sources: Z=-0.05m (below deck)
-            st.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(THE_GEOM, 0.05) WHERE SOURCE_TYPE='ROAD'");
-            st.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(THE_GEOM, -0.05) WHERE SOURCE_TYPE='BRIDGE'");
+            st.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(THE_GEOM, 0.05) WHERE EMISSION_TYPE='ROAD'");
+            st.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(THE_GEOM, -0.05) WHERE EMISSION_TYPE='BRIDGE'");
             st.execute("UPDATE LW_ROADS SET HEIGHT_TYPE = 'RELATIVE'");
             
             
@@ -521,7 +537,7 @@ public class SourceIdentificationTest {
                 assertTrue(rs.next());
                 int colCount = rs.getInt("col_count");
                 assertEquals(29, colCount, "LW_ROADS should have 29 columns");
-                LOGGER.info("Column count: " + colCount + " (PK, THE_GEOM, SOURCE_TYPE, BRIDGE_PK + 24 emission levels)");
+                LOGGER.info("Column count: " + colCount + " (PK, THE_GEOM, EMISSION_TYPE, BRIDGE_PK + 24 emission levels)");
             }
             
             // Verify we have 4 emission records (Roads 1, 2, 3, and 4)
@@ -532,22 +548,22 @@ public class SourceIdentificationTest {
                 LOGGER.info("Emission record count: " + recordCount);
             }
             
-            // Verify SOURCE_TYPE distribution
+            // Verify EMISSION_TYPE distribution
             try (ResultSet rs = st.executeQuery(
-                    "SELECT SOURCE_TYPE, COUNT(*) as cnt FROM LW_ROADS GROUP BY SOURCE_TYPE ORDER BY SOURCE_TYPE")) {
+                    "SELECT EMISSION_TYPE, COUNT(*) as cnt FROM LW_ROADS GROUP BY EMISSION_TYPE ORDER BY EMISSION_TYPE")) {
                 int roadCount = 0;
                 int bridgeCount = 0;
                 while (rs.next()) {
-                    String sourceType = rs.getString("SOURCE_TYPE");
+                    String emissionType = rs.getString("EMISSION_TYPE");
                     int count = rs.getInt("cnt");
-                    if ("ROAD".equals(sourceType)) {
+                    if ("ROAD".equals(emissionType)) {
                         roadCount = count;
-                    } else if ("BRIDGE".equals(sourceType)) {
+                    } else if ("BRIDGE".equals(emissionType)) {
                         bridgeCount = count;
                     }
                 }
-                LOGGER.info("SOURCE_TYPE='ROAD': " + roadCount + " records (CNOSSOS-EU methodology)");
-                LOGGER.info("SOURCE_TYPE='BRIDGE': " + bridgeCount + " records (ASJ methodology)");
+                LOGGER.info("EMISSION_TYPE='ROAD': " + roadCount + " records (CNOSSOS-EU methodology)");
+                LOGGER.info("EMISSION_TYPE='BRIDGE': " + bridgeCount + " records (ASJ methodology)");
             }
             
             // Log emission data for all records
@@ -555,7 +571,7 @@ public class SourceIdentificationTest {
             String[] bands = {"63", "125", "250", "500", "1000", "2000", "4000", "8000"};
             
             try (ResultSet rs = st.executeQuery(
-                    "SELECT PK, SOURCE_TYPE, BRIDGE_PK, " +
+                    "SELECT PK, EMISSION_TYPE, BRIDGE_PK, " +
                     "LWD63, LWD125, LWD250, LWD500, LWD1000, LWD2000, LWD4000, LWD8000, " +
                     "LWE63, LWE125, LWE250, LWE500, LWE1000, LWE2000, LWE4000, LWE8000, " +
                     "LWN63, LWN125, LWN250, LWN500, LWN1000, LWN2000, LWN4000, LWN8000 " +
@@ -563,12 +579,12 @@ public class SourceIdentificationTest {
                 
                 while (rs.next()) {
                     long pk = rs.getLong("PK");
-                    String sourceType = rs.getString("SOURCE_TYPE");
+                    String emissionType = rs.getString("EMISSION_TYPE");
                     Long bridgePk = rs.getLong("BRIDGE_PK");
                     if (rs.wasNull()) bridgePk = null;
                     
-                    LOGGER.info(String.format("Road %d (SOURCE_TYPE=%s, BRIDGE_PK=%s):", 
-                            pk, sourceType, bridgePk));
+                    LOGGER.info(String.format("Road %d (EMISSION_TYPE=%s, BRIDGE_PK=%s):", 
+                            pk, emissionType, bridgePk));
                     
                     // Day period emissions
                     StringBuilder dayEmissions = new StringBuilder("  Day:     ");
@@ -660,34 +676,34 @@ public class SourceIdentificationTest {
             
             LOGGER.info("All geometries validated: LineString type");
             
-            // Validate SourceBridgeProperty classification
+            // Validate BridgeRelationship classification
             LOGGER.info("");
-            LOGGER.info("--- SourceBridgeProperty Classification ---");
-            LOGGER.info(String.format("sourceBridgeProperties.size() = %d", scene.sourceBridgeProperties.size()));
+            LOGGER.info("--- BridgeRelationship Classification ---");
+            LOGGER.info(String.format("bridgeRelationships.size() = %d", scene.bridgeRelationships.size()));
             LOGGER.info(String.format("sourcesPk.size() = %d", scene.sourcesPk.size()));
             
             int roadSourceCount = 0;
             int bridgeSourceOnBridgeCount = 0;
             int bridgeSourceUnderBridgeCount = 0;
             
-            for (Long sourcePk : scene.sourceBridgeProperties.keySet()) {
-                var bridgeProperty = scene.sourceBridgeProperties.get(sourcePk);
+            for (Long sourcePk : scene.bridgeRelationships.keySet()) {
+                var bridgeProperty = scene.bridgeRelationships.get(sourcePk);
                 
-                String sourceTypeDesc;
+                String relationTypeDesc;
                 if (bridgeProperty.getBridgePkOn() >= 0) {
                     bridgeSourceOnBridgeCount++;
-                    sourceTypeDesc = String.format("ACTUAL_SOURCE_ON_BRIDGE (bridgePkOn=%d)",
+                    relationTypeDesc = String.format("ACTUAL_SOURCE_ON_BRIDGE (bridgePkOn=%d)",
                             bridgeProperty.getBridgePkOn());
                 } else if (bridgeProperty.getBridgePkAbove() >= 0) {
                     bridgeSourceUnderBridgeCount++;
-                    sourceTypeDesc = String.format("IMAGINARY_SOURCE_UNDER_BRIDGE (bridgePkAbove=%d)",
+                    relationTypeDesc = String.format("IMAGINARY_SOURCE_UNDER_BRIDGE (bridgePkAbove=%d)",
                             bridgeProperty.getBridgePkAbove());
                 } else {
                     roadSourceCount++;
-                    sourceTypeDesc = "SOURCE_NOT_RELATED_TO_BRIDGE";
+                    relationTypeDesc = "SOURCE_NOT_RELATED_TO_BRIDGE";
                 }
                 
-                LOGGER.info(String.format("Source PK=%d: %s", sourcePk, sourceTypeDesc));
+                LOGGER.info(String.format("Source PK=%d: %s", sourcePk, relationTypeDesc));
             }
             
             LOGGER.info("");
@@ -711,18 +727,18 @@ public class SourceIdentificationTest {
             
             List<SourcePointInfo> sourceList = SourceCollector.collectSourcePoints(receiverPointInfo, scene);
 
-            HashMap<Long, HashMap<SourceBridgeProperty.SourceType, Integer>> sourcePointCountMap = new HashMap<>();
+            HashMap<Long, HashMap<BridgeRelationship.RelationType, Integer>> sourcePointCountMap = new HashMap<>();
             for (SourcePointInfo sourcePointInfo : sourceList) {
                 long sourcePk = sourcePointInfo.getSourcePk();
-                SourceBridgeProperty.SourceType sourceType = sourcePointInfo.getSourceBridgeProperty().getSourceType();
+                BridgeRelationship.RelationType relationType = sourcePointInfo.getBridgeRelationship().getRelationType();
 
                 if(sourcePointCountMap.get(sourcePk) == null) {
-                    HashMap<SourceBridgeProperty.SourceType, Integer> sourceTypeCountMap = new HashMap<>();
-                    sourcePointCountMap.put(sourcePk, sourceTypeCountMap);
+                    HashMap<BridgeRelationship.RelationType, Integer> relationTypeCountMap = new HashMap<>();
+                    sourcePointCountMap.put(sourcePk, relationTypeCountMap);
                 }
-                sourcePointCountMap.get(sourcePk).put(sourceType, sourcePointCountMap.get(sourcePk).getOrDefault(sourceType, 0) + 1);
+                sourcePointCountMap.get(sourcePk).put(relationType, sourcePointCountMap.get(sourcePk).getOrDefault(relationType, 0) + 1);
 
-                if (sourceType == SourceBridgeProperty.SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+                if (relationType == BridgeRelationship.RelationType.SOURCE_NOT_RELATED_TO_BRIDGE) {
                     double z = sourcePointInfo.getCoordinate().z;
                     
                     AtomicInteger triangleHint = new AtomicInteger(-1);
@@ -730,16 +746,16 @@ public class SourceIdentificationTest {
 
                     assertEquals(0.05, z - profileZ, 0.001,
                             String.format("Source NOT related to bridge: Z=%.3f should be 0.05m above ground Z=%.3f", z, profileZ));
-                } else if (sourceType == SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE){
+                } else if (relationType == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE){
                     double z = sourcePointInfo.getCoordinate().z;
-                    long bridgePkOn = sourcePointInfo.getSourceBridgeProperty().getBridgePkOn();
+                    long bridgePkOn = sourcePointInfo.getBridgeRelationship().getBridgePkOn();
                     
                     double deckHeight = profileBuilder.getBridgeByPk(bridgePkOn).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
                     assertEquals(0.05, z - deckHeight, 0.001,
                             String.format("Actual Source ON bridge: Z=%.3f should be 0.05m above deck Z=%.3f", z, deckHeight));
-                } else if(sourceType == SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+                } else if(relationType == BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
                     double z = sourcePointInfo.getCoordinate().z;
-                    long bridgePkAbove = sourcePointInfo.getSourceBridgeProperty().getBridgePkAbove();
+                    long bridgePkAbove = sourcePointInfo.getBridgeRelationship().getBridgePkAbove();
                     
                     double deckHeight = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
                     double deckThickness = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckThicknessAtPoint(sourcePointInfo.getCoordinate());
@@ -747,9 +763,9 @@ public class SourceIdentificationTest {
 
                     assertEquals(-0.05, z - (deckHeight - deckThickness), 0.001,
                             String.format("Imaginary Source UNDER bridge: Z=%.3f should be -0.05m below ground Z=%.3f", z, deckHeight - deckThickness));
-                } else if(sourceType == SourceBridgeProperty.SourceType.MIRROR_SOURCE){
+                } else if(relationType == BridgeRelationship.RelationType.MIRROR_SOURCE){
                     double z = sourcePointInfo.getCoordinate().z;
-                    long bridgePkAbove = sourcePointInfo.getSourceBridgeProperty().getBridgePkAbove();
+                    long bridgePkAbove = sourcePointInfo.getBridgeRelationship().getBridgePkAbove();
                     
                     double deckHeight = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
                     double deckThickness = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckThicknessAtPoint(sourcePointInfo.getCoordinate());
@@ -762,12 +778,12 @@ public class SourceIdentificationTest {
             }
             
             for (Long sourcePk : sourcePointCountMap.keySet()) {
-                HashMap<SourceBridgeProperty.SourceType, Integer> pointCountMap = sourcePointCountMap.get(sourcePk);
+                HashMap<BridgeRelationship.RelationType, Integer> pointCountMap = sourcePointCountMap.get(sourcePk);
                 LOGGER.info(String.format("SourcePK: %d", sourcePk));
 
-                for (SourceBridgeProperty.SourceType sourceType : pointCountMap.keySet()) {
-                    int typeCount = pointCountMap.get(sourceType);
-                    LOGGER.info(String.format("  %s: %d sampled points", sourceType, typeCount));
+                for (BridgeRelationship.RelationType relationType : pointCountMap.keySet()) {
+                    int typeCount = pointCountMap.get(relationType);
+                    LOGGER.info(String.format("  %s: %d sampled points", relationType, typeCount));
                 }
             }
 

@@ -16,10 +16,11 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.locationtech.jts.geom.*;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship.RelationType;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
+import org.noise_planet.noisemodelling.pathfinder.path.SceneBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReflection;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
@@ -224,16 +225,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(1L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1));
-        scene.addReceiver(new Coordinate(200, 50, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(1L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -255,16 +258,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(1L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1));
-        scene.addReceiver(new Coordinate(12, 10, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(1L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1))
+                .addReceiver(1L, 12, 10, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -287,16 +292,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(1L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1));
-        scene.addReceiver(new Coordinate(12, 10, 14));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(1L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1))
+                .addReceiver(1L, 12, 10, 14, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -321,16 +328,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.MIRROR_SOURCE, -1, 100));
-        scene.addReceiver(new Coordinate(200, 50, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.MIRROR_SOURCE, -1, 100))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -352,16 +361,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.MIRROR_SOURCE, -1, 100));
-        scene.addReceiver(new Coordinate(12, 10, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.MIRROR_SOURCE, -1, 100))
+                .addReceiver(1L, 12, 10, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -384,16 +395,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.MIRROR_SOURCE, -1, 100));
-        scene.addReceiver(new Coordinate(12, 10, 14));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.MIRROR_SOURCE, -1, 100))
+                .addReceiver(1L, 12, 10, 14, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -419,16 +432,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100));
-        scene.addReceiver(new Coordinate(200, 50, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -450,16 +465,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100));
-        scene.addReceiver(new Coordinate(12, 10, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100))
+                .addReceiver(1L, 12, 10, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -482,16 +499,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100));
-        scene.addReceiver(new Coordinate(12, 10, 14));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE, -1, 100))
+                .addReceiver(1L, 12, 10, 14, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -514,16 +533,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.SOURCE_NOT_RELATED_TO_BRIDGE, -1, -1));
-        scene.addReceiver(new Coordinate(200, 50, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.SOURCE_NOT_RELATED_TO_BRIDGE, -1, -1))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -547,16 +568,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(1L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1));
-        scene.addReceiver(new Coordinate(200, 50, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(1L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -580,16 +603,18 @@ public class PathFinderBridgeTest {
         });
 
         //Propagation data building
-        Scene scene = new Scene(profileBuilder);
-        scene.addSource(100L, source, null, new Orientation(0,0,0), new SourceBridgeProperty(SourceType.MIRROR_SOURCE, -1, 100));
-        scene.addReceiver(new Coordinate(200, 50, 4));
-        scene.setComputeHorizontalDiffraction(false);
-        scene.setComputeVerticalDiffraction(true);
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, null, new Orientation(0,0,0), new BridgeRelationship(RelationType.MIRROR_SOURCE, -1, 100))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
 
         //Out and computation settings
         DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
         PathFinder computeRays = new PathFinder(scene);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);

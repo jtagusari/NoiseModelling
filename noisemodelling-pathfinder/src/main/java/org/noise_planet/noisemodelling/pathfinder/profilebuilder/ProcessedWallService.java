@@ -10,6 +10,7 @@ import org.noise_planet.noisemodelling.pathfinder.utils.geometry.RTreeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -144,5 +145,16 @@ public class ProcessedWallService implements FrequencyInitializable{
         for (Wall w : processedWalls) {
             w.initialize(exactFrequencyArray);
         }
+    }
+
+    /**
+     * Compute a hash code representing the current state of this ProcessedWallService.
+     * The hash is based on the number of processed walls.
+     * 
+     * @return Hash code representing the service state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(processedWalls);
     }
 }

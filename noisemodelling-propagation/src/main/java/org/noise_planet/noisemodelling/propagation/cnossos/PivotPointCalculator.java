@@ -6,8 +6,8 @@ import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty.SourceType;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship.RelationType;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointTopography;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall;
@@ -57,19 +57,19 @@ public class PivotPointCalculator {
         // Collect valid diffraction points
         List<Coordinate> candidateCoordinates = collectHorizontalEdgePivotCandidates(configuration);
 
-        SourceBridgeProperty sourceProperty = configuration.getCutProfile().getSource().getSourceBridgeProperty();
+        BridgeRelationship sourceProperty = configuration.getCutProfile().getSource().getBridgeRelationship();
 
-        SourceType sourceType;
+        RelationType relationType;
         if (sourceProperty != null){
-            sourceType = sourceProperty.getSourceType();
+            relationType = sourceProperty.getRelationType();
         } else {
-            sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
+            relationType = RelationType.SOURCE_NOT_RELATED_TO_BRIDGE;
         }
 
-        LOGGER.debug("computeHorizontalEdgePivotPoints - sourceType: {}, candidateCount: {}", 
-                    sourceType, candidateCoordinates.size());
+        LOGGER.debug("computeHorizontalEdgePivotPoints - relationType: {}, candidateCount: {}", 
+                    relationType, candidateCoordinates.size());
 
-        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+        if (relationType == RelationType.ACTUAL_SOURCE_ON_BRIDGE || relationType == RelationType.SOURCE_NOT_RELATED_TO_BRIDGE) {
             LOGGER.debug("Using standard convex hull (no downward bridge edges)");
             return extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
         }
@@ -262,14 +262,14 @@ public class PivotPointCalculator {
         List<Coordinate> cutPointCoordinates2D = configuration.getCutPointCoordinates2D();
         List<CutPoint> cutProfilePoints = configuration.getCutProfilePoints();
         List<Coordinate> horizontalEdgePivotCandidates = new ArrayList<>();
-        SourceBridgeProperty sourceProperty = configuration.getCutProfile().getSource().getSourceBridgeProperty();
-        SourceType sourceType = SourceType.SOURCE_NOT_RELATED_TO_BRIDGE;
+        BridgeRelationship sourceProperty = configuration.getCutProfile().getSource().getBridgeRelationship();
+        RelationType relationType = RelationType.SOURCE_NOT_RELATED_TO_BRIDGE;
         if (sourceProperty != null) {
-            sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
+            relationType = configuration.getCutProfile().getSource().getBridgeRelationship().getRelationType();
         };
         
         LOGGER.debug("collectHorizontalEdgePivotCandidates - Total cut profile points: {}", cutProfilePoints.size());
-        LOGGER.debug("collectHorizontalEdgePivotCandidates - sourceType: {}", sourceType);
+        LOGGER.debug("collectHorizontalEdgePivotCandidates - relationType: {}", relationType);
         
         // Add source position
         horizontalEdgePivotCandidates.add(cutPointCoordinates2D.get(0));
@@ -288,13 +288,13 @@ public class PivotPointCalculator {
             if (currentPoint instanceof CutPointTopography) {
                 horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
                 LOGGER.debug("  -> Added as CutPointTopography");
-            } else if(currentPoint instanceof CutPointBridgeWall && sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE) {
+            } else if(currentPoint instanceof CutPointBridgeWall && relationType == RelationType.ACTUAL_SOURCE_ON_BRIDGE) {
                 horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
                 LOGGER.debug("  -> Added as CutPointBridgeWall (source on bridge)");
             } else if(currentPoint instanceof CutPointBridgeWall) {
                 CutPointBridgeWall bridgeWall = (CutPointBridgeWall)currentPoint;
-                LOGGER.debug("  -> Skipped CutPointBridgeWall (direction: {}, sourceType: {})", 
-                           bridgeWall.getWallDirection(), sourceType);
+                LOGGER.debug("  -> Skipped CutPointBridgeWall (direction: {}, relationType: {})", 
+                           bridgeWall.getWallDirection(), relationType);
             } else if (currentPoint instanceof CutPointWall && currentPoint.hasObstacle()) {
                 horizontalEdgePivotCandidates.add(currentPointCoordinate2D);
                 LOGGER.debug("  -> Added as CutPointWall with obstacle");
@@ -319,13 +319,13 @@ public class PivotPointCalculator {
     }
 
     private static List<Coordinate> collectDownwardBridgeEdges(AcousticPathConfiguration configuration){
-        SourceType sourceType = configuration.getCutProfile().getSource().getSourceBridgeProperty().getSourceType();
+        RelationType relationType = configuration.getCutProfile().getSource().getBridgeRelationship().getRelationType();
         List<Coordinate> downwardBridgeEdges = new ArrayList<>();
 
-        LOGGER.debug("collectDownwardBridgeEdges - sourceType: {}", sourceType);
+        LOGGER.debug("collectDownwardBridgeEdges - relationType: {}", relationType);
         // Fixed: Should only skip collection for these specific source types
-        if (sourceType == SourceType.ACTUAL_SOURCE_ON_BRIDGE || sourceType == SourceType.SOURCE_NOT_RELATED_TO_BRIDGE) {
-            LOGGER.debug("Source type {} does not require downward bridge edges", sourceType);
+        if (relationType == RelationType.ACTUAL_SOURCE_ON_BRIDGE || relationType == RelationType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+            LOGGER.debug("Source type {} does not require downward bridge edges", relationType);
             return downwardBridgeEdges;
         }
 

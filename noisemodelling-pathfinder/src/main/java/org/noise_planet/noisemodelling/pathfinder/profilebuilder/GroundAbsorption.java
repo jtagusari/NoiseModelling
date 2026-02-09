@@ -11,6 +11,8 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.Geometry;
 
+import java.util.Objects;
+
 
 public class GroundAbsorption {
     /** Ground effect area footprint. */
@@ -43,5 +45,10 @@ public class GroundAbsorption {
      */
     public double getCoefficient(){
         return coef;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(geom, coef);
     }
 }

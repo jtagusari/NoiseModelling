@@ -1257,4 +1257,17 @@ public class ProfileBuilder {
         return processedWallService;
     }
 
+    /**
+     * Compute a hash code representing the current state of this ProfileBuilder.
+     * The hash combines hashes from all service components and configuration.
+     * 
+     * @return Hash code representing the builder state
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(buildingService, wallService, bridgeService, 
+                          topographyService, groundService, processedWallService,
+                          frequencyConfig, isFeedingFinished, maxLineLength, envelope);
+    }
+
 }

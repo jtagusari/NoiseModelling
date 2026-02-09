@@ -13,7 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 import org.slf4j.LoggerFactory;
@@ -297,7 +297,7 @@ public class CutProfile {
                 }
                 lastZ = pnt.getCoordinate().z;
 
-                SourceBridgeProperty property = ((CutPointSource) pnt).getSourceBridgeProperty();
+                BridgeRelationship property = ((CutPointSource) pnt).getBridgeRelationship();
                 if (property != null) {
                     bridgePkOn = property.getBridgePkOn();
                 }
@@ -408,8 +408,8 @@ public class CutProfile {
     private static boolean isFirstPointOverarea(List<CutPoint> cutPoints) {
         if (cutPoints.get(0) instanceof CutPointSource) {
             CutPointSource source = (CutPointSource) cutPoints.get(0);
-            SourceBridgeProperty property = source.getSourceBridgeProperty();
-            if (property == null) {property = new SourceBridgeProperty();}
+            BridgeRelationship property = source.getBridgeRelationship();
+            if (property == null) {property = new BridgeRelationship();}
             if (property.getBridgePkOn() > 0) {
                 return true;
             } else if (property.getBridgePkOn() < 0 && property.getBridgePkAbove() < 0) {

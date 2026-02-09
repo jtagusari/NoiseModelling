@@ -25,7 +25,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.path.SourceBridgeProperty;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
@@ -62,7 +62,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         public String testName;
         public ReceiverCoord receiverCoord;
         public double sourceZ;
-        public String sourceType;
+        public String relationType;
         public long bridgeId;
         public long mirrorBridgeId;
 
@@ -159,7 +159,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
      * Helper method to run TBC01 test with different receiver positions and source configurations
      */
     private void runTBC01WithReceiverAndSource(String testName, Coordinate receiverCoord, double sourceZ, 
-                                               SourceBridgeProperty.SourceType sourceType, long bridgeId, long mirrorBridgeId) throws Exception {
+                                               BridgeRelationship.RelationType relationType, long bridgeId, long mirrorBridgeId) throws Exception {
         //Profile building
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE))
                 .addBridge(createBridge1())
@@ -174,8 +174,8 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         //Propagation data building
         SceneWithAttenuation sceneWithAttenuation = new SceneWithAttenuation(profileBuilder);
         sceneWithAttenuation.addSource(1L, source, null, new Orientation(0,0,0),
-            new SourceBridgeProperty(sourceType, bridgeId, mirrorBridgeId));
-        sceneWithAttenuation.addReceiver(receiverCoord);
+            new BridgeRelationship(relationType, bridgeId, mirrorBridgeId));
+        sceneWithAttenuation.addReceiver(0L, receiverCoord);
         sceneWithAttenuation.setComputeHorizontalDiffraction(false);
         sceneWithAttenuation.setComputeVerticalDiffraction(true);
 
@@ -191,6 +191,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         
         PathFinder computeRays = new PathFinder(sceneWithAttenuation);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -205,7 +206,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
      */
     private void runTBC01WithReceiver(String testName, Coordinate receiverCoord) throws Exception {
         runTBC01WithReceiverAndSource(testName, receiverCoord, 10.5, 
-            SourceBridgeProperty.SourceType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
+            BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1);
     }
 
     /**
@@ -246,14 +247,14 @@ public class AttenuationComputeOutputCnossosBridgeTest {
             testCase.receiverCoord.z
         );
         
-        SourceBridgeProperty.SourceType sourceType = 
-            SourceBridgeProperty.SourceType.valueOf(testCase.sourceType);
+        BridgeRelationship.RelationType relationType = 
+            BridgeRelationship.RelationType.valueOf(testCase.relationType);
         
         runTBC01WithReceiverAndSource(
             testCase.testName, 
             receiverCoord, 
             testCase.sourceZ,
-            sourceType,
+            relationType,
             testCase.bridgeId,
             testCase.mirrorBridgeId
         );
@@ -289,7 +290,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         //Propagation data building
         SceneWithAttenuation sceneWithAttenuation = new SceneWithAttenuation(profileBuilder);
         sceneWithAttenuation.addSource(1L, source, null, new Orientation(0,0,0));
-        sceneWithAttenuation.addReceiver(new Coordinate(50, 15, 4));
+        sceneWithAttenuation.addReceiver(0L, new Coordinate(50, 15, 4));
         sceneWithAttenuation.setComputeHorizontalDiffraction(false);
         sceneWithAttenuation.setComputeVerticalDiffraction(true);
 
@@ -305,6 +306,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         
         PathFinder computeRays = new PathFinder(sceneWithAttenuation);
         computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
 
         //Run computation
         computeRays.run(propDataOut);
@@ -330,7 +332,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
             "TBC01_IMAGINARY_Z19_R050", 
             new Coordinate(50, 10, 4), 
             19.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+            BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE,
             -1,
             100
         );
@@ -355,7 +357,7 @@ public class AttenuationComputeOutputCnossosBridgeTest {
             "TBC01_IMAGINARY_Z10_R050", 
             new Coordinate(50, 10, 4), 
             10.0,
-            SourceBridgeProperty.SourceType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+            BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE,
             -1,
             100
         );
