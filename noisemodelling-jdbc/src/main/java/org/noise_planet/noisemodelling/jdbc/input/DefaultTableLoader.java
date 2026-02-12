@@ -755,8 +755,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         // check if height type field (optional) exists
         if(JDBCUtilities.hasField(connection, receiverTableName, receiverHeightTypeName)) {
             receiverHeightTypeName = TableLocation.quoteIdentifier(receiverHeightTypeName, dbType);
-            pkSelectPart += ", " +
-                   TableLocation.quoteIdentifier(receiverHeightTypeName, dbType); 
+            pkSelectPart += ", " + receiverHeightTypeName;
         }
 
         try (PreparedStatement st = connection.prepareStatement(
