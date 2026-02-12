@@ -753,8 +753,15 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         String pkSelectPart = "SELECT " + receiverGeomName + ", " + receiverPkName;
 
         // check if height type field (optional) exists
-        if(JDBCUtilities.hasField(connection, receiverTableName, receiverHeightTypeName)) {
-            receiverHeightTypeName = TableLocation.quoteIdentifier(receiverHeightTypeName, dbType);
+        String actualHeightTypeName = null;
+        for (String col : JDBCUtilities.getColumnNames(connection, receiverTableName)) {
+            if (col.equalsIgnoreCase(receiverHeightTypeName)) {
+                actualHeightTypeName = col;
+                break;
+            }
+        }
+        if(actualHeightTypeName != null) {
+            receiverHeightTypeName = TableLocation.quoteIdentifier(actualHeightTypeName, dbType);
             pkSelectPart += ", " + receiverHeightTypeName;
         }
 
