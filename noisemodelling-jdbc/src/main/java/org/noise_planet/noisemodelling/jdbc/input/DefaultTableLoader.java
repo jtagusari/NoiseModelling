@@ -794,7 +794,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                                 " You must specify X,Y,Z for each receiver");
                     }
 
-                    Scene.HeightType heightType = Scene.HeightType.ABSOLUTE;
+                    Scene.HeightType heightType = Scene.HeightType.RELATIVE;
                     try {
                         heightType = Scene.HeightType.fromString(rs.getString(receiverHeightTypeName));
                     } catch (SQLException ex) {

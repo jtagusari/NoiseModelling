@@ -386,7 +386,7 @@ public class Scene {
      * @param position Receiver coordinate
      */
     public void addReceiver(long pk, Coordinate position) {
-        addReceiver(pk, position, HeightType.ABSOLUTE);
+        addReceiver(pk, position, HeightType.RELATIVE);
     }
     
     /**

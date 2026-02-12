@@ -74,6 +74,9 @@ public class SceneBuilder {
      * @return Builder instance for method chaining
      */
     public SceneBuilder addReceiver(double x, double y, double z) {
+        if (data.countReceivers() > 0){
+            throw new IllegalStateException("addReceiver(double x, double y, double z) can only be used when no receivers have been added yet.");
+        }
         data.addReceiver(0L, new Coordinate(x, y, z), Scene.HeightType.ABSOLUTE);
         return this;
     }
@@ -130,6 +133,19 @@ public class SceneBuilder {
      */
     public SceneBuilder setMaximumPropagationDistance(double maximumPropagationDistance) {
         data.maxSrcDist = maximumPropagationDistance;
+        return this;
+    }
+
+    
+    public SceneBuilder setMaximumReflectionDistance(double maximumReflectionDistance) {
+        data.maxRefDist = maximumReflectionDistance;
+        return this;
+    }
+
+    
+    
+    public SceneBuilder setMaximumReflectionOrder(int maximumReflectionOrder) {
+        data.reflexionOrder = maximumReflectionOrder;
         return this;
     }
 

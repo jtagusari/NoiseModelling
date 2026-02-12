@@ -22,7 +22,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReflect
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.SceneBuilder;
+import org.noise_planet.noisemodelling.pathfinder.path.SceneBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 
@@ -73,9 +73,9 @@ public class TestWallReflection {
                 .addSource(599095.21, 646283.77, 1)
                 .vEdgeDiff(false)
                 .hEdgeDiff(false)
-                .maxRefDist(80)
-                .maxSrcDist(180)
-                .reflexionOrder(2)
+                .setMaximumReflectionDistance(80)
+                .setMaximumPropagationDistance(180)
+                .setMaximumReflectionOrder(2)
                 .build();
         PathFinder computeRays = new PathFinder(inputData);
         computeRays.setThreadCount(1);
@@ -160,9 +160,9 @@ public class TestWallReflection {
                 .addSource(599095.21, 646283.77, 501)
                 .vEdgeDiff(false)
                 .hEdgeDiff(false)
-                .maxRefDist(80)
-                .maxSrcDist(180)
-                .reflexionOrder(2)
+                .setMaximumReflectionDistance(80)
+                .setMaximumPropagationDistance(180)
+                .setMaximumReflectionOrder(2)
                 .build();
         PathFinder computeRays = new PathFinder(inputData);
         computeRays.setThreadCount(1);

@@ -2,7 +2,9 @@
 
 - [Receiver Generation Algorithms](#receiver-generation-algorithms)
   - [Overview](#overview)
+    - [Implementation Architecture Note](#implementation-architecture-note)
   - [DelaunayReceiversMaker — Delaunay Triangulation](#delaunayreceiversmaker--delaunay-triangulation)
+    - [processDelaunay() Internal Workflow](#processdelaunay-internal-workflow)
   - [Regular Grid — Uniform Receiver Distribution](#regular-grid--uniform-receiver-distribution)
   - [Building Grid — Facade Receiver Placement](#building-grid--facade-receiver-placement)
   - [Comparison of Approaches](#comparison-of-approaches)
@@ -16,9 +18,55 @@ NoiseModelling provides multiple algorithms for generating receiver points where
 2. **Regular Grid**: Creates uniform grid of receivers with constant spacing
 3. **Building Grid**: Places receivers around building facades at specified distances
 
+### Implementation Architecture Note
+
+**Current Implementation Inconsistency**:
+
+There is an architectural inconsistency in the receiver generation implementations:
+
+- **DelaunayReceiversMaker**: Implemented as a Java class extending `GridMapMaker` in the core library (`noisemodelling-pathfinder` module)
+- **Regular Grid & Building Grid**: Implemented as Groovy WPS scripts in `wps_scripts/src/main/groovy`
+
+**Implications**:
+
+| Aspect | Java Implementation (Delaunay) | Groovy WPS Scripts (Grid/Building) |
+|--------|-------------------------------|-----------------------------------|
+| **Reusability** | Can be imported and used programmatically | Limited to WPS/Geoserver context |
+| **Testing** | Unit testable with standard Java tools | Requires Groovy/WPS environment |
+| **Performance** | Direct Java execution | Interpreted Groovy + SQL overhead |
+| **Maintainability** | Type-safe, IDE support | Script-based, less tooling |
+| **Integration** | Native API integration | WPS REST API calls |
+| **Deployment** | Compiled JAR | Script files in WPS directory |
+
+**Background**:
+
+The implementation differences likely stem from historical development:
+- **DelaunayReceiversMaker** was designed as a core computational component requiring complex geometry processing and integration with PathFinder's cell-based architecture
+- **Regular/Building Grid** scripts were created as user-facing WPS tools for quick receiver generation through the web interface
+
+**Recommended Approach**:
+
+For better architectural consistency, consider:
+
+1. **Refactor Groovy scripts to Java classes**: Migrate Regular Grid and Building Grid to Java implementations in the core library
+2. **Create thin WPS wrappers**: Keep Groovy scripts as lightweight adapters calling Java implementations
+3. **Unified interface**: Define common receiver generation interface that all algorithms implement
+4. **Consistent testing**: Apply uniform testing strategies across all implementations
+
+**Current Best Practice**:
+
+Until unification is completed:
+- **For programmatic use**: Prefer DelaunayReceiversMaker (direct Java API)
+- **For WPS/GUI workflows**: Use any algorithm via WPS scripts
+- **For custom applications**: Consider extracting Groovy script logic to standalone Java classes if performance/reusability is critical
+
 ## DelaunayReceiversMaker — Delaunay Triangulation
 
 `DelaunayReceiversMaker` is a specialized implementation that generates receiver points using constrained Delaunay triangulation. This approach creates a triangular mesh that respects building geometries and road constraints, producing receivers distributed according to triangle vertices and an isosurface-based placement strategy.
+
+**Location**: Java class in `noisemodelling-pathfinder` module, package `org.noise_planet.noisemodelling.pathfinder.delaunay`
+
+**Implementation Type**: Java core library class (not WPS script)
 
 ```plantuml
 @startuml
@@ -169,8 +217,375 @@ stop
 4. **Triangulation Execution**:
    - Set epsilon-based point merging tolerance
    - Add cell envelope vertices with densification if `maximumArea > 1`
-   - Call `processDelaunay()` to compute constrained Delaunay triangulation
+   - Call `processDelaunay()` to compute constrained Delaunay triangulation (see detailed workflow below)
    - LayerTinfour uses Tinfour library backend for robust triangulation
+
+### processDelaunay() Internal Workflow
+
+The `processDelaunay()` method in `LayerTinfour` class orchestrates the core triangulation computation with optional mesh refinement. The implementation uses the Tinfour library (IncrementalTin) as the backend triangulation engine.
+
+**Method Signature**:
+```java
+public void processDelaunay() throws LayerDelaunayError
+```
+
+**Purpose**: Compute constrained Delaunay triangulation with optional area-based refinement, producing receiver vertices and triangle mesh.
+
+**High-Level Algorithm**:
+1. Clear previous results
+2. Query all mesh points from spatial index
+3. **Refinement Loop** (while triangles exceed maxArea):
+   - Create new IncrementalTin instance
+   - Add all points (original + Steiner points from previous iterations)
+   - Add constraints (buildings as polygons, roads as lines)
+   - Compute triangulation
+   - Check triangle areas against maxArea threshold
+   - Insert Steiner points at centroids of oversized triangles
+4. Extract vertices and triangle topology from final TIN
+5. Optionally compute neighbor relationships
+
+```plantuml
+@startuml
+title processDelaunay() Internal Algorithm
+
+start
+
+:Clear output buffers
+(triangles, vertices);
+
+:Query all mesh points
+from spatial index;
+
+repeat
+
+  :Create new IncrementalTin instance;
+  
+  :Add all mesh points to TIN;
+  
+  :Add all constraints
+  (buildings, roads as
+  polygon/linear constraints);
+  
+  note right
+    If constraint addition fails,
+    dump input data for debugging
+  end note
+  
+  :Compute triangles
+  using TriangleCollector;
+  
+  if (maxArea > 0 configured?) then (yes)
+    :Check each triangle area;
+    
+    if (Any triangle area > maxArea?) then (yes)
+      :Calculate centroid of
+      oversized triangle;
+      
+      :Insert Steiner point
+      at centroid;
+      
+      :Set refine flag = true;
+    else (no)
+      :Set refine flag = false;
+    endif
+  else (no)
+    :Set refine flag = false;
+  endif
+
+repeat while (refine == true?) is (yes)
+->no;
+
+partition "Extract Results" {
+  :Get all vertices from TIN;
+  
+  :Build vertex index map
+  (Vertex → Integer index);
+  
+  :Convert Vertex objects
+  to Coordinate list;
+  
+  :For each SimpleTriangle:
+  - Extract vertex indices
+  - Extract constraint region attribute
+  - Create Triangle object
+  - Store edge-to-triangle mapping;
+  
+  if (computeNeighbors enabled?) then (yes)
+    :For each triangle:
+    - Find neighbor via dual edge
+    - Store three neighbor indices;
+  endif
+}
+
+stop
+
+@enduml
+```
+
+**Key Processing Steps**:
+
+1. **Initialization**:
+   - Clears previous triangulation results
+   - Queries all mesh points from internal Quadtree spatial index
+   - Prepares for iterative refinement loop
+
+2. **TIN Construction** (per iteration):
+   - Creates fresh `IncrementalTin` instance from Tinfour library
+   - Adds all accumulated mesh points (including any Steiner points from previous iterations)
+   - Adds all constraints (polygon/linear) representing buildings and roads
+
+3. **Constraint Integration**:
+   - Constraints are added using `tin.addConstraints(constraints, false)`
+   - If constraint addition fails (e.g., self-intersecting geometry), error is caught
+   - Input data is dumped to `dumpFolder` for debugging if error occurs
+
+4. **Triangle Computation**:
+   - Uses `TriangleCollector.visitSimpleTriangles()` to extract triangles from TIN
+   - Returns list of `SimpleTriangle` objects with vertex references
+
+5. **Mesh Refinement** (if `maxArea > 0`):
+   - **Quality Check**: Iterates through all triangles checking area constraint
+   - **Steiner Point Insertion**: For oversized triangles (area > maxArea):
+     - Calculates triangle centroid: `(va + vb + vc) / 3`
+     - Inserts new Steiner point at centroid into mesh point list
+     - Sets refinement flag to trigger re-triangulation
+   - **Iterative Process**: Continues until no triangles exceed area threshold
+   - **Purpose**: Ensures adequate receiver density by preventing excessively large triangles
+
+6. **Result Extraction**:
+   - **Vertex Processing**:
+     - Retrieves all vertices from final TIN
+     - Creates vertex-to-index mapping for triangle construction
+     - Converts Tinfour `Vertex` objects to JTS `Coordinate` objects
+   - **Triangle Processing**:
+     - For each `SimpleTriangle`:
+       - Looks up vertex indices (A, B, C) using index mapping
+       - Extracts constraint region attribute (0 for unconstrained, building ID for constrained)
+       - Creates `Triangle` object with vertex indices and attribute
+       - Stores edge-to-triangle mapping for neighbor resolution
+
+7. **Neighbor Computation** (optional):
+   - Only executed if `computeNeighbors` flag is enabled
+   - For each triangle:
+     - Accesses dual edge for each of three edges (A, B, C)
+     - Looks up neighbor triangle index via edge mapping
+     - Stores three neighbor indices (-1 if no neighbor exists on boundary)
+   - Neighbor order: neighbor opposite vertex A, B, C respectively
+
+**Neighbor Computation Mechanism**:
+
+Tinfour represents triangulation using half-edge data structure:
+- Each triangle edge has a **dual edge** (edge of adjacent triangle sharing same vertices)
+- Dual edges provide direct access to neighboring triangles
+
+```
+Triangle T1 (edges: eA, eB, eC)
+    ↓
+For each edge (e.g., eA):
+    e.getDual() → dual edge in neighboring triangle
+    dual.getIndex() → edge index
+    edgeIndexToTriangleIndex[edgeIndex] → neighbor triangle index
+
+Result: Three neighbor indices stored in neighbors list
+```
+
+**Neighbor Index Semantics**:
+- `neighbors[i].A`: Triangle index opposite to vertex A of triangle i
+- `neighbors[i].B`: Triangle index opposite to vertex B of triangle i  
+- `neighbors[i].C`: Triangle index opposite to vertex C of triangle i
+- `-1`: No neighbor (boundary edge)
+
+**Use Cases for Neighbor Information**:
+- **Mesh Traversal**: Navigate from triangle to adjacent triangles
+- **Smoothing Operations**: Apply filters across neighboring triangles
+- **Gradient Computation**: Calculate noise level gradients
+- **Quality Analysis**: Detect mesh irregularities
+
+**Data Structures Used**:
+
+```java
+// Input
+List<Vertex> meshPoints;              // All points to triangulate
+List<IConstraint> constraints;        // Polygon/linear constraints
+List<Integer> constraintIndex;       // Building IDs for constraints
+
+// Tinfour Backend
+IncrementalTin tin;                   // Core triangulation engine
+List<SimpleTriangle> simpleTriangles; // Raw triangle output
+
+// Output
+List<Coordinate> vertices;            // Final vertex coordinates
+List<Triangle> triangles;             // Final triangles (vertex indices + attribute)
+List<Triangle> neighbors;             // Optional neighbor indices
+Map<Vertex, Integer> vertIndex;      // Vertex to index mapping
+Map<Integer, Integer> edgeIndexToTriangleIndex; // Edge to triangle mapping
+```
+
+**Error Handling**:
+
+- **Constraint Addition Failure**: If `tin.addConstraints()` throws `IllegalStateException`:
+  - Catches exception and wraps in `LayerDelaunayError`
+  - If `dumpFolder` is configured, writes debug data to CSV file
+  - Debug file contains all points, linear constraints, and polygon constraints in WKT format
+
+**Debug Data Dump Mechanism** (`dumpData()` method):
+
+When triangulation fails, LayerTinfour can export all input data for analysis:
+
+```
+dumpFolder/tinfour_dump.csv:
+  POINT Z (x1 y1 z1)              ← All mesh points
+  POINT Z (x2 y2 z2)
+  ...
+  LINESTRING Z (...)              ← Linear constraints (roads)
+  POLYGON Z ((x1 y1 z1, ...))     ← Polygon constraints (buildings)
+  ...
+```
+
+**Typical Failure Causes**:
+1. **Self-Intersecting Constraints**: Polygon edges cross themselves
+2. **Invalid Polygon Orientation**: Exterior not CCW or holes not CW
+3. **Degenerate Geometries**: Collapsed polygons (< 3 distinct vertices)
+4. **Constraint Edge Crossings**: Two constraint edges intersect (not at shared vertex)
+5. **Numerical Precision Issues**: Points too close but not merged (epsilon too small)
+
+**Debug Workflow**:
+```
+Try: processDelaunay()
+  ↓ (Exception thrown)
+Catch: IllegalStateException
+  ↓
+Check: dumpFolder configured?
+  ↓ (yes)
+Execute: dumpData() → Write tinfour_dump.csv
+  ↓
+Throw: LayerDelaunayError (with original exception)
+  ↓
+Developer: Load CSV in GIS, inspect problematic geometry
+```
+
+**Configuration for Debugging**:
+```java
+LayerTinfour layerTinfour = new LayerTinfour();
+layerTinfour.setDumpFolder("/path/to/debug/folder");
+// ... add geometry ...
+layerTinfour.processDelaunay(); // Will dump data on error
+```
+
+**Performance Characteristics**:
+
+- **Single Iteration**: O(n log n) for Delaunay triangulation (Tinfour's incremental algorithm)
+- **Refinement Iterations**: Number of iterations depends on initial triangle sizes and maxArea threshold
+- **Worst Case**: Each oversized triangle spawns one Steiner point, potentially logarithmic iterations
+- **Typical Case**: 1-3 iterations for well-configured maxArea parameter
+
+**Integration with DelaunayReceiversMaker**:
+
+The `processDelaunay()` method is called once per grid cell in `DelaunayReceiversMaker.generateReceivers()`:
+1. Cell geometry (buildings, roads, envelope) is fed into `LayerTinfour` instance
+2. `processDelaunay()` executes to produce triangulated mesh
+3. Resulting vertices become receiver points
+4. Triangles are stored for isosurface visualization
+
+**Tinfour Library Backend**:
+
+NoiseModelling uses the [Tinfour library](https://github.com/gwlucastrig/Tinfour) for actual triangulation computation:
+- **IncrementalTin**: Core class implementing Bowyer-Watson incremental algorithm
+- **Advantages**: Robust handling of large point sets, support for constrained edges and regions
+- **Key Features**: 
+  - Incremental point insertion with O(n log n) expected time
+  - Constraint edge enforcement (prevents triangle edges crossing constraints)
+  - Region attribute tracking (identifies triangles inside constraint polygons)
+  - Topological consistency guarantees
+
+**Epsilon-Based Point Merging**:
+
+Before triangulation, LayerTinfour performs point deduplication using `epsilon` tolerance:
+- Maintains Quadtree spatial index of vertices
+- For each new coordinate, queries existing vertices within epsilon distance
+- If match found (distance < epsilon), reuses existing vertex
+- Prevents numerical instability from near-duplicate points
+- Default epsilon: 0.001 meters (1mm)
+
+**Point Merging Algorithm** (`addCoordinate` method):
+```java
+// For each new coordinate:
+1. Create envelope around coordinate (±epsilon)
+2. Query Quadtree for existing vertices in envelope
+3. For each candidate vertex:
+   - Compute Euclidean distance
+   - If distance < epsilon: return existing vertex (merge)
+4. If no match found:
+   - Create new Vertex instance
+   - Insert into Quadtree
+   - Return new vertex
+```
+
+**Benefits**:
+- **Numerical Stability**: Eliminates near-duplicate points that cause triangulation failure
+- **Constraint Consistency**: Ensures constraint edges share exact vertex instances
+- **Performance**: Quadtree spatial query is O(log n) average case
+- **Memory Efficiency**: Reduces vertex count by merging duplicates
+
+**Mesh Refinement Algorithm Details**:
+
+The iterative refinement process ensures uniform mesh quality:
+
+```
+Iteration 1:
+  Input: Original points + constraints
+  → Triangulate
+  → Triangle areas: [50, 120, 30, 200, ...]
+  → maxArea threshold: 75 m²
+  → Find oversized: [120, 200, ...]
+  → Insert Steiner points at centroids
+  → Refine = true
+
+Iteration 2:
+  Input: Original + Steiner points + constraints
+  → Re-triangulate
+  → Triangle areas: [50, 60, 30, 70, 80, ...]
+  → All triangles ≤ maxArea
+  → Refine = false
+  → Stop
+
+Output: Refined mesh with consistent density
+```
+
+**Steiner Point Insertion Strategy**:
+- **Location**: Centroid of oversized triangle (arithmetic mean of three vertices)
+- **Z-coordinate**: Average of three vertex heights
+- **Effect**: Forces triangle subdivision in next iteration
+- **Guarantee**: Triangle area reduces by approximately factor of 4 (splits into ~4 smaller triangles)
+- **Convergence**: Typically 1-3 iterations sufficient for reasonable maxArea values
+
+**Constrained Triangulation Mechanism**:
+
+Constraints (buildings, roads) are enforced during triangulation to control mesh structure:
+
+| Constraint Type | Implementation | Purpose | Triangle Marking |
+|----------------|----------------|---------|------------------|
+| **PolygonConstraint** | Closed vertex loop (CCW exterior, CW holes) | Building boundaries | Interior triangles marked with building ID |
+| **LinearConstraint** | Open vertex sequence | Road centerlines | No interior marking (edge constraint only) |
+
+**Constraint Enforcement**:
+- **Edge Constraints**: Tinfour ensures no triangle edges cross constraint edges
+- **Region Attributes**: Triangles inside `PolygonConstraint` inherit constraint's building ID
+- **Filtering**: Receiver generation can exclude triangles with non-zero attributes (building interiors)
+- **Orientation**: Exterior rings must be CCW, holes must be CW (enforced by LayerTinfour)
+
+**Triangle Attribute Propagation**:
+```
+constraint.getConstraintIndex() → constraintIndex[i] → buildingID
+                                                            ↓
+SimpleTriangle.getContainingRegion() → PolygonConstraint → buildingID
+                                                            ↓
+Triangle.getAttribute() → buildingID (stored in output)
+```
+
+This enables post-processing to distinguish:
+- **Attribute = 0**: Open area triangles (receivers generated)
+- **Attribute > 0**: Building interior triangles (receivers excluded unless `isoSurfaceInBuildings=true`)
 
 5. **Result Table Generation**:
    - Extract triangle vertices, set z-coordinate to `receiverHeight`
@@ -223,6 +638,8 @@ CREATE TABLE triangles (
 The **Regular Grid** algorithm creates a uniform grid of receiver points with consistent spacing across the entire computation domain. This approach is implemented as a Groovy WPS script (`Regular_Grid.groovy`) and is ideal for systematic noise level sampling.
 
 **Location**: `wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Receivers/Regular_Grid.groovy`
+
+**Implementation Type**: Groovy WPS script (database-driven)
 
 **Key Features**:
 - **Uniform Spacing**: Creates receivers at regular intervals in the Cartesian plane
@@ -343,6 +760,8 @@ CREATE TABLE TRIANGLES (
 The **Building Grid** algorithm generates receivers around building facades at a specified distance from walls. This approach is implemented as a Groovy WPS script (`Building_Grid.groovy`) and is designed for assessing noise exposure at building exteriors.
 
 **Location**: `wps_scripts/src/main/groovy/org/noise_planet/noisemodelling/wps/Receivers/Building_Grid.groovy`
+
+**Implementation Type**: Groovy WPS script (database-driven)
 
 **Key Features**:
 - **Facade-Based Placement**: Receivers positioned at fixed distance from building walls
@@ -513,6 +932,8 @@ The algorithm implements a sophisticated screening mechanism:
 | Aspect | Delaunay Triangulation | Regular Grid | Building Grid |
 |--------|----------------------|--------------|---------------|
 | **Implementation** | Java class | Groovy WPS script | Groovy WPS script |
+| **Module Location** | noisemodelling-pathfinder | wps_scripts | wps_scripts |
+| **Programmatic Access** | Direct API | WPS REST only | WPS REST only |
 | **Receiver Distribution** | Adaptive mesh | Uniform grid | Facade-based |
 | **Density Control** | maximumArea parameter | delta spacing | delta + distance |
 | **Building Awareness** | Constraint polygons | Interior removal | Facade placement |
@@ -523,6 +944,7 @@ The algorithm implements a sophisticated screening mechanism:
 | **Ideal Use Case** | Isosurface visualization | Systematic mapping | Facade exposure |
 | **Complexity** | High | Low | Medium |
 | **Preprocessing** | Extensive geometry processing | Minimal | Line generation + truncation |
+| **Performance** | Compiled Java | Interpreted Groovy + SQL | Interpreted Groovy + SQL |
 
 **Selection Guidelines**:
 
@@ -531,15 +953,26 @@ The algorithm implements a sophisticated screening mechanism:
   - Adaptive receiver density is desired
   - Roads and buildings should constrain mesh structure
   - Post-processing noise surface visualization is planned
+  - **Programmatic Java API access is needed** (not available for Groovy scripts)
 
 - **Use Regular Grid** when:
   - Simple uniform coverage is sufficient
   - Systematic sampling is required for compliance
   - Quick setup with minimal configuration is needed
   - Domain has relatively uniform characteristics
+  - **WPS/web interface usage is primary workflow**
 
 - **Use Building Grid** when:
   - Building facade exposure is the primary concern
   - Population exposure analysis is required
   - Focusing computational resources on buildings is desired
   - Regulatory requirements focus on building exteriors
+  - **WPS/web interface usage is primary workflow**
+
+**Implementation Consideration**:
+
+When choosing between algorithms, also consider the implementation architecture:
+- **Java-based (Delaunay)**: Better for programmatic integration, batch processing, and custom applications
+- **Groovy WPS scripts (Regular/Building Grid)**: Better for interactive web-based workflows and quick prototyping
+
+For production systems requiring high performance and maintainability, consider refactoring Groovy scripts to Java implementations following the DelaunayReceiversMaker pattern.
