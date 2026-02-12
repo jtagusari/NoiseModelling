@@ -8,29 +8,38 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
 import org.h2gis.utilities.SpatialResultSet;
+import org.h2gis.utilities.dbtypes.DBTypes;
+import org.h2gis.utilities.dbtypes.DBUtils;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.SourceCollector;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
+import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
+import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,305 +72,231 @@ public class SourceIdentificationTest {
         }
     }
     
-    /**
-     * Helper method: Creates Bridge object from BRIDGE_POINTS table.
-     * 
-     * This method:
-     * 1. Loads bridge points from BRIDGE_POINTS table (PK=100)
-     * 2. Creates Bridge object with absorption coefficients
-     * 3. Generates deck geometry using ProfileBuilder
-     * 
-     * @return Bridge object with deck geometry generated
-     */
-    private Bridge createBridgeFromDatabase() throws Exception {
-        List<BridgePoint> bridgePointsList = new ArrayList<>();
-        
-        try (Statement st = connection.createStatement();
-             ResultSet rs = st.executeQuery(
-                    "SELECT THE_GEOM, " +
-                    "BRIDGE_PK, PK, POSITION, ABSOLUTE_DECK_HEIGHT, RELATIVE_DECK_HEIGHT, " +
-                    "DECK_THICKNESS, RIGHT_WIDTH, LEFT_WIDTH, RIGHT_BARRIER_HEIGHT, LEFT_BARRIER_HEIGHT, GIRDER_TYPE, SLAB_TYPE " +
-                    "FROM BRIDGE_POINTS WHERE BRIDGE_PK=100 ORDER BY PK")) {
-            
-            // Load bridge points from BRIDGE_POINTS table for bridge PK=100
-            while (rs.next()) {
-                BridgePoint bridgePoint = new BridgePoint(rs);
-                bridgePointsList.add(bridgePoint);
-            }
-        }
-        
-        assertEquals(3, bridgePointsList.size(), "Should have loaded 3 CENTER bridge points");
-        
-        // Create Bridge object from bridge points with absorption coefficients
-        List<Double> alphas = new ArrayList<>();
-        for (int i = 0; i < 8; i++) {
-            alphas.add(0.5); // Default alpha values for 8 frequency bands
-        }
-        Bridge bridge = new Bridge.Builder(bridgePointsList).withAlphas(alphas).build();
-
-        return bridge;
-    }
     
     /**
-     * Helper method: Creates ROADS table with test data and performs bridge record duplication.
+     * Loads test data from GeoJSON files into database tables.
      * 
-     * Creates:
-     * - Road 1: Regular road (PK=1, BRIDGE_PK=NULL) at Y=0
-     * - Road 2: Bridge road (PK=2, BRIDGE_PK=100) at Y=20
-     * - Road 3: Crossing road (PK=3, BRIDGE_PK=NULL) intersecting both
+     * Loads BRIDGE_POINTS table from bridge_points.geojson:
+     * - Bridge 100: 3 CENTER points (X=0, 50, 100) at Y=20 with absolute deck height 10.0m
+    * - Bridge 200: 1 CENTER point far from calculation region ([0,100] x [0,100])
      * 
-     * After duplication:
-     * - Road 4: Duplicated bridge record (PK=4, EMISSION_TYPE='BRIDGE', HEIGHT_TYPE='RELATIVE')
+     * Loads ROADS table from roads.geojson:
+     * - Road 1: Regular road (BRIDGE_PK=NULL) at Y=0, moderate speed
+     * - Road 2: Highway on bridge (BRIDGE_PK=100) at Y=20, high speed
+     * - Road 3: Crossing road (BRIDGE_PK=NULL), all equal speeds
+     * - Road 4: Remote road (BRIDGE_PK=NULL) far from calculation region ([0,100] × [0,100])
      * 
-     * @return Statement for continued test operations
+     * Loads DEM table from dem.geojson:
+    * - 10 topographic points: 9 in 3x3 grid covering [0,100] × [0,100] with Z values [0.1, 3.0]m
+    * - 1 remote point far from calculation region ([0,100] × [0,100])
+     * 
+     * @throws Exception if GeoJSON files cannot be read or loaded
      */
-    private void createRoadsTableWithBridgeDuplication() throws Exception {
+    private void loadTestDataFromGeoJson() throws Exception {
         try (Statement st = connection.createStatement()) {
-            // Step 0: Create BRIDGE_POINTS table with bridge point data
-            // As per source_algorithms.md bridge geometry setup
-            st.execute("CREATE TABLE BRIDGE_POINTS (" +
-                    "PK LONG PRIMARY KEY, " +
-                    "THE_GEOM GEOMETRY, " +
-                    "BRIDGE_PK LONG, " +
-                    "POSITION VARCHAR(10), " +
-                    "ABSOLUTE_DECK_HEIGHT DOUBLE PRECISION, " +
-                    "RELATIVE_DECK_HEIGHT DOUBLE PRECISION, " +
-                    "DECK_THICKNESS DOUBLE PRECISION, " +
-                    "RIGHT_WIDTH DOUBLE PRECISION, " +
-                    "LEFT_WIDTH DOUBLE PRECISION, " +
-                    "RIGHT_BARRIER_HEIGHT DOUBLE PRECISION, " +
-                    "LEFT_BARRIER_HEIGHT DOUBLE PRECISION, " +
-                    "GIRDER_TYPE VARCHAR(30), " +
-                    "SLAB_TYPE VARCHAR(20))");
+            // Load BRIDGE_POINTS table from GeoJSON
+            // Bridge 100: 3 CENTER points used for deck geometry generation
+            st.execute(String.format("CALL GeoJsonRead('%s', 'BRIDGE_POINTS')", 
+                SourceIdentificationTest.class.getResource("/bridge_points.geojson").getFile()));
             
-            // Insert bridge points for Bridge 100 that covers ROAD2 (Y=20) but not ROAD1 (Y=0)
-            // Bridge deck is at Y=[15, 25] with deck height at 10m above ground
-            // We'll create 3 CENTER points along the bridge centerline (X=0, X=50, X=100)
-            // LEFT and RIGHT edge points will be generated automatically by BridgeGeometryBuilder
+            // Load ROADS table from GeoJSON
+            // Contains 4 roads with Day/Evening/Night traffic data and speed profiles
+            st.execute(String.format("CALL GeoJsonRead('%s', 'ROADS')", 
+                SourceIdentificationTest.class.getResource("/roads.geojson").getFile()));
+            // Set PK column to NOT NULL before adding PRIMARY KEY constraint
+            st.execute("ALTER TABLE ROADS ALTER COLUMN PK SET NOT NULL");
+            st.execute("ALTER TABLE ROADS ADD CONSTRAINT PK_SET PRIMARY KEY (PK)");
             
-            // Center point at X=0 (bridge start)
-            st.execute("INSERT INTO BRIDGE_POINTS VALUES (1, ST_GeomFromText('POINT(0 20)'), 100, 'CENTER', 10.0, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
-            
-            // Center point at X=50 (bridge middle)
-            st.execute("INSERT INTO BRIDGE_POINTS VALUES (2, ST_GeomFromText('POINT(50 20)'), 100, 'CENTER', 10.0, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
-            
-            // Center point at X=100 (bridge end)
-            st.execute("INSERT INTO BRIDGE_POINTS VALUES (3, ST_GeomFromText('POINT(100 20)'), 100, 'CENTER', 10.0, 10.0, 0.5, 5.0, 5.0, 1.0, 1.0, 'STEEL_BOX', 'STEEL')");
-            
-            // Step 1: Create ROADS table
-            // As per source_algorithms.md Step 1: ROADS Table Creation
-            st.execute("CREATE TABLE ROADS (" +
-                    "PK SERIAL PRIMARY KEY, " +
-                    "THE_GEOM GEOMETRY, " +
-                    "LV_D DOUBLE PRECISION, " +
-                    "MV_D DOUBLE PRECISION, " +
-                    "HGV_D DOUBLE PRECISION, " +
-                    "LV_SPD_D DOUBLE PRECISION, " +
-                    "MV_SPD_D DOUBLE PRECISION, " +
-                    "HGV_SPD_D DOUBLE PRECISION, " +
-                    "LV_E DOUBLE PRECISION, " +
-                    "MV_E DOUBLE PRECISION, " +
-                    "HGV_E DOUBLE PRECISION, " +
-                    "LV_SPD_E DOUBLE PRECISION, " +
-                    "MV_SPD_E DOUBLE PRECISION, " +
-                    "HGV_SPD_E DOUBLE PRECISION, " +
-                    "LV_N DOUBLE PRECISION, " +
-                    "MV_N DOUBLE PRECISION, " +
-                    "HGV_N DOUBLE PRECISION, " +
-                    "LV_SPD_N DOUBLE PRECISION, " +
-                    "MV_SPD_N DOUBLE PRECISION, " +
-                    "HGV_SPD_N DOUBLE PRECISION, " +
-                    "HEIGHT_TYPE VARCHAR(10), " +
-                    "BRIDGE_PK LONG)");
-            
-            // Insert test roads with Day/Evening/Night traffic data
-            // Road 1: Regular road - MV/HGV ratio increases in evening/night, moderate speed, LV > MV > HGV
-            st.execute("INSERT INTO ROADS (THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
-                    "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
-                    "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, BRIDGE_PK) " +
-                    "VALUES (ST_GeomFromText('LINESTRING(0 0, 100 0)'), " +
-                    "600, 80, 40, 50, 45, 40, " +   // Day: LV dominant, moderate speed
-                    "400, 100, 60, 55, 50, 45, " +  // Evening: MV/HGV ratio increased, slightly higher speed
-                    "200, 120, 80, 60, 55, 50, " +  // Night: MV/HGV ratio further increased, highest speed
-                    "NULL)");
-            
-            // Road 2: Highway on bridge - MV/HGV ratio increases in evening/night, high speed, LV > MV > HGV
-            st.execute("INSERT INTO ROADS (THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
-                    "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
-                    "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, BRIDGE_PK) " +
-                    "VALUES (ST_GeomFromText('LINESTRING(0 20, 100 20)'), " +
-                    "1200, 150, 100, 90, 85, 80, " +  // Day: high volume, high speed
-                    "1000, 180, 120, 95, 90, 85, " +  // Evening: MV/HGV ratio increased, higher speed
-                    "800, 200, 140, 100, 95, 90, " +  // Night: MV/HGV ratio further increased, highest speed
-                    "100)");
-            
-            // Road 3: Low-speed crossing road - MV/HGV ratio increases in evening/night, speed increases, all equal speeds
-            st.execute("INSERT INTO ROADS (THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
-                    "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
-                    "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, BRIDGE_PK) " +
-                    "VALUES (ST_GeomFromText('LINESTRING(50 -10, 50 30)'), " +
-                    "600, 80, 40, 50, 50, 50, " +   // Day: low speed, all equal
-                    "400, 100, 60, 55, 55, 55, " +  // Evening: MV/HGV ratio increased, higher equal speed
-                    "200, 120, 80, 60, 60, 60, " +  // Night: MV/HGV ratio further increased, highest equal speed
-                    "NULL)");
-            
-            // Step 2: Bridge record duplication
-            // As per source_algorithms.md Step 2: Bridge Record Duplication and Classification
-            st.execute("ALTER TABLE ROADS ADD COLUMN EMISSION_TYPE VARCHAR(20)");
-            st.execute("UPDATE ROADS SET EMISSION_TYPE='ROAD'");
-            st.execute("INSERT INTO ROADS (THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
-                    "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
-                    "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, " +
-                    "HEIGHT_TYPE, BRIDGE_PK, EMISSION_TYPE) " +
-                    "SELECT THE_GEOM, LV_D, MV_D, HGV_D, LV_SPD_D, MV_SPD_D, HGV_SPD_D, " +
-                    "LV_E, MV_E, HGV_E, LV_SPD_E, MV_SPD_E, HGV_SPD_E, " +
-                    "LV_N, MV_N, HGV_N, LV_SPD_N, MV_SPD_N, HGV_SPD_N, " +
-                    "'ABSOLUTE', BRIDGE_PK, 'BRIDGE' " +
-                    "FROM ROADS WHERE BRIDGE_PK IS NOT NULL");
+            // Load DEM table from GeoJSON
+            // Contains 10 topographic points (9 in 3x3 grid + 1 remote) for ground elevation modeling
+            st.execute(String.format("CALL GeoJsonRead('%s', 'DEM')", 
+                SourceIdentificationTest.class.getResource("/dem.geojson").getFile()));
         }
     }
     
-
-
-    /**
-     * Test complete source identification workflow: ROADS table loading, bridge validation, 
-     * and emission calculation.
-     * 
-     * This integrated test validates the complete workflow from ROADS table creation through
-     * emission calculations, covering:
-     * 
-     * Step 0: BRIDGE_POINTS table setup
-     * - Bridge 100: 3 CENTER points (X=0, 50, 100) along centerline at Y=20
-     * - LEFT and RIGHT edge points are generated automatically by BridgeGeometryBuilder
-     * 
-     * Step 1: Creates a ROADS table with:
-     * - Road 1: Regular road (PK=1, BRIDGE_PK=NULL) running parallel (Y=0)
-     * - Road 2: Bridge road (PK=2, BRIDGE_PK=100) running parallel (Y=20)
-     * - Road 3: Crossing road (PK=3, BRIDGE_PK=NULL) intersecting both parallel roads
-     * 
-     * Step 2: Duplicates bridge records (BRIDGE_PK IS NOT NULL):
-     * - Original records: EMISSION_TYPE='ROAD'
-     * - Duplicated records: EMISSION_TYPE='BRIDGE', HEIGHT_TYPE='RELATIVE'
-     * 
-     * Step 3: Calculates emissions:
-     * - Road sources: CNOSSOS-EU methodology
-     * - Bridge structural sources: ASJ methodology
-     * - Creates LW_ROADS table with emission results
-     */
     @Test
-    public void testSourceIdentificationWorkflow() throws Exception {
-        // Create ROADS table with bridge duplication
-        createRoadsTableWithBridgeDuplication();
+    public void testGeometryPreparation() throws Exception{
+        
+        // Load test data from GeoJSON files
+        loadTestDataFromGeoJson();
+
+        LOGGER.info("========================================");
+        LOGGER.info("testGeometryPreparation: Step 1-2 Validation");
+        LOGGER.info("========================================");
         
         try (Statement st = connection.createStatement()) {
             // ============================================================
-            // Step 1: ROADS Table Validation
-            // Validates the ROADS table created in createRoadsTableWithBridgeDuplication() 
-            // as per source_algorithms.md Step 1: ROADS Table Creation
+            // Step 1: ROADS Table Creation and Validation
+            // Validates user-provided ROADS table with traffic and geometry data.
+            // Source: source_algorithms.md Step 1 - ROADS Table Creation
+            // 
+            // Required fields: THE_GEOM (LineString), PK, LV_D/HGV_D (traffic flow),
+            //                  LV_SPD_D/HGV_SPD_D (speed), optional: BRIDGE_PK
             // ============================================================
             
-            LOGGER.info("========================================");
-            LOGGER.info("Step 1: ROADS Table Validation");
-            LOGGER.info("========================================");
+            LOGGER.info("");
+            LOGGER.info("========== Step 1: ROADS Table Creation and Validation ==========");
+            LOGGER.info("Input data format: Standard Format (Traffic Flow + Speed per period)");
             
-            // Verify initial data (3 original roads)
-            try (ResultSet rs = st.executeQuery("SELECT PK, ST_AsText(THE_GEOM) as GEOM_TEXT, " +
-                    "LV_D, BRIDGE_PK FROM ROADS WHERE EMISSION_TYPE='ROAD' ORDER BY PK")) {
+            // Verify initial data (4 roads including one far from calculation region)
+            int roadsCount = 0;
+            int roadsOnBridgeCount = 0;
+            int roadRegularCount = 0;
+            
+            try (ResultSet rs = st.executeQuery("SELECT * FROM ROADS ORDER BY PK")) {
                 
-                // Road 1: Regular road
+                // Road 1: Regular road (not on bridge)
                 assertTrue(rs.next());
+                roadsCount++;
+                roadRegularCount++;
                 assertEquals(1, rs.getLong("PK"));
                 assertEquals(600.0, rs.getDouble("LV_D"), 0.001);
                 rs.getLong("BRIDGE_PK");
                 assertTrue(rs.wasNull(), "Road 1 should not be on a bridge");
+                LOGGER.info(String.format("  Road 1 (PK=1): LV_D=600 vehicles/h, BRIDGE_PK=NULL (regular road)"));
                 
                 // Road 2: Highway on bridge
                 assertTrue(rs.next());
+                roadsCount++;
+                roadsOnBridgeCount++;
                 assertEquals(2, rs.getLong("PK"));
                 assertEquals(1200.0, rs.getDouble("LV_D"), 0.001);
                 assertEquals(100, rs.getLong("BRIDGE_PK"), "Road 2 should be on bridge 100");
+                LOGGER.info(String.format("  Road 2 (PK=2): LV_D=1200 vehicles/h, BRIDGE_PK=100 (on-bridge)"));
                 
-                // Road 3: Crossing road
+                // Road 3: Crossing road (not on bridge)
                 assertTrue(rs.next());
+                roadsCount++;
+                roadRegularCount++;
                 assertEquals(3, rs.getLong("PK"));
                 assertEquals(600.0, rs.getDouble("LV_D"), 0.001);
                 rs.getLong("BRIDGE_PK");
                 assertTrue(rs.wasNull(), "Road 3 should not be on a bridge");
+                LOGGER.info(String.format("  Road 3 (PK=3): LV_D=600 vehicles/h, BRIDGE_PK=NULL (regular road)"));
+
+                // Road 4: Road far from calculation region [0,100] × [0,100]
+                assertTrue(rs.next());
+                roadsCount++;
+                roadRegularCount++;
+                assertEquals(4, rs.getLong("PK"));
+                assertEquals(800.0, rs.getDouble("LV_D"), 0.001);
+                rs.getLong("BRIDGE_PK");
+                assertTrue(rs.wasNull(), "Road 4 should not be on a bridge");
                 
-                assertFalse(rs.next(), "Should have exactly 3 roads");
+                // Verify Road 4 is far from [0,100] × [0,100] region
+                Geometry road4Geom = (Geometry) rs.getObject("THE_GEOM");
+                Coordinate[] road4Coords = road4Geom.getCoordinates();
+                assertTrue(road4Coords.length > 0);
+                for (Coordinate coord : road4Coords) {
+                    assertTrue(coord.x >= 500 || coord.y >= 500, 
+                        "Road 4 coordinates should be far from [0,100] region");
+                }
+                LOGGER.info(String.format("  Road 4 (PK=4): LV_D=800 vehicles/h, BRIDGE_PK=NULL (remote, outside [0,100]×[0,100])"));
+                
+                assertFalse(rs.next(), "Should have exactly 4 roads");
             }
             
-            LOGGER.info("--- ROADS Table Verification ---");
-            LOGGER.info("Road 1: Regular road (Y=0), LV_D=600, BRIDGE_PK=NULL");
-            LOGGER.info("Road 2: Highway on bridge (Y=20), LV_D=1200, BRIDGE_PK=100");
-            LOGGER.info("Road 3: Crossing road, LV_D=600, BRIDGE_PK=NULL");
-            LOGGER.info("Total: 3 roads with EMISSION_TYPE='ROAD'");
+            LOGGER.info("");
+            LOGGER.info("Step 1 Validation Summary:");
+            LOGGER.info(String.format("  ✓ Total roads in ROADS table: %d", roadsCount));
+            LOGGER.info(String.format("  ✓ Regular roads (BRIDGE_PK=NULL): %d (PKs: 1, 3, 4)", roadRegularCount));
+            LOGGER.info(String.format("  ✓ On-bridge roads (BRIDGE_PK specified): %d (PKs: 2)", roadsOnBridgeCount));
+            LOGGER.info("  ✓ All traffic fields (LV_D, LV_SPD_D, etc.) populated");
 
-            // Verify Bridge PK=100 has exactly 3 CENTER points (no LEFT/RIGHT in database)
+            // Verify Bridge table has 3 CENTER points for Bridge 100
+            LOGGER.info("");
+            LOGGER.info("Verifying BRIDGE_POINTS table structure (Bridge 100):");
             try (ResultSet rs = st.executeQuery(
-                    "SELECT POSITION, COUNT(*) as cnt FROM BRIDGE_POINTS GROUP BY POSITION")) {
+                    "SELECT POSITION, COUNT(*) as cnt FROM BRIDGE_POINTS WHERE BRIDGE_PK=100 GROUP BY POSITION")) {
                 
                 assertTrue(rs.next());
                 assertEquals("CENTER", rs.getString("POSITION"));
-                assertEquals(3, rs.getInt("cnt"), "Should have exactly 3 CENTER points");
+                assertEquals(3, rs.getInt("cnt"), "Should have exactly 3 CENTER points for Bridge 100");
+                LOGGER.info("  ✓ Bridge 100: 3 CENTER points at X=0, 50, 100; Y=20");
                 
                 // No LEFT or RIGHT points (they will be generated by BridgeGeometryBuilder)
-                assertFalse(rs.next(), "Should only have CENTER points in database");
+                assertFalse(rs.next(), "Should only have CENTER points for Bridge 100");
             }
-                        
+    
             // ============================================================
-            // Step 2: Bridge Record Duplication and Classification
-            // Validates bridge record duplication performed in createRoadsTableWithBridgeDuplication()
-            // as per source_algorithms.md Step 2: Bridge Record Duplication and Classification
+            // Step 2: Cell Selection and Scene Context Preparation
+            // Loads geometry data (DEM, bridges) into ProfileBuilder with expanded envelope.
+            // Source: source_algorithms.md Step 2
+            // 
+            // Step 2a: Cell Envelope Computation
+            // Step 2b: ProfileBuilder Creation
+            // Step 2c: Geometry Data Loading (DEM, Bridges)
+            // Step 2d: ProfileBuilder Finalization (Critical - builds spatial indices)
             // ============================================================
             
             LOGGER.info("");
-            LOGGER.info("========================================");
-            LOGGER.info("Step 2: Bridge Record Duplication");
-            LOGGER.info("========================================");
+            LOGGER.info("========== Step 2: Scene Context Preparation ==========");
             
-            // Verify bridge record duplication
-            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) as cnt FROM ROADS WHERE EMISSION_TYPE='BRIDGE'")) {
-                assertTrue(rs.next());
-                assertEquals(1, rs.getInt("cnt"), "Should have 1 duplicated BRIDGE record");
-                LOGGER.info("Duplicated record count: 1 (Road 2 → Road 4 with EMISSION_TYPE='BRIDGE')");
-            }
+            // Step 2a: Load Bridge Points and create Bridge object
+            LOGGER.info("");
+            LOGGER.info("Step 2a: Bridge Geometry Construction");
+            LOGGER.info("  Loading bridge points from BRIDGE_POINTS table -> Bridge object...");
             
-            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) as cnt FROM ROADS")) {
-                assertTrue(rs.next());
-                assertEquals(4, rs.getInt("cnt"), "Should have 4 total records after duplication");
-                LOGGER.info("Total records after duplication: 4");
-            }
-            
-            // Log duplicated record details
+            List<BridgePoint> bridgePointsList = new ArrayList<>();
             try (ResultSet rs = st.executeQuery(
-                    "SELECT PK, EMISSION_TYPE, BRIDGE_PK FROM ROADS WHERE EMISSION_TYPE='BRIDGE'")) {
-                if (rs.next()) {
-                    LOGGER.info(String.format("Duplicated record: PK=%d, EMISSION_TYPE=%s, BRIDGE_PK=%d",
-                            rs.getLong("PK"), rs.getString("EMISSION_TYPE"), rs.getLong("BRIDGE_PK")));
+                    "SELECT * FROM BRIDGE_POINTS WHERE BRIDGE_PK=100 ORDER BY PK")) {
+                while (rs.next()) {
+                    bridgePointsList.add(new BridgePoint(rs));
                 }
             }
+            assertEquals(3, bridgePointsList.size(), "Should have loaded 3 CENTER bridge points");
+            LOGGER.info(String.format("  ✓ Loaded %d bridge points from BRIDGE_POINTS table", bridgePointsList.size()));
             
-            // ============================================================
-            // Bridge Geometry Construction and Validation
-            // Constructs bridge geometry using ProfileBuilder and validates spatial containment
-            // as per source_algorithms.md bridge geometry handling
-            // ============================================================
+            // Create Bridge object with alpha values (absorption coefficients)
+            List<Double> alphas = new ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                alphas.add(0.5); // Default alpha values for 8 frequency bands
+            }
+            Bridge bridge = new Bridge.Builder(bridgePointsList).withAlphas(alphas).build();
+            LOGGER.info("  ✓ Bridge object constructed with geometry and acoustic properties");
             
-            Bridge bridge = createBridgeFromDatabase();
+            // Step 2b: ProfileBuilder Creation and Initialization
+            LOGGER.info("");
+            LOGGER.info("Step 2b: ProfileBuilder Initialization");
             ProfileBuilder profileBuilder = new ProfileBuilder();
             profileBuilder.addBridge(bridge);
-            profileBuilder.addTopographicPoint(new Coordinate(0, 0, 0.5));
-            profileBuilder.addTopographicPoint(new Coordinate(50, 0, 1.2));
-            profileBuilder.addTopographicPoint(new Coordinate(100, 0, 2.8));
-            profileBuilder.addTopographicPoint(new Coordinate(0, 50, 0.1));
-            profileBuilder.addTopographicPoint(new Coordinate(50, 50, 3.0));
-            profileBuilder.addTopographicPoint(new Coordinate(100, 50, 1.5));
-            profileBuilder.addTopographicPoint(new Coordinate(0, 100, 2.1));
-            profileBuilder.addTopographicPoint(new Coordinate(50, 100, 0.8));
-            profileBuilder.addTopographicPoint(new Coordinate(100, 100, 2.5));
+            LOGGER.info("  ✓ ProfileBuilder created and Bridge 100 added");
+            
+            // Step 2c: Load DEM (topographic points) into ProfileBuilder
+            LOGGER.info("");
+            LOGGER.info("Step 2c: Loading Geometry Data (DEM) into ProfileBuilder");
+            LOGGER.info("  Loading topographic points from DEM table...");
+            
+            int demPointCount = 0;
+            try (ResultSet rs = st.executeQuery("SELECT THE_GEOM FROM DEM")) {
+                while (rs.next()) {
+                    Geometry geom = (Geometry) rs.getObject("THE_GEOM");
+                    if (geom != null) {
+                        profileBuilder.addTopographicPoint(geom.getCoordinate());
+                        demPointCount++;
+                    }
+                }
+            }
+            LOGGER.info(String.format("  ✓ Loaded %d topographic points from DEM table", demPointCount));
+            
+            // Step 2d: ProfileBuilder Finalization (Critical step)
+            // Builds spatial indices (STRtree) for geometry data.
+            // After finishFeeding(), no new geometry can be added.
+            LOGGER.info("");
+            LOGGER.info("Step 2d: ProfileBuilder Finalization (Critical)");
+            LOGGER.info("  Building spatial indices (STRtree) for efficient geometry queries...");
             profileBuilder.finishFeeding();
+            LOGGER.info("  ✓ ProfileBuilder finalized - spatial indices built");
 
+            // ============================================================
+            // Bridge Geometry Validation
+            // Validates that Bridge geometry (deck) was generated correctly
+            // from the loaded bridge points
+            // ============================================================
+            
+            LOGGER.info("");
+            LOGGER.info("========== Bridge Geometry Generation Validation ==========");
+            
             Geometry deckGeometry = bridge.getDeckGeometry();
             Bridge.GirderType girderType = bridge.getGirderType();
             Bridge.SlabType slabType = bridge.getSlabType();
@@ -371,423 +306,371 @@ public class SourceIdentificationTest {
             assertNotNull(girderType, "Girder type should be set");
             assertNotNull(slabType, "Slab type should be set");
             
-            LOGGER.info("--- Bridge Construction Validation ---");
-            LOGGER.info("Bridge PK: " + bridge.getPrimaryKey());
-            LOGGER.info("Deck geometry type: " + deckGeometry.getGeometryType());
-            LOGGER.info("Deck geometry: " + deckGeometry);
-            LOGGER.info("Girder type: " + girderType);
-            LOGGER.info("Slab type: " + slabType);
+            LOGGER.info("Bridge 100 Properties:");
+            LOGGER.info(String.format("  ✓ Bridge PK: %d", bridge.getPrimaryKey()));
+            LOGGER.info(String.format("  ✓ Deck geometry type: %s", deckGeometry.getGeometryType()));
+            LOGGER.info(String.format("  ✓ Deck geometry: %s", deckGeometry));
+            LOGGER.info(String.format("  ✓ Girder type: %s (affects reflection modeling)", girderType));
+            LOGGER.info(String.format("  ✓ Slab type: %s (affects reflection modeling)", slabType));
             
+            // ============================================================
+            // Bridge Spatial Containment Validation
+            // Uses H2GIS spatial functions to verify road-bridge relationships
+            // ST_Intersects: checks if geometries overlap
+            // ST_Contains: checks if one geometry completely contains another
+            // ============================================================
+            
+            LOGGER.info("");
+            LOGGER.info("========== Bridge Spatial Containment Validation (H2GIS) ==========");
+            LOGGER.info("Validating road-bridge spatial relationships using H2GIS functions:");
             
             // Insert deck geometry into temporary table for H2GIS spatial queries
             st.execute("CREATE TEMPORARY TABLE TEMP_BRIDGE_DECK (BRIDGE_PK INTEGER, THE_GEOM GEOMETRY)");
             st.execute(String.format("INSERT INTO TEMP_BRIDGE_DECK VALUES (100, ST_GeomFromText('%s'))",
                     deckGeometry.toText()));
             
-            // Validate spatial containment using H2GIS spatial functions
-            LOGGER.info("--- Bridge Spatial Containment Validation (H2GIS) ---");
+            LOGGER.info("  Deck geometry inserted into TEMP_BRIDGE_DECK table");
+            LOGGER.info("");
+            LOGGER.info("Checking spatial relationships:");
+            
             try (ResultSet rs = st.executeQuery(
                     "SELECT r.PK, " +
                     "ST_Intersects(r.THE_GEOM, b.THE_GEOM) as intersects, " +
                     "ST_Contains(b.THE_GEOM, r.THE_GEOM) as contains " +
                     "FROM ROADS r, TEMP_BRIDGE_DECK b " +
-                    "WHERE r.EMISSION_TYPE='ROAD' AND r.PK IN (1, 2) " +
+                    "WHERE r.PK IN (1, 2) " +
                     "ORDER BY r.PK")) {
                 
                 // Road 1 (Y=0) should NOT intersect with bridge deck
                 assertTrue(rs.next());
                 assertEquals(1, rs.getLong("PK"));
-                assertFalse(rs.getBoolean("intersects"), 
+                boolean road1Intersects = rs.getBoolean("intersects");
+                boolean road1Contains = rs.getBoolean("contains");
+                
+                assertFalse(road1Intersects, 
                         "Road 1 (Y=0) should NOT intersect with Bridge deck (ST_Intersects)");
-                assertFalse(rs.getBoolean("contains"), 
+                assertFalse(road1Contains, 
                         "Road 1 (Y=0) should NOT be contained by Bridge deck (ST_Contains)");
-                LOGGER.info("Road 1: ST_Intersects=false, ST_Contains=false ✓");
+                LOGGER.info(String.format("  Road 1 (PK=1, Y=0):"));
+                LOGGER.info(String.format("    ├─ ST_Intersects(Road, Deck) = %s ✓", road1Intersects));
+                LOGGER.info(String.format("    └─ ST_Contains(Deck, Road) = %s ✓", road1Contains));
+                LOGGER.info("    └─ Result: Road NOT related to bridge (as expected)");
                 
                 // Road 2 (Y=20) should intersect and be contained by bridge deck
                 assertTrue(rs.next());
                 assertEquals(2, rs.getLong("PK"));
-                assertTrue(rs.getBoolean("intersects"), 
+                boolean road2Intersects = rs.getBoolean("intersects");
+                boolean road2Contains = rs.getBoolean("contains");
+                
+                assertTrue(road2Intersects, 
                         "Road 2 (Y=20) should intersect with Bridge deck (ST_Intersects)");
-                assertTrue(rs.getBoolean("contains"), 
+                assertTrue(road2Contains, 
                         "Road 2 (Y=20) should be contained by Bridge deck (ST_Contains)");
-                LOGGER.info("Road 2: ST_Intersects=true, ST_Contains=true ✓");
+                LOGGER.info(String.format("  Road 2 (PK=2, Y=20):"));
+                LOGGER.info(String.format("    ├─ ST_Intersects(Road, Deck) = %s ✓", road2Intersects));
+                LOGGER.info(String.format("    └─ ST_Contains(Deck, Road) = %s ✓", road2Contains));
+                LOGGER.info("    └─ Result: Road is ON bridge (as expected)");
                 
                 assertFalse(rs.next());
             }
-            LOGGER.info("--- Bridge validation completed ---");
-            
-            // ============================================================
-            // Step 3: Emission Calculation
-            // Calculates sound power levels for road traffic noise (CNOSSOS-EU) and bridge structural noise (ASJ)
-            // as per source_algorithms.md Step 3: Emission Calculation
-            // ============================================================
-            // ============================================================
-            // Step 4: LW_ROADS Table Creation
-            // Creates LW_ROADS table with emission data and assigns Z coordinates based on EMISSION_TYPE
-            // as per source_algorithms.md Step 4: LW_ROADS Table Creation
-            // ============================================================
             
             LOGGER.info("");
+            LOGGER.info("========== Test Complete - All validations passed ==========");
+            LOGGER.info("  ✓ Step 1: ROADS table structure validated");
+            LOGGER.info("  ✓ Step 2a: Bridge geometry constructed from bridge points");
+            LOGGER.info("  ✓ Step 2c: DEM topographic points loaded into ProfileBuilder");
+            LOGGER.info("  ✓ Step 2d: ProfileBuilder finalized with spatial indices");
+            LOGGER.info("  ✓ Bridge-road relationships verified by H2GIS spatial functions");
             LOGGER.info("========================================");
-            LOGGER.info("Step 3, 4: Emission Calculation and LW_ROADS Table Creation");
-            LOGGER.info("========================================");
-            
-            // Create LW_ROADS table with 28 columns (PK, THE_GEOM, EMISSION_TYPE, BRIDGE_PK + 24 emission levels)
-            st.execute("CREATE TABLE LW_ROADS (" +
-                    "PK LONG PRIMARY KEY, " +
-                    "THE_GEOM GEOMETRY, " +
-                    "EMISSION_TYPE VARCHAR(20), " +
-                    "HEIGHT_TYPE VARCHAR(10), " +
-                    "BRIDGE_PK LONG, " +
-                    // Day period (8 octave bands: 63, 125, 250, 500, 1000, 2000, 4000, 8000 Hz)
-                    "LWD63 DOUBLE PRECISION, LWD125 DOUBLE PRECISION, LWD250 DOUBLE PRECISION, LWD500 DOUBLE PRECISION, " +
-                    "LWD1000 DOUBLE PRECISION, LWD2000 DOUBLE PRECISION, LWD4000 DOUBLE PRECISION, LWD8000 DOUBLE PRECISION, " +
-                    // Evening period
-                    "LWE63 DOUBLE PRECISION, LWE125 DOUBLE PRECISION, LWE250 DOUBLE PRECISION, LWE500 DOUBLE PRECISION, " +
-                    "LWE1000 DOUBLE PRECISION, LWE2000 DOUBLE PRECISION, LWE4000 DOUBLE PRECISION, LWE8000 DOUBLE PRECISION, " +
-                    // Night period
-                    "LWN63 DOUBLE PRECISION, LWN125 DOUBLE PRECISION, LWN250 DOUBLE PRECISION, LWN500 DOUBLE PRECISION, " +
-                    "LWN1000 DOUBLE PRECISION, LWN2000 DOUBLE PRECISION, LWN4000 DOUBLE PRECISION, LWN8000 DOUBLE PRECISION)");
-            
-            
-            // Calculate emissions for all roads and insert into LW_ROADS table
-            Map<String, Integer> fieldCache = new HashMap<>();
-            
-            // Process roads: 1 (Regular ROAD), 2 (Bridge ROAD), 3 (Crossing ROAD), 4 (Bridge BRIDGE)
-            int[] roadPks = {1, 2, 3, 4};
-            
-            for (int i = 0; i < roadPks.length; i++) {
-                int pk = roadPks[i];
-                
-                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM ROADS WHERE PK=" + pk);
-                     SpatialResultSet rs = ps.executeQuery().unwrap(SpatialResultSet.class)) {
-                    if (rs.next()) {
-                        // Cache field indices for performance
-                        fieldCache.clear();
-                        ResultSetMetaData metaData = rs.getMetaData();
-                        for (int j = 1; j <= metaData.getColumnCount(); j++) {
-                            fieldCache.put(metaData.getColumnName(j), j);
-                        }
-                                                
-                        // Compute emissions based on source type (returns W values)
-                        List<SourceEmission> emissions = new RoadEmissionBuilder(rs)
-                            .trafficAsInput()
-                            .withPeriods(Arrays.asList("D", "E", "N"))
-                            .build(profileBuilder);
-
-                        double[][] lwResults = new double[3][8];
-                        for (SourceEmission emission : emissions) {
-                            int periodIndex;
-                            switch (emission.period) {
-                                case "D":
-                                    periodIndex = 0;
-                                    break;
-                                case "E":
-                                    periodIndex = 1;
-                                    break;
-                                case "N":
-                                    periodIndex = 2;
-                                    break;
-                                default:
-                                    continue;
-                            }
-                            lwResults[periodIndex] = emission.emissionInWatts;
-                        }
-                        
-                        // Convert W to dB and build emission values SQL fragment (24 values: 8 bands × 3 periods)
-                        StringBuilder emissionValues = new StringBuilder();
-                        for (int period = 0; period < 3; period++) {
-                            double[] periodEmissions = AcousticIndicatorsFunctions.wToDb(lwResults[period]);
-                            for (int band = 0; band < 8; band++) {
-                                emissionValues.append(String.format("%.2f%s", periodEmissions[band],
-                                        (period == 2 && band == 7) ? "" : ", "));
-                            }
-                        }
-                        
-                        // Insert calculated emission data into LW_ROADS table
-                        st.execute(String.format(
-                                "INSERT INTO LW_ROADS (PK, THE_GEOM, EMISSION_TYPE, HEIGHT_TYPE, BRIDGE_PK, " +
-                                "LWD63, LWD125, LWD250, LWD500, LWD1000, LWD2000, LWD4000, LWD8000, " +
-                                "LWE63, LWE125, LWE250, LWE500, LWE1000, LWE2000, LWE4000, LWE8000, " +
-                                "LWN63, LWN125, LWN250, LWN500, LWN1000, LWN2000, LWN4000, LWN8000) " +
-                                "SELECT %d, THE_GEOM, EMISSION_TYPE, HEIGHT_TYPE, BRIDGE_PK, %s FROM ROADS WHERE PK=%d",
-                                pk, emissionValues.toString(), pk));
-                    }
-                }
-            }
-
-            // Update Z coordinates based on EMISSION_TYPE as per LW_ROADS table convention
-            // ROAD sources: Z=0.05m (above road surface), BRIDGE sources: Z=-0.05m (below deck)
-            st.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(THE_GEOM, 0.05) WHERE EMISSION_TYPE='ROAD'");
-            st.execute("UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(THE_GEOM, -0.05) WHERE EMISSION_TYPE='BRIDGE'");
-            st.execute("UPDATE LW_ROADS SET HEIGHT_TYPE = 'RELATIVE'");
-            
-            
-            // ============================================================
-            // Step 4 Validation: LW_ROADS Table Structure and Data
-            // ============================================================
-            
-            LOGGER.info("");
-            LOGGER.info("--- LW_ROADS Table Validation ---");
-            
-            // Verify table structure
-            try (ResultSet rs = st.executeQuery(
-                    "SELECT COUNT(*) as col_count FROM INFORMATION_SCHEMA.COLUMNS " +
-                    "WHERE TABLE_NAME = 'LW_ROADS'")) {
-                assertTrue(rs.next());
-                int colCount = rs.getInt("col_count");
-                assertEquals(29, colCount, "LW_ROADS should have 29 columns");
-                LOGGER.info("Column count: " + colCount + " (PK, THE_GEOM, EMISSION_TYPE, BRIDGE_PK + 24 emission levels)");
-            }
-            
-            // Verify we have 4 emission records (Roads 1, 2, 3, and 4)
-            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) as cnt FROM LW_ROADS")) {
-                assertTrue(rs.next());
-                int recordCount = rs.getInt("cnt");
-                assertEquals(4, recordCount, "Should have 4 emission records");
-                LOGGER.info("Emission record count: " + recordCount);
-            }
-            
-            // Verify EMISSION_TYPE distribution
-            try (ResultSet rs = st.executeQuery(
-                    "SELECT EMISSION_TYPE, COUNT(*) as cnt FROM LW_ROADS GROUP BY EMISSION_TYPE ORDER BY EMISSION_TYPE")) {
-                int roadCount = 0;
-                int bridgeCount = 0;
-                while (rs.next()) {
-                    String emissionType = rs.getString("EMISSION_TYPE");
-                    int count = rs.getInt("cnt");
-                    if ("ROAD".equals(emissionType)) {
-                        roadCount = count;
-                    } else if ("BRIDGE".equals(emissionType)) {
-                        bridgeCount = count;
-                    }
-                }
-                LOGGER.info("EMISSION_TYPE='ROAD': " + roadCount + " records (CNOSSOS-EU methodology)");
-                LOGGER.info("EMISSION_TYPE='BRIDGE': " + bridgeCount + " records (ASJ methodology)");
-            }
-            
-            // Log emission data for all records
-            LOGGER.info("--- Emission Results (All Records) ---");
-            String[] bands = {"63", "125", "250", "500", "1000", "2000", "4000", "8000"};
-            
-            try (ResultSet rs = st.executeQuery(
-                    "SELECT PK, EMISSION_TYPE, BRIDGE_PK, " +
-                    "LWD63, LWD125, LWD250, LWD500, LWD1000, LWD2000, LWD4000, LWD8000, " +
-                    "LWE63, LWE125, LWE250, LWE500, LWE1000, LWE2000, LWE4000, LWE8000, " +
-                    "LWN63, LWN125, LWN250, LWN500, LWN1000, LWN2000, LWN4000, LWN8000 " +
-                    "FROM LW_ROADS ORDER BY PK")) {
-                
-                while (rs.next()) {
-                    long pk = rs.getLong("PK");
-                    String emissionType = rs.getString("EMISSION_TYPE");
-                    Long bridgePk = rs.getLong("BRIDGE_PK");
-                    if (rs.wasNull()) bridgePk = null;
-                    
-                    LOGGER.info(String.format("Road %d (EMISSION_TYPE=%s, BRIDGE_PK=%s):", 
-                            pk, emissionType, bridgePk));
-                    
-                    // Day period emissions
-                    StringBuilder dayEmissions = new StringBuilder("  Day:     ");
-                    for (String band : bands) {
-                        dayEmissions.append(String.format("%s Hz=%.2f dB, ", band, rs.getDouble("LWD" + band)));
-                    }
-                    LOGGER.info(dayEmissions.toString());
-                    
-                    // Evening period emissions
-                    StringBuilder eveningEmissions = new StringBuilder("  Evening: ");
-                    for (String band : bands) {
-                        eveningEmissions.append(String.format("%s Hz=%.2f dB, ", band, rs.getDouble("LWE" + band)));
-                    }
-                    LOGGER.info(eveningEmissions.toString());
-                    
-                    // Night period emissions
-                    StringBuilder nightEmissions = new StringBuilder("  Night:   ");
-                    for (String band : bands) {
-                        nightEmissions.append(String.format("%s Hz=%.2f dB, ", band, rs.getDouble("LWN" + band)));
-                    }
-                    LOGGER.info(nightEmissions.toString());
-                    LOGGER.info("");
-                }
-            }
-            
-            // ============================================================
-            // Step 5: Geometry Loading & Step 6: Scene Registration
-            // Loads geometries from LW_ROADS table within envelope and registers them in Scene
-            // as per source_algorithms.md Step 5: Geometry Loading and Step 6: Scene Registration
-            // ============================================================
-            
-            LOGGER.info("");
-            LOGGER.info("========================================");
-            LOGGER.info("Step 5 & 6: Geometry Loading and Scene Registration");
-            LOGGER.info("========================================");
-
-
-            // manually set Envelope
-            LOGGER.info("--- Setting Receiver and Envelope ---");
-            ReceiverPointInfo receiverPointInfo = new ReceiverPointInfo(1, 1, new Coordinate(50.0, 10.0, 1.5));
-            Coordinate receiverCoord = receiverPointInfo.getCoordinate();
-            double searchRadius = 100.0;
-            Envelope envelope = new Envelope(
-                    receiverCoord.x - searchRadius, receiverCoord.x + searchRadius,
-                    receiverCoord.y - searchRadius, receiverCoord.y + searchRadius);
-
-            LOGGER.info(String.format("Receiver at (%.1f, %.1f, %.1f)m",
-                    receiverCoord.x, receiverCoord.y, receiverCoord.z));
-            LOGGER.info(String.format("Search envelope: [%.1f, %.1f] × [%.1f, %.1f] (radius=%.1fm)",
-                    envelope.getMinX(), envelope.getMaxX(), 
-                    envelope.getMinY(), envelope.getMaxY(), searchRadius));
-
-            // initialize DefaultTableLoader
-            DefaultTableLoader tableLoader = new DefaultTableLoader();
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("NO_BUILDINGS_TABLE", "LW_ROADS", "NO_RECEIVERS_TABLE");
-            noiseMapByReceiverMaker.setInputMode(
-                SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION
-            );
-            noiseMapByReceiverMaker.setMainEnvelope(envelope);
-            DefaultProgressVisitor progressVisitor = new DefaultProgressVisitor(1, null);
-            noiseMapByReceiverMaker.initialize(connection, progressVisitor);
-            tableLoader.initialize(connection, noiseMapByReceiverMaker);
-
-            LOGGER.info("--- Initializing Scene then Loading and Registering Sources using fetchCellSource method---");
-            SceneWithEmission scene = new SceneWithEmission(profileBuilder);
-
-            tableLoader.fetchCellSource(connection, envelope, scene, true);
-
-            
-            // ============================================================
-            // Step 5 & 6 Validation
-            // ============================================================
-            
-            LOGGER.info("");
-            LOGGER.info("--- Validation: Loaded and Registered Sources ---");
-            
-            // Validate number of loaded sources
-            int sourceCount = scene.countSources();
-            assertEquals(4, sourceCount, "Should load and register 4 sources within envelope");
-            LOGGER.info(String.format("Total sources in scene: %d", sourceCount));
-            
-            // Validate geometry types
-            List<Geometry> sourceGeometries = scene.getSourceGeometries();
-            for (Geometry geom : sourceGeometries) {
-                assertNotNull(geom, "Geometry should not be null");
-                assertFalse(geom.isEmpty(), "Geometry should not be empty");
-                assertEquals("LineString", geom.getGeometryType(), "All sources should be LineString");
-            }
-            
-            LOGGER.info("All geometries validated: LineString type");
-            
-            // Validate BridgeRelationship classification
-            LOGGER.info("");
-            LOGGER.info("--- BridgeRelationship Classification ---");
-            LOGGER.info(String.format("bridgeRelationships.size() = %d", scene.bridgeRelationships.size()));
-            LOGGER.info(String.format("sourcesPk.size() = %d", scene.sourcesPk.size()));
-            
-            int roadSourceCount = 0;
-            int bridgeSourceOnBridgeCount = 0;
-            int bridgeSourceUnderBridgeCount = 0;
-            
-            for (Long sourcePk : scene.bridgeRelationships.keySet()) {
-                var bridgeProperty = scene.bridgeRelationships.get(sourcePk);
-                
-                String relationTypeDesc;
-                if (bridgeProperty.getBridgePkOn() >= 0) {
-                    bridgeSourceOnBridgeCount++;
-                    relationTypeDesc = String.format("ACTUAL_SOURCE_ON_BRIDGE (bridgePkOn=%d)",
-                            bridgeProperty.getBridgePkOn());
-                } else if (bridgeProperty.getBridgePkAbove() >= 0) {
-                    bridgeSourceUnderBridgeCount++;
-                    relationTypeDesc = String.format("IMAGINARY_SOURCE_UNDER_BRIDGE (bridgePkAbove=%d)",
-                            bridgeProperty.getBridgePkAbove());
-                } else {
-                    roadSourceCount++;
-                    relationTypeDesc = "SOURCE_NOT_RELATED_TO_BRIDGE";
-                }
-                
-                LOGGER.info(String.format("Source PK=%d: %s", sourcePk, relationTypeDesc));
-            }
-            
-            LOGGER.info("");
-            LOGGER.info(String.format("SOURCE_NOT_RELATED_TO_BRIDGE: %d sources (Road 1, Road 3)", roadSourceCount));
-            LOGGER.info(String.format("ACTUAL_SOURCE_ON_BRIDGE: %d sources (Road 2 traffic noise)", bridgeSourceOnBridgeCount));
-            LOGGER.info(String.format("IMAGINARY_SOURCE_UNDER_BRIDGE: %d sources (Road 2 structural noise)", bridgeSourceUnderBridgeCount));
-            
-            assertEquals(2, roadSourceCount, "Should have 2 sources not related to bridge");
-            assertEquals(1, bridgeSourceOnBridgeCount, "Should have 1 source on bridge");
-            assertEquals(1, bridgeSourceUnderBridgeCount, "Should have 1 imaginary source under bridge");
-            
-            // ============================================================
-            // Step 7: LineString Point Sampling & Elevation Conversion
-            // Samples LineString geometries into discrete point sources with absolute elevations
-            // as per source_algorithms.md Step 7: LineString Point Sampling and Elevation Conversion
-            // ============================================================
-            LOGGER.info("");
-            LOGGER.info("========================================");
-            LOGGER.info("Step 7: LineString Point Sampling & Elevation Conversion");
-            LOGGER.info("========================================");
-            
-            List<SourcePointInfo> sourceList = SourceCollector.collectSourcePoints(receiverPointInfo, scene);
-
-            HashMap<Long, HashMap<BridgeRelationship.RelationType, Integer>> sourcePointCountMap = new HashMap<>();
-            for (SourcePointInfo sourcePointInfo : sourceList) {
-                long sourcePk = sourcePointInfo.getSourcePk();
-                BridgeRelationship.RelationType relationType = sourcePointInfo.getBridgeRelationship().getRelationType();
-
-                if(sourcePointCountMap.get(sourcePk) == null) {
-                    HashMap<BridgeRelationship.RelationType, Integer> relationTypeCountMap = new HashMap<>();
-                    sourcePointCountMap.put(sourcePk, relationTypeCountMap);
-                }
-                sourcePointCountMap.get(sourcePk).put(relationType, sourcePointCountMap.get(sourcePk).getOrDefault(relationType, 0) + 1);
-
-                if (relationType == BridgeRelationship.RelationType.SOURCE_NOT_RELATED_TO_BRIDGE) {
-                    double z = sourcePointInfo.getCoordinate().z;
-                    
-                    AtomicInteger triangleHint = new AtomicInteger(-1);
-                    double profileZ = profileBuilder.getZGround(sourcePointInfo.getCoordinate(), triangleHint);
-
-                    assertEquals(0.05, z - profileZ, 0.001,
-                            String.format("Source NOT related to bridge: Z=%.3f should be 0.05m above ground Z=%.3f", z, profileZ));
-                } else if (relationType == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE){
-                    double z = sourcePointInfo.getCoordinate().z;
-                    long bridgePkOn = sourcePointInfo.getBridgeRelationship().getBridgePkOn();
-                    
-                    double deckHeight = profileBuilder.getBridgeByPk(bridgePkOn).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
-                    assertEquals(0.05, z - deckHeight, 0.001,
-                            String.format("Actual Source ON bridge: Z=%.3f should be 0.05m above deck Z=%.3f", z, deckHeight));
-                } else if(relationType == BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
-                    double z = sourcePointInfo.getCoordinate().z;
-                    long bridgePkAbove = sourcePointInfo.getBridgeRelationship().getBridgePkAbove();
-                    
-                    double deckHeight = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
-                    double deckThickness = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckThicknessAtPoint(sourcePointInfo.getCoordinate());
-
-
-                    assertEquals(-0.05, z - (deckHeight - deckThickness), 0.001,
-                            String.format("Imaginary Source UNDER bridge: Z=%.3f should be -0.05m below ground Z=%.3f", z, deckHeight - deckThickness));
-                } else if(relationType == BridgeRelationship.RelationType.MIRROR_SOURCE){
-                    double z = sourcePointInfo.getCoordinate().z;
-                    long bridgePkAbove = sourcePointInfo.getBridgeRelationship().getBridgePkAbove();
-                    
-                    double deckHeight = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
-                    double deckThickness = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckThicknessAtPoint(sourcePointInfo.getCoordinate());
-                    
-                    AtomicInteger triangleHint = new AtomicInteger(-1);
-                    double profileZ = profileBuilder.getZGround(sourcePointInfo.getCoordinate(), triangleHint);
-
-                    assertEquals(0.05, z - 2 * (deckHeight - deckThickness - profileZ - 0.05), 0.001, String.format("Mirror Source ON bridge: Z=%.3f should be the mirror of the 0.05m above the ground Z=%.3f", z, profileZ));
-                }
-            }
-            
-            for (Long sourcePk : sourcePointCountMap.keySet()) {
-                HashMap<BridgeRelationship.RelationType, Integer> pointCountMap = sourcePointCountMap.get(sourcePk);
-                LOGGER.info(String.format("SourcePK: %d", sourcePk));
-
-                for (BridgeRelationship.RelationType relationType : pointCountMap.keySet()) {
-                    int typeCount = pointCountMap.get(relationType);
-                    LOGGER.info(String.format("  %s: %d sampled points", relationType, typeCount));
-                }
-            }
-
-                
+        } catch (Exception e) {
+            fail("Exception during geometry preparation test: " + e.getMessage());
         }
     }
+
+    @Test
+    public void testCellFetch() throws Exception{
+        // Load test data from GeoJSON files
+        loadTestDataFromGeoJson();
+
+        LOGGER.info("========================================");
+        LOGGER.info("testCellFetch: Source Identification Test");
+        LOGGER.info("========================================");
+
+        DefaultTableLoader tableLoader = new DefaultTableLoader();
+        NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("NO_BUILDINGS", "ROADS", "RECEIVERS");
+        noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN);
+        noiseMapByReceiverMaker.setDemTable("DEM");
+        noiseMapByReceiverMaker.setBridgePointsTableName("BRIDGE_POINTS");
+        noiseMapByReceiverMaker.setMaximumPropagationDistance(100.0);
+        noiseMapByReceiverMaker.setMaximumReflectionDistance(50.0);
+        noiseMapByReceiverMaker.setMainEnvelope(new Envelope(0.0, 100.0, 0.0, 100.0));
+
+        DefaultProgressVisitor progressVisitor = new DefaultProgressVisitor(1, null);
+        noiseMapByReceiverMaker.initialize(connection, progressVisitor);
+        tableLoader.initialize(connection, noiseMapByReceiverMaker);
+        
+        Envelope mainEnvelope = new Envelope(0, 100, 0, 100);
+        LOGGER.info("Main envelope (calculation region): [0,100] × [0,100]");
+        
+        // Step 2a: Cell Envelope Computation
+        // Expands cell envelope by propagation distance + 2 × reflection distance
+        // for continuity between subdomains (see source_algorithms.md Step 2)
+        Envelope expandedCellEnvelop = new Envelope(mainEnvelope);
+        double maximumPropagationDistance = noiseMapByReceiverMaker.getMaximumPropagationDistance();
+        double maximumReflectionDistance = noiseMapByReceiverMaker.getMaximumReflectionDistance();
+        expandedCellEnvelop.expandBy(maximumPropagationDistance + 2 * maximumReflectionDistance);
+        
+        LOGGER.info(String.format("Cell expansion: propDistance=%.1f, reflDistance=%.1f", 
+            maximumPropagationDistance, maximumReflectionDistance));
+        LOGGER.info(String.format("Expanded envelope: [%.0f,%.0f] × [%.0f,%.0f]",
+            expandedCellEnvelop.getMinX(), expandedCellEnvelop.getMaxX(),
+            expandedCellEnvelop.getMinY(), expandedCellEnvelop.getMaxY()));
+
+        GeometryFactory geometryFactory = noiseMapByReceiverMaker.getGeometryFactory();
+
+        // Step 2b-2c: ProfileBuilder Creation and Initialization
+        // Creates ProfileBuilder and SceneWithEmission before loading geometry
+        // (see source_algorithms.md Step 2: "ProfileBuilder is initialized before any geometry data loading")
+        ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
+        SceneWithEmission scene = new SceneWithEmission(profileBuilder, noiseMapByReceiverMaker.getSceneInputSettings());
+        LOGGER.info("Step 2b: ProfileBuilder and Scene initialized");
+
+        // Step 2c: Geometry Data Loading
+        // Loads buildings, DEM, soil areas, and bridges into ProfileBuilder
+        // using expanded envelope (see source_algorithms.md Step 2)
+        LOGGER.info("Step 2c: Loading geometry context into ProfileBuilder...");
+        LOGGER.info("  (NOTE: No buildings scene used - 'NO_BUILDINGS' parameter passed to NoiseMapByReceiverMaker)");
+        
+        // Note: Buildings would be loaded here with fetchCellBuildings() if available
+        // Skipped in this test: tableLoader.fetchCellBuildings(connection, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
+        
+        // Note: Soil areas would be loaded here with fetchCellSoilAreas() if available
+        // Skipped in this test: tableLoader.fetchCellSoilAreas(connection, expandedCellEnvelop, scene.profileBuilder);
+        
+        tableLoader.fetchCellDem(connection, expandedCellEnvelop, scene.profileBuilder);
+        LOGGER.info("  ✓ DEM (topographic points) loaded");
+        
+        tableLoader.fetchCellBridge(connection, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
+        LOGGER.info("  ✓ Bridge geometry (BRIDGE_POINTS table) loaded");
+
+        // Step 2d: ProfileBuilder Finalization (Critical step - MUST be done BEFORE Step 3)
+        // Builds spatial indices (STRtree) for geometry data
+        // After finishFeeding(), no new geometry can be added
+        // (see source_algorithms.md Step 2: "ProfileBuilder must be finalized before source loading")
+        LOGGER.info("");
+        LOGGER.info("Step 2d: Finalizing ProfileBuilder (building spatial indices)...");
+        LOGGER.info("  CRITICAL: This step must be completed BEFORE source loading (Step 3)");
+        scene.profileBuilder.finishFeeding();
+        LOGGER.info("  ✓ ProfileBuilder finalized - spatial indices ready");
+        LOGGER.info("  ✓ No new geometry can be added to ProfileBuilder after finalization");
+
+        // Step 3: Source Loading, Emission Calculation, and Scene Registration
+        // Registers source geometries and emission spectra into Scene
+        // (see source_algorithms.md Step 3: "fetchCellSource() ... registers geometry and emissions")
+        LOGGER.info("");
+        LOGGER.info("Step 3: Loading sources and registering emissions...");
+        LOGGER.info("  (ProfileBuilder finalization is now complete - proceeds to source loading)");
+        tableLoader.fetchCellSource(connection, mainEnvelope, scene, true);
+        LOGGER.info("  ✓ Source geometries (LineStrings) registered in Scene");
+        LOGGER.info("  ✓ Source emissions (spectra) registered via sourcePk lookup");
+
+        // === Validation: ProfileBuilder State ===
+        LOGGER.info("");
+        LOGGER.info("Validating ProfileBuilder state after Step 2...");
+        assertNotNull(profileBuilder, "ProfileBuilder should be initialized");
+        assertTrue(profileBuilder.hasBridges(), "ProfileBuilder should contain bridge data");
+        assertEquals(1, profileBuilder.getBridges().size(), "Only Bridge 100 should be in the cell context");
+        assertNotNull(profileBuilder.getBridgeByPk(100), "Bridge 100 should be loaded in the cell context");
+        assertNull(profileBuilder.getBridgeByPk(200), "Bridge 200 should be outside the cell context");
+        LOGGER.info("  ✓ Bridge 100 loaded (Bridge 200 excluded - outside expanded envelope)");
+
+        // === Validation: Scene and Source Loading (Step 3 validation) ===
+        LOGGER.info("");
+        LOGGER.info("Validating Scene and source registration (Step 3)...");
+        assertNotNull(scene, "Scene should be initialized");
+        int sourceCount = scene.countSources();
+        assertEquals(3, sourceCount, "Only roads inside the main envelope should be loaded as sources");
+        LOGGER.info("  ✓ Total sources registered in Scene: " + sourceCount + " (Road 4 excluded - outside main envelope)");
+
+        List<Long> sourcePks = scene.getSourcePks();
+        assertTrue(sourcePks.contains(1L), "Road 1 should be loaded as a source");
+        assertTrue(sourcePks.contains(2L), "Road 2 should be loaded as a source");
+        assertTrue(sourcePks.contains(3L), "Road 3 should be loaded as a source");
+        assertFalse(sourcePks.contains(4L), "Road 4 should be outside the main envelope");
+        LOGGER.info("  ✓ Source PKs registered: " + sourcePks);
+
+        Geometry envelopeGeometry = geometryFactory.toGeometry(mainEnvelope);
+        for (Geometry sourceGeometry : scene.getSourceGeometries()) {
+            assertNotNull(sourceGeometry, "Source geometry should not be null");
+            assertFalse(sourceGeometry.isEmpty(), "Source geometry should not be empty");
+            assertEquals("LineString", sourceGeometry.getGeometryType(), "Source geometry should be a LineString");
+            assertTrue(envelopeGeometry.intersects(sourceGeometry),
+                "Source geometry should intersect the main envelope");
+        }
+        LOGGER.info("  ✓ All source geometries are valid LineStrings intersecting main envelope");
+
+        // === Step 3b: Source Height Type and Bridge Relationship ===
+        // Each source is classified by its bridge relationship and height type
+        // (see source_algorithms.md Step 3: "registers geometry and metadata in the Scene")
+        LOGGER.info("");
+        LOGGER.info("Step 3b: Source height type and bridge relationship classification...");
+        
+        int roadSourceCount = 0;
+        int bridgeSourceOnBridgeCount = 0;
+        int bridgeSourceUnderBridgeCount = 0;
+        for (Long sourcePk : sourcePks) {
+            Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
+            assertEquals(Scene.HeightType.RELATIVE, heightType,
+                "Source height type should default to RELATIVE");
+
+            BridgeRelationship bridgeRelationship = scene.getBridgeRelationshipByPk(sourcePk);
+            assertNotNull(bridgeRelationship, "Bridge relationship should be registered for each source");
+
+            switch (bridgeRelationship.getRelationType()) {
+                case SOURCE_NOT_RELATED_TO_BRIDGE:
+                    roadSourceCount++;
+                    LOGGER.info(String.format("  SourcePK %d: SOURCE_NOT_RELATED_TO_BRIDGE (Road)", sourcePk));
+                    break;
+                case ACTUAL_SOURCE_ON_BRIDGE:
+                    bridgeSourceOnBridgeCount++;
+                    assertEquals(100L, bridgeRelationship.getBridgePkOn(),
+                        "Bridge source should reference Bridge 100");
+                    LOGGER.info(String.format("  SourcePK %d: ACTUAL_SOURCE_ON_BRIDGE (Bridge PK=100)", sourcePk));
+                    break;
+                case IMAGINARY_SOURCE_UNDER_BRIDGE:
+                    bridgeSourceUnderBridgeCount++;
+                    LOGGER.info(String.format("  SourcePK %d: IMAGINARY_SOURCE_UNDER_BRIDGE", sourcePk));
+                    break;
+                default:
+                    fail("Unexpected bridge relationship type: " + bridgeRelationship.getRelationType());
+            }
+        }
+
+        assertEquals(2, roadSourceCount, "Road 1 and Road 3 should not be related to bridge");
+        assertEquals(1, bridgeSourceOnBridgeCount, "Road 2 should be classified as on-bridge source");
+        assertEquals(0, bridgeSourceUnderBridgeCount, "No imaginary under-bridge sources expected for ROADS input");
+        LOGGER.info(String.format("  ✓ Classification complete: %d road sources, %d on-bridge sources, %d under-bridge sources",
+            roadSourceCount, bridgeSourceOnBridgeCount, bridgeSourceUnderBridgeCount));
+
+        double zAtCenter = profileBuilder.getZGround(new Coordinate(50.0, 50.0), new AtomicInteger(-1));
+        assertEquals(3.0, zAtCenter, 0.001, "DEM should provide expected Z at center point");
+        LOGGER.info(String.format("  ✓ DEM validation: Z at center (50, 50) = %.1f m", zAtCenter));
+
+        LOGGER.info("Step 3c: Source emissions...");
+        Map<Long, ArrayList<SourceEmission>> sourceEmissionsMap = scene.getSourceEmissionsMap();
+
+        for (Long sourcePk : sourcePks) {
+            assertTrue(sourceEmissionsMap.containsKey(sourcePk), "Source emissions should be registered for each source");
+            ArrayList<SourceEmission> emissionsList = sourceEmissionsMap.get(sourcePk);
+            assertNotNull(emissionsList, "Emissions list should not be null for source PK " + sourcePk);
+            assertFalse(emissionsList.isEmpty(), "Emissions list should not be empty for source PK " + sourcePk);
+            String emissionProperty = emissionsList.size() + " Emissions: ";
+            for (SourceEmission emission : emissionsList) {
+                emissionProperty += String.format("%s %s; ", emission.getEmissionType().name(), emission.getPeriod());
+            }
+            LOGGER.info(String.format("  Source PK %d: %s", sourcePk, emissionProperty));
+        }
+
+        // === Step 4: LineString Point Sampling and Elevation Conversion ===
+        // Samples Scene-registered LineString geometries into discrete point sources
+        // with absolute elevations for propagation calculations
+        // (see source_algorithms.md Step 4: "samples Scene-registered LineString geometries
+        // into discrete point sources with absolute elevations")
+        LOGGER.info("");
+        LOGGER.info("Step 4: LineString point sampling and elevation conversion...");
+        
+        ReceiverPointInfo receiverPointInfo = new ReceiverPointInfo(1, 1, new Coordinate(50.0, 10.0, 1.5));
+        LOGGER.info(String.format("  Receiver position: X=%.1f, Y=%.1f, Z=%.1f m",
+            receiverPointInfo.getCoordinate().x, receiverPointInfo.getCoordinate().y, receiverPointInfo.getCoordinate().z));
+        
+        // Collect sampled source points based on receiver location
+        // Sampling density adapts to receiver-source distance (see source_algorithms.md Step 4, Segment Size Determination)
+        List<SourcePointInfo> sourceList = SourceCollector.collectSourcePoints(receiverPointInfo, scene);
+        LOGGER.info(String.format("  ✓ Total sampled source points: %d", sourceList.size()));
+
+        HashMap<Long, HashMap<BridgeRelationship.RelationType, Integer>> sourcePointCountMap = new HashMap<>();
+        int sourceNotRelatedToBridgeCount = 0;
+        int sourceOnBridgeCount = 0;
+        int sourceUnderBridgeCount = 0;
+        int mirrorSourceCount = 0;
+        
+        for (SourcePointInfo sourcePointInfo : sourceList) {
+            long sourcePk = sourcePointInfo.getSourcePk();
+            BridgeRelationship.RelationType relationType = sourcePointInfo.getBridgeRelationship().getRelationType();
+
+            if(!sourcePointCountMap.containsKey(sourcePk)) {
+                sourcePointCountMap.put(sourcePk, new HashMap<>());
+            }
+            int currentCount = sourcePointCountMap.get(sourcePk).getOrDefault(relationType, 0);
+            sourcePointCountMap.get(sourcePk).put(relationType, currentCount + 1);
+
+            // Step 4: Height Elevation Validation
+            // Validates that sampled points have correct absolute elevations based on their bridge relationship
+            // (see source_algorithms.md Step 4: "calculateAbsoluteElevation() to convert relative Z")
+            if (relationType == BridgeRelationship.RelationType.SOURCE_NOT_RELATED_TO_BRIDGE) {
+                sourceNotRelatedToBridgeCount++;
+                double z = sourcePointInfo.getCoordinate().z;
+                double profileZ = profileBuilder.getZGround(sourcePointInfo.getCoordinate(), new AtomicInteger(-1));
+                assertEquals(0.05, z - profileZ, 0.001,
+                        String.format("Source NOT related to bridge: Z=%.3f should be 0.05m above ground Z=%.3f", z, profileZ));
+                
+            } else if (relationType == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE) {
+                sourceOnBridgeCount++;
+                double z = sourcePointInfo.getCoordinate().z;
+                long bridgePkOn = sourcePointInfo.getBridgeRelationship().getBridgePkOn();
+                double deckHeight = profileBuilder.getBridgeByPk(bridgePkOn).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
+                assertEquals(0.05, z - deckHeight, 0.001,
+                        String.format("Actual Source ON bridge: Z=%.3f should be 0.05m above deck Z=%.3f", z, deckHeight));
+                
+            } else if(relationType == BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
+                sourceUnderBridgeCount++;
+                double z = sourcePointInfo.getCoordinate().z;
+                long bridgePkAbove = sourcePointInfo.getBridgeRelationship().getBridgePkAbove();
+                double deckHeight = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
+                double deckThickness = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckThicknessAtPoint(sourcePointInfo.getCoordinate());
+
+                assertEquals(-0.05, z - (deckHeight - deckThickness), 0.001,
+                        String.format("Imaginary Source UNDER bridge: Z=%.3f should be -0.05m below ground Z=%.3f", z, deckHeight - deckThickness));
+                
+            } else if(relationType == BridgeRelationship.RelationType.MIRROR_SOURCE) {
+                mirrorSourceCount++;
+                double z = sourcePointInfo.getCoordinate().z;
+                long bridgePkAbove = sourcePointInfo.getBridgeRelationship().getBridgePkAbove();
+                double deckHeight = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckHeightAtPoint(sourcePointInfo.getCoordinate());
+                double deckThickness = profileBuilder.getBridgeByPk(bridgePkAbove).getDeckThicknessAtPoint(sourcePointInfo.getCoordinate());
+                
+                AtomicInteger triangleHint = new AtomicInteger(-1);
+                double profileZ = profileBuilder.getZGround(sourcePointInfo.getCoordinate(), triangleHint);
+
+                assertEquals(0.05, z - 2 * (deckHeight - deckThickness - profileZ - 0.05), 0.001, 
+                    String.format("Mirror Source: Z=%.3f should reflect correctly", z));
+            }
+        }
+        
+        LOGGER.info("");
+        LOGGER.info("Step 4: Elevation conversion validation complete");
+        LOGGER.info(String.format("  ✓ SOURCE_NOT_RELATED_TO_BRIDGE: %d points (absolute Z = DEM + 0.05m)", sourceNotRelatedToBridgeCount));
+        LOGGER.info(String.format("  ✓ ACTUAL_SOURCE_ON_BRIDGE: %d points (absolute Z = deck + 0.05m)", sourceOnBridgeCount));
+        LOGGER.info(String.format("  ✓ IMAGINARY_SOURCE_UNDER_BRIDGE: %d points (absolute Z = (deck - thickness) - 0.05m)", sourceUnderBridgeCount));
+        LOGGER.info(String.format("  ✓ MIRROR_SOURCE: %d points (reflection from bridge underside)", mirrorSourceCount));
+        
+        // === Final Summary ===
+        LOGGER.info("");
+        LOGGER.info("Final Summary: Sampling and classification by source");
+        for (Long sourcePk : sourcePointCountMap.keySet()) {
+            HashMap<BridgeRelationship.RelationType, Integer> pointCountMap = sourcePointCountMap.get(sourcePk);
+            LOGGER.info(String.format("SourcePK %d (Road %d):", sourcePk, sourcePk));
+
+            for (BridgeRelationship.RelationType relationType : pointCountMap.keySet()) {
+                int typeCount = pointCountMap.get(relationType);
+                LOGGER.info(String.format("  └─ %s: %d sampled points", relationType, typeCount));
+            }
+        }
+        
+        LOGGER.info("");
+        LOGGER.info("========================================");
+        LOGGER.info("Test Complete - All steps validated");
+        LOGGER.info("========================================");
+    }
+
 }

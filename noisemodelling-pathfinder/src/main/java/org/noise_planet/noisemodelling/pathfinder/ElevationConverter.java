@@ -35,6 +35,8 @@ public class ElevationConverter {
     Scene scene;
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
     private static final double MIN_INTERPOLATION_DISTANCE = 0.1;
+    public static final double DEFAULT_SOURCE_HEIGHT_ON_ROAD = 0.05;
+    public static final double DEFAULT_SOURCE_HEIGHT_BELOW_BRIDGE = -0.05;
 
 
     /**
@@ -74,6 +76,9 @@ public class ElevationConverter {
      * @return Absolute elevation (sea level reference)
      */
     public static double calculateAbsoluteElevation(Coordinate coord, BridgeRelationship bridgeRelationship, Scene scene) {
+        if(Double.isNaN(coord.z)) {
+            throw new IllegalArgumentException("Coordinate Z value is NaN");
+        }
         ProfileBuilder profileBuilder = scene.getProfileBuilder();
         if (profileBuilder == null) {
             throw new IllegalStateException("ProfileBuilder is required for elevation calculation");
@@ -141,6 +146,7 @@ public class ElevationConverter {
                         throw new IllegalStateException("Bridge on not found: " + bridgePkOnForMirror);
                     }
                     originalSourceZ = bridgeOnForMirror.getDeckHeightAtPoint(coord) + coord.z;
+                    
                 } else {
                     // Original source was on ground
                     originalSourceZ = profileBuilder.getZGround(coord) + coord.z;

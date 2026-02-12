@@ -183,6 +183,48 @@ public class BridgeTest {
         return bridgePointsList;
     }
 
+    /**
+     * Load bridge points from a GeoJSON file resource.
+     * Uses H2GIS GeoJsonRead function to load GeoJSON into database table,
+     * then creates BridgePoint objects from ResultSet.
+     * 
+     * @param geoJsonFileName the name of the GeoJSON file in the test resources
+     * @return list of BridgePoint objects loaded from the GeoJSON file
+     * @throws Exception if the file cannot be read or parsed
+     */
+    private List<BridgePoint> createTestBridgePointsFromGeoJson(String geoJsonFileName) throws Exception {
+        List<BridgePoint> bridgePoints = new ArrayList<>();
+        
+        try (Statement st = connection.createStatement()) {
+            // Load GeoJSON file using H2GIS GeoJsonRead function
+            st.execute(String.format("CALL GeoJsonRead('%s', 'BRIDGE_POINTS_TEMP')", 
+                BridgeTest.class.getResource("/" + geoJsonFileName).getFile()));
+            
+            // Query the loaded data and create BridgePoint objects from ResultSet
+            try (ResultSet rs = st.executeQuery(
+                    "SELECT PK, THE_GEOM, BRIDGE_PK, POSITION, " +
+                    "ABSOLUTE_DECK_HEIGHT, RELATIVE_DECK_HEIGHT, DECK_THICKNESS, " +
+                    "RIGHT_WIDTH, LEFT_WIDTH, RIGHT_BARRIER_HEIGHT, LEFT_BARRIER_HEIGHT, " +
+                    "GIRDER_TYPE, SLAB_TYPE " +
+                    "FROM BRIDGE_POINTS_TEMP ORDER BY PK")) {
+                
+                while (rs.next()) {
+                    BridgePoint bridgePoint = new BridgePoint(rs);
+                    bridgePoints.add(bridgePoint);
+                }
+            }
+            
+            // Clean up temporary table
+            st.execute("DROP TABLE IF EXISTS BRIDGE_POINTS_TEMP");
+        }
+        
+        if (bridgePoints.isEmpty()) {
+            throw new IllegalArgumentException("No bridge points found in GeoJSON file");
+        }
+        
+        return bridgePoints;
+    }
+
     private ProfileBuilder createProfileBuilder() {
         ProfileBuilder profileBuilder =  new ProfileBuilder();
         
@@ -201,19 +243,6 @@ public class BridgeTest {
         return profileBuilder;
     }
 
-    /**
-     * Create a simple 3D bridge deck polygon matching testCreateBridgeFromDatabase.
-     */
-    private Polygon createTestDeckGeometry() {
-        Coordinate[] coords = {
-            new Coordinate(0, 20, 10.0),
-            new Coordinate(50, 20, 10.0),
-            new Coordinate(100, 20, 10.0),
-            new Coordinate(0, 20, 10.0)
-        };
-        return geometryFactory.createPolygon(coords);
-    }
-
 
     /**
      * Tests Bridge construction from BridgePoints and validates various method operations.
@@ -226,6 +255,7 @@ public class BridgeTest {
         List<BridgePoint> bridgePointsRel = createTestBridgePointsWithRelativeHeight();
         List<BridgePoint> bridgePoints2 = createTestBridgePoints2();
         List<BridgePoint> bridgePointsDb = createTestBridgePointsFromDatabase(connection);
+        List<BridgePoint> bridgePointsGeoJson = createTestBridgePointsFromGeoJson("bridge_points.geojson");
 
         // Create bridges using different constructors
         Bridge bridge1 = new Bridge.Builder(bridgePoints)
@@ -252,6 +282,12 @@ public class BridgeTest {
             .setGirderType(Bridge.GirderType.STEEL_BOX)
             .setSlabType(Bridge.SlabType.STEEL)
             .build();
+        Bridge bridgeGeoJson = new Bridge.Builder(bridgePointsGeoJson)
+            .withAlphas(defaultAlphas)
+            .setPrimaryKey(1L)
+            .setGirderType(Bridge.GirderType.STEEL_BOX)
+            .setSlabType(Bridge.SlabType.STEEL)
+            .build();
 
         // Generate deck geometries for the bridges
         ProfileBuilder profileBuilder = createProfileBuilder();
@@ -259,10 +295,13 @@ public class BridgeTest {
         bridgeRel.createDeckGeometry(profileBuilder);
         bridge2.createDeckGeometry(profileBuilder);
         bridgeDb.createDeckGeometry(profileBuilder);
+        bridgeGeoJson.createDeckGeometry(profileBuilder);
 
         // Assert that bridges created from different methods are equal
         assertEquals(bridge1, bridgeDb, "Bridges created from different methods should be equal");
         assertEquals(bridge1.hashCode(), bridgeDb.hashCode(), "Hash codes should be equal for equal bridges");
+        assertEquals(bridgeDb, bridgeGeoJson, "Bridge created from database should equal bridge created from GeoJSON");
+        assertEquals(bridgeDb.hashCode(), bridgeGeoJson.hashCode(), "Hash codes should be equal for bridges from database and GeoJSON");
 
         // Assert that bridges with different points are not equal
         assertNotEquals(bridge1, bridge2, "Bridges with different points should not be equal");

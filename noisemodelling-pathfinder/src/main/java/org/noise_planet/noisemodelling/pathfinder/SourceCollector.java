@@ -83,17 +83,17 @@ public final class SourceCollector {
         Coordinate sourceCoordinates = new Coordinate(sourcePoint.getCoordinate());
         if (sourceCoordinates.distance(receiverPointInfo.getCoordinate()) < scene.getMaxSrcDist()) {
             long sourcePk = scene.getSourcePkById(srcIndex);
-            BridgeRelationship bridgeProperty = scene.getBridgeRelationshipByPk(sourcePk);
+            BridgeRelationship bridgeRelationship = scene.getBridgeRelationshipByPk(sourcePk);
             
             // Convert relative Z to absolute elevation only if HEIGHT_TYPE is RELATIVE
             Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
             if (heightType == Scene.HeightType.RELATIVE) {
-                sourceCoordinates.z = ElevationConverter.calculateAbsoluteElevation(sourceCoordinates, bridgeProperty, scene);
+                sourceCoordinates.z = ElevationConverter.calculateAbsoluteElevation(sourceCoordinates, bridgeRelationship, scene);
             }
             // else: ABSOLUTE - use sourceCoordinates.z as-is (already absolute elevation)
             
             Orientation orientation = scene.getSourceOrientationByPk(sourcePk);
-            SourcePointInfo sourceInfo = new SourcePointInfo(srcIndex, sourcePk, sourceCoordinates, 1., orientation, bridgeProperty);
+            SourcePointInfo sourceInfo = new SourcePointInfo(srcIndex, sourcePk, sourceCoordinates, 1., orientation, bridgeRelationship);
             sourceList.add(sourceInfo);
             
             // Check if MIRROR_SOURCE should be created
@@ -184,17 +184,34 @@ public final class SourceCollector {
                     orientation = Orientation.fromVector(Orientation.rotate(new Orientation(0,0,0), orientationVector), 0);
                 }
                 long sourcePk = scene.getSourcePkById(srcIndex);
-                BridgeRelationship bridgeProperty = scene.getBridgeRelationshipByPk(sourcePk);
+                BridgeRelationship bridgeRelationship = scene.getBridgeRelationshipByPk(sourcePk);
+
+                // set z value if missing
+                if (Double.isNaN(pt.z)) {
+                    pt.z = ElevationConverter.DEFAULT_SOURCE_HEIGHT_ON_ROAD;
+                }
                 
                 // Convert relative Z to absolute elevation only if HEIGHT_TYPE is RELATIVE
                 Scene.HeightType heightType = scene.getSourceHeightTypeByPk(sourcePk);
                 if (heightType == Scene.HeightType.RELATIVE) {
-                    pt.z = ElevationConverter.calculateAbsoluteElevation(pt, bridgeProperty, scene);
+                    pt.z = ElevationConverter.calculateAbsoluteElevation(pt, bridgeRelationship, scene);
                 }
                 // else: ABSOLUTE - use pt.z as-is (already absolute elevation)
                 
-                SourcePointInfo sourceInfo = new SourcePointInfo(srcIndex, sourcePk, pt, li, orientation, bridgeProperty);
+                SourcePointInfo sourceInfo = new SourcePointInfo(srcIndex, sourcePk, pt, li, orientation, bridgeRelationship);
                 sourceList.add(sourceInfo);
+
+                // add bridge imaginary source if needed
+                if(bridgeRelationship.getRelationType() == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE) {
+                    Coordinate imgPt = new Coordinate(pt.x, pt.y, ElevationConverter.DEFAULT_SOURCE_HEIGHT_BELOW_BRIDGE);
+                    BridgeRelationship imgBridgeRelationship = new BridgeRelationship(
+                            BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+                            -1L,
+                            bridgeRelationship.getBridgePkOn()
+                    );
+                    imgPt.z = ElevationConverter.calculateAbsoluteElevation(imgPt, imgBridgeRelationship, scene);
+                    sourceList.add(new SourcePointInfo(srcIndex, sourcePk, imgPt, li, orientation, imgBridgeRelationship));
+                }
                 
                 // Check if MIRROR_SOURCE should be created
                 addMirrorSourceIfNeeded(sourceInfo, srcIndex, sourcePk, li, orientation, sourceList, scene);

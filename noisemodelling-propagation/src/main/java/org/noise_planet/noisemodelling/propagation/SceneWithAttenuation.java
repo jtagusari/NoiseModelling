@@ -244,7 +244,7 @@ public class SceneWithAttenuation extends Scene {
         }
 
         // Read EMISSION_TYPE field to determine the appropriate BridgeRelationship.relationType
-        String emissionType = null;
+        String emissionType = "ROAD";
         if(sourceFieldNames.containsKey(EMISSION_TYPE_DATABASE_FIELD)) {
             emissionType = rs.getString(JDBCUtilities.getFieldIndex(rs.getMetaData(), EMISSION_TYPE_DATABASE_FIELD));
         }

@@ -25,6 +25,8 @@ import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
@@ -282,6 +284,9 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
 
         // Fetch soil areas
         fetchCellSoilAreas(connection, expandedCellEnvelop, scene.profileBuilder);
+
+        // Fetch bridges
+        fetchCellBridge(connection, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
 
         scene.profileBuilder.finishFeeding();
 
@@ -554,7 +559,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
      * @param profileBuilder the profile builder mesh to which the DEM data will be added.
      * @throws SQLException if an SQL exception occurs while fetching the DEM data.
      */
-    protected void fetchCellDem(Connection connection, Envelope fetchEnvelope, ProfileBuilder profileBuilder) throws SQLException {
+    public void fetchCellDem(Connection connection, Envelope fetchEnvelope, ProfileBuilder profileBuilder) throws SQLException {
         String demTable = noiseMapByReceiverMaker.getDemTable();
         if(!demTable.isEmpty()) {
             GeometryFactory geometryFactory = noiseMapByReceiverMaker.getGeometryFactory();
@@ -665,6 +670,52 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Fetches bridge data for the specified cell envelope and adds them to the profile builder.
+     * Reads BRIDGE_POINTS table, groups points by BRIDGE_PK, and creates Bridge objects
+     * using Bridge.Builder pattern.
+     * @param connection      the database connection to use for querying the bridge points data.
+     * @param fetchEnvelope   the envelope representing the cell to fetch bridge data for.
+     * @param builder         the profile builder to which the bridges will be added.
+     * @param geometryFactory geometry factory instance with SRID set.
+     * @throws SQLException   if an SQL exception occurs while fetching the bridge data.
+     */
+    public void fetchCellBridge(Connection connection, Envelope fetchEnvelope, ProfileBuilder builder,
+                                   GeometryFactory geometryFactory) throws SQLException {
+        
+        
+        String bridgePointsTableName = noiseMapByReceiverMaker.getBridgePointsTableName();
+        if(!bridgePointsTableName.isEmpty()) {
+            DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
+            List<String> geomFields = getGeometryColumnNames(connection,
+                    TableLocation.parse(bridgePointsTableName, dbType));
+            if(geomFields.isEmpty()) {
+                throw new SQLException("Bridge points table \"" + bridgePointsTableName + "\" must exist and contain a POINT field");
+            }
+            String bridgeGeomName = geomFields.get(0);
+            
+            // Load all bridge points within the envelope
+            List<BridgePoint> bridgePointsList = new ArrayList<>();
+            try (PreparedStatement st = connection.prepareStatement(
+                    "SELECT * FROM " + bridgePointsTableName + " WHERE " +
+                            TableLocation.quoteIdentifier(bridgeGeomName, dbType) + " && ?::geometry ORDER BY PK")) {
+                st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
+                try (ResultSet rs = st.executeQuery()) {
+                    while (rs.next()) {
+                        bridgePointsList.add(new BridgePoint(rs));
+                    }
+                }
+            }
+
+            List<Bridge> bridges = Bridge.createBridgesFromPoints(bridgePointsList);
+
+            for (Bridge bridge : bridges) {
+                builder.addBridge(bridge);
+            }
+            
         }
     }
 

@@ -38,6 +38,8 @@ public abstract class GridMapMaker {
     protected String soilTableName = "";
     // Digital elevation model table. (Contains points or triangles)
     protected String demTable = "";
+    // Bridge points table name. Contains BRIDGE_POINTS data with geometry and structural properties
+    protected String bridgePointsTableName = "";
     protected String sound_lvl_field = "DB_M";
     // True if Z of sound source and receivers are relative to the ground
     protected boolean receiverHasAbsoluteZCoordinates = false;
@@ -292,6 +294,26 @@ public abstract class GridMapMaker {
      */
     public void setDemTable(String demTable) {
         this.demTable = demTable;
+    }
+
+    /**
+     * Bridge points table name. Table must contain BRIDGE_POINTS with POINT geometry,
+     * BRIDGE_PK, structural properties (deck height, width, thickness, barrier heights),
+     * and bridge type information (girder type, slab type).
+     * @return Bridge points table name
+     */
+    public String getBridgePointsTableName() {
+        return bridgePointsTableName;
+    }
+
+    /**
+     * Bridge points table name. Table must contain BRIDGE_POINTS with POINT geometry,
+     * BRIDGE_PK, structural properties (deck height, width, thickness, barrier heights),
+     * and bridge type information (girder type, slab type).
+     * @param bridgePointsTableName Bridge points table name
+     */
+    public void setBridgePointsTableName(String bridgePointsTableName) {
+        this.bridgePointsTableName = bridgePointsTableName;
     }
 
     /**

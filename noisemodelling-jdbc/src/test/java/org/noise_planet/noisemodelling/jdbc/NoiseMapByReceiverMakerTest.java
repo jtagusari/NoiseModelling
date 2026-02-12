@@ -84,7 +84,7 @@ public class NoiseMapByReceiverMakerTest {
                 }
                 assertEquals(3, scene.getSourceEmissionsMap().size());
                 assertEquals(1, scene.getSourceEmissionsMap().get(1L).size());
-                assertEquals("D", scene.getSourceEmissionsMap().get(1L).get(0).period);
+                assertEquals("D", scene.getSourceEmissionsMap().get(1L).get(0).getPeriod());
             }
         }
     }

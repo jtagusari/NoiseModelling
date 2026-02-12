@@ -1,0 +1,125 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[0, 0], [100, 0]]
+      },
+      "properties": {
+        "PK": 1,
+        "LV_D": 600.0,
+        "MV_D": 80.0,
+        "HGV_D": 40.0,
+        "LV_SPD_D": 50.0,
+        "MV_SPD_D": 45.0,
+        "HGV_SPD_D": 40.0,
+        "LV_E": 400.0,
+        "MV_E": 100.0,
+        "HGV_E": 60.0,
+        "LV_SPD_E": 55.0,
+        "MV_SPD_E": 50.0,
+        "HGV_SPD_E": 45.0,
+        "LV_N": 200.0,
+        "MV_N": 120.0,
+        "HGV_N": 80.0,
+        "LV_SPD_N": 60.0,
+        "MV_SPD_N": 55.0,
+        "HGV_SPD_N": 50.0,
+        "HEIGHT_TYPE": "RELATIVE",
+        "BRIDGE_PK": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[0, 20], [100, 20]]
+      },
+      "properties": {
+        "PK": 2,
+        "LV_D": 1200.0,
+        "MV_D": 150.0,
+        "HGV_D": 100.0,
+        "LV_SPD_D": 90.0,
+        "MV_SPD_D": 85.0,
+        "HGV_SPD_D": 80.0,
+        "LV_E": 1000.0,
+        "MV_E": 180.0,
+        "HGV_E": 120.0,
+        "LV_SPD_E": 95.0,
+        "MV_SPD_E": 90.0,
+        "HGV_SPD_E": 85.0,
+        "LV_N": 800.0,
+        "MV_N": 200.0,
+        "HGV_N": 140.0,
+        "LV_SPD_N": 100.0,
+        "MV_SPD_N": 95.0,
+        "HGV_SPD_N": 90.0,
+        "HEIGHT_TYPE": "RELATIVE",
+        "BRIDGE_PK": 100
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[50, -10], [50, 30]]
+      },
+      "properties": {
+        "PK": 3,
+        "LV_D": 600.0,
+        "MV_D": 80.0,
+        "HGV_D": 40.0,
+        "LV_SPD_D": 50.0,
+        "MV_SPD_D": 50.0,
+        "HGV_SPD_D": 50.0,
+        "LV_E": 400.0,
+        "MV_E": 100.0,
+        "HGV_E": 60.0,
+        "LV_SPD_E": 55.0,
+        "MV_SPD_E": 55.0,
+        "HGV_SPD_E": 55.0,
+        "LV_N": 200.0,
+        "MV_N": 120.0,
+        "HGV_N": 80.0,
+        "LV_SPD_N": 60.0,
+        "MV_SPD_N": 60.0,
+        "HGV_SPD_N": 60.0,
+        "HEIGHT_TYPE": "RELATIVE",
+        "BRIDGE_PK": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[500, 500], [600, 500]]
+      },
+      "properties": {
+        "PK": 4,
+        "LV_D": 800.0,
+        "MV_D": 120.0,
+        "HGV_D": 60.0,
+        "LV_SPD_D": 70.0,
+        "MV_SPD_D": 65.0,
+        "HGV_SPD_D": 60.0,
+        "LV_E": 600.0,
+        "MV_E": 150.0,
+        "HGV_E": 80.0,
+        "LV_SPD_E": 75.0,
+        "MV_SPD_E": 70.0,
+        "HGV_SPD_E": 65.0,
+        "LV_N": 400.0,
+        "MV_N": 180.0,
+        "HGV_N": 100.0,
+        "LV_SPD_N": 80.0,
+        "MV_SPD_N": 75.0,
+        "HGV_SPD_N": 70.0,
+        "HEIGHT_TYPE": "RELATIVE",
+        "BRIDGE_PK": null
+      }
+    }
+  ]
+}

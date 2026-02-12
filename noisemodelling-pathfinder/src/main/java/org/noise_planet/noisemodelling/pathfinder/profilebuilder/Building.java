@@ -11,6 +11,8 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.locationtech.jts.geom.*;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -18,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-public class Building extends Obstruction {
+public class Building extends Obstruction implements RowMappable {
     /** Building footprint. */
     Polygon poly;
     /** Height of the building. */
@@ -45,6 +47,20 @@ public class Building extends Obstruction {
         setG(g);
         this.primaryKey = pk;
         this.zBuildings = zBuildings;
+    }
+
+    public Building(ResultSet rs) throws java.sql.SQLException {
+        
+        Geometry geom = (Geometry) rs.getObject("THE_GEOM");
+
+        if (!(geom instanceof Polygon)){
+            throw new SQLException("Building geometry must be a Polygon");
+        }
+
+        this.poly = (Polygon) geom;
+        this.height = rs.getDouble("height");
+        this.primaryKey = rs.getLong("pk");
+        this.zBuildings = rs.getBoolean("z_buildings");
     }
 
     /**

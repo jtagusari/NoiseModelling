@@ -3,19 +3,24 @@
 - [Source identification algorithms](#source-identification-algorithms)
   - [Concepts \& Overview — Road Emission Processing](#concepts--overview--road-emission-processing)
   - [Step 1: ROADS Table Creation](#step-1-roads-table-creation)
-  - [Step 2: Bridge Record Duplication and Classification](#step-2-bridge-record-duplication-and-classification)
-  - [Step 3: Emission Calculation](#step-3-emission-calculation)
-    - [Route 1: Road Traffic Noise (SOURCE\_TYPE='ROAD')](#route-1-road-traffic-noise-source_typeroad)
-    - [Route 2: Bridge Structural Noise (SOURCE\_TYPE='BRIDGE')](#route-2-bridge-structural-noise-source_typebridge)
-  - [Step 4: LW\_ROADS Table Creation](#step-4-lw_roads-table-creation)
-  - [Step 5: Geometry Loading](#step-5-geometry-loading)
-  - [Step 6: Scene Registration](#step-6-scene-registration)
-  - [Step 7: LineString Point Sampling and Elevation Conversion](#step-7-linestring-point-sampling-and-elevation-conversion)
-  - [Integration with NoiseMapByReceiverMaker](#integration-with-noisemapbyreceivermaker)
+  - [Step 2: Cell Selection and Scene Context Preparation](#step-2-cell-selection-and-scene-context-preparation)
+  - [Step 3: Source Loading, Emission Calculation, and Scene Registration](#step-3-source-loading-emission-calculation-and-scene-registration)
+  - [Step 4: LineString Point Sampling and Elevation Conversion](#step-4-linestring-point-sampling-and-elevation-conversion)
 
 ## Concepts & Overview — Road Emission Processing
 
-The road emission processing pipeline converts traffic data (`ROADS` table) into acoustic emission data (`LW_ROADS` table) and subsequently into propagation-ready source points. This process is summarized as follows:
+The source identification and propagation pipeline converts traffic data (`ROADS` table) into per-source geometry and emission data, then into propagation-ready source points, and finally computes noise levels at receivers by linking sources to their emissions. The entire process is decomposed into two main phases:
+
+**Phase 1: Source Processing (Steps 1-4)** — Prepare source geometries and emissions for propagation
+- Step 1: User creates `ROADS` table with traffic data
+- Step 2: Cell selection and scene context preparation
+- Step 3: Source geometry and emission registration into Scene
+- Step 4: LineString sampling and SourcePointInfo creation (for each receiver)
+
+**Phase 2: Propagation Calculation** — Link sampled sources to emissions and compute noise levels
+- Acoustic path construction (see [propagation_algorithms.md](propagation_algorithms.md))
+- **SourcePointInfo-SourceEmission linkage:** Each sampled point is dynamically linked to its emission data via `sourcePk` lookup and bridge-relationship filtering (see [propagation_algorithms.md#sourcepointinfo-sourceemission-linkage-during-propagation](propagation_algorithms.md#sourcepointinfo-sourceemission-linkage-during-propagation))
+- Attenuation computation and noise level accumulation at receiver
 
 ```plantuml
 @startuml
@@ -34,8 +39,9 @@ skinparam arrow {
   Thickness 2
 }
 
-title Road Source Generation Pipeline: ROADS Table → Propagation-Ready Sources
+title Road Source to Noise Level Pipeline: ROADS Table → Receiver Noise Levels
 
+' PHASE 1: Source Processing
 rectangle "Step 1: ROADS Table" as step1 #E8F4F8
 note right of step1
   **Input Fields:**
@@ -44,96 +50,110 @@ note right of step1
   • BRIDGE_PK (optional)
   
   **Alternative formats:**
-  • AADF: AADF, CLAS_ADM
-  • TMJA: TMJA, road class
-  • Period table: ROADS_TRAFFIC
+  • AADF, TMJA, Period table
 end note
 
-rectangle "Step 2: Bridge Record\nDuplication" as step2 #FFE6CC
+rectangle "Step 2: Cell\nSelection" as step2 #E8F4F8
 note right of step2
-  **SQL Operations:**
-  • ALTER TABLE ADD EMISSION_TYPE
-  • UPDATE SET EMISSION_TYPE='ROAD'
-  • INSERT duplicates WHERE BRIDGE_PK IS NOT NULL
-  • SET EMISSION_TYPE='BRIDGE' for duplicates
-  
-  **Result:**
-  Bridge roads have 2 records:
-  • ROAD → traffic noise (CNOSSOS-EU)
-  • BRIDGE → structural noise (ASJ)
+  **NoiseMapByReceiverMaker:**
+  • prepareCell() computes envelope
+  • DefaultTableLoader.create()
+  • ProfileBuilder creation
+  • load buildings/DEM/soil/bridges
+  • finishFeeding()
 end note
 
-rectangle "Step 3: Emission\nCalculation" as step3 #FFFFCC
+rectangle "Step 3: Source Loading\n+ Emission Registration" as step3 #FFFFCC
 note right of step3
-  **Route by EMISSION_TYPE:**
-  • ROAD → RoadCnossos.evaluate()
-  • BRIDGE → RoadAsj.evaluateBridgeVirtualSource()
-  
-  **Output:**
-  8 octave bands × 3 periods = 24 levels
+  **fetchCellSource():**
+  • SELECT * FROM SOURCES WHERE THE_GEOM && envelope
+  • SceneWithEmission.addSourceDb()
+  • sourceEmissionsMap[pk] filled
+  • INPUT_MODE determines parsing
 end note
 
-rectangle "Step 4: LW_ROADS Table" as step4 #E8F4F8
+rectangle "Step 4: LineString\nPoint Sampling" as step4 #FFE6CC
 note right of step4
-  **Database Structure:**
-  • PK, THE_GEOM, EMISSION_TYPE
-  • LWD63...LWD8000, LWE*, LWN*
-  • Z=0.05m (ROAD), Z=-0.05m (BRIDGE)
-end note
-
-rectangle "Step 5: Geometry\nLoading" as step5 #E8F4F8
-note right of step5
-  **Spatial Query:**
-  SELECT * FROM LW_ROADS
-  WHERE THE_GEOM && envelope
-  
-  **Processing:**
-  • Clipping, Z validation
-  • Empty geometry filtering
-end note
-
-rectangle "Step 6: Scene\nRegistration" as step6 #CCFFCC
-note right of step6
-  **Scene.addSource():**
-  • Store complete LineString (no subdivision)
-  • Create BridgeRelationship
-  • Link emission data via sourcePk
-  
-  **Classification:**
-  • ACTUAL_SOURCE_ON_BRIDGE
-  • IMAGINARY_SOURCE_UNDER_BRIDGE
-  • SOURCE_NOT_RELATED_TO_BRIDGE
-end note
-
-rectangle "Step 7: LineString\nPoint Sampling &\nElevation Conversion" as step7 #FFE6CC
-note right of step7
   **Per-receiver processing:**
   • LineStringSplitter.splitLineStringIntoPoints()
-  • segmentSize = max(1.0, distance/2.0)
-  • Immediate elevation conversion per point
-  • MIRROR_SOURCE generation with absolute elevations
-  
-  **Output:**
-  • Multiple SourcePointInfo with absolute Z
-  • Ready for propagation (no Step 8 needed)
+  • Elevation conversion per point
+  • MIRROR_SOURCE generation
+  • SourcePointInfo creation
 end note
 
-rectangle "Acoustic Path\nConstruction" as propagation #FFE6F0
-note right of propagation
-  See propagation_algorithms.md
+step1 -down-> step2 : input tables ready
+step2 -down-> step3 : fetchCellSource()
+step3 -down-> step4 : per receiver\n(sampling + elevation)
+
+' PHASE 2: Propagation Calculation
+rectangle "Step 5: Acoustic Path\nConstruction" as step5 #FFE6F0
+note right of step5
+  **CnossosPathBuilder:**
+  • Diffraction/reflection points
+  • AcousticPathConfiguration
+  • Path/SegmentPath creation
 end note
 
-step1 -down-> step2 : SQL ALTER & INSERT\n(duplicate bridge records)
-step2 -down-> step3 : EmissionTableGenerator.computeLw()\nBridgeStructuralEmissionCalculator
-step3 -down-> step4 : SQL INSERT\n(batch processing)
-step4 -down-> step5 : DefaultTableLoader.fetchCellSource()\n(spatial query)
-step5 -down-> step6 : SceneWithAttenuation.addSourceDb()\n(register complete LineString)
-step6 -down-> step7 : SourceCollector per receiver\n(sampling + elevation conversion)
-step7 -down-> propagation : Ready for\npropagation
+rectangle "Step 6: SourcePointInfo-\nSourceEmission Linkage" as step6 #FFE6D5
+note right of step6
+  **onNewCutPlane():**
+  • sourcePk lookup → emission list
+  • BridgeRelationship filter
+  • Select ROAD or BRIDGE type
+end note
 
+rectangle "Step 7: Noise Level\nComputation" as step7 #FFE6E0
+note right of step7
+  **Attenuation Calculation:**
+  • Compute CNOSSOS attenuation
+  • Multiply by emission spectrum
+  • Accumulate per period (D/E/N)
+  • Produce L_DEN if requested
+end note
+
+step5 -down-> step6 : per sampled source
+step6 -down-> step7 : per applicable emission
+
+step4 -right-> step5 : Ready for\npropagation
+
+note bottom of step6
+  **Bridge-Relationship Filter Logic:**
+  • SOURCE_NOT_RELATED_TO_BRIDGE → ROAD only
+  • ACTUAL_SOURCE_ON_BRIDGE → ROAD only
+  • IMAGINARY_SOURCE_UNDER_BRIDGE → BRIDGE only
+  • MIRROR_SOURCE → ROAD only (inherited)
+end note
 
 @enduml
 ```
+
+**Key Concepts:**
+
+- **Source Geometry:** LineString representation of road segment stored in `Scene` (Step 3) with attributes including `sourcePk`, height type, orientation, and bridge relationship; provides spatial foundation for sampled points
+- **SourceEmission:** Period-specific emission spectrum (D/E/N) stored in `sourceEmissionsMap` indexed by `sourcePk` (Step 3); contains `emissionInWatts` and `emissionType` (ROAD or BRIDGE) for dual-source scenarios
+- **SourcePointInfo:** Discrete point sampled from a LineString road segment (Step 4) with absolute elevation, segment length, and `sourcePk` linking back to both source geometry and emission data
+- **BridgeRelationship:** Classification of each sampled point's relationship to bridge infrastructure; determines filtering of applicable emissions during propagation (ROAD-only, BRIDGE-only, or dual)
+- **EmissionType:** Label indicating emission source (ROAD for traffic, BRIDGE for structural/impact sound); enables dual-source representation allowing single geometry to carry both traffic and bridge noise contributions
+- **Period-Specific Calculation:** D, E, N periods handled separately throughout; combined into L_DEN using standardized weights if requested
+
+**Data Flow Summary:**
+
+Traffic data (`ROADS`) → [Step 3: Register in Scene] → Source Geometry + Emission Spectra → [Step 4: Sample per receiver] → `SourcePointInfo` (linked to both via `sourcePk`) → [Propagation: Build paths] → [Apply bridge-based filtering] → Compute attenuation × filtered spectrum → Accumulate at receiver
+
+**Orchestration by NoiseMapByReceiverMaker:**
+
+The entire pipeline is orchestrated within a cell-based computation framework:
+- `NoiseMapByReceiverMaker` decomposes the computation domain into grid cells and processes each cell independently
+- **Per-cell workflow:**
+  1. Cell envelope is selected and expanded (Step 2)
+  2. ProfileBuilder is created and populated with buildings, DEM, soil areas, and bridges (Step 2)
+  3. ProfileBuilder is finalized (`finishFeeding()`) to build spatial indices (Step 2)
+  4. Sources are loaded with geometries and emissions registered in Scene (Step 3)
+  5. For each receiver in the cell, source geometries are sampled into discrete points (Step 4) with receiver-dependent density
+  6. Acoustic paths are constructed and sampled points are linked to their emissions via `sourcePk` (see [propagation_algorithms.md](propagation_algorithms.md#sourcepointinfo-sourceemission-linkage-during-propagation))
+- **Key efficiency:** Geometry data (buildings, bridges) and source emission data are registered once per cell but used independently for each receiver, enabling efficient multi-receiver processing
+- **Spatial data timing:** Buildings, DEM, soil, and bridges are loaded in Step 2 **before** sources (Step 3), ensuring all geometry context is available for source elevation conversion
+- See [noisemapbyreceivermaker_algorithms.md](noisemapbyreceivermaker_algorithms.md) for comprehensive orchestration details including receiver processing, cell-based decomposition, and threading model
 
 ## Step 1: ROADS Table Creation
 
@@ -154,7 +174,7 @@ The `ROADS` table supports the following data format options:
 
 1. **Standard Format (Detailed Traffic):**
    - **Required:** `THE_GEOM` (LineString with optional Z), `PK` (primary key), traffic flow per period (`LV_D`, `MV_D`, `HGV_D`, `WAV_D`, `WBV_D` in vehicles/hour), speed per period (`LV_SPD_D`, `MV_SPD_D`, `HGV_SPD_D`, `WAV_SPD_D`, `WBV_SPD_D` in km/h)
-   - **Optional:** Environmental parameters (`PVMT`, `TEMP_D/E/N`, `TS_STUD`, `PM_STUD`), geometry parameters (`JUNC_DIST`, `JUNC_TYPE`, `WAY`, `SLOPE`), source height specification (`HEIGHT_TYPE`: 'ABSOLUTE' (default when Z coordinate exists) for absolute elevation, 'RELATIVE' (default when Z coordinate is absent) for height above ground), legacy fields (`TV_D`, `HV_D` for backward compatibility)
+   - **Optional:** Environmental parameters (`PVMT`, `TEMP_D/E/N`, `TS_STUD`, `PM_STUD`), geometry parameters (`JUNC_DIST`, `JUNC_TYPE`, `WAY`, `SLOPE`), source height specification (`HEIGHT_TYPE`: 'ABSOLUTE' (default when Z coordinate exists) for absolute elevation, 'RELATIVE' (default when Z coordinate is absent) for height above ground), bridge linking (`BRIDGE_PK` to reference bridge in `BRIDGE_POINTS` table for elevation conversion and reflection modeling), legacy fields (`TV_D`, `HV_D` for backward compatibility)
 2. **AADF Format (Annual Average Flow):**
    - **Required:** `THE_GEOM` (LineString), `PK`, `AADF` (vehicles/day), `CLAS_ADM` (road category: 1=Motorway, 2=National, 3+=Local)
 3. **TMJA Format (French Standard):**
@@ -168,204 +188,114 @@ The `ROADS` table supports the following data format options:
 - `Road_Emission_From_TMJA.groovy` — reads TMJA format (French standard)
 - `Noise_level_from_traffic.groovy` — reads traffic with direct propagation calculation
 
-**Output:**
-`ROADS` table with traffic and geometry data ready for source type classification (Step 2)
-
-## Step 2: Bridge Record Duplication and Classification
-
-The bridge record duplication and classification process prepares separate emission calculation records for road traffic noise and bridge structural noise. This step creates the necessary data structure to compute both emission types for roads located on bridges.
-
-**SQL Processing:**
-
-The record duplication workflow consists of the following SQL operations:
-
-1. **Add EMISSION_TYPE Column** — `ALTER TABLE ROADS ADD COLUMN EMISSION_TYPE VARCHAR(20)` adds source type classification field
-2. **Initialize All Records** — `UPDATE ROADS SET EMISSION_TYPE='ROAD'` marks all records as road traffic noise sources
-3. **Duplicate Bridge Records** — `INSERT INTO ROADS (PK, THE_GEOM, ..., EMISSION_TYPE, BRIDGE_PK) SELECT ..., 'BRIDGE', BRIDGE_PK FROM ROADS WHERE BRIDGE_PK IS NOT NULL` creates duplicate records for roads on bridges
-4. **PK Reassignment** — New primary keys are generated for duplicated records to maintain referential integrity
-
-**Processing Logic:**
-
-*Bridge Detection:*
-- Records with `BRIDGE_PK IS NOT NULL` indicate roads located on bridge structures
-- These records require dual emission calculation: traffic noise + structural noise
-
-*Record Types After Duplication:*
-- **EMISSION_TYPE='ROAD'** — Original records for all roads, calculated using CNOSSOS-EU methodology for tire/engine noise, preserves original `HEIGHT_TYPE`
-- **EMISSION_TYPE='BRIDGE'** — Duplicated records for bridge roads only, calculated using ASJ methodology for structural vibration noise, `HEIGHT_TYPE` is set to 'RELATIVE' (bridge structural sources use relative height from bridge deck)
-
-**Data Flow Example:**
-
-```sql
--- Before duplication (Step 1 output):
-PK=1, GEOM=LineString(...), LV_D=100, BRIDGE_PK=NULL, EMISSION_TYPE='ROAD'
-PK=2, GEOM=LineString(...), LV_D=200, BRIDGE_PK=5, EMISSION_TYPE='ROAD'
-
--- After duplication (Step 2 output):
-PK=1, GEOM=LineString(...), LV_D=100, BRIDGE_PK=NULL, EMISSION_TYPE='ROAD'
-PK=2, GEOM=LineString(...), LV_D=200, BRIDGE_PK=5, EMISSION_TYPE='ROAD'
-PK=3, GEOM=LineString(...), LV_D=200, BRIDGE_PK=5, EMISSION_TYPE='BRIDGE'  ← Duplicate
-```
+**Related Input Tables:**
+- `ROADS` — Main traffic data table (required)
+- `BRIDGE_POINTS` — Bridge geometry and structural properties (optional, referenced by `BRIDGE_PK` in ROADS table)
+  - **Required fields:** `PK`, `THE_GEOM` (Point), `BRIDGE_PK`, `POSITION` (CENTER/LEFT/RIGHT), structural properties (deck height, width, thickness, barrier heights, girder type, slab type)
+  - Loaded in Step 2 by `fetchCellBridge()` for bridge reflection modeling and elevation conversion
 
 **Output:**
-`ROADS` table with `EMISSION_TYPE` classification ready for emission calculation (Step 3)
+`ROADS` table (and optional `BRIDGE_POINTS` table) with traffic and geometry data ready for cell selection (Step 2)
 
-## Step 3: Emission Calculation
+## Step 2: Cell Selection and Scene Context Preparation
 
-The emission generation process transforms road segment data with traffic parameters into sound power level tables. The calculation method is determined by `EMISSION_TYPE` field: CNOSSOS-EU for road traffic noise (`EMISSION_TYPE='ROAD'`) and ASJ for bridge structural noise (`EMISSION_TYPE='BRIDGE'`).
+Cell selection and scene context preparation happen before any source loading or emission calculation. This step establishes the spatial extent and loads all geometry data needed for propagation path construction.
 
-**Calculation Process:**
+**Implementation in `DefaultTableLoader.create()`:**
 
-The emission calculation workflow routes to different calculation engines based on `EMISSION_TYPE`:
+1. **Cell Envelope Computation:**
+   - `cellEnvelope = noiseMapByReceiverMaker.getCellEnv(cellIndex)`
+   - `expandedCellEnvelop = cellEnvelope.expandBy(maximumPropagationDistance + 2 * maximumReflectionDistance)`
+   - Expanded envelope ensures continuity between subdomains by including propagation and reflection distances
 
-### Route 1: Road Traffic Noise (EMISSION_TYPE='ROAD')
+2. **ProfileBuilder Creation:**
+   - `profileBuilder = new ProfileBuilder(frequencyConfig)` ← **Created at this stage**
+   - `scene = new SceneWithEmission(profileBuilder, sceneDatabaseInputSettings)`
+   - ProfileBuilder is initialized before any geometry data loading
 
-The calculation process is implemented on `org.noise_planet.noisemodelling.emission.jdbc.EmissionTableGenerator` class and the  `computeLw()` method orchestrates the entire emission calculation workflow by coordinating parameter extraction, period-wise processing, and frequency band iteration.
+3. **Geometry Data Loading into ProfileBuilder:**
+   - **Buildings:** `fetchCellBuildings(connection, expandedCellEnvelop, profileBuilder, geometryFactory)`
+     - Loads building footprints with height and absorption coefficients
+     - Includes walls extracted from LineString geometries
+   - **DEM (Digital Elevation Model):** `fetchCellDem(connection, expandedCellEnvelop, profileBuilder)`
+     - Loads topographic points for ground elevation interpolation
+   - **Soil Areas:** `fetchCellSoilAreas(connection, expandedCellEnvelop, profileBuilder)`
+     - Loads ground surface properties (absorption coefficient G)
+     - Splits large polygons into smaller cells for efficient processing
+   - **Bridges:** `fetchCellBridge(connection, expandedCellEnvelop, profileBuilder, geometryFactory)`
+     - Loads BRIDGE_POINTS table, groups by BRIDGE_PK, creates Bridge objects
+     - Adds bridge geometry for reflection and diffraction modeling
 
-1. **Parameter Extraction** — `cmptEmissionFromTrafficDb()` extracts period-specific traffic flow (LV/MV/HGV/WAV/WBV), speeds, environmental conditions (pavement, temperature, studs), and road geometry (junction, slope, way) from database using cached field indices (`sourceFieldsCache`) for performance. Also supports legacy format with TV (total vehicles) and HV (heavy vehicles) columns for backward compatibility
-2. **Period-wise Calculation** — `computeLw()` calls `cmptEmissionFromTrafficDb()` three times (suffixes "_D", "_E", "_N") to compute sound power levels independently for:
-   - **Day (D)** — typically 06:00-18:00
-   - **Evening (E)** — typically 18:00-22:00  
-   - **Night (N)** — typically 22:00-06:00
-3. **Frequency Band Iteration** — for each period, emissions are calculated across 8 octave bands:
-   - **63, 125, 250, 500, 1000, 2000, 4000, 8000 Hz**
-4. **CNOSSOS-EU Evaluation** — `RoadCnossos.evaluate()` is called once per frequency band, applying CNOSSOS-EU model formulas with empirically-derived coefficients (version 1=2015 or version 2=2020). It processes traffic parameters (vehicle counts, speeds, pavement type, temperature, slope, junction, etc.) and calculates vehicle-type-specific rolling/propulsion noise, then combines them into a single sound power level (dB) for that frequency
-5. **Unit Conversion** — `computeLw()` converts results to watts using `dBToW()`, then WPS script converts back to dB using `wToDb()` for database storage
+4. **ProfileBuilder Finalization:**
+   - `profileBuilder.finishFeeding()` ← **Critical step**
+   - Builds spatial indices (STRtree) for buildings, walls, bridges
+   - Exports bridge facets to processed walls for profile intersection
+   - Prepares topography triangulation for elevation queries
+   - **After this point, no new geometry can be added to ProfileBuilder**
 
-### Route 2: Bridge Structural Noise (EMISSION_TYPE='BRIDGE')
+5. **Scene Configuration:**
+   - Set reflection order, body barrier, diffraction options
+   - Set maximum propagation/reflection distances
+   - Scene is now ready for source loading
 
-The calculation process is implemented on `org.noise_planet.noisemodelling.jdbc.BridgeStructuralEmissionCalculator` class and the `computeStructuralLw()` method orchestrates the bridge structural noise calculation workflow by coordinating bridge metadata retrieval, parameter extraction, period-wise processing, and frequency band iteration.
-
-1. **Bridge Metadata Retrieval** — Retrieves bridge structure information (girder type, slab type) from Bridge database using `BRIDGE_PK` field
-2. **Parameter Extraction** — `getStructuralEmissionFromTrafficTable()` extracts MV and HGV traffic flow and speeds (`LV`/`WAV`/`WBV` are ignored as light vehicles do not significantly contribute to structural vibration)
-3. **Period-wise Calculation** — `computeStructuralLw()` calls `getStructuralEmissionFromTrafficTable()` three times for Day/Evening/Night periods
-4. **Frequency Band Iteration** — for each period, structural emissions are calculated across 8 octave bands:
-   - **63, 125, 250, 500, 1000, 2000, 4000, 8000 Hz**
-5. **ASJ Evaluation** — `RoadAsj.evaluateBridgeVirtualSource()` applies ASJ 2023 methodology with bridge-specific coefficients. Formula: `LW = a(f) + b(f) × log10(V)` where coefficients `a(f)` and `b(f)` depend on bridge structure type (girder + slab combination) and frequency
-6. **Unit Conversion** — Traffic flow correction is applied using `Vperhour2NoiseLevel()` similar to CNOSSOS-EU pattern, converting vehicle counts to sound power level contributions
-
-**Output:**
-- **Dimensions:** [3 periods] × [8 frequencies] = 24 emission values per road segment
-- **Units:** Sound power level in dB (decibels)
-- **Format:** Ready for insertion into LW_ROADS table columns (LWD63...LWD8000, LWE63...LWE8000, LWN63...LWN8000)
-- **EMISSION_TYPE Field:** Preserved from input to distinguish calculation methodology in downstream processing
-
-## Step 4: LW_ROADS Table Creation
-
-The calculated emission data is stored in the `LW_ROADS` table, which serves as the emission database for propagation calculations.
-
-**Database Operations and Structure:**
-
-*Table Definition:*
-- **27 columns:** `PK` (integer), `THE_GEOM` (geometry), `EMISSION_TYPE` (varchar), `BRIDGE_PK` (integer, nullable), 24 emission levels (double precision)
-- **Storage:** Relational database with spatial indexing (PostgreSQL/H2GIS)
-- **Fields:** `LWD63...LWD8000` (Day), `LWE63...LWE8000` (Evening), `LWN63...LWN8000` (Night) — 8 octave bands per period
-- **EMISSION_TYPE Values:** 'ROAD' for traffic noise, 'BRIDGE' for structural noise
-
-*SQL Workflow:*
-1. `CREATE TABLE LW_ROADS (...)` — defines table structure with 27 columns including EMISSION_TYPE and BRIDGE_PK
-2. `INSERT INTO LW_ROADS (...) VALUES (...)` — batch inserts emission records (100 records/batch for performance), preserving EMISSION_TYPE from ROADS table
-3. `UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom, 0.05) WHERE EMISSION_TYPE = 'ROAD'` — assigns Z=0.05m to road traffic noise sources
-4. `UPDATE LW_ROADS SET THE_GEOM = ST_UPDATEZ(The_geom, -0.05) WHERE EMISSION_TYPE = 'BRIDGE'` — assigns Z=-0.05m to bridge structural noise sources (below deck)
-5. `UPDATE LW_ROADS SET HEIGHT_TYPE = 'RELATIVE'` — marks all Z values as relative heights (ground-relative for ROAD, deck-relative for BRIDGE)
-6. `ALTER TABLE LW_ROADS ADD PRIMARY KEY (PK)` — sets primary key constraint for referential integrity
-
-*Height Convention:*
-- **Road sources (EMISSION_TYPE='ROAD'):** Z=0.05m represents acoustic source height above road surface (bridge deck if on bridge), `HEIGHT_TYPE='RELATIVE'`
-- **Bridge sources (EMISSION_TYPE='BRIDGE'):** Z=-0.05m represents structural vibration source below deck surface, modeling sound radiation from bridge structure itself, `HEIGHT_TYPE='RELATIVE'`
-- These values undergo coordinate transformation during propagation (Step 7) to convert relative heights to absolute elevations based on actual terrain or bridge deck surfaces
-
-*Bridge Source Handling:*
-- **EMISSION_TYPE='ROAD'**: Normal propagation from road surface (bridge deck if on bridge)
-- **EMISSION_TYPE='BRIDGE'**: Creates IMAGINARY_SOURCE_UNDER_BRIDGE during Step 7 sampling for structural noise modeling with negative Z offset
+**Key Points:**
+- All geometry data (buildings, DEM, soil, **bridges**) is loaded using **expandedCellEnvelop**
+- ProfileBuilder must be finalized (`finishFeeding()`) **before** source loading (Step 3)
+- Bridges are now part of the scene context preparation, loaded from BRIDGE_POINTS table
+- This spatial context remains fixed for all receivers in the cell
 
 **Output:**
-LW_ROADS table with 27 columns containing emission data (24 sound power levels), geometry with Z coordinates, and EMISSION_TYPE classification, ready for geometry loading (Step 5)
+Scene with ProfileBuilder containing all geometry data, spatial indices built, ready for source loading (Step 3)
 
-## Step 5: Geometry Loading
+## Step 3: Source Loading, Emission Calculation, and Scene Registration
 
-The geometry loading process, implemented in `org.noise_planet.noisemodelling.jdbc.utils.DefaultTableLoader` class, queries the LW_ROADS table within a spatial calculation area (envelope) and prepares geometries for Scene registration (Step 6).
+Geometry loading and emission calculation occur together while sources are added to the Scene. `DefaultTableLoader.fetchCellSource()` iterates source rows within the cell envelope and calls `SceneWithEmission.addSourceDb()`; this registers the geometry and, depending on input mode, parses and registers emissions from the same row.
 
-**Loading Process:**
+**What `INPUT_MODE` means:**
+`INPUT_MODE` is a `SceneDatabaseInputSettings` value that tells the loader how to interpret source/emission fields in the database.
+- `INPUT_MODE_TRAFFIC_FLOW_DEN` / `INPUT_MODE_LW_DEN`: emission data is embedded in the sources table (DEN periods in one row)
+- `INPUT_MODE_TRAFFIC_FLOW` / `INPUT_MODE_LW`: emission data is stored in a separate emission table (one row per period)
+- `INPUT_MODE_ATTENUATION`: no emission parsing (attenuation-only inputs)
+- `INPUT_MODE_GUESS`: auto-detected from available columns
 
-The `fetchCellSource()` method orchestrates the geometry loading workflow through the following operations:
+**What `addSourceDb()` does:**
+`SceneWithEmission.addSourceDb()` extends `SceneWithAttenuation.addSourceDb()` and combines registration with emission parsing.
+- Registers geometry and metadata in the Scene (height type, orientation, bridge relationship)
+- For `*_DEN` modes, builds spectra from the current row (`RoadEmissionBuilder` or `SourceEmissionBuilder`)
+- Stores per-period spectra into `sourceEmissionsMap` under the source primary key
 
-1. **Metadata Retrieval** — `getGeometryColumnNames()` locates the geometry column name, and `getIntegerPrimaryKeyNameAndIndex()` retrieves primary key field information for linking emission data
-2. **Spatial Query** — Executes `SELECT * FROM LW_ROADS WHERE THE_GEOM && envelope` using spatial operator `&&` to trigger bounding box intersection test with automatic spatial index usage. Query uses fetch size and forward-only cursor to minimize memory consumption
-3. **Field Loading** — For each record, loads `EMISSION_TYPE`, `BRIDGE_PK`, and `HEIGHT_TYPE` fields to determine source classification and height interpretation. 
-4. **Geometry Processing** — For each loaded geometry, applies optional clipping to envelope boundary using JTS `intersection()`, filters empty geometries via `isEmpty()`, and validates that all vertices have valid Z coordinates (missing Z triggers immediate error)
-5. **Result Streaming** — Processes large result sets incrementally through streaming, enabling envelope-based filtering to load only sources within calculation area and performing early validation before propagation
+**Scene class responsibilities:**
+- `Scene` (pathfinder): holds geometry, height types, and bridge relationships used by the propagation engine
+- `SceneWithAttenuation`: extends `Scene` with attenuation settings (period parameters, directivity, ground factors)
+- `SceneWithEmission`: extends `SceneWithAttenuation` with `sourceEmissionsMap` and emission parsing/registration
 
-**Output:**
-Validated LineString geometries with Z coordinates, primary keys, and metadata, ready for Scene registration (Step 6)
+**Combined Flow in `fetchCellSource()`:**
 
-## Step 6: Scene Registration
+1. **Geometry Loading** — Executes `SELECT * FROM SOURCES WHERE THE_GEOM && envelope`, clips by cell envelope, and validates Z coordinates
+2. **Scene Registration** — `SceneWithEmission.addSourceDb()` registers the LineString and bridge relationship metadata
+3. **Emission Calculation/Registration (same pass):**
+   - `INPUT_MODE_TRAFFIC_FLOW_DEN`: `RoadEmissionBuilder` computes spectra from traffic fields and registers them
+   - `INPUT_MODE_LW_DEN`: `SourceEmissionBuilder` parses LW fields and registers them
+4. **Emission Registration (separate table, same step):**
+   - For `INPUT_MODE_TRAFFIC_FLOW` or `INPUT_MODE_LW`, a join query on the emission table runs after geometry loading and calls `registerSourceEmissionFromDb()` for each row
 
-The Scene registration process, implemented in `org.noise_planet.noisemodelling.propagation.SceneWithAttenuation` class, registers database geometries into Scene with their attributes. **This step does NOT decompose LineStrings** — geometries are stored as-is for later processing during propagation (Step 7).
-
-**Registration Process:**
-
-The `addSourceDb()` / `doAddSourceDb()` method orchestrates the Scene registration workflow through the following operations:
-
-1. **Metadata Extraction (First Call Only):**
-   - Reads ResultSet metadata to build column name → index map
-   - Identifies optional columns: 
-     - `YAW`, `PITCH`, `ROLL`: orientation angles
-     - `HEIGHT_TYPE`: height interpretation type (RELATIVE: height above ground/deck, ABSOLUTE: absolute elevation in DEM coordinate system)
-     - `DIR_ID`: directivity identifier for emission pattern
-     - `GS`: ground factor for surface absorption
-     - `BRIDGE_PK`: bridge primary key
-     - `EMISSION_TYPE`: source type classification
-
-2. **BridgeRelationship Creation:**
-   - **No bridges in ProfileBuilder:** Default BridgeRelationship (`SOURCE_NOT_RELATED_TO_BRIDGE`)
-   - **BRIDGE_PK is NULL or -1:** Default BridgeRelationship (`SOURCE_NOT_RELATED_TO_BRIDGE`)
-   - **BRIDGE_PK ≥ 0:** Create BridgeRelationship based on `EMISSION_TYPE`:
-     - `EMISSION_TYPE='ROAD'` → `ACTUAL_SOURCE_ON_BRIDGE(bridgePkOn=BRIDGE_PK, bridgePkAbove=-1)`
-     - `EMISSION_TYPE='BRIDGE'` → `IMAGINARY_SOURCE_UNDER_BRIDGE(bridgePkOn=-1, bridgePkAbove=BRIDGE_PK)`
-     - Unknown EMISSION_TYPE → Throw IllegalArgumentException
-
-3. **Scene Registration:**
-   - Calls `Scene.addSource(pk, geom, orientation, heightType, bridgeRelationship)`
-   - **Bridge footprint validation:** If bridgePkOn ≥ 0, verifies geometry is within bridge footprint
-   - Stores complete LineString geometry without subdivision
-   - Registers orientation (if present), height type (if present, default RELATIVE), and bridge properties (if applicable)
-   - Assigns unique `sourceIndex` for spatial queries and stores `sourcePk` (database primary key) for emission data lookup
-
-4. **Emission Data Linkage:**
-   - Associates registered source with emission data from LW_ROADS table via `sourcePk`
-   - Each source references 24 sound power levels (3 periods × 8 frequency bands)
-
-**Data Storage in Scene:**
-
-After registration, each source has the following attributes stored in Scene maps (indexed by sourcePk):
-- **Geometry:** `scene.sourceGeometries` — LineString or Point geometry
-- **Orientation:** `scene.sourceOrientation` — Yaw/pitch/roll angles for directivity
-- **Bridge properties:** `scene.bridgeRelationships` — Source type (bridge relationship: `ACTUAL_SOURCE_ON_BRIDGE`, `IMAGINARY_SOURCE_UNDER_BRIDGE`, or `SOURCE_NOT_RELATED_TO_BRIDGE`) and primary keys of the bridge.
-- **Height type:** `scene.sourceHeightType` — How to interpret Z coordinates (`RELATIVE` or `ABSOLUTE`)
-- **Ground factor:** `SceneWithAttenuation.sourceGs` — Surface absorption coefficient
-- **Directivity:** `SceneWithAttenuation.sourceEmissionAttenuation` — Emission pattern reference
-
-**Key Behavior:**
-
-- **No Geometric Decomposition:** LineString geometries stored as complete objects in Scene
-- **One-to-One Mapping:** Each LW_ROADS record → one Scene source
-- **Attribute Preservation:** All database attributes (orientation, GS, bridge properties) stored with geometry
-- **Deferred Point Sampling:** LineString decomposition into discrete points occurs later during sampling and height transformation (Steps 7-8)
+**Internal Representation:**
+- `sourceEmissionsMap: Map<Long, ArrayList<SourceEmission>>`
+- `SourceEmission` stores `period`, `emissionInWatts` (converted from dB), and `emissionType`
 
 **Output:**
-Scene populated with source geometries, attributes, and emission data, ready for LineString point sampling and elevation conversion (Step 7)
+Scene populated with source geometries, attributes, and emission spectra, ready for sampling (Step 4)
 
-## Step 7: LineString Point Sampling and Elevation Conversion
+## Step 4: LineString Point Sampling and Elevation Conversion
 
 This step samples Scene-registered LineString geometries into discrete point sources with absolute elevations for propagation calculations. The implementation uses `LineStringSplitter.splitLineStringIntoPoints()` and `SourceCollector.calculateAbsoluteElevation()` to convert LineString geometries into discrete point samples with correct absolute elevations in a single integrated process. During propagation calculation, this process is performed for each receiver based on receiver-source distance.
 
 **Algorithm:**
 
 1. **Input:**
-   - Scene-registered LineString geometries (complete road segments from Step 6)
-   - Source attributes: `sourcePk`, `bridgeRelationship`, orientation
-   - Receiver position for distance-based sampling calculation
+  - Scene-registered LineString geometries (complete road segments from Step 3)
+  - Source attributes: `sourcePk`, `bridgeRelationship`, orientation
+  - Receiver position for distance-based sampling calculation
 
 2. **Segment Size Determination:**
    - `segmentSizeConstraint = max(1.0, receiverDistance / 2.0)`
@@ -426,36 +356,7 @@ This step samples Scene-registered LineString geometries into discrete point sou
 - **Integrated Processing:** Sampling and elevation conversion performed in single pass, eliminating redundant coordinate transformation
 - **Receiver-Dependent:** Sampling density varies per receiver based on distance
 - **Absolute Coordinates:** All output coordinates use absolute elevations (sea level reference), ready for direct propagation calculation
-- **Post-Scene Processing:** Operates on geometries already registered in Scene (Step 6)
+- **Post-Scene Processing:** Operates on geometries already registered in Scene (Step 3)
 - **Per-Calculation Execution:** Performed repeatedly for each receiver during propagation
 - **Shared Emission Data:** All sampled points from same LineString reference same emission data via `sourcePk`
 - **Bridge Reflection:** MIRROR_SOURCE generation uses absolute elevations for accurate reflection modeling
-
-## Integration with NoiseMapByReceiverMaker
-
-The complete source processing pipeline (Steps 1-7) is orchestrated within the cell-based computation framework by `NoiseMapByReceiverMaker`. This orchestration is hierarchically structured:
-
-**Pipeline Orchestration:**
-- **Steps 1-4:** Pre-computation phase (typically executed once during initialization)
-  - Steps 1-3 occur outside the cell iteration loop, transforming `ROADS` table → `LW_ROADS` table with emissions
-  - Step 4 stores the emission table in the database
-  - These steps are independent of cell boundaries and receiver locations
-
-- **Steps 5-7:** Per-cell computation phase (executed for each calculation cell and receiver)
-  - Step 5 loads source geometries within the current cell envelope
-  - Step 6 registers loaded geometries in the computation Scene
-  - Step 7 samples geometries into discrete point sources during propagation (per receiver)
-  - These steps are cell-aware and receiver-dependent, integrated into the spatial partitioning strategy
-
-**Cell-Based Computation Structure:**
-
-`NoiseMapByReceiverMaker` decomposes the computation domain into grid cells and processes each cell independently. Within each cell:
-
-1. Sources are loaded from `LW_ROADS` (Step 5) based on cell spatial envelope
-2. Loaded sources are registered in Scene (Step 6) with metadata and bridge properties
-3. For each receiver in that cell, LineString sources are sampled into discrete points (Step 7) with receiver-dependent sampling density
-4. Acoustic propagation is computed between sampled source points and receivers
-
-For comprehensive details on how `NoiseMapByReceiverMaker` orchestrates the entire computation pipeline including both source and receiver processing, cell-based decomposition, threading model, and coordinate system handling, see `noisemapbyreceivermaker_algorithms.md`.
-
-This source processing pipeline integrates seamlessly with the receiver processing pipeline (see [receiver_algorithms.md](receiver_algorithms.md)), ensuring that both sources and receivers are prepared with absolute elevations and ready for accurate acoustic propagation computation within each calculation cell.

@@ -48,7 +48,7 @@ public class SourceEmission {
             throw new IllegalArgumentException("Unknown EmissionType: " + str);
         }
     }
-    public final EmissionType emissionType;
+    private final EmissionType emissionType;
     /** Power spectrum (Watts) per frequency band in the profile builder. */
     public final double[] emissionInWatts;
 
@@ -69,6 +69,18 @@ public class SourceEmission {
         this.emissionType = EmissionType.ROAD;
         this.period = period;
         this.emissionInWatts = emissionInWatts;
+    }
+
+    public EmissionType getEmissionType() {
+        return emissionType;
+    }
+
+    public double[] getEmissionInWatts() {
+        return emissionInWatts;
+    }
+
+    public String getPeriod() {
+        return period;
     }
 
 }

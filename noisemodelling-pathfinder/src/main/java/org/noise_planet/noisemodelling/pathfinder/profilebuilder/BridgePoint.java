@@ -44,7 +44,7 @@ import static java.lang.Double.NaN;
  * - Geometric calculations or interpolations (delegated to other components)
  * - Spatial queries or relationships (delegated to BridgeQueryHelper)
  */
-public class BridgePoint {
+public class BridgePoint implements RowMappable {
     
     /**
      * Enum for bridge point position
@@ -249,10 +249,6 @@ public class BridgePoint {
      * Constructor with coordinate.
      * @param coordinate The coordinate of the bridge point
      */
-    // public BridgePoint(Coordinate coordinate) {
-    //     // Create a defensive copy to ensure independence from the original coordinate
-    //     this.coordinate = coordinate != null ? new Coordinate(coordinate) : null;
-    // }
 
     public BridgePoint(ResultSet rs)  throws SQLException{
         

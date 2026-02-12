@@ -3,6 +3,7 @@
 - [NoiseMapByReceiverMaker Algorithms](#noisemapbyreceivermaker-algorithms)
   - [Concepts \& Overview](#concepts--overview)
   - [GridMapMaker — Base Architecture](#gridmapmaker--base-architecture)
+  - [DelaunayReceiversMaker — Receiver Generation](#delaunayreceiversmaker--receiver-generation)
   - [Cell-Based Processing](#cell-based-processing)
   - [Grid Initialization](#grid-initialization)
   - [Scene Preparation](#scene-preparation)
@@ -80,6 +81,208 @@ end note
 - **Receiver Management**: Handles receiver table and primary key tracking
 - **Scene Preparation**: Creates `SceneWithEmission` objects with source emission data
 - **Emission Integration**: Coordinates with emission calculation components
+
+## DelaunayReceiversMaker — Receiver Generation
+
+`DelaunayReceiversMaker` is a specialized implementation that generates receiver points using constrained Delaunay triangulation. This approach creates a triangular mesh that respects building geometries and road constraints, producing receivers distributed according to triangle vertices and an isosurface-based placement strategy.
+
+```plantuml
+@startuml
+class GridMapMaker {
+  + String buildingsTableName
+  + String sourcesTableName
+  + double maximumPropagationDistance
+}
+
+class DelaunayReceiversMaker extends GridMapMaker {
+  + String verticesTableName
+  + String trianglesTableName
+  + double roadWidth
+  + double maximumArea
+  + double receiverHeight
+  + double buildingBuffer
+  + double epsilon
+  + double geometrySimplificationDistance
+  + boolean isoSurfaceInBuildings
+  
+  + run(Connection, verticesTableName, trianglesTableName): void
+  + generateReceivers(Connection, cellI, cellJ, ...): void
+  + computeDelaunay(LayerDelaunay, Envelope, ...): void
+  + feedDelaunay(List<Building>, LayerDelaunay, ...): void
+  + fetchCellSource(Connection, Envelope, ...): void
+  + generateResultTable(Connection, receiverTable, trianglesTable, ...): void
+}
+
+class LayerTinfour {
+  + setEpsilon(double): void
+  + setMaxArea(double): void
+  + addPolygon(Polygon, int): void
+  + addVertex(Coordinate): void
+  + processDelaunay(): void
+  + getVertices(): List<Coordinate>
+  + getTriangles(): List<Triangle>
+}
+
+DelaunayReceiversMaker --> LayerTinfour : Uses for triangulation
+
+note right of DelaunayReceiversMaker
+  **Specialized for Delaunay-based**
+  **receiver generation with:**
+  - Constrained triangulation
+  - Building/road obstacles
+  - Mesh quality control
+  - Triangle and vertex output
+end note
+@enduml
+```
+
+**Key Characteristics**:
+- **Constrained Delaunay Triangulation**: Generates triangles respecting building boundaries and road centerlines as constraints
+- **Mesh Quality Control**: Uses `maximumArea` parameter to control triangle size and ensure adequate receiver density
+- **Building-Aware**: Places receivers outside buildings (when `isoSurfaceInBuildings=false`) or includes building interiors (when `true`)
+- **Dual Output**: Generates both vertices (receiver points) and triangles (mesh structure) stored in separate database tables
+
+**Configuration Parameters**:
+- **roadWidth**: Buffer distance for road centerlines (default: 2 meters)
+- **maximumArea**: Maximum allowed triangle area (controls mesh density, default: 75 m²)
+- **receiverHeight**: Evaluation height for all receivers above ground (default: 1.6 meters)
+- **buildingBuffer**: Exclusion buffer distance from building boundaries (default: 2 meters)
+- **epsilon**: Point merging tolerance for duplicate vertices (default: 1e-6)
+- **geometrySimplificationDistance**: Distance threshold for simplifying geometries before triangulation
+- **isoSurfaceInBuildings**: Boolean flag controlling whether to include receivers inside building polygons
+
+**Processing Workflow**:
+
+```plantuml
+@startuml
+title DelaunayReceiversMaker Processing Workflow
+
+start
+
+:For each cell (i, j) in grid;;
+
+partition "Cell Processing" {
+  :Fetch sources in cell envelope;
+  
+  :Load buildings in expanded envelope;
+  
+  partition "Geometry Preparation" {
+    :Merge and buffer buildings
+with buildingBuffer;
+    
+    :Simplify geometries;
+    
+    :Densify based on maximumArea;
+    
+    :Buffer and process roads
+with roadWidth;
+  }
+  
+  partition "Delaunay Triangulation" {
+    :Initialize LayerTinfour mesh;
+    
+    :Add building polygons
+as constraints;
+    
+    :Add road polygons
+as constraints;
+    
+    :Add densified cell envelope
+vertices;
+    
+    :Execute processDelaunay();
+  }
+  
+  partition "Result Generation" {
+    :Extract vertices with
+receiverHeight;
+    
+    :Filter triangles (exclude
+building triangles if needed);
+    
+    :Insert vertices into
+verticesTableName;
+    
+    :Insert triangles into
+trianglesTableName;
+  }
+}
+
+stop
+
+@enduml
+```
+
+**Geometry Processing Steps**:
+
+1. **Building Preparation**:
+   - Fetch buildings within expanded cell envelope
+   - Merge overlapping buildings
+   - Apply `buildingBuffer` to create exclusion zones
+   - Simplify using `TopologyPreservingSimplifier` with `geometrySimplificationDistance`
+   - Densify boundaries based on `maximumArea` for consistent triangle sizing
+
+2. **Road Processing**:
+   - Fetch road geometries (LineString or MultiLineString) from sources
+   - Buffer roads by `roadWidth / 2` to create polygon constraints
+   - Apply same simplification and densification steps
+
+3. **Constraint Integration**:
+   - Feed buildings and roads as polygonal constraints to `LayerTinfour`
+   - Constrained Delaunay ensures triangulation edges respect building/road boundaries
+   - Each constraint polygon receives a unique constraint ID for tracking
+
+4. **Triangulation Execution**:
+   - Set epsilon-based point merging tolerance
+   - Add cell envelope vertices with densification if `maximumArea > 1`
+   - Call `processDelaunay()` to compute constrained Delaunay triangulation
+   - LayerTinfour uses Tinfour library backend for robust triangulation
+
+5. **Result Table Generation**:
+   - Extract triangle vertices, set z-coordinate to `receiverHeight`
+   - Filter triangles: exclude those marked with non-zero attribute (building-interior triangles) unless `isoSurfaceInBuildings=true`
+   - Create/populate receiver table with vertex points
+   - Create/populate triangles table with triangle topology (3 vertex references + cell ID)
+
+**Database Schema**:
+
+Receptor table (`verticesTableName`):
+```sql
+CREATE TABLE receivers (
+  PK SERIAL PRIMARY KEY,
+  THE_GEOM GEOMETRY NOT NULL,
+  HEIGHT_TYPE VARCHAR(10) DEFAULT 'RELATIVE'
+)
+```
+
+Triangles table (`trianglesTableName`):
+```sql
+CREATE TABLE triangles (
+  PK SERIAL PRIMARY KEY,
+  THE_GEOM GEOMETRY,
+  PK_1 INTEGER NOT NULL,    -- Reference to first vertex
+  PK_2 INTEGER NOT NULL,    -- Reference to second vertex
+  PK_3 INTEGER NOT NULL,    -- Reference to third vertex
+  CELL_ID INTEGER NOT NULL, -- Grid cell identifier
+  PRIMARY KEY (PK)
+)
+```
+
+**Integration with NoiseMapByReceiverMaker**:
+
+`DelaunayReceiversMaker` is often used as a preprocessing step before `NoiseMapByReceiverMaker` execution:
+
+1. **Receiver Generation**: Generate receiver points and mesh using `DelaunayReceiversMaker.run()`
+2. **Table Creation**: Vertices and triangles are stored in database tables
+3. **Receiver Configuration**: Set `receiverTableName` in `NoiseMapByReceiverMaker` to point to generated vertices
+4. **Noise Computation**: `NoiseMapByReceiverMaker` processes each receiver and generates noise levels
+5. **Result Integration**: Noise levels can be joined with triangles table for visualization as isosurfaces or color-mapped mesh
+
+**Advantages of Delaunay-Based Approach**:
+- **Efficient Coverage**: Dense receiver distribution where needed (fine triangles near buildings/roads), coarser in open areas
+- **Quality Mesh**: Delaunay property ensures well-shaped triangles for visualization
+- **Constraint Handling**: Naturally respects building outlines and road centerlines without artificial grid distortion
+- **Visualization-Ready**: Triangle output directly usable for 3D noise surface visualization
 
 ## Cell-Based Processing
 

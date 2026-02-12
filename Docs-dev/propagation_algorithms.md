@@ -13,6 +13,7 @@
   - [Calculate Parameters](#calculate-parameters)
     - [CnossosPath class](#cnossospath-class)
     - [Calculate parameters](#calculate-parameters-1)
+  - [SourcePointInfo-SourceEmission Linkage During Propagation](#sourcepointinfo-sourceemission-linkage-during-propagation)
 
 ## Concepts & Overview — CnossosPathBuilder
 
@@ -823,3 +824,38 @@ stop
 
 @enduml
 ```
+
+## SourcePointInfo-SourceEmission Linkage During Propagation
+
+During propagation calculation in `AttenuationOutputSingleThread.onNewCutPlane()`, each `SourcePointInfo` sampled point is linked to its corresponding `SourceEmission` data to compute noise levels. This linkage mechanism enables emission source type discrimination based on bridge relationships and is critical for accurate sound modeling when bridge-related sources are present.
+
+**Linkage Process:**
+
+1. **Key Lookup:** Each `CutPointSource` (derived from `SourcePointInfo`) retains its `sourcePk` value (the primary key from the source database row in the SOURCES table)
+2. **Map Query:** The implementation retrieves emissions via `SceneWithEmission.getSourceEmissionsMap().get(sourcePk)`
+   - Result: `ArrayList<SourceEmission>` containing zero or more period-specific emissions registered for that source
+   - Each `SourceEmission` in the list has a distinct `period` (e.g., "D", "E", "N", or combined period) and `emissionType` (ROAD or BRIDGE)
+3. **Bridge-Based Filtering:** Not all emissions in the list are applicable to every sampled point—the `BridgeRelationship.RelationType` of the current `CutPointSource` acts as a filter:
+
+| BridgeRelationship.RelationType | Applicable SourceEmission.EmissionType | Use Case |
+|---|---|---|
+| **SOURCE_NOT_RELATED_TO_BRIDGE** | ROAD only (exclude BRIDGE) | Standard road source; bridge-specific emissions cannot contribute |
+| **ACTUAL_SOURCE_ON_BRIDGE** | ROAD only (exclude BRIDGE) | Source is on a bridge deck; only traffic emissions apply (bridge structural sound excluded) |
+| **IMAGINARY_SOURCE_UNDER_BRIDGE** | BRIDGE only (exclude ROAD) | Virtual image source under bridge for reflection modeling; only bridge structural sound applies |
+| **MIRROR_SOURCE** | ROAD only (exclude BRIDGE) | Reflected image of original source; inherits original source type filtering (use ROAD) |
+
+**Attenuation Computation:**
+
+For each filtered `SourceEmission`:
+1. Compute CNOSSOS attenuation spectrum via `AttenuationCnossosExt.computeCnossosAttenuation(...)` using the specific `period` (with optional period-specific atmospheric parameters if available)
+2. Convert attenuation from dB to linear (watts) via `dBToW()`
+3. Multiply attenuation spectrum by the emission spectrum: `levels = attenuation × sourceEmission.getEmissionInWatts()`
+4. Accumulate results in a `ReceiverNoiseLevel` object (per-period storage)
+5. Use in `maximumError` distance-pruning logic (if enabled) to determine search cutoff
+
+**Result:**
+
+- Each `SourcePointInfo`-`SourceEmission` pair produces a period-specific noise level at the receiver
+- Multiple periods (D, E, N) are accumulated separately at the receiver
+- The `processNoiseLevel()` method merges accumulated levels across all applicable sources via the `TimePeriodParameters.update()` aggregation method
+- Final noise levels are scheduled for export as separate period records or, if L_DEN is requested, combined using standard aggregation weights

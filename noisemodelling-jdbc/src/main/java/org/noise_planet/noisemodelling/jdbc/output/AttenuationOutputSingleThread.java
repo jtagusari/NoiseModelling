@@ -16,8 +16,10 @@ import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
+import org.noise_planet.noisemodelling.jdbc.input.SourceEmission.EmissionType;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
@@ -181,7 +183,9 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 if(scene.getSourceEmissionsMap().containsKey(sourcePk)) {
                     ArrayList<SourceEmission> emissions = scene.getSourceEmissionsMap().get(sourcePk);
                     for (SourceEmission sourceEmission : emissions) {
-                        String period = sourceEmission.period;
+
+                        if(!checkIfEmissionIsAcceptable(source, sourceEmission)) continue;
+                        String period = sourceEmission.getPeriod();
                         double [] attenuation = new double[0];
                         // look for specific atmospheric settings for this period
                         if(scene.cnossosParametersPerPeriod.containsKey(period)) {
@@ -195,7 +199,9 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                             }
                             attenuation = defaultAttenuation;
                         }
-                        double[] levels = multiplicationArray(attenuation, sourceEmission.emissionInWatts);
+
+
+                        double[] levels = multiplicationArray(attenuation, sourceEmission.getEmissionInWatts());
                         ReceiverNoiseLevel receiverNoiseLevel =
                                 new ReceiverNoiseLevel(new SourcePointInfo(source),
                                         new ReceiverPointInfo(receiver), period, levels);
@@ -212,7 +218,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 // update remaining expected max power for each source periods
                 ArrayList<SourceEmission> emissions = scene.getSourceEmissionsMap().get(sourcePk);
                 for (SourceEmission sourceEmission : emissions) {
-                    final String period = sourceEmission.period;
+                    if(!checkIfEmissionIsAcceptable(source, sourceEmission)) continue;
+                    final String period = sourceEmission.getPeriod();
                     // replace unknown value (evaluated on startReceiver) of expected power for this source point
                     if (maximumWjExpectedSplAtReceiver.containsKey(period)) {
                         maximumWjExpectedSplAtReceiver.get(period).remove(source.coordinate);
@@ -252,6 +259,24 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         return strategy;
     }
 
+    private boolean checkIfEmissionIsAcceptable(CutPointSource source, SourceEmission sourceEmission) {
+        SourceEmission.EmissionType emissionType = sourceEmission.getEmissionType();
+        BridgeRelationship.RelationType bridgeRelationType = source.getBridgeRelationship().getRelationType();
+
+        if(bridgeRelationType == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE){
+            if(emissionType == SourceEmission.EmissionType.BRIDGE) return false;
+        } else if(bridgeRelationType == BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE){
+            if(emissionType == SourceEmission.EmissionType.ROAD) return false;
+        } else if(bridgeRelationType == BridgeRelationship.RelationType.MIRROR_SOURCE){
+            if(emissionType == SourceEmission.EmissionType.BRIDGE) return false;
+        } else if(bridgeRelationType == BridgeRelationship.RelationType.SOURCE_NOT_RELATED_TO_BRIDGE){
+            if(emissionType == SourceEmission.EmissionType.BRIDGE) return false;
+        }
+
+        return true;
+
+    }
+
     @Override
     public void startReceiver(ReceiverPointInfo receiver, Collection<SourcePointInfo> sourceList, AtomicInteger cutProfileCount) {
         this.cutProfileCount = cutProfileCount;
@@ -271,14 +296,14 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 if(scene.getSourceEmissionsMap().containsKey(sourcePointInfo.getSourcePk())) {
                     ArrayList<SourceEmission> emissions = scene.getSourceEmissionsMap().get(sourcePointInfo.getSourcePk());
                     for (SourceEmission sourceEmission : emissions) {
-                        double[] wjAtReceiver = multiplicationArray(attenuation, sourceEmission.emissionInWatts);
+                        double[] wjAtReceiver = multiplicationArray(attenuation, sourceEmission.getEmissionInWatts());
                         double sumPower = sumArray(wjAtReceiver);
                         HashMap<Coordinate, Double> sourceLevel;
-                        if(!maximumWjExpectedSplAtReceiver.containsKey(sourceEmission.period)) {
+                        if(!maximumWjExpectedSplAtReceiver.containsKey(sourceEmission.getPeriod())) {
                             sourceLevel = new HashMap<>();
-                            maximumWjExpectedSplAtReceiver.put(sourceEmission.period, sourceLevel);
+                            maximumWjExpectedSplAtReceiver.put(sourceEmission.getPeriod(), sourceLevel);
                         } else {
-                            sourceLevel = maximumWjExpectedSplAtReceiver.get(sourceEmission.period);
+                            sourceLevel = maximumWjExpectedSplAtReceiver.get(sourceEmission.getPeriod());
                         }
                         sourceLevel.merge(sourcePointInfo.getCoordinate(), sumPower, Double::sum);
                     }

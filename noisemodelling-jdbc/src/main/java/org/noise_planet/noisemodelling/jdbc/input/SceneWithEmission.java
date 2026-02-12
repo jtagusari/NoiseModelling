@@ -113,15 +113,12 @@ public class SceneWithEmission extends SceneWithAttenuation {
     public void addSourceDb(Long pk, Geometry geom, SpatialResultSet rs) throws SQLException {
         super.addSourceDb(pk, geom, rs);
         
-        List<String> periods = new ArrayList<>();
-        periods.add("D");
-        periods.add("E");
-        periods.add("N");
-
+        List<String> periods = Arrays.asList("D", "E", "N");
+        
         List<SourceEmission> emissions;
         switch (Objects.requireNonNull(sceneDatabaseInputSettings.inputMode)) {
             case INPUT_MODE_TRAFFIC_FLOW_DEN:
-               emissions = new RoadEmissionBuilder(rs)
+                emissions = new RoadEmissionBuilder(rs)
                     .withPeriods(periods)
                     .build(profileBuilder);
                 break;
@@ -197,8 +194,8 @@ public class SceneWithEmission extends SceneWithAttenuation {
         }
         sourceEmissions.add(sourceEmission);
         // Add period to periodSet to ensure missing periods can be filled later
-        if(!sourceEmission.period.isEmpty()) {
-            this.periodSet.add(sourceEmission.period);
+        if(!sourceEmission.getPeriod().isEmpty()) {
+            this.periodSet.add(sourceEmission.getPeriod());
         }
     }
 
