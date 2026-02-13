@@ -11,12 +11,10 @@ package org.noise_planet.noisemodelling.jdbc.output;
 
 import org.h2gis.api.ProgressVisitor;
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
-import org.noise_planet.noisemodelling.jdbc.input.SourceEmission.EmissionType;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
@@ -413,24 +411,24 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 double[] lden = new double[0];
                 for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
                     double[] levels = periodParameters.levelsPerPeriod.getOrDefault(
-                            EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()], new double[0]);
+                            SourceEmission.STANDARD_PERIOD_VALUE[period.ordinal()], new double[0]);
                     // Apply period gain
                     lden = AcousticIndicatorsFunctions.sumArray(lden,
                             AcousticIndicatorsFunctions.multiplicationArray(levels,
-                                    EmissionTableGenerator.RATIOS[period.ordinal()]));
+                                    SourceEmission.RATIOS[period.ordinal()]));
                 }
                 pushInStack(multiThread.resultsCache.receiverLevels, new ReceiverNoiseLevel(periodParameters.source,
-                        receiver, EmissionTableGenerator.DEN_PERIOD,
+                        receiver, SourceEmission.DEN_PERIOD,
                         AcousticIndicatorsFunctions.wToDb(lden)));
                 if(dbSettings.isMergeSources()) {
-                    collectedPeriod.add(EmissionTableGenerator.DEN_PERIOD);
+                    collectedPeriod.add(SourceEmission.DEN_PERIOD);
                 }
             }
         }
         if (dbSettings.isMergeSources()) {
             Set<String> difference = new HashSet<>(multiThread.sceneWithEmission.periodSet);
             if(computeLden) {
-                difference.add(EmissionTableGenerator.DEN_PERIOD);
+                difference.add(SourceEmission.DEN_PERIOD);
             }
             difference.removeAll(collectedPeriod);
             // add missing periods levels for this receiver

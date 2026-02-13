@@ -26,7 +26,8 @@ import org.h2gis.utilities.SpatialResultSet
 import org.h2gis.utilities.TableLocation
 import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.locationtech.jts.geom.Geometry
-import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator
+import org.noise_planet.noisemodelling.jdbc.RoadEmissionBuilder
+import org.noise_planet.noisemodelling.jdbc.input.SourceEmission
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -184,8 +185,6 @@ def exec(Connection connection, input) {
     // Start calculation and fill the table
     // --------------------------------------
 
-    EmissionTableGenerator noiseEmissionMaker = new EmissionTableGenerator()
-
 
     // Get size of the table (number of road segments
     PreparedStatement st = connection.prepareStatement("SELECT COUNT(*) AS total FROM " + sources_table_name)
@@ -201,17 +200,19 @@ def exec(Connection connection, input) {
         st = connection.prepareStatement("SELECT * FROM " + sources_table_name)
         SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)
 
-        Map<String, Integer> sourceFieldsCache = new HashMap<>()
+        List<String> periods = Arrays.asList("D", "E", "N");
         while (rs.next()) {
             k++
             //logger.info(rs)
             Geometry geo = rs.getGeometry()
 
             // Compute emission sound level for each road segment
-            double[][] results = EmissionTableGenerator.computeLw(rs, coefficientVersion, sourceFieldsCache)
-            def lday = AcousticIndicatorsFunctions.wToDb(results[0])
-            def levening = AcousticIndicatorsFunctions.wToDb(results[1])
-            def lnight = AcousticIndicatorsFunctions.wToDb(results[2])
+            List<SourceEmission> emissions = new RoadEmissionBuilder(rs)
+                .withPeriods(periods)
+                .build();
+            def lday = AcousticIndicatorsFunctions.wToDb(emissions.get(0).getEmissionInWatts())
+            def levening = AcousticIndicatorsFunctions.wToDb(emissions.get(1).getEmissionInWatts())
+            def lnight = AcousticIndicatorsFunctions.wToDb(emissions.get(2).getEmissionInWatts())
             // fill the LW_ROADS table
             ps.addBatch(rs.getLong(pkIndex) as Integer, geo as Geometry,
                     lday[0] as Double, lday[1] as Double, lday[2] as Double,

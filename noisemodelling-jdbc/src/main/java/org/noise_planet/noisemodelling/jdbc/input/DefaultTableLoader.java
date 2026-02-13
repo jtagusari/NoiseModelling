@@ -21,7 +21,6 @@ import org.noise_planet.noisemodelling.emission.directivity.DiscreteDirectivityS
 import org.noise_planet.noisemodelling.emission.directivity.OmnidirectionalDirection;
 import org.noise_planet.noisemodelling.emission.directivity.cnossos.RailwayCnossosDirectivitySphere;
 import org.noise_planet.noisemodelling.emission.railway.cnossos.RailWayCnossosParameters;
-import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
@@ -32,9 +31,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
-import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
-import org.noise_planet.noisemodelling.propagation.SceneWithAttenuation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,34 +92,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         this.noiseMapByReceiverMaker = noiseMapByReceiverMaker;
         SceneDatabaseInputSettings inputSettings = noiseMapByReceiverMaker.getSceneInputSettings();
         if(inputSettings.inputMode == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_GUESS) {
-            // Check fields to find appropriate expected data
-            inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION;
-            if(!inputSettings.sourcesEmissionTableName.isEmpty()) {
-                List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesEmissionTableName());
-                if(sourceFields.contains("LV_SPD")) {
-                    inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW;
-                } else {
-                    inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW;
-                }
-            } else {
-                List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesTableName());
-
-                for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
-                    String periodFieldName = EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()];
-                    List<Integer> frequencyValues = readFrequenciesFromLwTable(
-                            noiseMapByReceiverMaker.getFrequencyFieldPrepend()+
-                                    periodFieldName, sourceFields);
-                    if(!frequencyValues.isEmpty()) {
-                        inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN;
-                        break;
-                    } else {
-                        if(sourceFields.contains("LV_SPD_" + periodFieldName)) {
-                            inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN;
-                            break;
-                        }
-                    }
-                }
-            }
+            guessInputMode(connection, noiseMapByReceiverMaker, inputSettings);
         }
 
         if(inputSettings.inputMode == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW) {
@@ -134,16 +104,13 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                 throw new SQLException("Source emission table "+ noiseMapByReceiverMaker.getSourcesTableName()+" does not contains any frequency bands");
             }
             frequencyConfig.setFrequencyArray(frequencyValues);
-            // frequencyArray = new ArrayList<>(frequencyValues);
-            // exactFrequencyArray = new ArrayList<>();
-            // aWeightingArray = new ArrayList<>();
-            // FrequencyConfig.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
+
         } else if (inputSettings.inputMode == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN) {
             List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesTableName());
             Set<Integer> frequencySet = new HashSet<>();
 
             for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
-                String periodFieldName = EmissionTableGenerator.STANDARD_PERIOD_VALUE[period.ordinal()];
+                String periodFieldName = SourceEmission.STANDARD_PERIOD_VALUE[period.ordinal()];
                 frequencySet.addAll(readFrequenciesFromLwTable(noiseMapByReceiverMaker.getFrequencyFieldPrepend()+periodFieldName, sourceFields));
             }
             frequencyConfig.setFrequencyArray(frequencySet);
@@ -168,6 +135,38 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
             directionAttributes = fetchDirectivity(connection, inputSettings.directivityTableName, 1, noiseMapByReceiverMaker.getFrequencyFieldPrepend());
             if(noiseMapByReceiverMaker.isVerbose()) {
                 LOGGER.info("Loaded {} directivities from the database", directionAttributes.size());
+            }
+        }
+    }
+
+    private void guessInputMode(Connection connection, NoiseMapByReceiverMaker noiseMapByReceiverMaker, SceneDatabaseInputSettings inputSettings) throws SQLException {
+        
+        // Check fields to find appropriate expected data
+        inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION;
+        if(!inputSettings.sourcesEmissionTableName.isEmpty()) {
+            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesEmissionTableName());
+            if(sourceFields.contains("LV_SPD")) {
+                inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW;
+            } else {
+                inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW;
+            }
+        } else {
+            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, noiseMapByReceiverMaker.getSourcesTableName());
+
+            for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
+                String periodFieldName = SourceEmission.STANDARD_PERIOD_VALUE[period.ordinal()];
+                List<Integer> frequencyValues = readFrequenciesFromLwTable(
+                        noiseMapByReceiverMaker.getFrequencyFieldPrepend()+
+                                periodFieldName, sourceFields);
+                if(!frequencyValues.isEmpty()) {
+                    inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN;
+                    break;
+                } else {
+                    if(sourceFields.contains("LV_SPD_" + periodFieldName)) {
+                        inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN;
+                        break;
+                    }
+                }
             }
         }
     }

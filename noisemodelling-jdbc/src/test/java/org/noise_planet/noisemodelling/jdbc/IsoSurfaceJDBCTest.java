@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerTinfour;
@@ -255,7 +256,7 @@ public class IsoSurfaceJDBCTest {
             assertTrue(periods.contains("D"));
             assertTrue(periods.contains("E"));
             assertTrue(periods.contains("N"));
-            assertTrue(periods.contains(EmissionTableGenerator.DEN_PERIOD));
+            assertTrue(periods.contains(SourceEmission.DEN_PERIOD));
         }
 
     }

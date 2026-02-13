@@ -8,10 +8,11 @@
  */
 package org.noise_planet.noisemodelling.jdbc.input;
 
-import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.dBToW;
 
 public class SourceEmission {
     /**
@@ -23,6 +24,13 @@ public class SourceEmission {
      * such as "D", "E" or "N" and may be empty when the spectrum is
      * not period-specific.
      */
+    public static final String DEN_PERIOD = "DEN";
+    public static final String[] STANDARD_PERIOD_VALUE = {"D", "E", "N"};
+    public static final double DAY_RATIO = 12. / 24.;
+    public static final double EVENING_RATIO = 4. / 24. * dBToW(5.0);
+    public static final double NIGHT_RATIO = 8. / 24. * dBToW(10.0);
+    public static final double[] RATIOS = new double[] {DAY_RATIO, EVENING_RATIO, NIGHT_RATIO};
+
     private static Logger LOGGER = LoggerFactory.getLogger(SourceEmission.class);
     public enum StandardPeriod {DAY, EVENING, NIGHT};
     public final String period;

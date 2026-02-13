@@ -10,6 +10,7 @@ import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.sql.Connection
 import java.time.Instant
@@ -174,7 +175,12 @@ static Connection openGeoserverDataStoreConnection(String dbName) {
 static def allMeasurements(LocalDateTime dayStart, LocalDateTime dayEnd, String deviceFolder) {
     List<Map<String, String>> selectedData = []
 
-    Files.walk(Paths.get(deviceFolder))
+    Path devicePath = Paths.get(deviceFolder)
+    if (!Files.exists(devicePath)) {
+        throw new IllegalArgumentException("Device folder does not exist: " + deviceFolder)
+    }
+
+    Files.walk(devicePath)
             .filter { Files.isRegularFile(it) && it.toString().endsWith(".csv") }
             .forEach { path ->
                 try {

@@ -29,7 +29,9 @@ class TestDataAssimilation extends JdbcTestCase {
         logger.info('Start Test for Data Assimilation')
 
         // Path folder containing all the necessary data for this test
-        String workingFolder = TestDataAssimilation.class.getResource("dataAssimilation/").getPath()
+        URL resourceUrl = TestDataAssimilation.class.getResource("dataAssimilation/")
+        String workingFolder = new File(resourceUrl.toURI()).getAbsolutePath()
+        if (!workingFolder.endsWith(File.separator)) workingFolder += File.separator
 
         new All_Possible_Configuration().exec(connection, [
                 "trafficValues"    : "0.01, 1.0, 2.0",
