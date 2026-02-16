@@ -1,1 +1,0 @@
-# NoiseModelling-PathFinder data classes

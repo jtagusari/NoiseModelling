@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 
 import static java.lang.Math.*;
 import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.*;
-import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.dBToW;
 import static org.noise_planet.noisemodelling.propagation.cnossos.PointPath.POINT_TYPE.*;
 
 
@@ -390,7 +389,28 @@ public class AttenuationCnossosExt {
         double[] aDiv = new double[data.getFrequencies().size()];
         long difVPointCount = pathParameters.getPointList().stream().
                 filter(pointPath -> pointPath.type.equals(DIFV)).count();
-        Arrays.fill(aDiv, getADiv(difVPointCount == 0 ? pathParameters.getSRSegment().d : pathParameters.getSRSegment().dc));
+        
+        double distance = difVPointCount == 0 ? pathParameters.getSRSegment().d : pathParameters.getSRSegment().dc;
+        
+        // Log warning with receiver information if distance is very small
+        if(distance == 0.0) {
+            try {
+                long receiverPk = pathParameters.getCutProfile().getReceiver().getReceiverPk();
+                LOGGER.warn(String.format("Receiver PK %d: Distance is exactly 0.0 meters; identical source-receiver position, log10(0) is undefined; small distance of 0.001m is set instead but near-field acoustics region where inverse-square law may not apply", receiverPk));
+                distance = 0.001; // Set a small distance to avoid log10(0) issue
+            } catch (Exception e) {
+                LOGGER.warn(String.format("Distance is exactly 0.0 meters; identical source-receiver position, log10(0) is undefined (could not retrieve receiver info: %s)", e.getMessage()));
+            }
+        } else if(distance < 0.0001) {
+            try {
+                long receiverPk = pathParameters.getCutProfile().getReceiver().getReceiverPk();
+                LOGGER.warn(String.format("Receiver PK %d: Distance is very small (%.3f m); near-field acoustics region where inverse-square law may not apply", receiverPk, distance));
+            } catch (Exception e) {
+                LOGGER.warn(String.format("Distance is very small (%.3f m); near-field acoustics region (could not retrieve receiver info: %s)", distance, e.getMessage()));
+            }
+        }
+        
+        Arrays.fill(aDiv, getADiv(distance));
         return aDiv;
     }
 
@@ -865,6 +885,11 @@ public class AttenuationCnossosExt {
         double aGroundHComputed = -10 * log10(4 * (k*k) / (dp*dp) *
                 (zs*zs - sqrt(2 * cf / k) * zs + cf / k) *
                 (zr*zr - sqrt(2 * cf / k) * zr + cf / k));
+        if (!Double.isFinite(aGroundHComputed)) {
+            long receiverPk = proPathParameters.getCutProfile().getReceiver().getReceiverPk();
+            long sourcePk = proPathParameters.getCutProfile().getSource().getSourcePk();
+            LOGGER.warn(String.format("Source PK %d - Receiver PK %d: Non-finite aGroundH computed (dp=%.3f, zs=%.3f, zr=%.3f).", sourcePk, receiverPk, dp, zs, zr));
+        }
         return max(aGroundHComputed, aGroundHMin);
     }
 
@@ -903,6 +928,11 @@ public class AttenuationCnossosExt {
             double aGroundFComputed = -10 * log10(4 * (k*k) / (dp*dp) *
                     (zs*zs - sqrt(2 * cf / k) * zs + cf / k) *
                     (zr*zr - sqrt(2 * cf / k) * zr + cf / k));
+            if (!Double.isFinite(aGroundFComputed)) {
+                long receiverPk = proPathParameters.getCutProfile().getReceiver().getReceiverPk();
+                long sourcePk = proPathParameters.getCutProfile().getSource().getSourcePk();
+                LOGGER.warn(String.format("Source PK %d - Receiver PK %d: Non-finite aGroundF computed (dp=%.3f, zs=%.3f, zr=%.3f).", sourcePk, receiverPk, dp, zs, zr));
+            }
             return max(aGroundFComputed, aGroundFMin);
         }
     }

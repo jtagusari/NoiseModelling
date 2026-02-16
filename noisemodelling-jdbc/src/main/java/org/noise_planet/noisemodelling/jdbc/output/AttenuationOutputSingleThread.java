@@ -29,6 +29,8 @@ import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossosExt
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -42,6 +44,7 @@ import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicator
  * for exporting result values in a thread safe way. It processes the receiver one at a time.
  */
 public class AttenuationOutputSingleThread implements CutPlaneVisitor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AttenuationOutputSingleThread.class);
     private static final int UNKNOWN_SOURCE_ID = -1;
     AttenuationOutputMultiThread multiThread;
     NoiseMapDatabaseParameters dbSettings;
@@ -103,6 +106,21 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     private double[] processAndStoreAttenuation(AttenuationParameters data, CnossosPathExt proPathParameters, String period) {
         double[] attenuation = AttenuationCnossosExt.computeCnossosAttenuation(data, proPathParameters, multiThread.sceneWithEmission,
                 multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix);
+        if (attenuation != null) {
+            boolean hasNonFinite = false;
+            for (double value : attenuation) {
+                if (!Double.isFinite(value)) {
+                    hasNonFinite = true;
+                    break;
+                }
+            }
+            if (hasNonFinite) {
+                long receiverPk = proPathParameters.getCutProfile().getReceiver().getReceiverPk();
+                long sourcePk = proPathParameters.getCutProfile().getSource().getSourcePk();
+                double distance = proPathParameters.getSRSegment().d;
+                LOGGER.warn("Receiver PK {} source PK {}: Non-finite attenuation computed (distance={} m).", receiverPk, sourcePk, distance);
+            }
+        }
         if(multiThread.noiseMapDatabaseParameters.exportRaysMethod == NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE &&
                 multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix) {
             CnossosPathExt cnossosPath = new CnossosPathExt(proPathParameters);

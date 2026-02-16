@@ -7,11 +7,14 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 /**
  * Parameter object containing all geometric and processing data for acoustic path construction.
  * Consolidates multiple parameters into a cohesive configuration object to reduce method complexity.
  */
 public class AcousticPathConfiguration {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AcousticPathConfiguration.class);
     
     // Geometric data
     private List<PivotPoint> horizontalEdgePivotPoints;
@@ -28,6 +31,8 @@ public class AcousticPathConfiguration {
     private final double groundAttenuationCoefficient;
     private final List<Double> exactFrequencyArray;
     
+
+
     public AcousticPathConfiguration(CutProfile cutProfile, List<Double> exactFrequencyArray, double groundAttenuationCoefficient, boolean bodyBarrier) {
         this.cutProfile = cutProfile;
         this.cutPoints = cutProfile.getCutPoints();

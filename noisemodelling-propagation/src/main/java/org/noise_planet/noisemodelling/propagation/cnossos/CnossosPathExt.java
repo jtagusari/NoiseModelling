@@ -15,11 +15,14 @@ import org.locationtech.jts.algorithm.CGAlgorithms3D;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.JTSUtility;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 /**
  * All the datas Path of Cnossos
  */
 public class CnossosPathExt extends CnossosPath {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(CnossosPathExt.class);
     private CnossosPathExt cnossosPathBottomRoute = null;
     private CnossosPathExt cnossosPathTopRoute = null;
 
@@ -52,7 +55,16 @@ public class CnossosPathExt extends CnossosPath {
         this.setCutProfile(configuration.getCutProfile());
         
         double[] meanPlane = JTSUtility.getMeanPlaneCoefficients(configuration.getElevationProfile2D());
-
+        boolean invalidMeanPlane = false;
+        for (double num: meanPlane){
+            if(!Double.isFinite(num)){
+                invalidMeanPlane = true;
+            }
+        }
+        if(invalidMeanPlane) {
+            LOGGER.warn("Invalid mean plane coefficients detected; mean plane will be set to [0, 0] (horizontal) to allow path processing to continue, but results may be inaccurate.");
+            meanPlane = new double[]{0, 0};
+        }
         SegmentPath sourceToReceiverPath = CnossosSegmentComputer.createSegmentPathWithGroundFactors(
             configuration.getCutPointCoordinates2D(), 
             meanPlane, 

@@ -48,7 +48,7 @@ import static org.h2gis.utilities.GeometryTableUtilities.getGeometryColumnNames;
  */
 public class DelaunayReceiversMaker extends GridMapMaker {
     private static final int BATCH_MAX_SIZE = 100;
-    private Logger logger = LoggerFactory.getLogger(DelaunayReceiversMaker.class);
+    private Logger LOGGER = LoggerFactory.getLogger(DelaunayReceiversMaker.class);
     private double roadWidth = 2;
     private double maximumArea = 75;
     private long nbreceivers = 0;
@@ -245,7 +245,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
             explodeAndAddPolygon(union, delaunayTool);
         } catch (TopologyException ex) {
             WKTWriter wktWriter = new WKTWriter(3);
-            logger.error(String.format("Error with input geometries\n%s\n%s",wktWriter.write(geom1),wktWriter.write(geom2)), ex);
+            LOGGER.error(String.format("Error with input geometries\n%s\n%s",wktWriter.write(geom1),wktWriter.write(geom2)), ex);
             throw ex;
         }
     }
@@ -307,7 +307,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
                 minRecDist, buildingBuffer);
 
         // Process delaunay
-        logger.info("Begin delaunay");
+        LOGGER.info("Begin delaunay");
         cellMesh.setRetrieveNeighbors(false);
         // Add cell envelope
         if (maximumArea > 1) {
@@ -325,7 +325,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
             }
         }
         cellMesh.processDelaunay();
-        logger.info("End delaunay");
+        LOGGER.info("End delaunay");
     }
 
     /**
@@ -481,7 +481,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
 
         int ij = cellI * gridDim + cellJ + 1;
         if(verbose) {
-            logger.info("Begin processing of cell " + ij + " / " + gridDim * gridDim);
+            LOGGER.info("Begin processing of cell " + ij + " / " + gridDim * gridDim);
         }
         // Compute the first pass delaunay mesh
         // The first pass doesn't take account of additional

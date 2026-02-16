@@ -3,16 +3,24 @@
 - [NoiseMapByReceiverMaker Algorithms](#noisemapbyreceivermaker-algorithms)
   - [Concepts \& Overview](#concepts--overview)
   - [GridMapMaker — Base Architecture](#gridmapmaker--base-architecture)
+  - [Receiver Generation Algorithms](#receiver-generation-algorithms)
   - [Cell-Based Processing](#cell-based-processing)
   - [Grid Initialization](#grid-initialization)
   - [Scene Preparation](#scene-preparation)
+    - [Overview](#overview)
+    - [Key Responsibilities](#key-responsibilities)
+    - [Scene Contents](#scene-contents)
   - [Path Finding Integration](#path-finding-integration)
+    - [Overview](#overview-1)
+    - [Key Steps](#key-steps)
   - [Attenuation Computation](#attenuation-computation)
   - [Result Aggregation](#result-aggregation)
 
 ## Concepts & Overview
 
 The `NoiseMapByReceiverMaker` class is the central coordinator for computing noise maps at specified receiver points. It implements a cell-based processing approach to handle large-scale noise propagation calculations efficiently, integrating geometry loading, path finding, and acoustic attenuation computation.
+
+**Overall Context**: `NoiseMapByReceiverMaker` orchestrates all phases of the NoiseModelling computation scheme. For the complete computation pipeline context including data preparation, receiver generation, and result aggregation, see [computation_scheme.md](computation_scheme.md).
 
 The class extends `GridMapMaker` and orchestrates the complete noise mapping workflow:
 
@@ -175,104 +183,80 @@ Before processing individual cells, the system initializes the computational gri
 
 ## Scene Preparation
 
-The `prepareCell()` method creates a complete `SceneWithEmission` object containing all necessary data for propagation computation.
+The `prepareCell()` method creates a complete `SceneWithEmission` object containing all necessary data for propagation computation. This method acts as the bridge between database storage and the in-memory `Scene` representation, delegating the actual scene construction details to the `TableLoader` interface (typically `DefaultTableLoader`).
+
+### Overview
 
 ```plantuml
 @startuml
-title Scene Preparation — prepareCell() Method
+title Scene Preparation — Overview
 
-[prepareCell()] as prepare
+[NoiseMapByReceiverMaker.prepareCell()] as prepareCell
 
-package "Geometry Loading" #LightBlue {
-}
+[TableLoader.create()] as create
 
-package "Receiver Loading" #LightGreen {
-}
+[SceneWithEmission] as scene
 
-package "Scene Configuration" #LightYellow {
-}
+prepareCell --> create : cell envelope,\nexpanded envelope
+create --> scene : ProfileBuilder,\nsources, receivers,\nacoustic parameters
 
-prepare --> "Geometry Loading" : Buildings, Terrain, Ground, Sources
-prepare --> "Receiver Loading" : Receivers
-prepare --> "Scene Configuration" : Parameters
-
-note right of prepare
-  **Returns:** SceneWithEmission
-  **Contains:** All geometry, sources,
-  receivers, and acoustic parameters
-  for the cell
+note right of prepareCell
+  **Input:** Cell index, connection, skip set
+  **Output:** SceneWithEmission ready for propagation
 end note
 
 @enduml
 ```
 
-**Geometry Storage Before Loading**:
-- **Primary Storage**: All geometry data (buildings, terrain, ground areas, sources) is stored in a spatial database (typically PostGIS) before processing
-- **Table Organization**: Data is organized in dedicated tables (e.g., `buildingsTableName`, `sourcesTableName`) as specified in `GridMapMaker` parameters
-- **Pre-Processing Location**: Geometry exists in the database tables; `ProfileBuilder` is not involved in geometry loading but handles propagation path profiling during path finding
-- **Loading Mechanism**: `prepareCell()` queries the database using spatial envelopes to retrieve relevant geometry for each cell
+### Key Responsibilities
 
-**Data Loading Sequence**:
-1. **Buildings**: Load buildings within expanded envelope for obstruction modeling
-2. **Terrain (DEM)**: Load digital elevation model for ground profile computation
-3. **Ground Areas**: Load soil/ground absorption data
-4. **Sources**: Load acoustic sources with emission data
-5. **Receivers**: Load receivers within cell envelope
-6. **Configuration**: Apply acoustic and computational parameters
+- **Envelope Computation**: Calculate cell boundary and expanded envelope (expanded by `maximumPropagationDistance + 2 × maximumReflectionDistance`)
+- **TableLoader Delegation**: Invoke `TableLoader.create()` to construct the complete scene
+- **Receiver Deduplication**: Track receivers already processed to avoid redundant computation across cell boundaries
+
+### Scene Contents
+
+The returned `SceneWithEmission` contains:
+- **Geometry**: Buildings, walls, bridges, terrain (via finalized `ProfileBuilder`)
+- **Sources and Receivers**: Acoustic sources and receiver points for the cell
+- **Acoustic Configuration**: Frequency arrays, attenuation parameters, directivity attributes, and propagation settings
+
+For detailed step-by-step scene construction workflow and implementation patterns, see [Typical workflow of creating Scene](scene.md#typical-workflow-of-creating-scene) in the scene documentation.
 
 ## Path Finding Integration
 
-`NoiseMapByReceiverMaker` integrates with the PathFinder component to compute propagation paths.
-See `pathfinder_algorithm.md` for detailed PathFinder architecture and algorithms. 
-The `ProfileBuilder` is invoked during PathFinder execution to construct propagation profiles.
+`NoiseMapByReceiverMaker` integrates with the PathFinder component to compute propagation paths for all source-receiver pairs within a computation cell. The `evaluateCell()` method orchestrates this integration by creating a prepared `SceneWithEmission` and passing it to `PathFinder.run()` with an attenuation visitor for result collection.
+
+### Overview
 
 ```plantuml
 @startuml
-title Path Finding Integration
+title Path Finding Integration — Overview
 
-[NoiseMapByReceiverMaker.evaluateCell()] as nm
+[NoiseMapByReceiverMaker.evaluateCell()] as eval
+[PathFinder.run()] as finder
+[AttenuationComputeOutput] as atten
 
-package "PathFinder" #LightCoral {
-  [PathFinder.run()]
-  [ThreadPathFinder.call()]
-  [PropagationProcess.computeRaysAtPosition()]
-}
-
-package "Visitor Pattern" #LightGreen {
-  [AttenuationComputeOutput.subProcess()]
-  [AttenuationVisitor.onNewCutPlane()]
-  [AttenuationVisitor.finalizeReceiver()]
-}
-
-nm --> [PathFinder.run()] : scene, visitor
-
-[PathFinder.run()] --> [ThreadPathFinder.call()] : Parallel processing
-[ThreadPathFinder.call()] --> [PropagationProcess.computeRaysAtPosition()] : Per receiver
-
-[PropagationProcess.computeRaysAtPosition()] --> [AttenuationVisitor.onNewCutPlane()] : Cut profiles
-[AttenuationVisitor.onNewCutPlane()] --> [AttenuationVisitor.finalizeReceiver()] : Results
-
-note right of nm
-  **Integration Points:**
-  - Creates PathFinder instance
-  - Provides SceneWithEmission
-  - Supplies AttenuationComputeOutput visitor
-  - Handles threading coordination
-end note
+eval --> finder : SceneWithEmission, visitor
+finder --> atten : cut-plane results per receiver
+atten --> eval : aggregated noise levels
 
 @enduml
 ```
 
-**Key Integration Aspects**:
-- **Scene Provision**: Passes prepared `SceneWithEmission` to PathFinder
-- **Visitor Pattern**: Uses `AttenuationComputeOutput` as the processing visitor
-- **Threading**: Coordinates multi-threaded path finding execution
-- **Result Flow**: Receives processed attenuation results through visitor callbacks
+### Key Steps
+
+1. **Scene Creation**: `prepareCell()` loads cell geometry, sources, and receivers into a finalized `SceneWithEmission`
+2. **PathFinder Invocation**: `PathFinder.run(scene, visitor)` orchestrates per-receiver path-finding and propagation computation
+3. **Result Collection**: Results from path-finding are collected by the `AttenuationComputeOutput` visitor which computes acoustic attenuation
+4. **Cell Aggregation**: Per-receiver results are aggregated and contribute to final noise map
+
+For detailed path-finding algorithms, receiver processing, and profile computation, see [Cell Evaluation Integration](pathfinder_algorithms.md#cell-evaluation-integration) and [Finding Paths](pathfinder_algorithms.md#finding-paths) in the PathFinder documentation.
 
 ## Attenuation Computation
 
 The attenuation computation is delegated to the `AttenuationComputeOutput` component, which implements the CNOSSOS-EU algorithms.
-See `attenuationcomputeoutput_algorithms.md` for detailed AttenuationComputeOutput architecture and algorithms.
+See [AttenuationComputeOutput architecture and algorithms](attenuationcomputeoutput_algorithms.md) for detailed information.
 
 ```plantuml
 @startuml

@@ -545,7 +545,8 @@ public class Scene {
      * @return Cut profile between the two points
      */
     public CutProfile getProfile(Coordinate c0, Coordinate c1, SourcePointInfo sourcePointInfo) {
-        return this.profileBuilder.getProfile(c0, c1, 0.0, false, sourcePointInfo);
+        CutProfile profile = this.profileBuilder.getProfile(c0, c1, 0.0, false, sourcePointInfo);
+        return profile;
     }
 
     /**

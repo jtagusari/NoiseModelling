@@ -1,8 +1,7 @@
 package org.noise_planet.noisemodelling.pathfinder;
 
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

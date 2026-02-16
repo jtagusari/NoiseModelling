@@ -4,6 +4,8 @@ import org.h2gis.api.ProgressVisitor;
 import org.locationtech.jts.geom.Envelope;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.*;
 import org.noise_planet.noisemodelling.pathfinder.path.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * ReceiverProcessor centralizes the orchestration and lifecycle management.
  */
 public class ReceiverProcessor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReceiverProcessor.class);
     private final Scene scene;
     private final org.noise_planet.noisemodelling.pathfinder.utils.profiler.ProfilerThread profilerThread;
     

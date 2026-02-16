@@ -126,7 +126,7 @@ end note
 
 **Configuration Parameters**:
 - **roadWidth**: Buffer distance for road centerlines (default: 2 meters)
-- **maximumArea**: Maximum allowed triangle area (controls mesh density, default: 75 m²)
+- **maximumArea**: Maximum allowed triangle area in m² (controls mesh density and is passed to `Tinfour`'s `LayerTinfour` after validation). Default: 75 m². **Important**: Mesh refinement is only active when `maximumArea > 1`. If `maximumArea <= 1`, mesh refinement is disabled and `maxArea = 0` is passed to `Tinfour`, skipping all Steiner point insertion iterations.
 - **receiverHeight**: Evaluation height for all receivers above ground (default: 1.6 meters)
 - **buildingBuffer**: Exclusion buffer distance from building boundaries (default: 2 meters)
 - **epsilon**: Point merging tolerance for duplicate vertices (default: 1e-6)
@@ -199,50 +199,113 @@ stop
 
 1. **Building Preparation**:
    - Fetch buildings within expanded cell envelope
-   - Merge overlapping buildings
-   - Apply `buildingBuffer` to create exclusion zones
-   - Simplify using `TopologyPreservingSimplifier` with `geometrySimplificationDistance`
-   - Densify boundaries based on `maximumArea` for consistent triangle sizing
+   - Merge overlapping buildings (union operation with buffer)
+   - Apply `buildingBuffer` to create exclusion zones (buildings expanded outward)
+   - Simplify using `TopologyPreservingSimplifier` with `geometrySimplificationDistance` (reduces vertices while maintaining topology)
+   - **Densify boundaries** based on `maximumArea` for consistent triangle sizing:
+     - Ensures constraint edges have adequate vertex spacing
+     - Prevents constraint edges from being too long (would create large adjacent triangles)
+     - Calculated as: `triangleSide = (2 * sqrt(maximumArea)) / (3^0.25)` → densify at this distance interval
+   - Merge building polygons into single geometry
+   - Intersect with cell envelope to remove out-of-bounds portions
 
 2. **Road Processing**:
    - Fetch road geometries (LineString or MultiLineString) from sources
-   - Buffer roads by `roadWidth / 2` to create polygon constraints
-   - Apply same simplification and densification steps
+   - Buffer roads by `minRecDist / 2` to create polygon constraints (road centerline ± buffer radius)
+   - Apply same simplification and densification steps as buildings
+   - Merge road polygons into single geometry
+   - Combine with building polygons
 
-3. **Constraint Integration**:
-   - Feed buildings and roads as polygonal constraints to `LayerTinfour`
-   - Constrained Delaunay ensures triangulation edges respect building/road boundaries
-   - Each constraint polygon receives a unique constraint ID for tracking
+3. **Combined Constraint Preparation**:
+   - Merge all building and road polygons together
+   - Intersect final merged geometry with cell envelope
+   - Explode into individual polygons (handle GeometryCollections)
+   - Add each polygon as constraint to LayerTinfour via `cellMesh.addPolygon(polygon, constraintId)`
+   - Each polygon receives a unique constraint ID (for tracking/attribution)
+
+**How Constraints Act on TIN Formation**:
+
+Constraints fundamentally reshape the triangulation by enforcing specific edge patterns:
+
+- **Polygon Constraints (Buildings)**:
+  - Each building geometry is converted to a `PolygonConstraint` (closed vertex loop with CCW exterior, CW holes)
+  - `Tinfour`'s `IncrementalTin` engine enforces these as **hard constraints** on triangle edges
+  - **Edge Enforcement**: No triangle edge can cross a constraint edge; all constraint boundaries become exact triangle edge sequences
+  - **Region Marking**: Triangles completely inside polygon constraints are marked with the constraint's ID (building ID), enabling post-processing filtering
+  - **Effect on Mesh**: Buildings effectively "block" the Delaunay triangulation, forcing triangles to flow around building perimeters rather than cutting through
+  - **Dual Property**: Interior triangles inherit the building ID attribute; exterior triangles have attribute = 0
+
+- **Linear Constraints (Roads)**:
+  - Road centerlines are either:
+    a) Buffered into polygon constraints (in `feedDelaunay()`: buffer by `minRecDist / 2`, then merged with building polygons)
+    b) Added directly as `LinearConstraint` (open vertex sequences via `addLineString()` method)
+  - **Edge Enforcement**: Buffered roads→polygons behave like building constraints; linear roads ensure centerline edges appear in triangulation
+  - **No Interior Marking**: Unlike polygons, linear constraints do NOT mark interior triangles (roads are 1D, not 2D regions)
+  - **Effect on Mesh**: Road geometry guides triangle edge directions, ensuring receivers don't straddle road centerlines inappropriately
+
+**Constraint Processing Mechanism** (`tin.addConstraints(constraints, false)`):
+
+When `tin.addConstraints()` is called during `processDelaunay()`:
+
+1. **Constraint Validation**: Tinfour validates all constraints:
+   - Checks polygon orientation (exterior CCW, holes CW)
+   - Detects self-intersecting edges
+   - Validates constraint edge intersections (must share vertices if they cross)
+   - Throws `IllegalStateException` if invalid (caught and dumped as debug data)
+
+2. **Triangulation Modification**:
+   - Tinfour incrementally inserts point vertices and constraint edges
+   - Uses Bowyer-Watson algorithm with constraint enforcement:
+     - After each point insertion, "flips" triangle edges if they violate constraints
+     - Ensures all constraint edges remain in the final triangulation
+     - Prevents any edge from crossing a constraint boundary
+
+3. **Region Attribute Assignment** (for polygon constraints only):
+   - After triangulation, Tinfour classifies each triangle:
+     - Queries containing region via `SimpleTriangle.getContainingRegion()`
+     - If triangle center is inside a `PolygonConstraint`, assigns that constraint's ID
+     - Stores ID in `Triangle.getAttribute()` for later filtering
+
+**Example: How a Building Constraint Reshapes TIN**:
+
+```
+Without Constraint:
+  Points: {A, B, C, D} (4 corners of domain)
+  Unrestricted Delaunay → 2 triangles: ABC, ACD (simple Delaunay)
+
+With Polygon Constraint (building boundary):
+  Points: {A, B, C, D, E(bldg_corner_1), F(bldg_corner_2), G(bldg_corner_3), H(bldg_corner_4)}
+  Constraint edges: E-F, F-G, G-H, H-E (building boundary)
+  
+  Constrained Delaunay:
+    ├─ E-F-G-H form a quad inside domain
+    ├─ Must NOT have any triangle edge crossing E-F, F-G, G-H, H-E
+    ├─ Result: Building interior remains uncut
+    │  - Triangles with centroid inside polygon marked with building_id
+    │  - Triangles outside marked with building_id = 0
+    ├─ Exterior triangles fan out from building boundary to domain boundary
+    └─ Output: Refined mesh respecting building geometry
+```
+
+**Constraint Interaction with Mesh Refinement**:
+
+When `maxArea > 0` (mesh refinement enabled):
+
+1. **Steiner Point Insertion**: New points added to oversized triangles
+2. **Constraint Re-enforcement**: Each `processDelaunay()` iteration re-validates all constraints
+3. **Convergence**: Refinement stops when all triangles satisfy `area ≤ maxArea`, **while still respecting all constraints**
+4. **Smart Densification**: Constraint boundaries are pre-densified based on `maximumArea` to ensure adequate constraint edge resolution
 
 4. **Triangulation Execution**:
    - Set epsilon-based point merging tolerance
    - Add cell envelope vertices with densification if `maximumArea > 1`
+   - **Validate maximumArea**: Only values `> 1` enable mesh refinement. If `maximumArea <= 1`, pass `0` to Tinfour to completely bypass refinement
    - Call `processDelaunay()` to compute constrained Delaunay triangulation (see detailed workflow below)
    - LayerTinfour uses Tinfour library backend for robust triangulation
 
 ### processDelaunay() Internal Workflow
 
 The `processDelaunay()` method in `LayerTinfour` class orchestrates the core triangulation computation with optional mesh refinement. The implementation uses the Tinfour library (IncrementalTin) as the backend triangulation engine.
-
-**Method Signature**:
-```java
-public void processDelaunay() throws LayerDelaunayError
-```
-
-**Purpose**: Compute constrained Delaunay triangulation with optional area-based refinement, producing receiver vertices and triangle mesh.
-
-**High-Level Algorithm**:
-1. Clear previous results
-2. Query all mesh points from spatial index
-3. **Refinement Loop** (while triangles exceed maxArea):
-   - Create new IncrementalTin instance
-   - Add all points (original + Steiner points from previous iterations)
-   - Add constraints (buildings as polygons, roads as lines)
-   - Compute triangulation
-   - Check triangle areas against maxArea threshold
-   - Insert Steiner points at centroids of oversized triangles
-4. Extract vertices and triangle topology from final TIN
-5. Optionally compute neighbor relationships
 
 ```plantuml
 @startuml
@@ -330,8 +393,8 @@ stop
    - Prepares for iterative refinement loop
 
 2. **TIN Construction** (per iteration):
-   - Creates fresh `IncrementalTin` instance from Tinfour library
-   - Adds all accumulated mesh points (including any Steiner points from previous iterations)
+   - Creates fresh `IncrementalTin` instance from `Tinfour` library
+   - Adds all accumulated mesh points (including any points from previous iterations)
    - Adds all constraints (polygon/linear) representing buildings and roads
 
 3. **Constraint Integration**:
@@ -343,14 +406,15 @@ stop
    - Uses `TriangleCollector.visitSimpleTriangles()` to extract triangles from TIN
    - Returns list of `SimpleTriangle` objects with vertex references
 
-5. **Mesh Refinement** (if `maxArea > 0`):
+5. **Mesh Refinement** (if `maxArea > 0`, which requires `maximumArea > 1`):
    - **Quality Check**: Iterates through all triangles checking area constraint
    - **Steiner Point Insertion**: For oversized triangles (area > maxArea):
      - Calculates triangle centroid: `(va + vb + vc) / 3`
      - Inserts new Steiner point at centroid into mesh point list
-     - Sets refinement flag to trigger re-triangulation
-   - **Iterative Process**: Continues until no triangles exceed area threshold
+     - Sets refinement flag to trigger re-triangulation with new point
+   - **Iterative Process**: Continues until no triangles exceed area threshold or no oversized triangles remain
    - **Purpose**: Ensures adequate receiver density by preventing excessively large triangles
+   - **Skipped When**: `maxArea <= 0` (which occurs when `maximumArea <= 1`), producing unrefined initial triangulation
 
 6. **Result Extraction**:
    - **Vertex Processing**:
@@ -529,9 +593,10 @@ Before triangulation, LayerTinfour performs point deduplication using `epsilon` 
 
 **Mesh Refinement Algorithm Details**:
 
-The iterative refinement process ensures uniform mesh quality:
+The iterative refinement process ensures uniform mesh quality. Refinement is **only enabled** when `maximumArea > 1` (which passes a positive `maxArea` value to Tinfour's `setMaxArea()`):
 
 ```
+// Example: maximumArea = 75 (> 1, so refinement is ENABLED)
 Iteration 1:
   Input: Original points + constraints
   → Triangulate
@@ -550,14 +615,25 @@ Iteration 2:
   → Stop
 
 Output: Refined mesh with consistent density
+
+// Example: maximumArea = 0.5 (≤ 1, so refinement is DISABLED)
+Input: maximumArea = 0.5 → DelaunayReceiversMaker.java line 511:
+  cellMesh.setMaxArea(maximumArea > 1 ? maximumArea : 0);
+  // evaluates to: cellMesh.setMaxArea(0)
+Result:
+  → maxArea = 0 in LayerTinfour
+  → if(maxArea > 0) check fails, refinement loop skipped
+  → Output: Unrefined initial triangulation (single pass)
 ```
 
 **Steiner Point Insertion Strategy**:
+- **Activation Condition**: Only when `maximumArea > 1` (determined by condition at DelaunayReceiversMaker line 511)
 - **Location**: Centroid of oversized triangle (arithmetic mean of three vertices)
 - **Z-coordinate**: Average of three vertex heights
 - **Effect**: Forces triangle subdivision in next iteration
 - **Guarantee**: Triangle area reduces by approximately factor of 4 (splits into ~4 smaller triangles)
-- **Convergence**: Typically 1-3 iterations sufficient for reasonable maxArea values
+- **Convergence**: Typically 1-3 iterations sufficient for well-configured maximumArea values
+- **Disabling Refinement**: Set `maximumArea <= 1` to skip all iterations and use unrefined initial triangulation
 
 **Constrained Triangulation Mechanism**:
 
@@ -568,11 +644,36 @@ Constraints (buildings, roads) are enforced during triangulation to control mesh
 | **PolygonConstraint** | Closed vertex loop (CCW exterior, CW holes) | Building boundaries | Interior triangles marked with building ID |
 | **LinearConstraint** | Open vertex sequence | Road centerlines | No interior marking (edge constraint only) |
 
-**Constraint Enforcement**:
-- **Edge Constraints**: Tinfour ensures no triangle edges cross constraint edges
-- **Region Attributes**: Triangles inside `PolygonConstraint` inherit constraint's building ID
-- **Filtering**: Receiver generation can exclude triangles with non-zero attributes (building interiors)
-- **Orientation**: Exterior rings must be CCW, holes must be CW (enforced by LayerTinfour)
+**Constraint Enforcement Mechanism**:
+
+The actual constraint enforcement in Tinfour's IncrementalTin uses Bowyer-Watson algorithm with constraint modifications:
+
+```
+For each new point P to insert:
+  1. Find all triangles whose circumcircles contain P
+  2. Delete these triangles (creates a "cavity")
+  3. Triangulate the cavity with P as new vertex
+  4. CHECK CONSTRAINTS:
+     - For each new edge created:
+       - Does it cross any constraint edge?
+       - If YES: flip the edge to satisfy constraint
+       - If NO: keep the edge
+  5. Repeat until no more flips needed
+  6. Insert P into triangulation
+```
+
+Result: All constraint edges guarantee to appear in the final triangulation.
+
+**Region Attributes** (for Polygon Constraints only):
+- Triangles inside `PolygonConstraint` inherit constraint's building ID  
+- Triangles outside have attribute = 0
+- Filtering: Receiver generation can exclude triangles with non-zero attributes (building interiors)
+
+**Validation and Orientation Rules** (enforced by LayerTinfour and Tinfour):
+- **Polygon Exterior**: Must be Counter-Clockwise (CCW) in screen coordinates
+- **Polygon Holes**: Must be Clockwise (CW) in screen coordinates  
+- **Linear Constraints**: No orientation requirement (open line segments)
+- **Validation Failure**: If constraints are invalid (self-intersecting, wrong orientation, etc.), `tin.addConstraints()` throws `IllegalStateException` which is caught and debug data is dumped
 
 **Triangle Attribute Propagation**:
 ```

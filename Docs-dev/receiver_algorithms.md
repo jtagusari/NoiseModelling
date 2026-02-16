@@ -2,6 +2,7 @@
 
 - [Receiver identification algorithms](#receiver-identification-algorithms)
   - [Concepts \& Overview — Receiver Processing](#concepts--overview--receiver-processing)
+  - [Prerequisites](#prerequisites)
   - [Receiver Generation Methods](#receiver-generation-methods)
     - [DelaunayReceiversMaker](#delaunayreceiversmaker)
     - [Building\_Grid (WPS Script)](#building_grid-wps-script)
@@ -87,6 +88,20 @@ step3 --> step4 : After scene registration
 step4 --> step5 : Create ReceiverPointInfo
 @enduml
 ```
+
+## Context: Receiver Processing in the Computation Scheme
+
+Receiver identification and processing represents **Phase 4.1 (Scene Preparation)** and **Phase 4.2 (Processing within Path Finding)** of the overall NoiseModelling computation pipeline.
+
+For the complete computation context and how receiver processing integrates with the entire pipeline from source data through final noise level computation, see [computation_scheme.md](computation_scheme.md).
+
+## Prerequisites
+
+> **Important**: This document describes the receiver processing and identification algorithms that operate **after** receivers have been generated. The algorithms documented here assume that the `RECEIVERS` table has already been created with receiver points.
+>
+> For detailed information on **how receivers are generated** in the first place, including methods such as Delaunay triangulation, regular grid generation, and building facade placement, please refer to [Docs-dev/receiver_generation_algorithms.md](receiver_generation_algorithms.md).
+>
+> The generation algorithms in that document are the prerequisite step that creates the input data (`RECEIVERS` table) which this document's receiver processing pipeline operates upon.
 
 ## Receiver Generation Methods
 

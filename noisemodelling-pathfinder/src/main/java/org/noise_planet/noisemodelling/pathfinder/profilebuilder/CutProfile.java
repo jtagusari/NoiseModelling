@@ -153,7 +153,13 @@ public class CutProfile {
                 totalLength += segmentLength;
             }
         }
-        return rsLength / totalLength;
+        if(totalLength > 0) {
+            return rsLength / totalLength;
+        } else if(totalLength == 0){
+            return aboveRoof ? roofG : cutPoints.get(cutPointIndexFrom).getGroundCoefficient();
+        } else {
+            throw new IllegalStateException("Total length cannot be negative");
+        }
     }
 
     @JsonIgnore

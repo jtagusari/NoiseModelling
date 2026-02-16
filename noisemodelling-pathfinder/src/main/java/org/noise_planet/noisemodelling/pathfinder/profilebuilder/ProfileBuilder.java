@@ -1046,7 +1046,8 @@ public class ProfileBuilder {
      *         topography and ground services.
      */
     public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
-        return ProfileRetriever.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, maxLineLength, buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, GeometryFactoryProvider.SHARED, sourcePointInfo);
+        CutProfile profile = ProfileRetriever.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, maxLineLength, buildingService, wallService, bridgeService, topographyService, groundService, processedWallService, GeometryFactoryProvider.SHARED, sourcePointInfo);
+        return profile;
     }
     public CutProfile getProfile(SourcePointInfo sourcePointInfo, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver) {
         return ProfileRetriever.getProfile(sourcePointInfo, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, this);

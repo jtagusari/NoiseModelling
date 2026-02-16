@@ -2,18 +2,7 @@
 
 - [NoiseModelling-PathFinder algorithms](#noisemodelling-pathfinder-algorithms)
   - [Concepts \& Overview](#concepts--overview)
-  - [ProfileBuilder — Feeding Data](#profilebuilder--feeding-data)
-    - [ProfileBuilder — Overview](#profilebuilder--overview)
-    - [Step-by-step procedure to feed data to ProfileBuilder](#step-by-step-procedure-to-feed-data-to-profilebuilder)
-  - [ProfileBuilder — Preprocessing](#profilebuilder--preprocessing)
-    - [Preprocessing Pipeline](#preprocessing-pipeline)
-    - [Role of Processed Walls](#role-of-processed-walls)
-  - [Scene — Sources and Receivers](#scene--sources-and-receivers)
-    - [Scene — Overview](#scene--overview)
-    - [Scene — Subclasses \& Test Helpers](#scene--subclasses--test-helpers)
-    - [Typical Workflow to Create and Populate a Scene](#typical-workflow-to-create-and-populate-a-scene)
-    - [Adding Sources](#adding-sources)
-    - [Adding Receivers](#adding-receivers)
+  - [ProfileBuilder (Details)](#profilebuilder-details)
   - [Finding Paths](#finding-paths)
     - [PathFinder class](#pathfinder-class)
     - [Processing flow](#processing-flow)
@@ -37,262 +26,12 @@ To achieve this, the module provides a set of domain classes and services to ing
 
 The output of this module is the `CutProfile` data structure which contains an ordered list of cut points (intersections with topography and obstacle facets) along the source-receiver line, with associated ground elevations, ground absorption coefficients and obstacle metadata. The `CutProfile` is consumed by the NoiseModelling-Propagation module.
 
-## ProfileBuilder — Feeding Data
+For `Scene` responsibilities and API details, see [Docs-dev/scene.md](scene.md).
 
-Obstacle geometries (buildings, walls, bridges, ground effects) and topography are ingested into a `ProfileBuilder` instance using its `addBuilding(...)`, `addWall(...)`, `addBridge(...)`, `addGroundEffect(...)`, `addTopographicPoint(...)` and `addTopographicLine(...)` methods.
+## ProfileBuilder (Details)
 
-![Data feeding sample — no sources nor receivers](./img/scene_wo_src_rcv_sample.png)
+The detailed `ProfileBuilder` data structures, feeding steps, and preprocessing pipeline are documented in [Docs-dev/scene.md](scene.md). This file focuses on the path-finding and profile usage stages.
 
-Figure: Example of data feeding. Neither sources nor receivers are included at this moment.
-
-### ProfileBuilder — Overview
-
-The `ProfileBuilder` class is the central orchestrator for geometry ingestion, preprocessing and providing domain services (buildings, walls, bridges, ground effects, topography) used by runtime profile routines.
-
-```plantuml
-@startuml
-' Compact ProfileBuilder overview
-class ProfileBuilder {
-  - boolean isFeedingFinished
-  - double maxLineLength = 60
-  - Envelope envelope
-  - BuildingService buildingService
-  - WallService wallService
-  - BridgeService bridgeService
-  - TopographyService topographyService
-  - GroundService groundService
-  - ProcessedWallService processedWallService
-  - FrequencyConfig frequencyConfig
-  + finishFeeding()
-  + getProfile(...)
-  + addBuilding(...)
-  + addWall(...)
-  + addBridge(...)
-  + addTopographicPoint(...)
-}
-@enduml
-```
-
-The following is a compact overview of the classes that make up `ProfileBuilder`.
-
-- `FrequencyConfig` — Frequency-related configuration. It typically holds the (1/1 or 1/3) octave-band frequency array (in Hz) .
-- `BuildingService` / `WallService` / `GroundService` / `TopographyService` — The service class that manages `Building`, `Wall`, `GroundEffect` and `Topographic` instances. It also provides query helpers used during profile construction.
-- `BridgeService` — The service class that manages `Bridge` instances and provides query helpers.
-- `ProcessedWallService` — Responsible for collecting exported wall/facet geometry (see the next section).
-- `ProfileRetriever` — The class that implements the profile construction pipeline (see the "Calculating Profiles" section).
-
-The `ProfileBuilder` instance is typically created once, populated with geometry and topography, then finalized by calling `finishFeeding()`. After finalization, the builder is usually treated as read-only and referenced by a `Scene` instance that holds sources and receivers.
-
-
-### Step-by-step procedure to feed data to ProfileBuilder
-
-- Create and configure a `ProfileBuilder` instance. `FrequencyConfig` is typically set at this point.
-- Optionally set frequency arrays and `setZBuildings(true)` if building vertex z-values are meaningful.
-- Add topography if available using `addTopographicPoint(...)` and/or `addTopographicLine(...)`. Topography is required for accurate elevation computations and for generating a TIN.
-- Add buildings via `addBuilding(Geometry|Coordinate[], height?, alphas?, id?)`. Use the overloads that match your available data (polygon geometry, coordinate arrays, with or without heights and absorption coefficients).
-- Add walls via `addWall(...)` and bridges via `addBridge(...)`. For walls you can provide per-frequency absorption lists and explicit heights. Bridges are treated similarly to walls for intersection purposes.
-- Add ground absorption areas using `addGroundEffect(Geometry, coefficient)`.
-
-```plantuml
-@startuml
-top to bottom direction
-skinparam componentStyle rectangle
-title ProfileBuilder — Feeding data (step-by-step)
-
-[Create & configure ProfileBuilder] --> [Set FrequencyConfig / setZBuildings?]
-[Set FrequencyConfig / setZBuildings?] --> [Add Topography (points / lines)\n-> used to build TIN/DEM]
-[Add Topography (points / lines)\n-> used to build TIN/DEM] --> [Add Buildings (polygons / coords, heights?, alphas?)]
-[Add Buildings (polygons / coords, heights?, alphas?)] --> [Add Walls & Bridges (walls, bridges, heights, per-frequency alphas)]
-[Add Walls & Bridges (walls, bridges, heights, per-frequency alphas)] --> [Add Ground Effects (areas with coefficient)]
-
-
-@enduml
-```
-
-## ProfileBuilder — Preprocessing
-
-Finalizing the `ProfileBuilder` by calling `finishFeeding()` executes a multi-step preprocessing pipeline that builds a TIN/DEM from topographic points, propagates elevations into buildings/walls/bridges, exports building and wall facets to spatial indexes, and constructs processed wall facets used for reflection and diffraction calculations.
-The `ProfileBuilder` instance is effectively read-only after `finishFeeding()`.
-
-![Preprocess sample — processed walls](./img/processed_wall_sample.png)
-
-Figure: Example of the ProfileBuilder preprocess. The processed walls (red lines) are constructed.
-
-### Preprocessing Pipeline
-
-1. Delaunay triangulation (TIN/DEM) is constructed from topographic points/lines.
-2. Geometries (Building, wall and bridge) get z-elevations computed from the DEM when needed.
-3. Facets of Building and bridge are exported as "processed wall" having spatial indexes. The processed wall include the vertical faces used for reflection and diffraction calculations.
-4. R-trees are built for geometries of buildings, walls, bridges, processed walls and ground areas.
-5. Acoustic parameters (such as absorption coefficients) are initialized per frequency arrays.
-
-```plantuml
-@startuml
-top to bottom direction
-skinparam componentStyle rectangle
-title ProfileBuilder — Preprocessing Pipeline
-
-[1. Build Delaunay TIN/DEM from topography] --> [2. Propagate Z into Building/Wall/Bridge geometries]
-[2. Propagate Z into Building/Wall/Bridge geometries] --> [3. Export Building/Bridge facets as processed walls (facets)]
-[3. Export Building/Bridge facets as processed walls (facets)] --> [4. Build R-trees for buildings, walls, bridges, processed walls and ground areas]
-[4. Build R-trees for buildings, walls, bridges, processed walls and ground areas] --> [5. Initialize acoustic parameters per frequency arrays]
-
-@enduml
-```
-
-### Role of Processed Walls
-
-- Processed walls representing vertical faces will be used by `PathFinder` and `ProfileRetriever` to detect reflections and edge diffractions.
-- When computing reflections the algorithm queries the processed wall index to find candidate facets intersecting the reflection plane; for diffraction the precomputed wide-angle/diffraction points and processed wall edges are used to build diffraction planes.
-
-## Scene — Sources and Receivers
-
-`Scene` class is the runtime container for all geometric inputs used by propagation algorithms. It stores source geometries and metadata, receiver coordinates and optional primary keys, and a reference to a finalized `ProfileBuilder` instance.
-
-![Scene sample](./img/scene_sample.png)
-
-Figure: Example of the Scene. The obstacles are contained in the ProfileBuilder.
-
-### Scene — Overview
-
-```plantuml
-@startuml
-skinparam componentStyle rectangle
-title Scene — Sources & Receivers (runtime)
-
-class Scene {
-  - List<Geometry> sourceGeometries
-  - List<Long> sourcesPk
-  - QueryGeometryStructure sourcesIndex  \n  (default: QueryRTree)
-  - Map<Long,Orientation> sourceOrientation
-  - Map<Long,BridgeRelationship> bridgeRelationships
-  - List<Coordinate> receivers
-  - List<Long> receiversPk
-  - ProfileBuilder profileBuilder  \n  (finalized builder reference)
-  - double maxSrcDist, maxRefDist
-  + addSource(...)
-  + removeSourceByPk(...)
-  + clearSources()
-}
-
-ProfileBuilder <-- Scene : uses
-
-
-@enduml
-```
-
-- Fields for sources
-  - `sourceGeometries : List<Geometry>` — ordered list of `JTS` geometries registered as sources. Elements are usually `Point` (point sources) or `LineString` (line sources). Order matters because other arrays/maps (for example `sourcesPk`) are kept in parallel by index.
-  - `sourcesPk : List<Long>` — parallel list of long primary keys used for DB correlation and as stable identifiers for per-source metadata maps. Keys must be unique within the `Scene`. When callers provide null or conflicting PKs, `UniqueKeyGenerator` will generate a non-conflicting value.
-  - `sourcesIndex : QueryGeometryStructure` (default `QueryRTree`) — spatial index (R-tree wrapper). The index is updated when `addSource(...)`, `setSources(...)` or `clearSources()` is invoked; consumers (e.g., `SourceCollector`) query it to locate candidate source sample points.
-
-- Per-source metadata maps
-  - `sourceOrientation : Map<Long,Orientation>` — optional orientation/directivity metadata keyed by source PK.
-  - `bridgeRelationships : Map<Long,BridgeRelationship>` — bridge/virtual-source related metadata keyed by source PK.
-
-- Fields for receivers
-  - `receivers : List<Coordinate>` — ordered list of receiver coordinates used as endpoints for profile computation and path-finding tasks.
-  - `receiversPk : List<Long>` — optional parallel list of receiver primary keys for DB-backed workflows. Only the `addReceiver(long pk, Coordinate)` overload appends to this list.
-  - Note: `Scene` does not provide an internal receiver spatial index. For workflows with many receivers and repeated nearest-neighbour queries, create and maintain an external `QueryRTree` keyed on receiver coordinates.
-
-- Builder reference and processed-domain services
-  - `profileBuilder : ProfileBuilder` — reference to the (usually finalized) `ProfileBuilder`.
-
-- Numerical and configuration fields
-  - `defaultGroundAttenuation` — fallback ground coefficient used when no ground information is available.
-  - `maxSrcDist`, `maxRefDist` — maximum source collection distance and maximum reflection distance used by collectors and path-finders.
-  - `reflexionOrder` — maximum number of reflections considered by reflection search.
-  - `computeHorizontalDiffraction`, `computeVerticalDiffraction`, `bodyBarrier` — boolean flags that control diffraction/body-shadowing calculation modes.
-
-- Operational invariants and behavior
-  - Index update contract: the implementation has some important caveats you should be aware of:
-    - `addSource(...)` appends the geometry to `sourceGeometries`, generates/records a PK in `sourcesPk` (and returns the actual registered PK), and calls `sourcesIndex.appendGeometry(geom, index)` to populate the source spatial index.
-    - `removeSourceByPk(...)` removes the geometry and per-source metadata from the lists/maps, but it does NOT remove the corresponding entry from the underlying `sourcesIndex`. Many index implementations used here (R-tree/QueryRTree wrappers) do not support efficient single-item deletion. Therefore removing a single source does not necessarily remove it from index queries. To guarantee a consistent index after removals, use `clearSources()` and re-add remaining sources (or construct a new `Scene`).
-    - `setSources(...)` iterates the supplied geometries and appends them to the existing spatial index, but it does not reinitialize `sourcesIndex` nor does it manage `sourcesPk`. In practice, call `clearSources()` before `setSources(...)` when you intend a true bulk replace, or create a fresh `Scene` and add the new sources there.
-    - `clearSources()` empties source lists/maps and reinitializes `sourcesIndex` (current implementation resets it to a new `QueryRTree`). This is the safe API call to rebuild the scene sources and index from scratch.
-    - Convenience: use `getSourceQuery()` to obtain the active `QueryGeometryStructure` (`QueryRTree`) for custom queries or diagnostics.
-  - PK uniqueness: callers can supply explicit PKs but the `Scene` may replace them with generated unique keys if conflicts exist. `addSource(...)` returns the actual registered PK — store that value if you rely on it. Many metadata maps are keyed on PKs, so keep PKs stable while the scene is active.
-  - Thread-safety: `Scene` and the referenced `ProfileBuilder` are not thread-safe. Treat them as read-only during `PathFinder.run(...)` and synchronize externally when making concurrent modifications or queries.
-
-  - Default constructor note: calling `new Scene()` constructs a `Scene` with an internally created `ProfileBuilder` instance. If you rely on a finalized builder (TIN/processed walls/indexes), prefer creating the `ProfileBuilder` externally, calling `finishFeeding()`, and passing it into `new Scene(profileBuilder)`.
-
-### Scene — Subclasses & Test Helpers
-
-- `SceneWithAttenuation` extends `Scene` and adds attenuation-related maps and per-source emission/attenuation attributes (ground factor, directivity identifiers, frequency configuration).
-- `SceneWithEmission` (in the JDBC module) extends `SceneWithAttenuation` and integrates emission-spectrum loading from database rows, bridge virtual-source creation, and emission registration per source PK.
-- `SceneBuilder` is a test-friendly convenience that wraps a `ProfileBuilder` into a `Scene` instance and exposes compact `addSource(x,y,z)` / `addReceiver(x,y,z)` builder-style methods. It is commonly used in unit tests to create a ready-to-query `Scene` after calling `finishFeeding()` on the underlying builder.
-
-```plantuml
-@startuml
-skinparam componentStyle rectangle
-title Scene — Subclasses & Test Helpers
-
-class Scene
-class SceneWithAttenuation
-class SceneWithEmission
-class SceneBuilder
-class ProfileBuilder
-
-Scene <|-- SceneWithAttenuation
-SceneWithAttenuation <|-- SceneWithEmission
-
-SceneBuilder --> ProfileBuilder : wraps (test helper)
-SceneBuilder ..> Scene : build() -> Scene
-
-@enduml
-```
-
-### Typical Workflow to Create and Populate a Scene
-
-1. Build, populate and finalize a `ProfileBuilder` instance.
-2. Create a `Scene` (or use `SceneBuilder`) passing the finalized `ProfileBuilder`
-3. Register sources and receivers via `addSource(...)` and `addReceiver(...)`.
-
-### Adding Sources
-
-Sound sources are added using the `Scene.addSource(...)` family of methods to register sources.
-
-1. Prepare a JTS `Geometry` for the source (use `Point` for point sources and `LineString` for linear sources). If Z is missing, NaN values are normalized to 0 by the code paths that build `SourcePointInfo`.
-2. Use your database primary key (PK) when available; otherwise choose a stable unique key (for example via `UniqueKeyGenerator`). `Scene` will also generate a non-conflicting key if a supplied PK collides.
-3. Call an appropriate `addSource(...)` overload. Provide `Orientation` for directional sources or `BridgeRelationship` for bridge/virtual-source handling when needed.
-4. **Bridge Footprint Validation**: If the source is located on a bridge (`BridgeRelationship.bridgePkOn >= 0`), `addSource(...)` validates that the source geometry is fully contained within the bridge footprint using `Bridge.getFootprintGeometry()` and JTS `contains()` method. If the source geometry is not completely within the bridge footprint, an `IllegalArgumentException` is thrown to ensure geometric consistency.
-
-```plantuml
-@startuml
-top to bottom direction
-skinparam componentStyle rectangle
-title Adding Sources — flow
-
-[Prepare JTS Geometry (Point / LineString)] --> [Choose PK (DB PK or UniqueKeyGenerator)]
-[Choose PK (DB PK or UniqueKeyGenerator)] --> [Call Scene.addSource(pk?, geometry, orientation?, bridgeProps?)]
-[Call Scene.addSource(pk?, geometry, orientation?, bridgeProps?)] --> [Scene: append to sourceGeometries & sourcesPk]
-[Scene: append to sourceGeometries & sourcesPk] --> [sourcesIndex.appendGeometry(geom, index)]
-
-@enduml
-```
-
-### Adding Receivers
-
-Receivers are added using the `Scene.addReceiver(...)` family of methods to register receiver coordinates.
-Note that `Scene` does not include an internal spatial index for receivers.
-
-1. Prepare a JTS `Coordinate` for each receiver (include z when meaningful).
-2. If you have a database PK use `addReceiver(pk, coordinate)`; otherwise use the convenience overloads `addReceiver(Coordinate...)` or `addReceiver(coordinate)`.
-3. When mixing pk and varargs overloads, ensure your code keeps `receivers` and `receiversPk` aligned if index-based pairing is required.
-
-```plantuml
-@startuml
-top to bottom direction
-skinparam componentStyle rectangle
-title Adding Receivers — flow
-
-[Prepare JTS Coordinate (x,y,z?)] --> [Decide overload: addReceiver(pk, coord) or addReceiver(coord)]
-[Decide overload: addReceiver(pk, coord) or addReceiver(coord)] --> [Call Scene.addReceiver(...)]
-[Call Scene.addReceiver(...)] --> [Scene: append to receivers list]
-[Scene: append to receivers list] --> [If pk provided -> append to receiversPk]
-
-@enduml
-```
 
 ## Finding Paths
 
@@ -464,6 +203,47 @@ At computing profiles, we should also clarify the highest bridge deck below the 
 #### Downward edge diffraction for imaginary sources
 
 The bridge that created an imaginary source often has edges that can cause downward diffraction paths to the receiver. The profile construction logic must ensure that these edges are included in the cut profile.
+
+## Cell Evaluation Integration
+
+When `NoiseMapByReceiverMaker` processes a computation cell, it invokes `PathFinder` within the `evaluateCell()` method to compute propagation paths for all source-receiver pairs in that cell. This integration coordinates the complete path-finding and attenuation pipeline within the cell's spatial context.
+
+### Cell Evaluation Flow
+
+```plantuml
+@startuml
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam nodesep 10
+skinparam ranksep 12
+title Cell Evaluation & PathFinder Integration
+
+rectangle A as "NoiseMapByReceiverMaker.evaluateCell()"
+rectangle B as "prepareCell() → SceneWithEmission\n(loads geometry, sources, receivers for cell)"
+rectangle C as "PathFinder.run(scene, visitor)"
+rectangle D as "PathExecutionManager coordinates\nper-receiver work queue"
+rectangle E as "ReceiverProcessor per receiver\n(source collection, profile retrieval, propagation)"
+rectangle F as "AttenuationComputeOutput visitor\ncollects and propagates results"
+rectangle G as "Aggregate per-cell results"
+
+A --> B
+B --> C
+C --> D
+D --> E
+E --> F
+F --> G
+
+@enduml
+```
+
+### Integration Responsibilities
+
+- **evaluateCell() Coordination**: Creates a `SceneWithEmission` by invoking `prepareCell()`, then instantiates `PathFinder` with the scene and a result visitor
+- **Propagation Computation**: `PathFinder.run()` orchestrates the complete path-finding pipeline for all receivers in the cell, invoking the threading and per-receiver processing components described in [Finding Paths](pathfinder_algorithms.md#finding-paths)
+- **Result Collection**: Results from path-finding (per-receiver ray/cut-plane contributions) are collected by the visitor (typically `AttenuationComputeOutput`) which computes acoustic attenuation and aggregates per-cell noise levels
+- **Memory Efficiency**: Cell-based decomposition ensures only relevant sources, receivers and geometry are held in memory for each cell
+
+For high-level context and NoiseMapByReceiverMaker responsibilities, see [Path Finding Integration in NoiseMapByReceiverMaker](../Docs-dev/noisemapbyreceivermaker_algorithms.md#path-finding-integration).
 
 ## Tests, Examples & snippets
 

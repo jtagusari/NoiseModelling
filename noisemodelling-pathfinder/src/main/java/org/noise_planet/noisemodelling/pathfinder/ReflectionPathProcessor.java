@@ -10,7 +10,10 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceive
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
+
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +33,7 @@ public class ReflectionPathProcessor {
     private final Scene scene;
     private final LineIntersector lineIntersector;
     private static final double MILLIMETER = 0.001;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReflectionPathProcessor.class);
 
     public ReflectionPathProcessor(Scene scene, LineIntersector lineIntersector) {
         this.scene = scene;
@@ -160,6 +164,7 @@ public class ReflectionPathProcessor {
         // Build initial profile from source to first reflection point
         CutProfile cutProfile = scene.getProfile(src.getCoordinate(), rayPath.get(0).getReflectionPosition(),
                 scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
+
         if (!isValidProfile(cutProfile)) {
             return null;
         }
@@ -174,6 +179,7 @@ public class ReflectionPathProcessor {
         // Build final leg from last reflection point to receiver
         cutProfile = scene.getProfile(rayPath.get(rayPath.size() - 1).getReflectionPosition(),
                 rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
+                
         if (!isValidProfile(cutProfile)) {
             return null;
         }
@@ -201,7 +207,6 @@ public class ReflectionPathProcessor {
             
             CutProfile cutProfile = scene.getProfile(firstPoint.getReflectionPosition(),
                     secondPoint.getReflectionPosition(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
-            
             if (!isValidProfile(cutProfile)) {
                 return false;
             }
