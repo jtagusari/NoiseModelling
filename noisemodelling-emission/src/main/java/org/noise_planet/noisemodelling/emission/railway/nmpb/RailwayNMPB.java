@@ -481,7 +481,9 @@ public class RailwayNMPB {
      *               Step 2
      * calcul sound power of wheel and bogie emission
      * calcul sound power of rail sleeper and ballast/slab emission
-     * todo add sound power of superstructure emission ?
+     * 
+     * NOTE: Superstructure emission (bridge/viaduct structure radiation) is not yet included.
+     * Future enhancement could add this component per NMPB guidelines.
      *
      * @return lWRoll(freq)
      **/

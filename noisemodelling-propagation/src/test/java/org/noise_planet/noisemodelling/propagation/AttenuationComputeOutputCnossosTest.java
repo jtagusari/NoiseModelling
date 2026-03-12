@@ -3430,8 +3430,11 @@ public class AttenuationComputeOutputCnossosTest {
     /**
      * TC19 - Complex object and 2 barriers on ground with spatially varying heights and
      * acoustic properties
+     * 
+     * NOTE: Left VDiff path computation differs from reference documentation.
+     * The z-path calculation in the CNOSSOS-EU document appears to contain errors,
+     * preventing accurate validation of the left propagation path.
      */
-    //TODO : the error is due to the left VDiff path which z-path seems to be false in the document
     @Test
     public void TC19() throws IOException {
         //Out and computation settings
