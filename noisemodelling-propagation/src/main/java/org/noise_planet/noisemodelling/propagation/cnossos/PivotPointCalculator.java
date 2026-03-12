@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -113,19 +114,46 @@ public class PivotPointCalculator {
             throw new IllegalArgumentException("No downward bridge edge provided");
         }
 
-        /** TODO Only the first downward bridge edge is considered at this moment*/
+        // Process all downward bridge edges recursively
+        if (downwardBridgeEdges.size() > 1) {
+            LOGGER.debug("Processing {} downward bridge edges recursively", downwardBridgeEdges.size());
+            // Process the first edge, then recursively process the remaining edges
+            List<Coordinate> firstEdge = Collections.singletonList(downwardBridgeEdges.get(0));
+            List<PivotPoint> resultWithFirstEdge = extractPivotPointsUsingConvexHull(configuration, candidateCoordinates, firstEdge);
+            
+            // For remaining edges, extract coordinates after the first edge and process them
+            List<Coordinate> remainingEdges = downwardBridgeEdges.subList(1, downwardBridgeEdges.size());
+            List<Coordinate> coordinatesAfterFirstEdge = new ArrayList<>();
+            for (PivotPoint pp : resultWithFirstEdge) {
+                coordinatesAfterFirstEdge.add(pp);
+            }
+            
+            // Recursively process remaining downward edges
+            return extractPivotPointsUsingConvexHull(configuration, coordinatesAfterFirstEdge, remainingEdges);
+        }
+        
+        // Process single downward edge (base case)
         Coordinate downwardEdgeCoordinate = downwardBridgeEdges.get(0);
-        LOGGER.debug("Downward bridge edge coordinate: ({}, {}, {})", 
+        LOGGER.debug("Processing single downward bridge edge at: ({}, {}, {})", 
                     downwardEdgeCoordinate.x, downwardEdgeCoordinate.y, downwardEdgeCoordinate.z);
 
         List<PivotPoint> pivotPointsWithoutDownwardEdges = extractPivotPointsUsingConvexHull(configuration, candidateCoordinates);
+        
+        // Safety check: need at least 2 pivot points to form a segment
+        if (pivotPointsWithoutDownwardEdges.size() < 2) {
+            LOGGER.warn("Insufficient pivot points ({}) to process downward edge", pivotPointsWithoutDownwardEdges.size());
+            return pivotPointsWithoutDownwardEdges;
+        }
+        
         LineSegment segment = new LineSegment(
             (Coordinate) pivotPointsWithoutDownwardEdges.get(0),
             (Coordinate) pivotPointsWithoutDownwardEdges.get(1)
         );
 
         if (downwardEdgeCoordinate.x <= segment.p0.x || downwardEdgeCoordinate.x >= segment.p1.x) {
-            throw new IllegalArgumentException("Downward edge is out of the range of source and the first upward-edge");
+            LOGGER.warn("Downward edge X={} is outside segment range [{}, {}] - skipping", 
+                       downwardEdgeCoordinate.x, segment.p0.x, segment.p1.x);
+            return pivotPointsWithoutDownwardEdges;
         }
 
         double ratio = (downwardEdgeCoordinate.x - segment.p0.x) / (segment.p1.x - segment.p0.x);

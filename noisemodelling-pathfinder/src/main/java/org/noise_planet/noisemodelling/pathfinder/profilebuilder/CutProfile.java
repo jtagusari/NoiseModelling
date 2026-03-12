@@ -174,7 +174,20 @@ public class CutProfile {
 
     @JsonIgnore
     private boolean checkAboveRoof(CutPointBridgeWall wall){
-        /* TODO implement bridge enter/exit logic */
+        // Bridge walls follow the same enter/exit logic as building walls
+        // BUILDING_ENTER (or THIN_WALL_ENTER_EXIT for upward direction) means entering the obstacle - above deck
+        // BUILDING_EXIT (or downward direction) means exiting the obstacle - below deck
+        if(wall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER)) {
+            return true;
+        } else if(wall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT)) {
+            return false;
+        } else if(wall.getIntersectionType().equals(CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT)) {
+            // For thin walls, use wall direction to determine if above or below deck
+            // UPWARD direction = top of bridge = above deck
+            // DOWNWARD direction = bottom of bridge = below deck
+            return wall.getWallDirection() == CutPointBridgeWall.WallDirection.UPWARD;
+        }
+        // Default to above deck for safety (conservative approach)
         return true;
     }
 
