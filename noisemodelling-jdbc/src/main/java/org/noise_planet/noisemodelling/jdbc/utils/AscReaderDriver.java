@@ -122,7 +122,6 @@ public class AscReaderDriver {
         if (!lastWord.equalsIgnoreCase("NCOLS")) {
             throw new IOException("Unexpected word " + lastWord);
         }
-        // XXX
         lastWord = scanner.next();
         ncols = Integer.parseInt(lastWord);
         if (ncols <= 0) {
@@ -133,7 +132,6 @@ public class AscReaderDriver {
         if (!lastWord.equalsIgnoreCase("NROWS")) {
             throw new IOException("Unexpected word " + lastWord);
         }
-        // XXX
         lastWord = scanner.next();
         nrows = Integer.parseInt(lastWord);
         if (nrows <= 0) {
@@ -145,7 +143,6 @@ public class AscReaderDriver {
             throw new IOException("Unexpected word " + lastWord);
         }
         boolean isXCenter = lastWord.equalsIgnoreCase("XLLCENTER");
-        // XXX
         lastWord = scanner.next();
         xValue = Double.parseDouble(lastWord);
 
@@ -155,7 +152,6 @@ public class AscReaderDriver {
             throw new IOException("Unexpected word " + lastWord);
         }
         boolean isYCenter = lastWord.equalsIgnoreCase("YLLCENTER");
-        // XXX
         lastWord = scanner.next();
         yValue = Double.parseDouble(lastWord);
 
@@ -164,7 +160,6 @@ public class AscReaderDriver {
         if (!lastWord.equalsIgnoreCase("CELLSIZE")) {
             throw new IOException("Unexpected word " + lastWord);
         }
-        // XXX
         lastWord = scanner.next();
         cellSize = Double.parseDouble(lastWord);
         // Compute offsets
@@ -182,7 +177,6 @@ public class AscReaderDriver {
         noData = -9999;
         if (lastWord.equalsIgnoreCase("NODATA_VALUE")) {
             readFirst = true;
-            // XXX
             lastWord = scanner.next();
             noData = Double.parseDouble(lastWord);
 

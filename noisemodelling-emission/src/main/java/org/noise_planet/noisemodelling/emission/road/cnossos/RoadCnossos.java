@@ -349,7 +349,8 @@ public class RoadCnossos {
          * Mixed effects (Rolling & Propulsion)
          */
         // Effect of the acceleration and deceleration of vehicles
-        // Todo Here, we should get the Junc_dist by another way that we are doing now to be more precise issue #524
+        // FIXME: Junc_dist calculation needs improvement for better precision (tracked in issue #524)
+        // Current implementation: coefficientJunctionDistance = max(1 - |Junc_dist| / 100, 0)
         double coefficientJunctionDistance = Math.max(1 - Math.abs(Junc_dist) / 100, 0);
         // Effect of the acceleration and deceleration of vehicles - Rolling Noise Eq 2.2.17
         lvRoadLvl = lvRoadLvl + getCr("1", Junc_type, coeffVer) * coefficientJunctionDistance;

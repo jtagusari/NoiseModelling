@@ -22,7 +22,8 @@ public class WallAbsorption {
     {
         double value;
         if(wallAlpha >= 0 && wallAlpha <= 1) {
-            // todo let the user choose if he wants to convert G to Sigma
+            // Note: Currently using wallAlpha directly. Future enhancement could allow
+            // user configuration to convert ground effect G to flow resistivity Sigma.
             //value = GetWallImpedance(20000 * Math.pow (10., -2 * Math.pow (wallAlpha, 3./5.)),freq_lvl);
             value= wallAlpha;
         } else {
@@ -55,7 +56,12 @@ public class WallAbsorption {
         return GetTrueWallAlpha(Z);
     }
 
-    static double GetTrueWallAlpha(ComplexNumber impedance)         // TODO convert impedance to alpha
+    /**
+     * Convert acoustic impedance to absorption coefficient using the reflection coefficient formula.
+     * @param impedance Complex acoustic impedance
+     * @return Absorption coefficient alpha
+     */
+    static double GetTrueWallAlpha(ComplexNumber impedance)
     {
         double alpha ;
         ComplexNumber z = ComplexNumber.divide(new ComplexNumber(1.0,0), impedance) ;

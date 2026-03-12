@@ -56,8 +56,6 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
 
     SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
 
-    /** ?? for train source ? TODO is it related to sources ? if yes then provide a special column for this kind of source */
-
     public NoiseMapByReceiverMaker(String buildingsTableName, String sourcesTableName, String receiverTableName) {
         super(buildingsTableName, sourcesTableName);
         this.receiverTableName = receiverTableName;

@@ -13,7 +13,9 @@ import java.util.Arrays;
 /**
  * Linear Interpolation
  * Copy from https://github.com/mobilesec/timeseries-signal-processing/blob/master/Interpolation.java
- * todo replace this by org.apache.commons.math3.analysis.interpolation
+ * 
+ * NOTE: Consider migrating to org.apache.commons.math3.analysis.interpolation
+ * for better maintainability and additional interpolation methods.
  *
  * @author Muhammad Muaaz
  */
