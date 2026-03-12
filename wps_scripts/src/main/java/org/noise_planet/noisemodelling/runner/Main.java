@@ -264,9 +264,9 @@ public class Main {
                     System.exit(1);
                     return;
                 }
-                Map<String, Object> inputs = new HashMap<>(customParameters);
-                inputs.put("progressVisitor", progressVisitor);
-                Object result = script.invokeMethod("exec", new Object[] {connection, inputs});
+                Map<String, Object> scriptInputs = new HashMap<>(customParameters);
+                scriptInputs.put("progressVisitor", progressVisitor);
+                Object result = script.invokeMethod("exec", new Object[] {connection, scriptInputs});
                 if(result != null) {
                     logger.info(result.toString());
                 }
