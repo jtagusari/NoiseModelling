@@ -20,7 +20,6 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.PropertyConfigurator;
 import org.apache.log4j.RollingFileAppender;
@@ -225,13 +224,18 @@ public class Main {
                 if(shell.getVariable("inputs") == null) {
                     throw new IllegalArgumentException("Script does not contains inputs variable");
                 }
-                ((Map) shell.getVariable("inputs")).forEach((key, value) -> {
-                    Map<String, Object> optionAttributes = ((Map)value);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> inputs = (Map<String, Object>) shell.getVariable("inputs");
+                inputs.forEach((key, value) -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> optionAttributes = (Map<String, Object>) value;
                     Option customOption = new Option(key.toString(),
                             optionAttributes.get("type") != Boolean.class,
                             optionAttributes.getOrDefault("description", "").
                                     toString().replaceAll("<[^>]*>", ""));
-                    customOption.setType((Class)optionAttributes.get("type"));
+                    @SuppressWarnings("unchecked")
+                    Class<?> optionType = (Class<?>) optionAttributes.get("type");
+                    customOption.setType(optionType);
                     customOption.setArgs(1);
                     customOption.setArgName(optionAttributes.get("name").toString());
                     customOption.setRequired(!optionAttributes.containsKey("min") || (Integer)optionAttributes.get("min") == 1);
