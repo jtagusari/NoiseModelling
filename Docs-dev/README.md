@@ -39,3 +39,7 @@ This directory contains technical documentation for NoiseModelling developers an
   - Test coverage analysis (100+ test methods verified)
   - Issues and recommendations
   - Overall grade: A (95/100)
+- **[Bridge Processing Improvements](BRIDGE_PROCESSING_IMPROVEMENTS.md)** - Detailed analysis of bridge processing fixes (2026-03-12):
+  - Implementation of bridge wall enter/exit logic
+  - Support for multiple downward bridge edges
+  - Testing recommendations and impact assessment
