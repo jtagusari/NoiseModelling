@@ -443,10 +443,8 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         IMAGINARY_SOURCE_TO_UPPER_RECEIVER,
         /** Imaginary source under bridge propagating to receiver below deck level */
         IMAGINARY_SOURCE_TO_LOWER_RECEIVER,
-        /** TODO */
         /** Low source outside bridge propagating to receiver */
         LOW_OUTSIDE_SOURCE_TO_RECEIVER,
-        /** TODO */
         /** High source outside bridge propagating to receiver */
         HIGH_OUTSIDE_SOURCE_TO_RECEIVER
     }

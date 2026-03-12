@@ -299,8 +299,7 @@ public class LayerTinfour implements LayerDelaunay {
 
     @Override
     public void setMinAngle(Double minAngle) {
-        // TODO Auto-generated method stub
-
+        // Not implemented in Tinfour-based triangulation
     }
 
     @Override
@@ -363,8 +362,7 @@ public class LayerTinfour implements LayerDelaunay {
 
     @Override
     public void reset() {
-        // TODO Auto-generated method stub
-
+        // Not implemented - no state to reset in current implementation
     }
 
     /**
