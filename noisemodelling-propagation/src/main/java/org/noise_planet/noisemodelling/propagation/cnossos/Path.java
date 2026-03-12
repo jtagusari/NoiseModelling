@@ -28,11 +28,12 @@ import static org.noise_planet.noisemodelling.pathfinder.utils.geometry.Geometry
  * PropagationPath
  * @author Nicolas Fortin
  * @author Pierre Aumond
+ * 
+ * REFACTORING NEEDED:
+ * - Remove unused computations and functions
+ * - Review and fix access modifiers (public/private/protected)
+ * - Consider moving favorable field to CnossosPathParameters
  */
-
-// todo get out all the useless computations and functions
-// todo please revise public, private, etc.
-
 public class Path {
     public static final int FOOTER_RESERVED_SIZE = 120; // reserved size for geojson footer
     CutProfile cutProfile; // vertical plane between source and receiver used to compute the propagation ray path attributes
@@ -40,7 +41,7 @@ public class Path {
     private SegmentPath srSegment; // list of source-receiver path (including prime path)
     private List<PointPath> pointList; // list of points (source, receiver or diffraction and reflection points)
     private List<SegmentPath> segmentList; // list of segments [S,O1] and [On-1,R] (O1 and On-1 are respectively the first diffraction point and On-1 the last diffration point)
-    private boolean favorable; // if true, favorable meteorological condition path TODO move to cnossospathparameters
+    private boolean favorable; // if true, favorable meteorological condition path. REFACTOR: move to CnossosPathParameters
     private String timePeriod=""; // time period if relevant (day, evening, night or other parameters, use LDenConfig.TIME_PERIOD)
     Orientation sourceOrientation = new Orientation(0,0,0);
     public Orientation raySourceReceiverDirectivity = new Orientation(); // direction of the source->receiver path relative to the source heading

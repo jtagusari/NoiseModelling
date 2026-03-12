@@ -441,67 +441,6 @@ public class AttenuationCnossosExt {
     }
 
     /**
-     * Only for propagation Path Cnossos
-     * // todo erase evaluate
-     * @param pathParameters
-     * @param data
-     * @return
-     */
-    public static double[] evaluate(CnossosPathExt pathParameters, AttenuationParameters data) {
-        // init
-        aGlobal = new double[data.getFrequencies().size()];
-        double[] aBoundary;
-        double[] aRef;
-
-        // Init wave length for each frequency
-        freq_lambda = new double[data.getFrequencies().size()];
-        for (int idf = 0; idf < data.getFrequencies().size(); idf++) {
-            if (data.getFrequencies().get(idf) > 0) {
-                freq_lambda[idf] = data.getCelerity() / data.getFrequencies().get(idf);
-            } else {
-                freq_lambda[idf] = 1;
-            }
-        }
-
-        // init atmosphere
-        double[] alpha_atmo = data.getAlpha_atmo();
-
-        double aDiv;
-        // divergence
-        long refPointCount = pathParameters.getPointList().stream().
-                filter(pointPath -> pointPath.type.equals(REFL)).count();
-        if (refPointCount > 0) {
-            aDiv = getADiv(pathParameters.getSRSegment().dPath);
-        } else {
-            aDiv = getADiv(pathParameters.getSRSegment().d);
-        }
-
-
-        // boundary (ground + diffration)
-        aBoundary = getABoundary(pathParameters, data);
-
-        // reflections
-        aRef = getARef(pathParameters, data);
-
-        for (int idfreq = 0; idfreq < data.getFrequencies().size(); idfreq++) {
-            // atm
-            double aAtm;
-
-            long verticalPivotPointCount = pathParameters.getPointList().stream().
-                    filter(pointPath -> pointPath.type.equals(REFL) || pointPath.type.equals(DIFV)).count();
-            if (verticalPivotPointCount > 0) {
-                aAtm = getAAtm(pathParameters.getSRSegment().dPath, alpha_atmo[idfreq]);
-            } else {
-                aAtm = getAAtm(pathParameters.getSRSegment().d, alpha_atmo[idfreq]);
-            }
-
-            aGlobal[idfreq] = -(aDiv + aAtm + aBoundary[idfreq] + aRef[idfreq]);
-
-        }
-        return aGlobal;
-    }
-
-    /**
      *
      * @param pp
      * @param freq
@@ -893,7 +832,11 @@ public class AttenuationCnossosExt {
         return max(aGroundHComputed, aGroundHMin);
     }
 
-    //Todo check if the favorable testform should be use instead
+    /**
+     * Compute favorable ground attenuation (simplified overload).
+     * Note: Currently uses testFormH for computation. Future versions may need verification
+     * if favorable-specific testForm should be used instead.
+     */
     public static double aGroundF(CnossosPathExt proPathParameters, SegmentPath path, AttenuationParameters data, int idFreq) {
         return aGroundF(proPathParameters, path, data, idFreq, false);
     }
@@ -980,7 +923,8 @@ public class AttenuationCnossosExt {
 
         List<PointPath> ptList = proPathParameters.getPointList();
 
-        // todo get hRail from input data
+        // FIXME: hRail is currently hardcoded. This should be retrieved from input data
+        // to support different rail source heights for accurate railway noise modeling.
         double hRail = 0.5;
         Coordinate src = ptList.get(0).coordinate;
         PointPath pDif = ptList.stream().filter(p -> p.type.equals(PointPath.POINT_TYPE.DIFH)).findFirst().orElse(null);

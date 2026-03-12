@@ -922,9 +922,9 @@ public class PathFinderTest {
     /**
      * TC17 - Reflecting barrier on ground with spatially varying heights and acoustic properties reduced receiver height
      *
-     * No data provided usable for testing.
+     * NOTE: No reference test data available from CNOSSOS-EU documentation.
+     * Test implementation is present but cannot be validated without official test vectors.
      */
-    //TODO : no data provided in the document for this test.
     @Test
     public void TC17() throws Exception {
         //Profile building
