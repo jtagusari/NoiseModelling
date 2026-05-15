@@ -99,20 +99,27 @@ stop
 
 **Data Preparation Approaches**:
 
-*Approach 1: Direct PostGIS Database*
-- All geometries stored in spatial database (e.g., PostGIS) with proper spatial indexing
-- Coordinate reference system consistent across all tables
-- Projected coordinates (not geographic/lat-lon) required for accurate distance calculations
-- Direct SQL queries used to load data during computation
-
-*Approach 2: File-Based Loading to H2GIS*
+*Approach 1: File-Based Loading to H2GIS*
 - Geometries initially provided as single files (GeoJSON, Shapefile, GML, etc.)
 - Groovy scripts provided in WPS framework to load geometry files into H2GIS database
 - These preparation scripts read file-based geometries and populate H2GIS tables
 - Once loaded, H2GIS database functions identically to PostGIS for computation
 - Useful for lightweight deployments or development scenarios
 
-Both approaches produce equivalent database schemas and can be used interchangeably for computation.
+*Approach 2: Direct PostGIS Database*
+- All geometries stored in spatial database (e.g., PostGIS) with proper spatial indexing
+- Coordinate reference system consistent across all tables
+- Projected coordinates (not geographic/lat-lon) required for accurate distance calculations
+- Direct SQL queries used to load data during computation
+
+*Approach 3: Direct Value Input for Testing*
+- Geometry and parameter values specified directly in computation code or configuration files
+- Suitable for testing, validation, and proof-of-concept demonstrations
+- Eliminates database dependency for small-scale computations
+- Useful for algorithm development and parameter sensitivity analysis
+- Supports manual specification of test cases with known results
+
+All three approaches produce equivalent database schemas and computational results; the choice depends on deployment context, data source, and operational requirements.
 
 ## Phase 2: Receiver Generation
 

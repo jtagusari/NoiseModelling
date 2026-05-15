@@ -11,42 +11,24 @@
 
 ## Overview
 
-This document provides detailed specifications for all input data tables and parameters required by NoiseModelling. Each table must be created in a spatial database (PostGIS, H2GIS, or equivalent) before computation begins.
+This document provides detailed specifications for all input data tables and parameters required by NoiseModelling. The schemas described here define the logical structure of input data regardless of how it is provided:
 
-For information on how to prepare and load this data, see [computation_scheme.md](computation_scheme.md#phase-1-data-preparation) for overview of preparation approaches, or the WPS framework for script-based data loading.
+- **Approach 1 (File-Based to H2GIS)**: Geometries loaded from files (GeoJSON, Shapefile, GML) into H2GIS database tables
+- **Approach 2 (PostGIS Database)**: Geometries pre-stored in a PostGIS spatial database with tables matching these schemas
+- **Approach 3 (Direct Value Input)**: Geometry and parameter values specified directly in code/configuration; conceptually represented as in-memory data structures with equivalent logical schemas
+
+For information on how to prepare and load this data, see [computation_scheme.md](computation_scheme.md#phase-1-data-preparation) for overview of preparation approaches, the WPS framework for script-based data loading, or direct code-based construction for Approach 3 (testing).
 
 ## Sources Table
 
-**Purpose**: Contains acoustic source geometries with emission spectra.
+Purpose: Brief overview. The `Sources` table holds acoustic source geometries and associated emission data. Depending on input mode it may contain per-period traffic fields, precomputed spectral LW values, or references to external emission tables.
 
-**Geometry Requirements**:
-- Type: LineString (for roads, railways) or Point (for point sources)
-- Coordinate Reference System: Projected CRS (meters), consistent with other tables
-- Z coordinate: Optional; if present, represents source height above ground
+Key notes:
+- Geometry types: LineString (road/rail) or Point (point sources). Use projected CRS (meters).
+- Emission data: Can be provided as per-band LW columns, overall LW, or derived from traffic-flow fields.
+- For full schema definitions, input modes, sampling strategy, and loader behavior see [source_algorithms.md](source_algorithms.md).
 
-**Required Columns**:
-- `PK` (INTEGER PRIMARY KEY): Unique source identifier
-- `THE_GEOM` (GEOMETRY(LineStringZ/PointZ, SRID)): Source geometry in projected coordinates
-- Emission spectra columns: Frequency-dependent sound power levels (dB)
-  - Example: `LW_63HZ`, `LW_125HZ`, `LW_250HZ`, ..., `LW_8000HZ` (typical octave bands)
-  - Or: `LW_OVERALL` for broadband emission
-
-**Optional Columns**:
-- `SOURCE_TYPE` (VARCHAR): Identifier for source category (e.g., 'ROAD', 'RAILWAY', 'INDUSTRIAL')
-- `SPEED` (DOUBLE): Traffic speed (for road sources)
-- `TRAFFIC_DENSITY` (INTEGER): Number of vehicles/trains per hour
-- Additional metadata columns as needed
-
-**Examples**:
-- Road segments: LineString with traffic-related emission spectra
-- Railway lines: LineString with train emission spectra
-- Industrial facilities: Point with facility emission spectra
-- Airport runways: LineString with aircraft emission spectra
-
-**Java Mapping**:
-- Sources table rows are loaded per cell by `DefaultTableLoader.fetchCellSource(...)`, which validates Z and then calls `SceneWithEmission.addSourceDb(pk, geometry, rs)`.
-- When emissions are stored in a separate table, `SceneWithEmission.registerSourceEmissionFromDb(pk, rs)` parses per-period spectra from the emission `ResultSet`.
-- Traffic-flow based emissions are built from a `ResultSet` using `RoadEmissionBuilder(ResultSet)`; precomputed LW spectra are built using `SourceEmissionBuilder(ResultSet, frequencyBands)`.
+The detailed loader logic and per-format examples are documented in `source_algorithms.md`; keep the table here as a logical overview only.
 
 ## Buildings Table
 

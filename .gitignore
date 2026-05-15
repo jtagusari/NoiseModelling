@@ -15,3 +15,23 @@ venv/
 tests/*
 .gradle/*
 wps_scripts/bin/*
+# Cleanup backup and distribution artifacts
+cleanup_backup/
+wp*scripts/dist-run/
+
+# Large data and generated files
+*.pbf
+*.gz
+*.zip
+*.shp
+*.shx
+*.dbf
+*.prj
+*.png
+*.mv.db
+
+# Python cache
+__pycache__/
+
+# temporary outputs
+tmp_*
