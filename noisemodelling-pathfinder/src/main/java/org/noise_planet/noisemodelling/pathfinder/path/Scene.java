@@ -547,7 +547,9 @@ public class Scene {
      * @return Cut profile between source and receiver
      */
     public CutProfile requestProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
-        return this.profileBuilder.buildProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, sourcePointInfo);
+        profileBuilder.setDefaultGroundAttenuation(defaultGroundAttenuation);
+        profileBuilder.setStopAtObstacleOverSourceReceiver(stopAtObstacleOverSourceReceiver);
+        return this.profileBuilder.buildProfile(sourceCoordinate, receiverCoordinate, sourcePointInfo);
     }
 
     /**

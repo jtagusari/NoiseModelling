@@ -19,7 +19,8 @@
     - [Integration Responsibilities](#integration-responsibilities)
   - [Tests, Examples \& snippets](#tests-examples--snippets)
     - [PathFinderTest](#pathfindertest)
-    - [Examples](#examples)
+    - [Algorithm-to-test mapping](#algorithm-to-test-mapping)
+    - [File-based reference comparisons (important)](#file-based-reference-comparisons-important)
 
 ## Concepts & Overview
 
@@ -260,79 +261,70 @@ The repository contains an integration-style test class `PathFinderTest` that ex
 
 Representative test cases (for example `TC01`, `TC02`, `TC04` in `PathFinderTest`) follow the pattern: prepare builder → `finishFeeding()` → build `Scene` with sources/receivers → run `PathFinder` → collect results via a `DefaultCutPlaneVisitor` and assert expected `CutProfile` contents. Use this test class as a starting point when debugging end-to-end behavior or when adding new features that touch the preprocessing, profile retrieval, or propagation logic.
 
-### Examples
+### Algorithm-to-test mapping
 
-Below are two small canonical Java examples you can copy into unit tests or scripts. Prefer the first (decorator) snippet for tests and quick experimentation; use the second snippet for bulk/DB-loading workflows where you manage PKs and large numbers of sources.
+This section maps the major pathfinder algorithms/components to their primary test classes.
 
-**1. Unit-test / quick example (recommended)**
+- End-to-end path search orchestration (`PathFinder.run`, direct+reflection+diffraction integration)
+  - `PathFinderTest`
+  - `PathFinderBridgeTest`
+- Direct path strategy and visitor signaling (`DirectAndDiffractionEvaluator.computeDirectPath`)
+  - `DirectAndDiffractionEvaluatorTest`
+- Vertical-edge diffraction and side-hull computation (`DiffractionPathBuilder.computeVEdgeDiffraction`, `computeSideHull`)
+  - `DiffractionPathBuilderTest`
+- Reflection path generation and reflection cut-point attribute injection (`ReflectionPathBuilder`)
+  - `ReflectionPathBuilderTest`
+  - `TestWallReflection`
+- Source candidate collection and source sampling (`SourceCollector`)
+  - `SourceCollectorTest`
+- Per-receiver processing orchestration (`ReceiverProcessor`)
+  - `ReceiverProcessorTest`
+- Parallel scheduling and task splitting (`PathExecutionManager`)
+  - `PathExecutionManagerTest`
+- Scene/profile request integration (`Scene`, `SceneBuilder`, profile retrieval API)
+  - `SceneTest`
+  - `ProfileBuilderTest`
+- Profile construction internals (topography, walls, cut points, ground effects)
+  - `TopographyServiceTest`
+  - `TopographyServiceTinTest`
+  - `TopographyServiceAdvancedTest`
+  - `ProcessedWallServiceTest`
+  - `WallServiceTest`
+  - `BuildingServiceTest`
+  - `CutProfileTest`
+  - `CutPointTest`
+  - `CutPointSourceTest`
+  - `CutPointReceiverTest`
+- Bridge-specific profile/path logic (`BridgeService`, bridge geometry/query helpers)
+  - `BridgeServiceTest`
+  - `BridgeTest`
+  - `BridgeGeometryBuilderTest`
+  - `BridgePointManagerTest`
+  - `BridgePointTest`
+  - `BridgeQueryHelperTest`
+  - `BridgeTriangulationTest`
+  - `PathFinderBridgeTest`
 
-```java
-// Prepare builder, populate obstacles and finalize
-ProfileBuilder pb = new ProfileBuilder();
-// ... add topography / buildings / walls / ground effects ...
-pb.finishFeeding();
+### File-based reference comparisons (important)
 
-// Use the decorator for concise test setup
-SceneBuilder d = new SceneBuilder(pb)
-  .addSource(10.0, 20.0, 2.5)   // adds a point source
-  .addReceiver(15.0, 25.0, 1.8) // adds a receiver
-  .setGs(0.5)                   // optional ground coefficient
-  .vEdgeDiff(true)              // horizontal diffraction
-  .hEdgeDiff(true);             // vertical diffraction
+Several integration tests assert algorithm identity by comparing computed `CutProfile` objects against JSON reference files. This is the most important regression net for geometry-sensitive behavior.
 
-Scene scene = d.build();
+- Main non-bridge references
+  - Test class: `PathFinderTest`
+  - Loader/comparator: `assertCutProfile(String utName, CutProfile cutProfile)` → `assertCutProfile(InputStream expected, CutProfile got)`
+  - Resource lookup: `PathFinder.class.getResourceAsStream("test_cases/" + testCaseFileName)`
+  - Reference files: `noisemodelling-pathfinder/src/main/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/*.json` (e.g. `TC01_Direct.json`, `TC08_Left.json`, `TC16_Reflection.json`, ...)
 
-// Obtain a CutProfile between the (first) source and the first receiver
-Coordinate recv = scene.getReceivers().get(0);
-Coordinate sourceCoord = scene.getSourceGeometryByIndex(0).getCoordinate();
-SourcePointInfo src = new SourcePointInfo(sourceCoord);
-CutProfile profile = scene.requestProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
+- Bridge references
+  - Test class: `PathFinderBridgeTest`
+  - Resource lookup/comparison is the same JSON mechanism as `PathFinderTest`
+  - Reference names used by tests: `TBC01`..`TBC10`, `TBC20`, `TBC21`
+  - Important behavior: `PathFinderBridgeTest` currently has `overwriteTestCase = true`, so it can rewrite JSON files in the runtime classpath `test_cases` directory during test execution.
 
-// Inspect or assert on profile contents in tests
-assert profile != null;
-```
+- Local profile regression fixture in `CutProfileTest`
+  - Test class: `CutProfileTest` (`TBCCoordinates2D`)
+  - Loader: `loadCutProfile(String utName)` with explicit null guard (`Objects.requireNonNull`) before JSON deserialization
+  - Reference file: `noisemodelling-pathfinder/src/test/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/TBC06.json`
+  - Rationale: keeping `TBC06.json` under `src/test/resources` makes this test independent from execution order and from side-effects of bridge integration tests.
 
-**2. Bulk / DB-backed loading example**
-
-```java
-// Build and finalize the ProfileBuilder once
-ProfileBuilder pb = new ProfileBuilder();
-// ... load topography/buildings/walls/ground from DB or files ...
-pb.finishFeeding();
-
-// Create a Scene backed by the finalized builder
-Scene scene = new Scene(pb);
-
-// Iterate DB rows and add sources with stable PKs
-for(DBRow row : rows) {
-  long dbPk = row.getId();
-  Geometry geom = row.toGeometry(); // JTS geometry from DB
-  scene.addSource(dbPk, geom);
-}
-
-// Add receivers (optionally with PKs)
-scene.addReceiver(1001L, new Coordinate(12.3, 45.6, 1.7));
-
-// For each receiver, collect candidate source points and compute profiles
-for(Coordinate recv : scene.getReceivers()) {
-  // Create search region around receiver
-  Envelope searchRegion = new Envelope(recv);
-  searchRegion.expandBy(scene.getMaxSrcDist());
-  
-  // Query spatial index for candidate sources
-  Iterator<Integer> sourceIndices = scene.getSourceQuery().query(searchRegion);
-  while(sourceIndices.hasNext()) {
-    int srcIndex = sourceIndices.next();
-    Coordinate sourceCoord = scene.getSourceGeometryByIndex(srcIndex).getCoordinate();
-    long sourcePk = scene.getSourcePkById(srcIndex);
-    
-    // Create SourcePointInfo with metadata
-    SourcePointInfo src = new SourcePointInfo(srcIndex, sourcePk, sourceCoord, 1.0, 
-                                              scene.getSourceOrientationByPk(sourcePk));
-    
-    // Compute profile
-    CutProfile p = scene.requestProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
-    // process p (PathFinder, attenuation, tests...)
-  }
-}
-```
+In all file-based comparisons above, assertions validate not only point count and point class but also key geometric/acoustic fields (coordinate tolerance, `zGround`, ground coefficient, and reflection/wall attributes where relevant).

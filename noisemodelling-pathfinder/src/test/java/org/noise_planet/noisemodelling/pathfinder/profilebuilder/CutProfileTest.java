@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -395,6 +396,7 @@ public class CutProfileTest {
     private static CutProfile loadCutProfile(String utName) throws IOException {
         String testCaseFileName = utName + ".json";
         try(InputStream inputStream = PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName)) {
+            Objects.requireNonNull(inputStream, "Missing test resource: test_cases/" + testCaseFileName);
             ObjectMapper mapper = new ObjectMapper();
             return mapper.readValue(inputStream, CutProfile.class);
         }

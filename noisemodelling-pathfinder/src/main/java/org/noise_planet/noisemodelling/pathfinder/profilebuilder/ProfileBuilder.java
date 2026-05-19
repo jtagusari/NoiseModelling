@@ -930,6 +930,17 @@ public class ProfileBuilder {
         }
     }
 
+    public void setDefaultGroundAttenuation(double defaultGroundAttenuation) {
+        this.defaultGroundAttenuation = defaultGroundAttenuation;
+    }
+
+    public void setStopAtObstacleOverSourceReceiver(boolean stopAtObstacleOverSourceReceiver) {
+        this.stopAtObstacleOverSourceReceiver = stopAtObstacleOverSourceReceiver;
+    }
+
+    public void setMaxLineLength(double maxLineLength) {
+        this.maxLineLength = maxLineLength;
+    }
 
 
     /**
@@ -946,24 +957,18 @@ public class ProfileBuilder {
      * @param sourcePointInfo source metadata
      * @return computed cut profile
      */
-    public CutProfile buildProfile(Coordinate source, Coordinate receiver, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo ) {
+    public CutProfile buildProfile(Coordinate source, Coordinate receiver, SourcePointInfo sourcePointInfo ) {
 
-        this.defaultGroundAttenuation = defaultGroundAttenuation;
-        this.stopAtObstacleOverSourceReceiver = stopAtObstacleOverSourceReceiver;
         
         LOGGER.debug("ProfileBuilder.buildProfile - Starting profile calculation");
         LOGGER.debug("  Source: x={}, y={}, z={}", source.x, source.y, source.z);
         LOGGER.debug("  Receiver: x={}, y={}, z={}", receiver.x, receiver.y, receiver.z);
-        LOGGER.debug("  DefaultGroundAttenuation: {}", defaultGroundAttenuation);
-        LOGGER.debug("  StopAtObstacleOverSourceReceiver: {}", stopAtObstacleOverSourceReceiver);
-        LOGGER.debug("  MaxLineLength: {}", maxLineLength);
         
         long totalStartTime = System.currentTimeMillis();
 
         // Initialize the basic profile with source and receiver
         LOGGER.debug("  Initializing profile...");
-        SourcePointInfo sourcePointInfo2 = new SourcePointInfo(sourcePointInfo);
-        sourcePointInfo2.setCoordinate(source);
+        SourcePointInfo sourcePointInfo2 = new SourcePointInfo(source, sourcePointInfo);
         ReceiverPointInfo receiverPointInfo = new ReceiverPointInfo(receiver);
         CutProfile profile = initializeProfile(sourcePointInfo2, receiverPointInfo);
 
