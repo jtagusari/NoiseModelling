@@ -13,6 +13,7 @@ It can be freely used either for research and education, as well as by experts i
 
 * for **more information** on NoiseModelling, [visit the online documentation](https://noisemodelling.readthedocs.io/en/latest/)
 * to **contribute to NoiseModelling** source code, follow the ["Get Started Dev"](https://noisemodelling.readthedocs.io/en/latest/Get_Started_Dev.html) page
+* if Java 11 builds fail with Maven TLS errors (for example, peer not authenticated), see [Docs-dev/build-setup-guide.md](Docs-dev/build-setup-guide.md)
 * to **contact the support / development team**, 
     - open an issue : https://github.com/Universite-Gustave-Eiffel/NoiseModelling/issues or a write a message : https://github.com/Universite-Gustave-Eiffel/NoiseModelling/discussions *(we prefer these two options)*
     - send us an email at ``contact@noise-planet.org``

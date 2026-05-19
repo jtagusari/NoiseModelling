@@ -27,7 +27,7 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
     private final int sourceIndex;
     private final long sourcePk;
     /** Source position with absolute elevation in Z coordinate (elevation in DEM coordinate system) */
-    private final Coordinate position;
+    private Coordinate position;
     private final Orientation orientation;
     private final BridgeRelationship bridgeRelationship;
 
@@ -98,6 +98,16 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.orientation = new Orientation();
         this.bridgeRelationship = new BridgeRelationship();
     }
+
+    public SourcePointInfo(SourcePointInfo other) {
+        this.sourceIndex = other.sourceIndex;
+        this.sourcePk = other.sourcePk;
+        this.position = new Coordinate(other.position);
+        this.li = other.li;
+        this.orientation = other.orientation;
+        this.bridgeRelationship = other.bridgeRelationship;
+    }
+
     public Orientation getOrientation() {
         return orientation;
     }
@@ -113,6 +123,10 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
      */
     public Coordinate getCoordinate() {
         return position;
+    }
+
+    public void setCoordinate(Coordinate position) {
+        this.position = position;
     }
 
     public int getSourceIndex() {

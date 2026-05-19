@@ -23,14 +23,15 @@ import org.slf4j.LoggerFactory;
  *   <li>Store raw wall definitions (edges) and expose basic accessors.</li>
  *   <li>Maintain a spatial index (`wallTree`) for raw walls to support fast lookup.</li>
  *   <li>Handle thin-wall intersection processing and produce cut-points for
- *       profile assembly ({@link #createWallCutPointAndCheckObstruction}).</li>
+ *       profile assembly ({@link #createWallCutPoint(RayWallIntersection)}).</li>
  *   <li>Update wall endpoints Z values from topography/DEM via
  *       {@link #computeElevations(ProfileBuilder)}.</li>
  * </ul>
  *
  * <p>The service separates raw geometry ingestion from the processed facets
  * used by acoustic path computations; callers typically feed walls, then call
- * {@link #exportFacetsToProcessedWalls} and {@link #buildProcessedWallRtree} before
+ * {@link #exportFacetsToProcessedWalls} and
+ * {@link ProcessedWallService#buildProcessedWallRtree()} before
  * running profile computations.</p>
  */
 public class WallService implements FrequencyInitializable, ElevationComputable, ClearableService, ProcessedFacetsExportable {
@@ -109,23 +110,37 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
     
 
     /**
-     * Handle a thin-wall intersection encountered while scanning a profile line.
-     * This was previously implemented inside WallService; moved here because it
-     * operates on processed walls.
+     * Create a thin-wall cut point from a processed-wall intersection.
+     *
+     * <p>This method converts {@link RayWallIntersection} data into a
+     * {@link CutPointWall} used by profile assembly. It assigns
+     * {@link CutPointWall.INTERSECTION_TYPE#THIN_WALL_ENTER_EXIT}, propagates
+     * the wall primary key when available, and computes obstruction state by
+     * comparing the intersection elevation with the interpolated source-receiver
+     * ray elevation at the same XY location.</p>
+     *
+     * @param rayWallIntersection intersection context containing wall index,
+     *                            intersection coordinate, full source-receiver ray,
+     *                            and processed wall metadata
+     * @return populated wall cut point ready to be inserted into a {@link CutProfile}
      */
-    public boolean createWallCutPointAndCheckObstruction(int processedWallIndex, Coordinate intersection, Wall facetLine,
-                                                         LineSegment fullLine, List<CutPoint> newCutPoints) {
+    public CutPointWall createWallCutPoint(RayWallIntersection rayWallIntersection) {
+        int wallIndex = rayWallIntersection.getWallIndex();
+        Coordinate intersection = rayWallIntersection.getIntersection();
+        LineSegment fullLine = rayWallIntersection.getRay();
+        Wall wall = rayWallIntersection.getProcessedWall();
 
-        CutPointWall cutPointWall = new CutPointWall(processedWallIndex,
-                intersection, facetLine.getLineSegment(), facetLine.getAlphas());
+
+        CutPointWall cutPointWall = new CutPointWall(wallIndex, intersection, wall.getLineSegment(), wall.getAlphas());
         cutPointWall.intersectionType = CutPointWall.INTERSECTION_TYPE.THIN_WALL_ENTER_EXIT;
-        if (facetLine.primaryKey >= 0) {
-            cutPointWall.setPk(facetLine.primaryKey);
+        if (wall.primaryKey >= 0) {
+            cutPointWall.setPk(wall.primaryKey);
         }
-        newCutPoints.add(cutPointWall);
-
+        
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
-        return zRayReceiverSource <= intersection.z;
+        cutPointWall.setObstructingAcousticRay(zRayReceiverSource <= intersection.z);
+        
+        return cutPointWall;
     }
 
     /**

@@ -7,6 +7,7 @@
     - [Feeding Data into ProfileBuilder](#feeding-data-into-profilebuilder)
       - [Step-by-step procedure to feed data](#step-by-step-procedure-to-feed-data)
     - [Preprocessing ProfileBuilder](#preprocessing-profilebuilder)
+      - [Operational notes](#operational-notes)
       - [Preprocessing Pipeline](#preprocessing-pipeline)
       - [Role of Processed Walls](#role-of-processed-walls)
   - [Typical workflow of creating Scene](#typical-workflow-of-creating-scene)
@@ -63,7 +64,7 @@ class ProfileBuilder {
   - ProcessedWallService processedWallService
   - FrequencyConfig frequencyConfig
   + finishFeeding()
-  + getProfile(...)
+  + requestProfile(...)
   + addBuilding(...)
   + addWall(...)
   + addBridge(...)
@@ -101,7 +102,7 @@ ProfileBuilder <-- Scene : uses
 ## ProfileBuilder
 
 
-`ProfileBuilder` is an orchestrator over geometry services and spatial indexes. It ingests per-cell obstacles and terrain, builds DEM/TIN and processed facets in `finishFeeding()`, and then serves `getProfile(...)` / `CutProfile` queries.
+`ProfileBuilder` is an orchestrator over geometry services and spatial indexes. It ingests per-cell obstacles and terrain, builds DEM/TIN and processed facets in `finishFeeding()`, and then serves `buildProfile(...)` / `CutProfile` queries.
 
 Core internal services:
 
@@ -129,7 +130,7 @@ class ProfileBuilder {
   - ProcessedWallService processedWallService
   - FrequencyConfig frequencyConfig
   + finishFeeding()
-  + getProfile(...)
+  + buildProfile(...)
   + addBuilding(...)
   + addWall(...)
   + addBridge(...)
@@ -178,6 +179,11 @@ title ProfileBuilder — Feeding data (step-by-step)
 Finalizing the `ProfileBuilder` by calling `finishFeeding()` executes a multi-step preprocessing pipeline that builds a TIN/DEM from topographic points, propagates elevations into buildings/walls/bridges, exports building and wall facets to spatial indexes, and constructs processed wall facets used for reflection and diffraction calculations.
 The `ProfileBuilder` instance is effectively read-only after `finishFeeding()`.
 
+#### Operational notes
+
+- `ProfileBuilder` is not thread-safe during ingestion and preprocessing. Complete all `add*` operations and `finishFeeding()` before sharing the instance across worker threads.
+- Several preprocessing service calls are side-effect oriented (index/materialization updates) even when their return values are not used directly. Avoid skipping these calls when refactoring `finishFeeding()`.
+
 ![Preprocess sample — processed walls](./img/processed_wall_sample.png)
 
 Figure: Example of the ProfileBuilder preprocess. The processed walls (red lines) are constructed.
@@ -206,7 +212,7 @@ title ProfileBuilder — Preprocessing Pipeline
 
 #### Role of Processed Walls
 
-- Processed walls representing vertical faces will be used by `PathFinder` and `ProfileRetriever` to detect reflections and edge diffractions.
+- Processed walls representing vertical faces will be used by `PathFinder` and `ProfileBuilder` to detect reflections and edge diffractions.
 - When computing reflections the algorithm queries the processed wall index to find candidate facets intersecting the reflection plane; for diffraction the precomputed wide-angle/diffraction points and processed wall edges are used to build diffraction planes.
 
 ## Typical workflow of creating Scene

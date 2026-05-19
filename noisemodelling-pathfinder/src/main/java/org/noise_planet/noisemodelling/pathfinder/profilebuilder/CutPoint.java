@@ -50,6 +50,10 @@ public abstract class CutPoint implements Comparable<CutPoint> {
     /** Topographic height of the point. */
     public double zGround = Double.NaN;
 
+
+    // Indicates whether this cut point represents an obstacle that obstructs the acoustic ray between source and receiver
+    private boolean obstructingAcousticRay = false;
+
     /**
      * Ground effect coefficient.
      * G=1.0 Soft, uncompacted ground (pasture, loose soil); snow etc
@@ -123,7 +127,6 @@ public abstract class CutPoint implements Comparable<CutPoint> {
         this.zGround = zGround;
     }
 
-
     /**
      * Retrieve the coordinate of the point.
      * @return The coordinate of the point.
@@ -146,6 +149,14 @@ public abstract class CutPoint implements Comparable<CutPoint> {
      */
     public Double getzGround() {
         return zGround;
+    }
+
+    public boolean isObstructingAcousticRay() {
+        return obstructingAcousticRay;
+    }
+
+    public void setObstructingAcousticRay(boolean obstructingAcousticRay) {
+        this.obstructingAcousticRay = obstructingAcousticRay;
     }
 
     /**

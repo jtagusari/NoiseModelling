@@ -301,7 +301,7 @@ class DirectAndDiffractionEvaluatorTest {
         }
 
         @Override
-        public CutProfile getProfile(Coordinate source, Coordinate receiver, double groundAttenuation, boolean stopAtObstacle, SourcePointInfo sourcePointInfo) {
+        public CutProfile requestProfile(Coordinate source, Coordinate receiver, double groundAttenuation, boolean stopAtObstacle, SourcePointInfo sourcePointInfo) {
             CutProfile profile = new CutProfile();
             
             if (sourceInProfile) {

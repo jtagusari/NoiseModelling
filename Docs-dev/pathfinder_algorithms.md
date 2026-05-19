@@ -14,6 +14,9 @@
       - [First cut-point insertion](#first-cut-point-insertion)
       - [Bridge deck just below the profile line](#bridge-deck-just-below-the-profile-line)
       - [Downward edge diffraction for imaginary sources](#downward-edge-diffraction-for-imaginary-sources)
+  - [Cell Evaluation Integration](#cell-evaluation-integration)
+    - [Cell Evaluation Flow](#cell-evaluation-flow)
+    - [Integration Responsibilities](#integration-responsibilities)
   - [Tests, Examples \& snippets](#tests-examples--snippets)
     - [PathFinderTest](#pathfindertest)
     - [Examples](#examples)
@@ -57,13 +60,13 @@ The following classes form the core runtime pieces that `PathFinder` (the high-l
 
 - `CutPlaneVisitorFactory` / `CutPlaneVisitor` — result creation and reporting: callers pass a factory to `PathFinder.run(...)` which creates a `CutPlaneVisitor` per receiver/task. The visitor receives found rays/cut-planes and is responsible for collecting, aggregating, or persisting results. This lets callers trade memory for streaming (in-memory aggregation vs write-as-you-go persistence).
 
-- `ReceiverProcessor` — per-receiver orchestration: implements the end-to-end per-receiver flow (invoke `SourceCollector`, request profiles from `ProfileRetriever` / `ProfileBuilder`, perform fast direct-path checks, and call reflection/diffraction builders when needed). It also collects per-receiver diagnostics and emits to the `CutPlaneVisitor`.
+- `ReceiverProcessor` — per-receiver orchestration: implements the end-to-end per-receiver flow (invoke `SourceCollector`, request profiles from `ProfileBuilder`, perform fast direct-path checks, and call reflection/diffraction builders when needed). It also collects per-receiver diagnostics and emits to the `CutPlaneVisitor`.
 
 - `MirrorReceiversCompute` — mirror bookkeeping for reflections: helper used by reflection builders to manage mirror receivers and to avoid duplicate mirror paths. It encapsulates mirror indexing and efficient lookup for mirror-based searches.
 
 - `SourceCollector` — source sampling and `SourcePointInfo` creation: queries the `Scene` source spatial index (default `QueryRTree`) to locate candidate source geometries, subdivides long line-sources into sample points and constructs `SourcePointInfo` instances for each candidate. `SourcePointInfo` carries the sample coordinate plus lightweight metadata (origin source PK, orientation/directivity, optional bridge/virtual-source properties) used by downstream processing.
 
-- `LineStringSplitter` / split utilities — stable sampling of line sources: used by `SourceCollector` (or `ProfileUtils.splitSegment`) to break long segments into smaller sub-segments. This keeps spatial-index query envelopes small and stable, and ensures intermediate Z values are linearly interpolated (the implementation's default `maxLineLength` is 60 meters unless overridden).
+- `LineStringSplitter` / split utilities — stable sampling of line sources: used by `SourceCollector` (and internally by `ProfileBuilder`) to break long segments into smaller sub-segments. This keeps spatial-index query envelopes small and stable, and ensures intermediate Z values are linearly interpolated (the implementation's default `maxLineLength` is 60 meters unless overridden).
 
 - `ProfilerThread` / profiler utilities — runtime metrics: optional background thread that aggregates timing and counters from worker tasks; useful for performance tuning and for assertions in tests.
 
@@ -105,7 +108,7 @@ PathFinder --> Scene : holds data
 1. `PathExecutionManager` builds a work queue (individual receivers or batches) and runs worker tasks in parallel using a thread pool.
 2. For each receiver a `ReceiverProcessor` is created to run the per-receiver pipeline.
 3. `SourceCollector` queries the `Scene` source index to discover candidate source samples. For linear sources it splits long segments into sample points (Z values on split points are linearly interpolated) and builds `SourcePointInfo` entries.
-4. For each candidate `SourcePointInfo`, the `ReceiverProcessor` obtains a `CutProfile` via `ProfileRetriever` / `ProfileBuilder` (the `ProfileBuilder` must have been finalized with `finishFeeding()` so the DEM/TIN and processed-wall STRtrees are available).
+4. For each candidate `SourcePointInfo`, the `ReceiverProcessor` obtains a `CutProfile` via `ProfileBuilder.buildProfile(...)` (the `ProfileBuilder` must have been finalized with `finishFeeding()` so the DEM/TIN and processed-wall STRtrees are available).
 5. `DirectAndDiffractionEvaluator` performs a fast direct-visibility check and prepares diffraction candidate data when appropriate. If required, `ReflectionPathBuilder` and `DiffractionPathBuilder` are invoked to search for reflected and diffracted paths.
 6. Discovered ray/cut-plane contributions are reported to the caller-provided `CutPlaneVisitor` implementation. If enabled, `ProfilerThread` gathers timing and counters to help analyze hotspots.
 
@@ -119,7 +122,7 @@ title Processing flow — per-receiver pipeline
 rectangle A as "1. Build work queue\n(PathExecutionManager)"
 rectangle B as "2. Create ReceiverProcessor\n(per receiver)"
 rectangle C as "3. SourceCollector\nquery Scene source index, sample line-sources"
-rectangle D as "4. ReceiverProcessor obtains CutProfile\n(ProfileRetriever / ProfileBuilder)"
+rectangle D as "4. ReceiverProcessor obtains CutProfile\n(ProfileBuilder.buildProfile(...))"
 rectangle E as "5. DirectAndDiffractionEvaluator\nfast direct-visibility check; invoke Reflection/Diffraction builders"
 rectangle F as "6. Report contributions\n-> CutPlaneVisitor; ProfilerThread (optional) collects metrics"
 
@@ -135,7 +138,7 @@ E --> F
 ## Calculating Profiles
 
 A vertical profile between a source and a receiver is represented by the `CutProfile` class which contains an ordered list of `CutPoint` instances (source → intermediate cut-points → receiver) with associated ground elevations, ground absorption coefficients and obstacle metadata (building/wall/bridge references and processed-wall indices).
-The entry point of the profile construction pipeline is the `ProfileRetriever.getProfile(...)` method which queries the topography and processed-wall indexes to build the profile.
+The entry point of the profile construction pipeline is `ProfileBuilder.buildProfile(...)`, which queries topography and processed-wall indexes to build the profile.
 
 ### Processing pipeline
 
@@ -253,7 +256,7 @@ The repository contains an integration-style test class `PathFinderTest` that ex
 
 - Setting Geometry Propagation Scene: tests build a `ProfileBuilder`, add topography/buildings/walls/ground effects and call `finishFeeding()` to finalize indexes and processed walls.
 - Finding Paths: tests construct a `Scene` (typically via `SceneBuilder`), register sources and receivers, create a `PathFinder`, and call `run(...)` which invokes the path-finding pipeline (source collection, profile retrieval, direct/reflection/diffraction searches).
-- Calculating Profiles: inside the per-receiver processing the test flow triggers profile retrieval (via `ProfileRetriever` / `ProfileBuilder.getProfile(...)`) to build `CutProfile` objects used by propagation algorithms.
+- Calculating Profiles: inside the per-receiver processing the test flow triggers profile retrieval via `ProfileBuilder.buildProfile(...)` to build `CutProfile` objects used by propagation algorithms.
 
 Representative test cases (for example `TC01`, `TC02`, `TC04` in `PathFinderTest`) follow the pattern: prepare builder → `finishFeeding()` → build `Scene` with sources/receivers → run `PathFinder` → collect results via a `DefaultCutPlaneVisitor` and assert expected `CutProfile` contents. Use this test class as a starting point when debugging end-to-end behavior or when adding new features that touch the preprocessing, profile retrieval, or propagation logic.
 
@@ -283,7 +286,7 @@ Scene scene = d.build();
 Coordinate recv = scene.getReceivers().get(0);
 Coordinate sourceCoord = scene.getSourceGeometryByIndex(0).getCoordinate();
 SourcePointInfo src = new SourcePointInfo(sourceCoord);
-CutProfile profile = scene.getProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
+CutProfile profile = scene.requestProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
 
 // Inspect or assert on profile contents in tests
 assert profile != null;
@@ -328,7 +331,7 @@ for(Coordinate recv : scene.getReceivers()) {
                                               scene.getSourceOrientationByPk(sourcePk));
     
     // Compute profile
-    CutProfile p = scene.getProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
+    CutProfile p = scene.requestProfile(sourceCoord, recv, scene.getDefaultGroundAttenuation(), false, src);
     // process p (PathFinder, attenuation, tests...)
   }
 }

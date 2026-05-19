@@ -162,7 +162,7 @@ public class ReflectionPathProcessor {
     private CutProfile buildReflectionProfile(SourcePointInfo src, ReceiverPointInfo rcv, 
                                               List<MirrorReceiver> rayPath) {
         // Build initial profile from source to first reflection point
-        CutProfile cutProfile = scene.getProfile(src.getCoordinate(), rayPath.get(0).getReflectionPosition(),
+        CutProfile cutProfile = scene.requestProfile(src.getCoordinate(), rayPath.get(0).getReflectionPosition(),
                 scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
 
         if (!isValidProfile(cutProfile)) {
@@ -177,7 +177,7 @@ public class ReflectionPathProcessor {
         }
 
         // Build final leg from last reflection point to receiver
-        cutProfile = scene.getProfile(rayPath.get(rayPath.size() - 1).getReflectionPosition(),
+        cutProfile = scene.requestProfile(rayPath.get(rayPath.size() - 1).getReflectionPosition(),
                 rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
                 
         if (!isValidProfile(cutProfile)) {
@@ -205,7 +205,7 @@ public class ReflectionPathProcessor {
             MirrorReceiver firstPoint = rayPath.get(idPt);
             MirrorReceiver secondPoint = rayPath.get(idPt + 1);
             
-            CutProfile cutProfile = scene.getProfile(firstPoint.getReflectionPosition(),
+            CutProfile cutProfile = scene.requestProfile(firstPoint.getReflectionPosition(),
                     secondPoint.getReflectionPosition(), scene.getDefaultGroundAttenuation(), !scene.computeVerticalDiffraction, src);
             if (!isValidProfile(cutProfile)) {
                 return false;

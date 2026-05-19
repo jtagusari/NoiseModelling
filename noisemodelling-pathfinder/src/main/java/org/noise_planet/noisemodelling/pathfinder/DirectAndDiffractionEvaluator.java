@@ -36,7 +36,7 @@ public final class DirectAndDiffractionEvaluator {
      *   <li>Computing horizontal diffraction paths (left and right) when enabled and obstacles are present</li>
      * </ul>
      * 
-     * <p>The method delegates the actual profile building to the Scene's getProfile method,
+     * <p>The method delegates the actual profile building to the Scene's requestProfile method,
      * which handles topography, building intersections, and ground effects. It then enriches
      * the profile with source and receiver metadata before passing it to the visitor for processing.
      * 
@@ -72,7 +72,7 @@ public final class DirectAndDiffractionEvaluator {
 
         // Build the direct acoustic propagation profile between source and receiver
         // This includes topography, building intersections, ground effects, and material properties
-        CutProfile cutProfile = scene.getProfile(src.getCoordinate(), rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !verticalDiffraction, src);
+        CutProfile cutProfile = scene.requestProfile(src.getCoordinate(), rcv.getCoordinate(), scene.getDefaultGroundAttenuation(), !verticalDiffraction, src);
         
         // Enrich source point with metadata if profile was successfully created
         if(cutProfile.getSource() != null) {

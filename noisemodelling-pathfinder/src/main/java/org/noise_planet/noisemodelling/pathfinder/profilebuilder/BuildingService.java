@@ -290,41 +290,44 @@ public class BuildingService implements FrequencyInitializable, ElevationComputa
     }
 
     /**
-     * Handle a building intersection during profile construction. This logic
-     * was ported from {@code ProfileBuilder.createBuildingCutPointAndCheckObstruction} and creates a
-     * {@link CutPointWall} describing the intersection, computes the intersection
-     * type (enter/exit) and updates the profile state.
+     * Create a building cut point from a processed-wall intersection.
      *
-     * @param processedWallIndex index of the processed wall
-     * @param intersection intersection coordinate on the wall
-     * @param facetLine wall facet that was intersected
-     * @param fullLine full profiling line segment
-     * @param newCutPoints list to append the new cut point to
-     * @param stopAtObstacleOverSourceReceiver controls behaviour when obstacle is above ray
-     * @param profile the cut profile being constructed (mutated)
-     * @return {@code false} when processing should stop; {@code true} to continue
+     * <p>This method converts {@link RayWallIntersection} into a
+     * {@link CutPointWall} for profile assembly. It propagates building
+     * primary key metadata when available, classifies the intersection as
+     * {@code BUILDING_ENTER} or {@code BUILDING_EXIT}, and computes whether
+     * the building intersection obstructs the acoustic ray by comparing
+     * intersection elevation with the interpolated source-receiver ray
+     * elevation at the same XY location.</p>
+     *
+     * @param rayWallIntersection intersection context containing processed wall,
+     *                            wall index, intersection coordinate and full
+     *                            source-receiver line segment
+     * @return populated building cut point ready to be inserted into a {@link CutProfile}
      */
-    public boolean createBuildingCutPointAndCheckObstruction(int processedWallIndex,
-                                   Coordinate intersection,
-                                   Wall facetLine,
-                                   LineSegment fullLine,
-                                   List<CutPoint> newCutPoints) {
-        CutPointWall wallCutPoint = new CutPointWall(processedWallIndex, intersection, facetLine.getLineSegment(),
-                facetLine.getAlphas());
-        if (facetLine.primaryKey >= 0) {
-            wallCutPoint.setPk(facetLine.primaryKey);
+    public CutPointWall createBuildingCutPoint(RayWallIntersection rayWallIntersection) {
+        int wallIndex = rayWallIntersection.getWallIndex();
+        Coordinate intersection = rayWallIntersection.getIntersection();
+        LineSegment fullLine = rayWallIntersection.getRay();
+        Wall wall = rayWallIntersection.getProcessedWall();
+
+        CutPointWall cutPointWall = new CutPointWall(wallIndex, intersection, wall.getLineSegment(), wall.getAlphas());
+        if (wall.primaryKey >= 0) {
+            cutPointWall.setPk(wall.primaryKey);
         }
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
-        boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, facetLine);
+        boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, wall);
         if (isIntersectionEntry) {
-            wallCutPoint.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER;
+            cutPointWall.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_ENTER;
         } else {
-            wallCutPoint.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT;
+            cutPointWall.intersectionType = CutPointWall.INTERSECTION_TYPE.BUILDING_EXIT;
         }
         
-        newCutPoints.add(wallCutPoint);
-        return zRayReceiverSource <= intersection.z;
+        cutPointWall.setObstructingAcousticRay(zRayReceiverSource <= intersection.z);
+
+        return cutPointWall;
     }
+
     /**
      * Add a building from a raw {@link Geometry} with attributes. Accepts only
      * Polygon geometries; other geometry types are ignored and logged as errors.
