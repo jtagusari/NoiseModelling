@@ -29,6 +29,12 @@ public class ReceiverPointInfo {
         this.position = receiver.getCoordinate();
     }
 
+    public ReceiverPointInfo(Coordinate position) {
+        this.receiverIndex = -1;
+        this.receiverPk = -1;
+        this.position = position;
+    }
+
     public Coordinate getCoordinate() {
         return position;
     }

@@ -98,6 +98,26 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
         this.orientation = new Orientation();
         this.bridgeRelationship = new BridgeRelationship();
     }
+
+    public SourcePointInfo(SourcePointInfo other) {
+        this.sourceIndex = other.sourceIndex;
+        this.sourcePk = other.sourcePk;
+        this.position = new Coordinate(other.position);
+        this.li = other.li;
+        this.orientation = other.orientation;
+        this.bridgeRelationship = other.bridgeRelationship;
+    }
+
+    
+    public SourcePointInfo(Coordinate position, SourcePointInfo other) {
+        this.sourceIndex = other.sourceIndex;
+        this.sourcePk = other.sourcePk;
+        this.position = new Coordinate(position);
+        this.li = other.li;
+        this.orientation = other.orientation;
+        this.bridgeRelationship = other.bridgeRelationship;
+    }
+
     public Orientation getOrientation() {
         return orientation;
     }
@@ -114,6 +134,10 @@ public class SourcePointInfo implements Comparable<SourcePointInfo> {
     public Coordinate getCoordinate() {
         return position;
     }
+
+    // public void setCoordinate(Coordinate position) {
+    //     this.position = position;
+    // }
 
     public int getSourceIndex() {
         return sourceIndex;

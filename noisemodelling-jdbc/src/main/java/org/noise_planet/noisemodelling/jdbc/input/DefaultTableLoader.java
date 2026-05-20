@@ -722,9 +722,8 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
      * Fetches receivers data for the specified cell envelope and adds them to the profile builder.
      * @param connection         the database connection to use for querying the receivers data.
      * @param cellEnvelope       the envelope representing the cell to fetch receivers data for.
-     * @param builder            the profile builder to which the receivers data will be added.
+        * @param scene              the scene to which the receivers data will be added.
      * @param skipReceivers      set of receiver primary keys to skip (already processed in other cells).
-     * @param geometryFactory    geometry factory instance with SRID set.
      * @throws SQLException      if an SQL exception occurs while fetching the receivers data.
      */
     public void fetchCellReceiver(Connection connection, Envelope cellEnvelope, SceneWithEmission scene,

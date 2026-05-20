@@ -21,7 +21,7 @@ import java.util.List;
  *
  * <p>Responsibilities:
  * <ul>
- *   <li>Split long source->receiver segments into shorter pieces for stable
+ *   <li>Split long source-&gt;receiver segments into shorter pieces for stable
  *       spatial-index queries and for accurate interpolation of Z values.</li>
  *   <li>Query obstacle/service spatial indexes (processed walls) and dispatch
  *       intersection handling to the appropriate service (building, wall,
@@ -54,7 +54,7 @@ public final class ProfileUtils {
      * @param maxLineLength maximum allowed length per returned segment
      * @return list of LineSegment parts covering the full segment in order
      */
-    public static List<LineSegment> splitSegment(Coordinate c0, Coordinate c1, double maxLineLength) {
+    public static List<LineSegment> splitToSegments(Coordinate c0, Coordinate c1, double maxLineLength) {
         List<LineSegment> segments = new ArrayList<>();
     LineSegment fullLine = new LineSegment(c0, c1);
     double l = c0.distance(c1);
@@ -72,150 +72,6 @@ public final class ProfileUtils {
             }
         }
         return segments;
-    }
-
-    /**
-     * Add obstacle cut points to the profile. This is a static port of the logic
-     * previously implemented inside ProfileBuilder.addObstacleCutPts.
-     *
-     * <p>Behavior summary:
-     * <ul>
-     *   <li>Split the full profiling line using {@link #splitSegment} to avoid
-     *       oversized envelopes when querying spatial indexes.</li>
-     *   <li>For each sub-segment, query {@code ProcessedWallService.getProcessedRtree()}
-     *       and for each hit dispatch to the specific handler depending on the
-     *       processed wall type (BUILDING/WALL/BRIDGE/GROUND_EFFECT).</li>
-     *   <li>Handlers (for example {@link BuildingService#createBuildingCutPointAndCheckObstruction}
-     *       or {@link ProcessedWallService#createWallCutPointAndCheckObstruction}) may decide to stop processing
-     *       early by returning {@code false}; in that case this method returns
-     *       immediately and the pending cut-points discovered so far are still
-     *       appended to the profile in the finally block.</li>
-     * </ul>
-     *
-     * <p>Inputs:
-     * <ul>
-     *   <li>{@code fullLine} the full source->receiver segment.</li>
-     *   <li>{@code profile} the CutProfile to which discovered cut points will be appended.</li>
-     *   <li>Service parameters provide access to processed walls, buildings,
-     *       bridges and ground effects. These services are queried but not
-     *       mutated by this method.</li>
-     * </ul>
-     *
-     * <p>Side-effect: discovered cut points are inserted into {@code profile}
-     * at the end of the method via {@link CutProfile#insertCutPoint}.</p>
-     *
-     * @param fullLine the full source->receiver segment to process
-     * @param profile the CutProfile to which discovered cut points will be appended
-     * @param stopAtObstacleOverSourceReceiver whether to stop processing when obstacles are found over source/receiver
-     * @param maxLineLength maximum length for line segment splitting
-     * @param buildingService service for handling building obstacles
-     * @param wallService service for handling wall obstacles
-     * @param bridgeService service for handling bridge obstacles
-     * @param groundService service for handling ground effect obstacles
-     * @param processedWallService service containing processed wall data
-     * @param factory geometry factory for creating new geometries
-     */
-    public static void addObstacleCutPts(LineSegment fullLine,
-                                         CutProfile profile,
-                                         boolean stopAtObstacleOverSourceReceiver,
-                                         double maxLineLength,
-                                         BuildingService buildingService,
-                                         WallService wallService,
-                                         BridgeService bridgeService,
-                                         GroundService groundService,
-                                         ProcessedWallService processedWallService,
-                                         GeometryFactory factory) {
-        java.util.Set<Integer> completedWalls = new HashSet<>();
-        List<LineSegment> segments = splitSegment(fullLine.p0, fullLine.p1, maxLineLength);
-        List<CutPoint> newCutPoints = new LinkedList<>();
-        boolean sortCutPoints = true;
-        
-        PropagationType propagationType = bridgeService.checkPropagationType(profile);
-
-        if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER || propagationType == PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER) {
-            CutPointBridgeWall bridgeCutPoint = bridgeService.calculateFirstBridgeCutpoint(profile, propagationType);
-            newCutPoints.add(bridgeCutPoint);
-            sortCutPoints = false;
-            segments = splitSegment(bridgeCutPoint.getCoordinate(), fullLine.p1, maxLineLength);
-            completedWalls.add(bridgeCutPoint.getProcessedWallIndex());
-        } 
-
-
-        for (int j = 0; j < segments.size() && !((profile.hasBuildingIntersection() || profile.hasBridgeIntersection()) && stopAtObstacleOverSourceReceiver); j++) {
-            LineSegment seg = segments.get(j);
-
-            for (Object wallIndex : RTreeUtils.query(processedWallService.getProcessedRtree(), new Envelope(seg.p0, seg.p1))) {
-                if (!(wallIndex instanceof Integer) || completedWalls.contains((Integer) wallIndex)) {
-                    continue;
-                }
-                completedWalls.add((Integer) wallIndex);
-                int i = (Integer) wallIndex;
-                Wall processedWall = processedWallService.getProcessedWalls().get(i);
-                Coordinate intersection = fullLine.intersection(processedWall.getLineSegment());
-                if (intersection == null) {continue; }
-                intersection = new Coordinate(intersection);
-                if (!Double.isNaN(processedWall.getP0().z) && !Double.isNaN(processedWall.getP1().z)) {
-                    if (Double.compare(processedWall.getP0().z, processedWall.getP1().z) == 0) {
-                        intersection.z = processedWall.getP0().z;
-                    } else {
-                        intersection.z = Vertex.interpolateZ(intersection, processedWall.getP0(), processedWall.getP1());
-                    }
-                }
-                boolean continueCalculation = createCutPointAndCheckObstruction(buildingService, wallService, bridgeService, groundService, processedWallService, processedWall.type, i, intersection, processedWall, seg, newCutPoints, stopAtObstacleOverSourceReceiver, profile, factory);
-                if (!continueCalculation) {
-                    break;
-                }
-            }
-        }
-        profile.insertCutPoint(sortCutPoints, newCutPoints.toArray(CutPoint[]::new));
-        bridgeService.setEffectiveBridgeCutPoint(profile);
-    }
-
-    /**
-     * Creates cut points and checks for obstruction based on the wall type.
-     * Delegates to specific service handlers for different types of obstacles.
-     *
-     * @param buildingService service for handling building obstacles
-     * @param wallService service for handling wall obstacles
-     * @param bridgeService service for handling bridge obstacles
-     * @param groundService service for handling ground effect obstacles
-     * @param processedWallService service containing processed wall data
-     * @param wallType type of wall intersection (BUILDING, WALL, BRIDGE, GROUND_EFFECT)
-     * @param wallIndex index of the wall in the processed walls list
-     * @param intersection coordinate of intersection point
-     * @param processedWall the processed wall object
-     * @param fullLine the full propagation line segment
-     * @param newCutPoints list to add new cut points to
-     * @param stopAtObstacleOverSourceReceiver whether to stop processing at obstacles over source/receiver
-     * @param profile the cut profile being processed
-     * @param factory geometry factory for creating new geometries
-     * @return true if calculation should continue, false to stop processing
-     */
-    private static boolean createCutPointAndCheckObstruction(BuildingService buildingService,
-                                         WallService wallService,
-                                         BridgeService bridgeService,
-                                         GroundService groundService,
-                                         ProcessedWallService processedWallService,ProfileBuilder.IntersectionType wallType, int wallIndex, Coordinate intersection, Wall processedWall, LineSegment fullLine, List<CutPoint> newCutPoints, boolean stopAtObstacleOverSourceReceiver, CutProfile profile, GeometryFactory factory) {
-        boolean hasObstacleIntersection;
-        switch (wallType) {
-            case BUILDING:
-                hasObstacleIntersection = buildingService.createBuildingCutPointAndCheckObstruction(wallIndex, intersection, processedWall, fullLine, newCutPoints);
-                profile.hasBuildingIntersection(profile.hasBuildingIntersection() || hasObstacleIntersection);
-                return profile.hasBuildingIntersection() && stopAtObstacleOverSourceReceiver ? false : true;
-
-            case WALL:
-                hasObstacleIntersection =  wallService.createWallCutPointAndCheckObstruction(wallIndex, intersection, processedWall, fullLine, newCutPoints);
-                profile.hasBuildingIntersection(profile.hasBuildingIntersection() || hasObstacleIntersection);
-                return profile.hasBuildingIntersection() && stopAtObstacleOverSourceReceiver ? false : true;
-            case BRIDGE:
-                hasObstacleIntersection = bridgeService.createBridgeCutPointAndCheckObstruction(wallIndex, intersection, processedWall, fullLine, newCutPoints, profile);
-                profile.hasBridgeIntersection(profile.hasBridgeIntersection() || hasObstacleIntersection);
-                return profile.hasBridgeIntersection() && stopAtObstacleOverSourceReceiver ? false : true;
-            case GROUND_EFFECT:
-                return groundService.createGroundCutPointAndCheckObstruction(wallIndex, intersection, processedWall, fullLine, newCutPoints, stopAtObstacleOverSourceReceiver, profile, factory);
-            default:
-                throw new IllegalArgumentException("Unknown wall type: " + wallType);
-        }
     }
 
     private static final double MILLIMETER = 1.0;

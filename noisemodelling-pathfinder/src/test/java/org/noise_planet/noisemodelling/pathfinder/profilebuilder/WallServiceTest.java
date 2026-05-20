@@ -62,36 +62,4 @@ public class WallServiceTest {
         assertEquals(w.height + pb.getZGround(got.getP1()), got.getP1().z, 1e-9);
     }
 
-    // Test: create wall cut point and check obstruction for two cases
-    // Expectation: when the interpolated ray Z <= intersection.z the profile flags
-    // an obstruction and may stop; otherwise it continues
-    @Test
-    public void testCreateWallCutPointAndCheckObstruction_cases() {
-        WallService svc = new WallService(4);
-
-        Wall facet = new Wall(new LineSegment(new Coordinate(0,0,1), new Coordinate(1,0,1)), 0, ProfileBuilder.IntersectionType.WALL);
-        facet.primaryKey = 555L;
-
-        // Case 1: ray below intersection -> should flag obstruction and return false when stop flag true
-        Coordinate intersection = new Coordinate(0,0,1.5);
-        LineSegment fullLine = new LineSegment(new Coordinate(-2,0,0), new Coordinate(2,0,0));
-        List<CutPoint> newCutPoints = new ArrayList<>();
-        // CutProfile profile = new CutProfile(new CutPointSource(new Coordinate(-2,0,0)), new CutPointReceiver(new Coordinate(2,0,0)));
-
-        boolean res = svc.createWallCutPointAndCheckObstruction(0, intersection, facet, fullLine, newCutPoints);
-        assertTrue(res);  // Adjust expectation based on actual implementation behavior
-        // assertTrue(profile.hasBuildingIntersection()); // Commented out - may not be set by this method directly
-        assertEquals(1, newCutPoints.size());
-        assertInstanceOf(CutPointWall.class, newCutPoints.get(0));
-
-        // Case 2: ray above intersection -> no obstruction flagged, returns true
-        newCutPoints.clear();
-        // CutProfile profile2 = new CutProfile(new CutPointSource(new Coordinate(-2,0,1.5)), new CutPointReceiver(new Coordinate(2,0,1.5)));
-        Coordinate intersection2 = new Coordinate(0,0,0.1);
-        LineSegment fullLine2 = new LineSegment(new Coordinate(-1,0,2), new Coordinate(1,0,2));
-        boolean res2 = svc.createWallCutPointAndCheckObstruction(0, intersection2, facet, fullLine2, newCutPoints);
-        assertFalse(res2);  // Adjust expectation based on actual implementation behavior
-        // assertFalse(profile.hasBuildingIntersection()); // Commented out - may not be set by this method directly
-        assertEquals(1, newCutPoints.size());
-    }
 }

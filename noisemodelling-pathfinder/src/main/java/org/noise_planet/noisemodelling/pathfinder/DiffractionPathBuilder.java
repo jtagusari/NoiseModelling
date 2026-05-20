@@ -82,7 +82,7 @@ public final class DiffractionPathBuilder {
         List<CutPoint> cutPoints = new ArrayList<>();
 
         for (int i = 0; i < coordinates.size() - 1; i++) {
-            CutProfile profile = scene.getProfile(coordinates.get(i), coordinates.get(i + 1), 
+            CutProfile profile = scene.requestProfile(coordinates.get(i), coordinates.get(i + 1), 
                     scene.getDefaultGroundAttenuation(), false, src);
 
             // Add source point (first segment) or diffraction point (subsequent segments)

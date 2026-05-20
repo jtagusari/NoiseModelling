@@ -120,8 +120,8 @@ public class CutProfile {
      * Compute the weighted ground absorption coefficient for the path between two points.
      * The method considers whether the path segment is above obstacles (roofs) or on ground.
      * 
-     * @param p0 starting point of the path segment
-     * @param p1 ending point of the path segment  
+        * @param cutPointFrom starting point of the path segment
+        * @param cutPointTo ending point of the path segment
      * @param roofG ground absorption coefficient for paths above obstacles (buildings/bridges)
      * @return the weighted absorption coefficient of this path segment
      */

@@ -219,7 +219,6 @@ public class BridgePointManager {
      * Get the effective height for a bridge point.
      * Uses absolute height if available, relative height + ground elevation at the point if relative height is available,
      * or interpolated value if both are NaN.
-     * @param point Bridge point
      * @param index Index of the point in the sorted list
      * @param profileBuilder Profile builder for ground height calculation
      * @return Effective height

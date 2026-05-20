@@ -164,7 +164,6 @@ public class Scene {
      * Creates a spatial index entry and assigns a unique primary key for database correlation.
      * 
      * @param geom Source geometry (Point for point sources, LineString for linear sources)
-     * @return Generated unique primary key for the source
      */
     @Deprecated
     public void addSource(Geometry geom) {
@@ -537,19 +536,6 @@ public class Scene {
     }
 
     /**
-     * Get terrain and building profile between two points.
-     * 
-     * @param c0 First coordinate
-     * @param c1 Second coordinate
-     * @param sourcePointInfo Source point information
-     * @return Cut profile between the two points
-     */
-    public CutProfile getProfile(Coordinate c0, Coordinate c1, SourcePointInfo sourcePointInfo) {
-        CutProfile profile = this.profileBuilder.getProfile(c0, c1, 0.0, false, sourcePointInfo);
-        return profile;
-    }
-
-    /**
      * Get terrain and building profile with additional parameters.
      * 
      * @param sourceCoordinate Source coordinate
@@ -559,8 +545,10 @@ public class Scene {
      * @param sourcePointInfo Source point information
      * @return Cut profile between source and receiver
      */
-    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
-        return this.profileBuilder.getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, sourcePointInfo);
+    public CutProfile requestProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver, SourcePointInfo sourcePointInfo) {
+        profileBuilder.setDefaultGroundAttenuation(defaultGroundAttenuation);
+        profileBuilder.setStopAtObstacleOverSourceReceiver(stopAtObstacleOverSourceReceiver);
+        return this.profileBuilder.buildProfile(sourceCoordinate, receiverCoordinate, sourcePointInfo);
     }
 
     /**

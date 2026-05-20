@@ -33,13 +33,13 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder.
  *       intersecting a geometry ({@link #getIntersectingGroundAbsorption}).</li>
  *   <li>Handle ground-effect intersections during profile construction and
  *       append appropriate {@link CutPointGroundEffect} objects
- *       ({@link #createGroundCutPointAndCheckObstruction}).</li>
+ *       ({@link #createGroundEffectCutPoint(RayWallIntersection)}).</li>
  * </ul>
  *
  * <p>Typical usage: callers add ground absorption polygons, call
  * {@link #exportFacetsToProcessedWalls} before runtime, then query via
  * {@link #getIntersectingGroundAbsorption} or let profile assembly call
- * {@link #createGroundCutPointAndCheckObstruction} when scanning a profile line.</p>
+ * {@link #createGroundEffectCutPoint(RayWallIntersection)} when scanning a profile line.</p>
  */
 public class GroundService implements ClearableService, ProcessedFacetsExportable {
     private final List<GroundAbsorption> groundAbsorptions = new ArrayList<>();
@@ -176,52 +176,57 @@ public class GroundService implements ClearableService, ProcessedFacetsExportabl
     }
 
     /**
-     * Handle a ground-effect intersection during profile construction.
-     * <p>This method decides whether the profile enters a new ground effect
-     * after the intersection point and appends a {@link CutPointGroundEffect}
-     * describing the ground coefficient to {@code newCutPoints}.
+     * Build a ground-effect cut point from a ray/ground-facet intersection.
      *
-     * @param processedWallIndex processed wall index corresponding to this boundary
-     * @param intersection intersection coordinate on the boundary
-     * @param facetLine processed wall facet representing the boundary
-     * @param fullLine full source->receiver line segment
-     * @param newCutPoints list to append new cut points
-    * @param stopAtObstacleOverSourceReceiver not used for ground effects but kept for signature compatibility
-    * @param profile current CutProfile being constructed
-    * @param factory GeometryFactory used to build temporary points/geometries
-     * @return always true (ground effects do not abort profile assembly)
+     * <p>The method samples a point slightly after the intersection in the ray direction
+     * (`ProfileBuilder.MILLIMETER`) to determine which ground coefficient should apply
+     * after crossing the boundary:</p>
+     * <ul>
+     *   <li>If the sampled point is still inside the current ground polygon, create a cut point
+     *       with the current polygon coefficient.</li>
+     *   <li>If no ground polygon intersects the sampled point, create a cut point using
+     *       {@link Scene#DEFAULT_G}.</li>
+     *   <li>If another polygon intersects and is not just touching the previous one,
+     *       create a cut point with the next polygon coefficient.</li>
+     * </ul>
+     *
+     * <p>When the next polygon only touches the previous polygon, this method returns {@code null}
+     * to avoid creating a redundant transition point at a shared border.</p>
+     *
+     * @param rayWallIntersection intersection context (ray, intersection coordinate, processed wall)
+     * @return created {@link CutPointGroundEffect}, or {@code null} when no transition point
+     *         should be emitted for touching polygons
      */
-    public boolean createGroundCutPointAndCheckObstruction(int processedWallIndex,
-                                       Coordinate intersection,
-                                       Wall facetLine,
-                                       LineSegment fullLine,
-                                       List<CutPoint> newCutPoints,
-                                       boolean stopAtObstacleOverSourceReceiver,
-                                       CutProfile profile,
-                                       GeometryFactory factory) {
-        // retrieve the ground coefficient after the intersection in the direction of the profile
+    public CutPointGroundEffect createGroundEffectCutPoint(RayWallIntersection rayWallIntersection) {
+        int wallIndex = rayWallIntersection.getWallIndex();
+        Coordinate intersection = rayWallIntersection.getIntersection();
+        LineSegment fullLine = rayWallIntersection.getRay();
+        Wall wall = rayWallIntersection.getProcessedWall();
+        GeometryFactory factory = GeometryFactoryProvider.SHARED;
+
         Vector2D directionAfter = Vector2D.create(fullLine.p0, fullLine.p1).normalize().multiply(ProfileBuilder.MILLIMETER);
         Point afterIntersectionPoint = factory.createPoint(Vector2D.create(intersection).add(directionAfter).toCoordinate());
-        GroundAbsorption groundAbsorption = this.groundAbsorptions.get(facetLine.getOriginId());
+        GroundAbsorption groundAbsorption = this.groundAbsorptions.get(wall.getOriginId());
+        CutPointGroundEffect cutPointGroundEffect = null;
+
+        // check if the ray enters a new ground effect after the intersection
         if (groundAbsorption.geom.intersects(afterIntersectionPoint)) {
-            // we enter a new ground effect
-            newCutPoints.add(new CutPointGroundEffect(processedWallIndex, intersection, groundAbsorption.getCoefficient()));
+            cutPointGroundEffect = new CutPointGroundEffect(wallIndex, intersection, groundAbsorption.getCoefficient());
         } else {
-            // we exit a ground surface, check for another ground surface at this point
             int groundSurfaceIndex = this.getIntersectingGroundAbsorption(afterIntersectionPoint);
             if (groundSurfaceIndex == -1) {
                 // no new ground effect, fall back to default
-                newCutPoints.add(new CutPointGroundEffect(-1, intersection, Scene.DEFAULT_G));
+                cutPointGroundEffect = new CutPointGroundEffect(-1, intersection, Scene.DEFAULT_G);
             } else {
                 GroundAbsorption nextGroundAbsorption = this.groundAbsorptions.get(groundSurfaceIndex);
                 if (!nextGroundAbsorption.geom.touches(groundAbsorption.geom)) {
-                    newCutPoints.add(new CutPointGroundEffect(groundSurfaceIndex,
+                    cutPointGroundEffect = new CutPointGroundEffect(groundSurfaceIndex,
                             afterIntersectionPoint.getCoordinate(),
-                            nextGroundAbsorption.getCoefficient()));
+                            nextGroundAbsorption.getCoefficient());
                 }
             }
         }
-        return true;
+        return cutPointGroundEffect;
     }
 
     /**

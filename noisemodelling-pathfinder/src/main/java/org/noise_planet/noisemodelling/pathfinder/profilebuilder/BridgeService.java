@@ -36,8 +36,10 @@ import org.slf4j.LoggerFactory;
  *   <li>Export bridge edges as processed wall facets (via {@link #exportFacetsToProcessedWalls}) so
  *       bridge geometry participates in profile intersection logic in the same way
  *       buildings/walls do.</li>
- *   <li>Provide helpers to detect and handle bridge-specific intersections during
- *       profile construction (see {@link #createBridgeCutPointAndCheckObstruction}).</li>
+ *   <li>Provide bridge-specific cut-point helpers for profile construction
+ *       (see {@link #createBridgeCutPoint(RayWallIntersection, CutProfile)}).</li>
+ *   <li>Post-process bridge cut points to keep only effective bridge sequences
+ *       along a path (see {@link #setEffectiveBridgeCutPoint(CutProfile)}).</li>
  * </ul>
  *
  * <p>This service encapsulates bridge-specific handling so that {@link ProfileBuilder}
@@ -510,99 +512,109 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
             throw new IllegalStateException("Unsupported RelationType for propagation type check: " + srcType);
         }
     }
-    
+
     /**
-     * Handle bridge-specific intersection processing during profile construction.
+     * Create a bridge cut point from a processed-wall intersection.
      *
-     * <p>This method creates a bridge {@link CutPointBridgeWall} describing the
-     * intersection, computes whether the intersection corresponds to an
-     * enter/exit event (used by profile assembly), and determines whether the
-     * ray is obstructed by the bridge barrier.
+     * <p>This method builds a {@link CutPointBridgeWall} and derives bridge-specific
+     * metadata required by profile construction:</p>
+     * <ul>
+     *   <li>Determines wall direction (upward/downward) according to source relation
+     *       type and bridge primary keys.</li>
+     *   <li>Computes intersection height on bridge geometry (deck + barrier for upward,
+     *       deck - thickness for downward) and stores bridge deck height.</li>
+     *   <li>Classifies intersection as enter/exit and updates {@code nextBridgePk}
+     *       linkage for nested/overlapping bridge exits.</li>
+     *   <li>Evaluates whether the intersection obstructs the acoustic ray using the
+     *       interpolated source-receiver ray height.</li>
+     * </ul>
      *
-     * <p>For mirror and imaginary sources, this method validates that a mirror
-     * relax cut point is present in the cut points list.
-     *
-     * @param processedWallIndex index of the processed wall facet
-     * @param intersection intersection coordinate on the bridge facet
-     * @param facetLine wall facet that was intersected
-     * @param fullLine full profiling line segment (source->receiver)
-     * @param newCutPoints list to append the new cut point to
-     * @param profile the cut profile being constructed (mutated)
-     * @return {@code true} if ray is obstructed by bridge barrier; {@code false} if ray passes through
-     * @throws IllegalStateException if bridge primary key is invalid or mirror relax point is missing
+     * @param rayWallIntersection intersection context (wall index, intersection point,
+     *                            full source-receiver line, processed wall)
+     * @param profile current profile containing source information and accumulated cut points
+     * @return a populated bridge cut point ready to be inserted into the profile
+     * @throws IllegalStateException if the processed wall has no bridge primary key
      */
-    public boolean createBridgeCutPointAndCheckObstruction(int processedWallIndex,
-                                 Coordinate intersection,
-                                 Wall facetLine,
-                                 LineSegment fullLine,
-                                 List<CutPoint> newCutPoints,
-                                 CutProfile profile) {
+    public CutPointBridgeWall createBridgeCutPoint(RayWallIntersection rayWallIntersection, CutProfile profile) {
+        int wallIndex = rayWallIntersection.getWallIndex();
+        Coordinate intersection = rayWallIntersection.getIntersection();
+        LineSegment fullLine = rayWallIntersection.getRay();
+        Wall wall = rayWallIntersection.getProcessedWall();
+
         
         CutPointSource cutPointSource = profile.getSource();
         
-        long bridgePk = facetLine.getPrimaryKey();
+        long bridgePk = wall.getPrimaryKey();
         if (bridgePk < 0) {
             throw new IllegalStateException("Primary key of bridge must be set to calculate a profile with bridges");
         }
-        CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(processedWallIndex, intersection, facetLine.getLineSegment(), facetLine.getAlphas(), bridgePk);
+        CutPointBridgeWall cutPointBridge = new CutPointBridgeWall(wallIndex, intersection, wall.getLineSegment(), wall.getAlphas(), bridgePk);
         
         WallDirection wallDirection = WallDirection.UPWARD;
         RelationType relationType = cutPointSource.getBridgeRelationship().getRelationType();
         if (relationType == RelationType.MIRROR_SOURCE || relationType == RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
             if (bridgePk == cutPointSource.getBridgeRelationship().getBridgePkAbove()) {
-                bridgeCutPoint.setMirrorRelax(true);
+                cutPointBridge.setMirrorRelax(true);
                 wallDirection = WallDirection.DOWNWARD;
             }
         }
 
-        bridgeCutPoint.setWallDirection(wallDirection);
+        cutPointBridge.setWallDirection(wallDirection);
         
-        Bridge bridge = this.getBridge(facetLine.getOriginId());
+        Bridge bridge = this.getBridge(wall.getOriginId());
         double bridgeHeightAtIntersection = 0.0;
         if (wallDirection == WallDirection.UPWARD) {
             bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) + bridge.getBarrierHeightAtPoint(intersection);
         } else {
             bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) - bridge.getDeckThicknessAtPoint(intersection);
         }
-        bridgeCutPoint.modifyIntersectionHeight(bridgeHeightAtIntersection);
-        bridgeCutPoint.setBridgeHeight(bridge.getDeckHeightAtPoint(intersection));
+        cutPointBridge.modifyIntersectionHeight(bridgeHeightAtIntersection);
+        cutPointBridge.setBridgeHeight(bridge.getDeckHeightAtPoint(intersection));
 
         
         double zRayReceiverSource = Vertex.interpolateZ(intersection, fullLine.p0, fullLine.p1);
         
-        boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, facetLine);
+        boolean isIntersectionEntry = ProfileUtils.isIntersectionEntry(intersection, fullLine, wall);
         
         if (isIntersectionEntry) {
-            bridgeCutPoint.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_ENTER;
+            cutPointBridge.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_ENTER;
         } else {
-            bridgeCutPoint.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT;
-            for (int i = newCutPoints.size() -1; i >= 0; i--) {
-                CutPoint point = newCutPoints.get(i);
+            cutPointBridge.intersectionType = CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT;
+            List<CutPoint> existingCutPoints = profile.getCutPoints();
+            for (int i = existingCutPoints.size() -1; i >= 0; i--) {
+                CutPoint point = existingCutPoints.get(i);
                 if (!(point instanceof CutPointBridgeWall)) {continue; }
                 CutPointBridgeWall bridgePoint = (CutPointBridgeWall) point;
-                if (bridgePoint.getBridgePk() == bridgeCutPoint.getBridgePk()) {
+                if (bridgePoint.getBridgePk() == cutPointBridge.getBridgePk()) {
                     break;
                 }
-                if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT && bridgePoint.getBridgeHeight() >= bridgeCutPoint.getBridgeHeight()) {
-                    bridgePoint.setNextBridgePk(bridgeCutPoint.getBridgePk());
-                    bridgePoint.setNextBridgeHeight(bridgeCutPoint.getBridgeHeight());
+                if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT && bridgePoint.getBridgeHeight() >= cutPointBridge.getBridgeHeight()) {
+                    bridgePoint.setNextBridgePk(cutPointBridge.getBridgePk());
+                    bridgePoint.setNextBridgeHeight(cutPointBridge.getBridgeHeight());
                     break;
                 }
             }
         }
-        newCutPoints.add(bridgeCutPoint);
 
-
-        boolean hasBridgeIntersection = true;
         if (wallDirection == WallDirection.UPWARD) {
-            hasBridgeIntersection = bridgeHeightAtIntersection >= zRayReceiverSource;
+            cutPointBridge.setObstructingAcousticRay(bridgeHeightAtIntersection >= zRayReceiverSource);
         } else {
-            hasBridgeIntersection = bridgeHeightAtIntersection <= zRayReceiverSource;
+            cutPointBridge.setObstructingAcousticRay(bridgeHeightAtIntersection <= zRayReceiverSource);
         }
 
-        return hasBridgeIntersection;
+        return cutPointBridge;
     }
 
+    /**
+     * Post-process bridge cut points and keep only the effective bridge sequence on the profile path.
+     *
+     * <p>This method analyzes bridge enter/exit points together with mirror-relax information,
+     * removes bridge points that are above the active propagation path, and rewires
+     * {@code nextBridgePk}/{@code nextBridgeHeight} for nested/overlapping bridges.
+     * The profile cut point list is replaced in place with the filtered result.</p>
+     *
+     * @param profile profile whose cut points are updated in place
+     */
     public void setEffectiveBridgeCutPoint(CutProfile profile) {
         List<Coordinate> cutPointCoordinates2D = profile.generateCutPointCoordinates2D();
         ArrayList<CutPoint> newCutPoints3D = new ArrayList<>();

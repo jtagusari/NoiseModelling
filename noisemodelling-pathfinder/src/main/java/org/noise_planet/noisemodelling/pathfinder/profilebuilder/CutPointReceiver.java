@@ -59,6 +59,12 @@ public class CutPointReceiver  extends CutPoint {
         }
     }
 
+     /**
+     * Create default receiver information with 4 meters above ground level.
+     * 
+     * @param receiver receiver information containing coordinates and metadata
+     */
+
     /**
      * Index in the subdomain.
      */
@@ -102,7 +108,7 @@ public class CutPointReceiver  extends CutPoint {
 
     /**
      * Set the receiver id
-     * @param receiver
+     * @param id receiver identifier
      */
     public void setReceiverId(int id) {
         this.id = id;

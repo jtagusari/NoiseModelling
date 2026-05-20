@@ -102,7 +102,7 @@ public class ProcessedWallService implements FrequencyInitializable{
 
     public void getWallsOnPath(Coordinate p1, Coordinate p2, BuildingIntersectionPathVisitor visitor, double maxLineLength) {
         try {
-            List<LineSegment> lines = ProfileUtils.splitSegment(p1, p2, maxLineLength);
+            List<LineSegment> lines = ProfileUtils.splitToSegments(p1, p2, maxLineLength);
             for (LineSegment segment : lines) {
                 visitor.setIntersectionLine(segment);
                 Envelope pathEnv = new Envelope(segment.p0, segment.p1);

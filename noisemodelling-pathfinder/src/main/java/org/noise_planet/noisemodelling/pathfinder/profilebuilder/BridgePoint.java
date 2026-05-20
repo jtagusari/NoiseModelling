@@ -246,8 +246,8 @@ public class BridgePoint implements RowMappable {
     }
 
     /**
-     * Constructor with coordinate.
-     * @param coordinate The coordinate of the bridge point
+        * Construct a bridge point from a database row.
+        * @param rs Result set containing bridge-point attributes
      */
 
     public BridgePoint(ResultSet rs)  throws SQLException{

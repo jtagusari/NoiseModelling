@@ -33,7 +33,7 @@ public final class ReceiverBatchScheduler {
 
     /**
      * Compute contiguous ranges that partition [0, total) into at most threadCount
-     * balanced batches. If threadCount <= 1 a single full-range is returned.
+        * balanced batches. If threadCount &lt;= 1 a single full-range is returned.
      *
      * @param total total receiver count
      * @param threadCount number of threads to split into

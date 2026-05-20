@@ -1705,32 +1705,6 @@ public class PathFinderTest {
             throw new AssertionError(message+result);
         }
     }
-//
-//    private void exportScene(String name, ProfileBuilder builder, PathFinderVisitor result) throws IOException {
-//        try {
-//            Coordinate proj = new Coordinate( 351714.794877, 6685824.856402, 0);
-//            FileOutputStream outData = new FileOutputStream(name);
-//            KMLDocument kmlDocument = new KMLDocument(outData);
-//            //kmlDocument.doTransform(builder.getTriangles());
-//            kmlDocument.setInputCRS("EPSG:2154");
-//            //kmlDocument.setInputCRS("EPSG:" + crs);
-//            kmlDocument.setOffset(proj);
-//            kmlDocument.writeHeader();
-//            if(builder != null) {
-//                kmlDocument.writeTopographic(builder.getTriangles(), builder.getVertices());
-//                kmlDocument.writeBuildings(builder);
-//                kmlDocument.writeWalls(builder);
-//                //kmlDocument.writeProfile(PathFinder.getData().profileBuilder.getProfile(rayData.getSourceGeometryByIndex(0).getCoordinate(), rayData.receivers.get(0), computeRays.getData().gS);
-//                //kmlDocument.writeProfile("S:0 R:0", builder.getProfile(result.getInputData().getSourceGeometryByIndex(0).getCoordinate(),result.getInputData().receivers.get(0)));
-//            }
-//            if(result != null) {
-//                kmlDocument.writeRays(result.getCutPlanes());
-//            }
-//            kmlDocument.writeFooter();
-//        } catch (XMLStreamException | CoordinateOperationException | CRSException ex) {
-//            throw new IOException(ex);
-//        }
-//    }
 
     @Test
     public void setOverwriteTestCase() {

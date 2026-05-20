@@ -7,9 +7,13 @@
     - [Feeding Data into ProfileBuilder](#feeding-data-into-profilebuilder)
       - [Step-by-step procedure to feed data](#step-by-step-procedure-to-feed-data)
     - [Preprocessing ProfileBuilder](#preprocessing-profilebuilder)
+      - [Operational notes](#operational-notes)
       - [Preprocessing Pipeline](#preprocessing-pipeline)
       - [Role of Processed Walls](#role-of-processed-walls)
   - [Typical workflow of creating Scene](#typical-workflow-of-creating-scene)
+  - [Tests & Validation Mapping](#tests--validation-mapping)
+    - [Algorithm-to-test mapping](#algorithm-to-test-mapping)
+    - [File-based identity checks](#file-based-identity-checks)
   - [Related Classes](#related-classes)
   - [Related Documents](#related-documents)
 
@@ -63,7 +67,7 @@ class ProfileBuilder {
   - ProcessedWallService processedWallService
   - FrequencyConfig frequencyConfig
   + finishFeeding()
-  + getProfile(...)
+  + requestProfile(...)
   + addBuilding(...)
   + addWall(...)
   + addBridge(...)
@@ -101,7 +105,7 @@ ProfileBuilder <-- Scene : uses
 ## ProfileBuilder
 
 
-`ProfileBuilder` is an orchestrator over geometry services and spatial indexes. It ingests per-cell obstacles and terrain, builds DEM/TIN and processed facets in `finishFeeding()`, and then serves `getProfile(...)` / `CutProfile` queries.
+`ProfileBuilder` is an orchestrator over geometry services and spatial indexes. It ingests per-cell obstacles and terrain, builds DEM/TIN and processed facets in `finishFeeding()`, and then serves `buildProfile(...)` / `CutProfile` queries.
 
 Core internal services:
 
@@ -129,7 +133,7 @@ class ProfileBuilder {
   - ProcessedWallService processedWallService
   - FrequencyConfig frequencyConfig
   + finishFeeding()
-  + getProfile(...)
+  + buildProfile(...)
   + addBuilding(...)
   + addWall(...)
   + addBridge(...)
@@ -178,6 +182,11 @@ title ProfileBuilder — Feeding data (step-by-step)
 Finalizing the `ProfileBuilder` by calling `finishFeeding()` executes a multi-step preprocessing pipeline that builds a TIN/DEM from topographic points, propagates elevations into buildings/walls/bridges, exports building and wall facets to spatial indexes, and constructs processed wall facets used for reflection and diffraction calculations.
 The `ProfileBuilder` instance is effectively read-only after `finishFeeding()`.
 
+#### Operational notes
+
+- `ProfileBuilder` is not thread-safe during ingestion and preprocessing. Complete all `add*` operations and `finishFeeding()` before sharing the instance across worker threads.
+- Several preprocessing service calls are side-effect oriented (index/materialization updates) even when their return values are not used directly. Avoid skipping these calls when refactoring `finishFeeding()`.
+
 ![Preprocess sample — processed walls](./img/processed_wall_sample.png)
 
 Figure: Example of the ProfileBuilder preprocess. The processed walls (red lines) are constructed.
@@ -206,7 +215,7 @@ title ProfileBuilder — Preprocessing Pipeline
 
 #### Role of Processed Walls
 
-- Processed walls representing vertical faces will be used by `PathFinder` and `ProfileRetriever` to detect reflections and edge diffractions.
+- Processed walls representing vertical faces will be used by `PathFinder` and `ProfileBuilder` to detect reflections and edge diffractions.
 - When computing reflections the algorithm queries the processed wall index to find candidate facets intersecting the reflection plane; for diffraction the precomputed wide-angle/diffraction points and processed wall edges are used to build diffraction planes.
 
 ## Typical workflow of creating Scene
@@ -271,6 +280,57 @@ title Typical Scene Creation Workflow — DefaultTableLoader.create()
    - **Receivers**: Fetch from receivers table within cell envelope; skip those already processed in other cells
 
 For detailed information about scene preparation within the computation framework, see [Scene Preparation in NoiseMapByReceiverMaker](../Docs-dev/noisemapbyreceivermaker_algorithms.md#scene-preparation).
+
+## Tests & Validation Mapping
+
+This section summarizes which tests validate `Scene`/`ProfileBuilder`-related algorithms and where identity checks are performed against reference files.
+
+### Algorithm-to-test mapping
+
+- `Scene` lifecycle and source/receiver management
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/path/SceneTest.java`
+- `ProfileBuilder` ingestion/finalization and profile retrieval
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/ProfileBuilderTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/ProfileBuilderFrequencyTest.java`
+- Topography and TIN/DEM-related profile behavior
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/TopographyServiceTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/TopographyServiceTinTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/TopographyServiceAdvancedTest.java`
+- Processed walls, buildings, bridges, and wall services used by `ProfileBuilder`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/ProcessedWallServiceTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/BuildingServiceTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/WallServiceTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/BridgeServiceTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/BridgeGeometryBuilderTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/BridgePointManagerTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/BridgeTriangulationTest.java`
+- End-to-end profile/path generation that depends on `Scene` + finalized `ProfileBuilder`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/PathFinderTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/PathFinderBridgeTest.java`
+  - `noisemodelling-pathfinder/src/test/java/org/noise_planet/noisemodelling/pathfinder/profilebuilder/CutProfileTest.java`
+
+### File-based identity checks
+
+`Scene`/`ProfileBuilder` behavior is validated not only by structural assertions but also by identity checks against versioned JSON reference profiles.
+
+- Main pathfinder regression references (`TCxx_*`)
+  - Test class: `PathFinderTest`
+  - Reference lookup: `PathFinder.class.getResourceAsStream("test_cases/" + testCaseFileName)`
+  - Comparator chain: `assertCutProfile(String, CutProfile)` → `assertCutProfile(InputStream, CutProfile)`
+  - Reference directory: `noisemodelling-pathfinder/src/main/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/`
+
+- Bridge-focused regression references (`TBCxx`)
+  - Test class: `PathFinderBridgeTest`
+  - Same JSON comparison mechanism as above
+  - Note: this class currently has `overwriteTestCase = true`, which may rewrite runtime `test_cases` JSON files when executed
+
+- `CutProfile` local fixture regression (`TBC06`)
+  - Test class: `CutProfileTest`
+  - Fixture loader: `loadCutProfile(String utName)`
+  - Fixture path: `noisemodelling-pathfinder/src/test/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/TBC06.json`
+  - `Objects.requireNonNull(inputStream, ...)` is used before deserialization to fail fast when fixture resources are missing
+
+For these file-based checks, the comparison validates cut-point class/type order and key fields (`coordinate` with tolerance, `zGround`, ground coefficient, and wall/reflection attributes where applicable), which makes them effective identity tests for geometry-sensitive algorithm changes.
 
 
 ## Related Classes

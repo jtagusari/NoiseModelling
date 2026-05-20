@@ -33,7 +33,7 @@ public class SceneWithAttenuation extends Scene {
     private static final Logger LOGGER = LoggerFactory.getLogger(SceneWithAttenuation.class);
 
     /**
-     * Map of directivity identifier -> DirectivitySphere.
+     * Map of directivity identifier -&gt; DirectivitySphere.
      * A DirectivitySphere contains attenuation patterns for various
      * directions and frequencies. The identifier is looked up from
      * sourceEmissionAttenuation for each source.
@@ -53,8 +53,8 @@ public class SceneWithAttenuation extends Scene {
     public Map<Long, Double> sourceGs = new HashMap<>();
 
     /**
-     * Cached input table column names -> 1-based column index. Filled
-     * on first call to {@link #addSource(Long, Geometry, SpatialResultSet)}.
+     * Cached input table column names -&gt; 1-based column index. Filled
+     * on first call to {@link #addSourceDb(Long, Geometry, SpatialResultSet)}.
      */
     public Map<String, Integer> sourceFieldNames = new HashMap<>();
 
@@ -70,8 +70,8 @@ public class SceneWithAttenuation extends Scene {
 
     /**
      * Per-period attenuation settings (keyed by period identifier). When
-     * present, propagation uses these parameters instead of
-     * {@link #DEFAULT_CNOSSOS_PARAMETERS}.
+     * present, propagation uses these parameters instead of a single
+     * global attenuation parameter set.
      */
     public Map<String, AttenuationParameters> cnossosParametersPerPeriod = new HashMap<>();
 
@@ -101,14 +101,13 @@ public class SceneWithAttenuation extends Scene {
 
     /**
      * Add a source geometry and associate a ground factor (gs) with it.
-     * This is a convenience wrapper around {@link #addSource(Long, Geometry)}
+     * This is a convenience wrapper around {@link #addSource(Long, Geometry, HeightType)}
      * which also records the provided {@code gs} value in
      * {@link #sourceGs}.
      *
      * @param pk Unique source identifier (may be used as a candidate key by the scene)
      * @param geom Source geometry
      * @param gs Ground factor (gs) to associate with the registered source; may be null
-     * @return the registered source primary key (as returned by {@code addSource})
      */
     public void addSource(Long pk, Geometry geom, HeightType heightType, Double gs) {
         addSource(pk, geom, heightType);

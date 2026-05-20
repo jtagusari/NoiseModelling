@@ -45,7 +45,7 @@ public class CnossosPathProcessor {
      * provided Pathfinder `Path` and runtime `AcousticPathConfiguration`.
      *
      * Behaviour and side-effects:
-     * - Computes a straight source->receiver `SegmentPath` including
+    * - Computes a straight source-&gt;receiver `SegmentPath` including
      *   ground factors and stores it as the SR segment on the resulting
      *   `CnossosPathExt`.
      * - Copies the point and segment lists and ray directivity from the

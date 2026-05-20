@@ -95,7 +95,18 @@ Download from: https://git-scm.com/downloads
 
 ### First-Time Setup
 
-**Important for Java 11 users**: Set Maven options to avoid SSL/TLS issues:
+**Important for Java 11 users**: Use project-local Maven JVM options to avoid intermittent TLS handshake issues (`peer not authenticated`, `No PSK available. Unable to resume.`).
+
+Create `.mvn/jvm.config` in the repository root:
+
+```text
+-Dhttps.protocols=TLSv1.2
+-Djdk.tls.client.protocols=TLSv1.2
+```
+
+This keeps the workaround local to this repository and avoids weakening SSL certificate validation globally.
+
+Legacy fallback (only if needed in restricted network environments):
 
 **Windows PowerShell:**
 ```powershell
@@ -309,8 +320,10 @@ mvn dependency:resolve
 
 **First-time setup or after major changes:**
 ```bash
-# Set SSL bypass for Java 11 (if needed)
-$env:MAVEN_OPTS='-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.wagon.http.ssl.ignore.validity.dates=true -Dhttps.protocols=TLSv1.2'
+# Configure project-local TLS settings for Java 11 (one-time)
+# Create .mvn/jvm.config with:
+# -Dhttps.protocols=TLSv1.2
+# -Djdk.tls.client.protocols=TLSv1.2
 
 # Clean build and install all modules
 mvn clean install -DskipTests
@@ -424,7 +437,24 @@ The problem can occur at different build stages:
 
 **Solutions:**
 
-##### Solution 1: Use MAVEN_OPTS with SSL Bypass (Recommended)
+##### Solution 1: Use Project-Local TLSv1.2 in `.mvn/jvm.config` (Recommended)
+
+**Tested and working with Java 11.0.2 in this repository.**
+
+Create `.mvn/jvm.config` at the repository root:
+
+```text
+-Dhttps.protocols=TLSv1.2
+-Djdk.tls.client.protocols=TLSv1.2
+```
+
+Then run:
+
+```bash
+mvn clean install -DskipTests
+```
+
+##### Solution 1b: Use MAVEN_OPTS with SSL Bypass (Last Resort)
 
 **Tested and working solution for Java SE 11 environments.**
 
@@ -739,19 +769,26 @@ After successful compilation:
 
 For **Java SE 11** environments experiencing SSL/TLS issues with Maven Central:
 
-1. ✅ **Use enhanced MAVEN_OPTS** (Solution 1 - recommended)
-2. ✅ **Clear corrupted cache** if needed (Solution 2)
-3. ✅ **Verify build success** with `BUILD SUCCESS` message
+1. ✅ **Use `.mvn/jvm.config` with TLSv1.2** (recommended, repository-local)
+2. ✅ **Clear corrupted cache** if needed
+3. ✅ **Use MAVEN_OPTS SSL bypass only as a last resort**
+4. ✅ **Verify build success** with `BUILD SUCCESS` message
 
 **Quick Start Command:**
+```text
+# .mvn/jvm.config
+-Dhttps.protocols=TLSv1.2
+-Djdk.tls.client.protocols=TLSv1.2
+```
+
 ```powershell
 # Windows PowerShell
-$env:MAVEN_OPTS='-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.wagon.http.ssl.ignore.validity.dates=true -Dhttps.protocols=TLSv1.2'; mvn clean compile
+mvn clean compile
 ```
 
 ```bash
 # Linux/Mac
-export MAVEN_OPTS="-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.wagon.http.ssl.ignore.validity.dates=true -Dhttps.protocols=TLSv1.2"; mvn clean compile
+mvn clean compile
 ```
 
 ### References

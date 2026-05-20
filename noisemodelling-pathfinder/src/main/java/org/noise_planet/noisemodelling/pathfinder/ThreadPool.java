@@ -143,8 +143,8 @@ public class ThreadPool extends ThreadPoolExecutor {
      * shutdown or because its capacity has been reached, the task is handled by
      * the current RejectedExecutionHandler.
      *
-     * @throws RejectedExecutionException {@inheritDoc}
-     * @throws NullPointerException       {@inheritDoc}
+    * @throws RejectedExecutionException if the task cannot be accepted for execution
+    * @throws NullPointerException if {@code task} is {@code null}
      */
     public <T> Future<T> submitBlocking(Callable<T> task) {
         if (task == null) throw new NullPointerException();

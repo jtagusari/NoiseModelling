@@ -160,40 +160,4 @@ public class BuildingServiceTest {
         // since topo z at center is 50 and building base height is 4, expect geometry Z to be >= 50 (or close)
         assertTrue(z >= 49.0, "Building geometry Z should be raised by topography, got " + z);
     }
-
-    // Test: create building cut points and check obstruction for multiple cases
-    // Expectation: when the ray is below the facet the profile flags an
-    // obstruction and may stop; when the ray is above the facet no obstruction is flagged
-    @Test
-    public void testCreateBuildingCutPointAndCheckObstruction_cases() {
-    BuildingService svc = new BuildingService(4);
-
-    // facet wall segment at z=1
-    Wall facet = new Wall(new org.locationtech.jts.geom.LineSegment(
-        new Coordinate(0, 0, 1), new Coordinate(1, 0, 1)), 0, ProfileBuilder.IntersectionType.BUILDING);
-    facet.primaryKey = 123L;
-
-    // Case 1: ray z interpolated is <= intersection.z -> obstruction and return depends on stop flag
-    Coordinate intersection = new Coordinate(0, 0, 1.5);
-    org.locationtech.jts.geom.LineSegment fullLine = new org.locationtech.jts.geom.LineSegment(
-        new Coordinate(-2, 0, 0), new Coordinate(2, 0, 0));
-    List<CutPoint> newCutPoints = new ArrayList<>();
-    CutProfile profile = new CutProfile(new CutPointSource(new Coordinate(-2,0,0)), new CutPointReceiver(new Coordinate(2,0,0)));
-
-    boolean res = svc.createBuildingCutPointAndCheckObstruction(0, intersection, facet, fullLine, newCutPoints);
-    // since stopAtObstacleOverSourceReceiver == true and intersection is above the ray, method should return false
-    assertEquals(1, newCutPoints.size());
-    assertInstanceOf(CutPointWall.class, newCutPoints.get(0));
-    CutPointWall cpw = (CutPointWall)newCutPoints.get(0);
-    assertEquals(123L, cpw.getWallPk().longValue());
-
-    // Case 2: ray z interpolated > intersection.z -> no obstruction flagged and method returns true
-    newCutPoints.clear();
-    profile = new CutProfile(new CutPointSource(new Coordinate(-2,0,1.5)), new CutPointReceiver(new Coordinate(2,0,1.5)));
-    Coordinate intersection2 = new Coordinate(0,0,0.1);
-    org.locationtech.jts.geom.LineSegment fullLine2 = new org.locationtech.jts.geom.LineSegment(
-        new Coordinate(-1,0,2), new Coordinate(1,0,2));
-    boolean res2 = svc.createBuildingCutPointAndCheckObstruction(0, intersection2, facet, fullLine2, newCutPoints);
-    assertEquals(1, newCutPoints.size());
-    }
 }

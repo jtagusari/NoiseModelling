@@ -59,29 +59,4 @@ public class GroundServiceTest {
         Point outside = gf.createPoint(new Coordinate(5,5));
         assertEquals(-1, gs.getIntersectingGroundAbsorption(outside));
     }
-
-    // Test: creating a cut point for ground-effect boundary should add a CutPointGroundEffect
-    // Expectation: method returns true and newCutPoints contains a CutPointGroundEffect instance
-    @Test
-    public void testProcessGroundEffectAddsCutPointGroundEffect() {
-        GeometryFactory gf = new GeometryFactory();
-        GroundService gs = new GroundService(4);
-        WallService ws = new WallService(4);
-
-        Coordinate[] coords = new Coordinate[]{new Coordinate(0,0), new Coordinate(2,0), new Coordinate(2,2), new Coordinate(0,2), new Coordinate(0,0)};
-        Polygon poly = gf.createPolygon(gf.createLinearRing(coords), null);
-        GroundAbsorption ga = new GroundAbsorption(poly, 0.25);
-        gs.addGroundAbsorption(ga);
-        // create a facet representing the polygon edge (originId = 0)
-        LineSegment ls = new LineSegment(new Coordinate(0,0), new Coordinate(2,0));
-        Wall facet = new Wall(ls, 0, ProfileBuilder.IntersectionType.GROUND_EFFECT).setProcessedWallIndex(0);
-
-        List<CutPoint> newCutPoints = new ArrayList<>();
-        LineSegment fullLine = new LineSegment(new Coordinate(-1,0,0), new Coordinate(3,0,0));
-
-        boolean res = gs.createGroundCutPointAndCheckObstruction(0, new Coordinate(0.5,0,0), facet, fullLine, newCutPoints, false, new CutProfile(new CutPointSource(new Coordinate(-1,0,0)), new CutPointReceiver(new Coordinate(3,0,0))), gf);
-        assertTrue(res);
-        assertFalse(newCutPoints.isEmpty());
-        assertTrue(newCutPoints.get(0) instanceof CutPointGroundEffect);
-    }
 }

@@ -15,7 +15,6 @@ public class CutPointGroundEffect extends CutPoint {
 
     /**
      * Obstacle index in the subdomain
-     * @see ProfileBuilder#processedWalls
      */
     @JsonIgnore
     public int processedWallIndex = -1;

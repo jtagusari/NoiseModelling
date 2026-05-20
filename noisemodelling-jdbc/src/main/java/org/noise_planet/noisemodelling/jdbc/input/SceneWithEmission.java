@@ -105,8 +105,6 @@ public class SceneWithEmission extends SceneWithAttenuation {
      *           to identify virtual/bridge sources)
      * @param geom the source geometry (can be null for some virtual sources)
      * @param rs the spatial result set positioned on the source row
-     * @return a list of primary keys actually added to the scene (includes
-     *         virtual sources created while processing bridges)
      * @throws SQLException forwarded when reading from the result set fails
      */
     @Override
