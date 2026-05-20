@@ -145,7 +145,8 @@ public class BridgeGeometryBuilder {
     
     /**
      * Initialize bridge edges for acoustic calculations.
-     * @param deckGeometry Bridge deck polygon geometry
+        * @param pointManager Bridge point manager used to build edge geometry
+        * @param profileBuilder Profile builder used for ground-related computations
      * @return List of bridge edges as LineString geometries
      */
     public Polygon createEdge(BridgePointManager pointManager, ProfileBuilder profileBuilder) {

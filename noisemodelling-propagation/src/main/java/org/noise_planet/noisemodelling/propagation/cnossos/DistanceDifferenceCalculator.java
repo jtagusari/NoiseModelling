@@ -26,7 +26,7 @@ public class DistanceDifferenceCalculator {
 
     /**
      * Calculate the basic path-length difference (delta H) used in homogeneous
-     * diffraction screening: orientation * (s->o + o->r - s->r).
+        * diffraction screening: orientation * (s-&gt;o + o-&gt;r - s-&gt;r).
      *
      * @param sourceToReceiverLineSegment straight-line segment between source and receiver
      * @param diffractionPointCoordinate candidate diffraction point coordinate

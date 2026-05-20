@@ -21,7 +21,7 @@ import java.util.List;
  *
  * <p>Responsibilities:
  * <ul>
- *   <li>Split long source->receiver segments into shorter pieces for stable
+ *   <li>Split long source-&gt;receiver segments into shorter pieces for stable
  *       spatial-index queries and for accurate interpolation of Z values.</li>
  *   <li>Query obstacle/service spatial indexes (processed walls) and dispatch
  *       intersection handling to the appropriate service (building, wall,

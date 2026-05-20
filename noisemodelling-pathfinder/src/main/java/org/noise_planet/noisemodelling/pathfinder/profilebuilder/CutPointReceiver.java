@@ -108,7 +108,7 @@ public class CutPointReceiver  extends CutPoint {
 
     /**
      * Set the receiver id
-     * @param receiver
+     * @param id receiver identifier
      */
     public void setReceiverId(int id) {
         this.id = id;

@@ -258,7 +258,7 @@ public class Path {
      * Add a segment to the path.
      * Initializes the segment list if it doesn't exist.
      * 
-     * @param segment The segment to add to the path
+     * @param segments The segments to add to the path
      */
     public void addSegmentAll(List<SegmentPath> segments) {
         if (segmentList == null) {

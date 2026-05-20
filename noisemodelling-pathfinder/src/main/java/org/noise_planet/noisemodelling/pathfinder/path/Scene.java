@@ -164,7 +164,6 @@ public class Scene {
      * Creates a spatial index entry and assigns a unique primary key for database correlation.
      * 
      * @param geom Source geometry (Point for point sources, LineString for linear sources)
-     * @return Generated unique primary key for the source
      */
     @Deprecated
     public void addSource(Geometry geom) {

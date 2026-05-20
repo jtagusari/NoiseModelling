@@ -31,7 +31,7 @@ import static java.lang.Double.isNaN;
  * Builder constructing profiles from buildings, topography and ground effects.
  *
  * <p>Use this class to ingest geometry/topography, run preprocessing with {@link #finishFeeding()},
- * then build source-receiver profiles with {@link #buildProfile(Coordinate, Coordinate, double, boolean, SourcePointInfo)}.</p>
+ * then build source-receiver profiles with {@link #buildProfile(Coordinate, Coordinate, SourcePointInfo)}.</p>
  *
  * <p>Detailed pipeline, responsibilities and diagrams are documented in:</p>
  * <ul>
@@ -952,8 +952,6 @@ public class ProfileBuilder {
      *
      * @param source source coordinate
      * @param receiver receiver coordinate
-     * @param defaultGroundAttenuation fallback ground attenuation coefficient
-     * @param stopAtObstacleOverSourceReceiver whether to stop when a blocking obstacle is detected
      * @param sourcePointInfo source metadata
      * @return computed cut profile
      */
@@ -1366,7 +1364,7 @@ public class ProfileBuilder {
     /**
      * Get ground elevation with triangle optimization hint for repeated queries in same area.
      * @param coordinate X,Y coordinate to query for elevation
-     * @param triangleHint Triangle index hint (if >= 0 will be checked first, updated with found triangle)
+        * @param triangleHint Triangle index hint (if &gt;= 0 will be checked first, updated with found triangle)
      * @return Altitude in meters above sea level
      */
     public double getZGround(Coordinate coordinate, AtomicInteger triangleHint) {

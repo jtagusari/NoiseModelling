@@ -48,7 +48,6 @@ public class ReflectionPathProcessor {
      * @param receiverMirrorIndex Mirror receivers computation index
      * @param cutPlaneVisitor Visitor for processing cut planes
      * @param initialStrategy Initial path search strategy
-     * @param scene Scene containing geometric and acoustic data
      * @return Updated path search strategy
      */
     public CutPlaneVisitor.PathSearchStrategy process(ReceiverPointInfo rcv,

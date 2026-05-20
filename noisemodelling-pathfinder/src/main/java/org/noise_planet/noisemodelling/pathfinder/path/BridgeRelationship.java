@@ -43,7 +43,8 @@ public class BridgeRelationship {
      * Create BridgeRelationship with explicit type and bridge identifier.
      *
      * @param relationType relation of the source to a bridge
-     * @param bridgePk primary key of the bridge (use 0 if not applicable)
+        * @param bridgePkOn primary key of the bridge supporting the source (use -1 if not applicable)
+        * @param bridgePkAbove primary key of the bridge above the source (use -1 if not applicable)
      */
     public BridgeRelationship(RelationType relationType, long bridgePkOn, long bridgePkAbove) {
         this.relationType = relationType;
