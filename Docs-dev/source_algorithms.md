@@ -157,6 +157,10 @@ The entire pipeline is orchestrated within a cell-based computation framework:
 
 ## Step 1: ROADS Table Creation
 
+Step 1 performs preprocessing of traffic input to prepare the database tables required by `fetchCell()`.
+
+This includes validating and normalizing input formats (detailed, AADF, TMJA), populating the `ROADS` table with geometry and period-specific traffic fields, ensuring a primary key and spatial indices exist, and applying optional conversions or defaults (e.g., period distribution from AADF/TMJA). The prepared tables (and any derived tables) are then ready to be consumed by `DefaultTableLoader.fetchCellSource()` during cell processing.
+
 The `ROADS` table creation process provides the input traffic data required for emission calculation. This user-defined table serves as the database prerequisite for the entire road emission processing pipeline.
 
 **Data Preparation Process:**

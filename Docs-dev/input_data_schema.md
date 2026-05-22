@@ -61,6 +61,12 @@ The detailed loader logic and per-format examples are documented in `source_algo
 - Building polygons are fetched by `DefaultTableLoader.fetchCellBuildings(...)`, which creates `Building(Polygon, height, alpha, pk, zBuildings)` and adds them to `ProfileBuilder`.
 - A `Building(ResultSet)` constructor exists for direct row mapping, but the default loader path uses the polygon-based constructor shown above.
 
+**Test**:
+- Test file:`FetchCellBuildingsTest`
+- Creates an in-memory H2GIS database, inserts four polygon building footprints with heights, and expands a receiver envelope by propagation and reflection distances.
+- Fetches buildings intersecting the expanded envelope using H2GIS spatial predicates and asserts expected primary keys are returned.
+- Verifies that all geometries are POLYGON and that height statistics (maximum = 15.0 m) match expectations.
+
 ## Bridge Points Table
 
 **Purpose**: Contains point geometries and structural parameters used to build bridge profiles for propagation.
@@ -94,8 +100,29 @@ The detailed loader logic and per-format examples are documented in `source_algo
 - Material types are used to characterize bridge components; acoustic absorption coefficients are not read from this table.
 
 **Java Mapping**:
-- Bridge point rows are loaded by `DefaultTableLoader.fetchCellBridge(...)` using `new BridgePoint(ResultSet)`.
+- Bridge point rows are loaded by `DefaultTableLoader.(...)` using `new BridgePoint(ResultSet)`.
 - Points are grouped into `Bridge` instances via `Bridge.createBridgesFromPoints(...)` and added to `ProfileBuilder` for pathfinding.
+
+**Bridge creation from points**:
+- BridgePoint rows are first converted into `BridgePoint` objects (one per DB row). These points are grouped by their `BRIDGE_PK` value.
+- For each group, `Bridge.createBridgesFromPoints(...)` uses a `Builder` that:
+  - constructs a `BridgePointManager` to manage and sort points,
+  - creates a `BridgeGeometryBuilder` to build the 3D deck polygon and edge geometry,
+  - initializes `BridgeTriangulation` to interpolate deck height, thickness and barrier heights over the deck,
+  - sets up a `BridgeQueryHelper` to support spatial queries (isPointAboveBridge, isPointOnBridge, footprint queries).
+- The builder validates consistent metadata (girder/slab types), applies default absorption (`alphas`) if provided, then calls `createDeckGeometry(...)` which generates deck geometry, triangulation and edge, and updates the query helper for runtime spatial operations.
+- Resulting `Bridge` instances provide APIs used by the propagation code: deck height/thickness interpolation, diffraction edge geometry, and virtual/mirror source generation on or under the bridge.
+
+**Tests and responsibilities**
+
+To keep test coverage clear and non-overlapping, bridge-related tests in this repository follow these responsibilities:
+
+
+- `BridgeFactoryTest` (unit): Verifies `Bridge.createBridgesFromPoints(...)` factory behavior — grouping `BridgePoint` rows by `BRIDGE_PK`, handling null/empty inputs, applying `alphas`, and validating metadata consistency (e.g., girder type). This test focuses on point-to-bridge aggregation logic only and does not exercise database I/O or deck geometry generation.
+
+- `BridgeBehaviorTest` (behavior/integration): Exercises `Bridge` instances produced by builders — `createDeckGeometry()`, triangulation/interpolation of deck height and thickness, spatial helpers (isPointAboveBridge, isPointWithinBridgeFootprint, etc.), add/remove point operations, and equality/hashcode semantics. Use pre-built `BridgePoint` lists or test fixtures; verify numeric and geometric results.
+
+- `BridgePointMappingTest` (DB loader): Validates database → `BridgePoint` mapping (`BridgePoint(ResultSet)`) and spatial filtering performed by the loader. Confirm that attributes such as `ABSOLUTE_DECK_HEIGHT`, `RELATIVE_DECK_HEIGHT`, `DECK_THICKNESS`, `RIGHT_WIDTH`, `LEFT_WIDTH`, `RIGHT_BARRIER_HEIGHT`, `LEFT_BARRIER_HEIGHT`, `POSITION`, `GIRDER_TYPE`, and `SLAB_TYPE` are parsed and typed correctly and that spatial queries return expected rows.
 
 ## Terrain (DEM) Data
 
@@ -135,6 +162,12 @@ The detailed loader logic and per-format examples are documented in `source_algo
 - DEM points are fetched by `DefaultTableLoader.fetchCellDem(...)` and passed into `ProfileBuilder.addTopographicPoint(...)`.
 - When DEM is present, the loader also seeds envelope corners with average Z for continuity.
 
+**Test**:
+- Test file: `FetchCellDemTest`
+- Creates an in-memory H2GIS database, inserts DEM sample points (`DEM_POINTS` table) and expands a receiver envelope by propagation and reflection distances.
+- Fetches DEM points intersecting the expanded envelope using H2GIS spatial predicates and logs each point's centroid and height.
+- Verifies expected PKs are returned and basic statistics (min/max/avg heights) match inserted sample values.
+
 ## Ground Areas Table
 
 **Purpose**: Specifies soil/ground acoustic properties for sound absorption modeling.
@@ -169,6 +202,12 @@ The detailed loader logic and per-format examples are documented in `source_algo
 
 **Java Mapping**:
 - Ground polygons are fetched by `DefaultTableLoader.fetchCellSoilAreas(...)`, split into tiles, and applied with `ProfileBuilder.addGroundEffect(geometry, g)`.
+
+**Test**:
+- Test file: `FetchCellSoilAreasTest`
+- Creates an in-memory H2GIS database, inserts several soil-area polygons into `SOIL_AREAS` (with `ALPHA_OVERALL`, `GROUND_TYPE`, `ROUGHNESS`), and expands a receiver envelope.
+- Fetches soil areas intersecting the expanded envelope and logs centroid, alpha and ground type for each area.
+- Validates alpha values are within the expected [0.0, 1.0] range and that the expected primary keys are returned by the spatial filter.
 
 ## Computational Parameters
 

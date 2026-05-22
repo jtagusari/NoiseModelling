@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0,0],[50,0],[50,50],[0,50],[0,0]]]
+      },
+      "properties": {
+        "ID_WAY": 201,
+        "PRIORITY": 1,
+        "G": 0.3,
+        "GROUND_TYPE": "grass"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[50,0],[100,0],[100,50],[50,50],[50,0]]]
+      },
+      "properties": {
+        "ID_WAY": 202,
+        "PRIORITY": 1,
+        "G": 0.08,
+        "GROUND_TYPE": "asphalt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0,50],[50,50],[50,100],[0,100],[0,50]]]
+      },
+      "properties": {
+        "ID_WAY": 203,
+        "PRIORITY": 2,
+        "G": 0.6,
+        "GROUND_TYPE": "vegetation"
+      }
+    }
+  ]
+}

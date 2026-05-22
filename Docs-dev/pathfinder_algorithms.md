@@ -297,7 +297,7 @@ This section maps the major pathfinder algorithms/components to their primary te
   - `CutPointReceiverTest`
 - Bridge-specific profile/path logic (`BridgeService`, bridge geometry/query helpers)
   - `BridgeServiceTest`
-  - `BridgeTest`
+  - `BridgeBehaviorTest`
   - `BridgeGeometryBuilderTest`
   - `BridgePointManagerTest`
   - `BridgePointTest`
