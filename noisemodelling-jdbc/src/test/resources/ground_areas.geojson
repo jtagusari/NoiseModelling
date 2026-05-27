@@ -40,5 +40,19 @@
         "GROUND_TYPE": "vegetation"
       }
     }
+    ,
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[50,50],[100,50],[100,100],[50,100],[50,50]]]
+      },
+      "properties": {
+        "ID_WAY": 204,
+        "PRIORITY": 1,
+        "G": 0.15,
+        "GROUND_TYPE": "asphalt"
+      }
+    }
   ]
 }

@@ -1,93 +1,13 @@
 {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [0, 20, 10.0]
-      },
-      "properties": {
-        "pk": 1,
-        "bridge_pk": 100,
-        "position": "CENTER",
-        "height_type": "ABSOLUTE",
-        "absolute_deck_height": 10.0,
-        "relative_deck_height": 10.0,
-        "deck_thickness": 0.5,
-        "right_width": 5.0,
-        "left_width": 5.0,
-        "right_barrier_height": 1.0,
-        "left_barrier_height": 1.0,
-        "girder_type": "STEEL_BOX",
-        "slab_type": "STEEL"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [50, 20, 10.0]
-      },
-      "properties": {
-        "pk": 2,
-        "bridge_pk": 100,
-        "position": "CENTER",
-        "height_type": "ABSOLUTE",
-        "absolute_deck_height": 10.0,
-        "relative_deck_height": 10.0,
-        "deck_thickness": 0.5,
-        "right_width": 5.0,
-        "left_width": 5.0,
-        "right_barrier_height": 1.0,
-        "left_barrier_height": 1.0,
-        "girder_type": "STEEL_BOX",
-        "slab_type": "STEEL"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [100, 20, 10.0]
-      },
-      "properties": {
-        "pk": 3,
-        "bridge_pk": 100,
-        "position": "CENTER",
-        "height_type": "ABSOLUTE",
-        "absolute_deck_height": 10.0,
-        "relative_deck_height": 10.0,
-        "deck_thickness": 0.5,
-        "right_width": 5.0,
-        "left_width": 5.0,
-        "right_barrier_height": 1.0,
-        "left_barrier_height": 1.0,
-        "girder_type": "STEEL_BOX",
-        "slab_type": "STEEL"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [500, 500, 12.0]
-      },
-      "properties": {
-        "pk": 4,
-        "bridge_pk": 200,
-        "position": "CENTER",
-        "height_type": "ABSOLUTE",
-        "absolute_deck_height": 12.0,
-        "relative_deck_height": 12.0,
-        "deck_thickness": 0.6,
-        "right_width": 5.0,
-        "left_width": 5.0,
-        "right_barrier_height": 1.0,
-        "left_barrier_height": 1.0,
-        "girder_type": "STEEL_BOX",
-        "slab_type": "STEEL"
-      }
-    }
-  ]
+"type": "FeatureCollection",
+"name": "bridge_points",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::4979" } },
+"features": [
+{ "type": "Feature", "properties": { "pk": 1, "bridge_pk": 100, "position": "LEFT", "height_type": "ABSOLUTE", "absolute_deck_height": 10.0, "relative_deck_height": 10.0, "deck_thickness": 0.5, "right_width": 5.0, "left_width": 5.0, "right_barrier_height": 1.0, "left_barrier_height": 1.0, "girder_type": "STEEL_BOX", "slab_type": "STEEL" }, "geometry": { "type": "Point", "coordinates": [ 0.0, 30.0, 10.0 ] } },
+{ "type": "Feature", "properties": { "pk": 2, "bridge_pk": 100, "position": "LEFT", "height_type": "ABSOLUTE", "absolute_deck_height": 10.0, "relative_deck_height": 10.0, "deck_thickness": 0.5, "right_width": 5.0, "left_width": 5.0, "right_barrier_height": 1.0, "left_barrier_height": 1.0, "girder_type": "STEEL_BOX", "slab_type": "STEEL" }, "geometry": { "type": "Point", "coordinates": [ 50.0, 30.0, 10.0 ] } },
+{ "type": "Feature", "properties": { "pk": 3, "bridge_pk": 100, "position": "LEFT", "height_type": "ABSOLUTE", "absolute_deck_height": 10.0, "relative_deck_height": 10.0, "deck_thickness": 0.5, "right_width": 5.0, "left_width": 5.0, "right_barrier_height": 1.0, "left_barrier_height": 1.0, "girder_type": "STEEL_BOX", "slab_type": "STEEL" }, "geometry": { "type": "Point", "coordinates": [ 100.0, 30.0, 10.0 ] } },
+{ "type": "Feature", "properties": { "pk": 4, "bridge_pk": 100, "position": "RIGHT", "height_type": "ABSOLUTE", "absolute_deck_height": 10.0, "relative_deck_height": 10.0, "deck_thickness": 0.5, "right_width": 5.0, "left_width": 5.0, "right_barrier_height": 1.0, "left_barrier_height": 1.0, "girder_type": "STEEL_BOX", "slab_type": "STEEL" }, "geometry": { "type": "Point", "coordinates": [ 0.0, 10.0, 10.0 ] } },
+{ "type": "Feature", "properties": { "pk": 5, "bridge_pk": 100, "position": "RIGHT", "height_type": "ABSOLUTE", "absolute_deck_height": 10.0, "relative_deck_height": 10.0, "deck_thickness": 0.5, "right_width": 5.0, "left_width": 5.0, "right_barrier_height": 1.0, "left_barrier_height": 1.0, "girder_type": "STEEL_BOX", "slab_type": "STEEL" }, "geometry": { "type": "Point", "coordinates": [ 50.0, 10.0, 10.0 ] } },
+{ "type": "Feature", "properties": { "pk": 6, "bridge_pk": 100, "position": "RIGHT", "height_type": "ABSOLUTE", "absolute_deck_height": 10.0, "relative_deck_height": 10.0, "deck_thickness": 0.5, "right_width": 5.0, "left_width": 5.0, "right_barrier_height": 1.0, "left_barrier_height": 1.0, "girder_type": "STEEL_BOX", "slab_type": "STEEL" }, "geometry": { "type": "Point", "coordinates": [ 100.0, 10.0, 10.0 ] } }
+]
 }
