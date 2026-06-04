@@ -70,9 +70,18 @@ public abstract class GridMapMaker {
         this.sourcesTableName = sourcesTableName;
     }
 
+    public GridMapMaker(String buildingsTableName, String sourcesTableName, String bridgePointsTableName, String soilTableName, String demTable) {
+        this.buildingTableParameters.buildingsTableName = buildingsTableName;
+        this.sourcesTableName = sourcesTableName;
+        this.bridgePointsTableName = bridgePointsTableName;
+        this.soilTableName = soilTableName;
+        this.demTable = demTable;
+    }
+
     public DefaultTableLoader.BuildingTableParameters getBuildingTableParameters() {
         return buildingTableParameters;
     }
+
 
     public GeometryFactory getGeometryFactory() {
         return geometryFactory;

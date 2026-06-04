@@ -56,8 +56,8 @@ end note
 rectangle "Step 2: Cell\nSelection" as step2 #E8F4F8
 note right of step2
   **NoiseMapByReceiverMaker:**
-  • prepareCell() computes envelope
-  • DefaultTableLoader.create()
+  • requestCellScene() computes envelope
+  • DefaultTableLoader.createScene()
   • ProfileBuilder creation
   • load buildings/DEM/soil/bridges
   • finishFeeding()
@@ -205,7 +205,7 @@ The `ROADS` table supports the following data format options:
 
 Cell selection and scene context preparation happen before any source loading or emission calculation. This step establishes the spatial extent and loads all geometry data needed for propagation path construction.
 
-**Implementation in `DefaultTableLoader.create()`:**
+**Implementation in `DefaultTableLoader.createScene()`:**
 
 1. **Cell Envelope Computation:**
    - `cellEnvelope = noiseMapByReceiverMaker.getCellEnv(cellIndex)`

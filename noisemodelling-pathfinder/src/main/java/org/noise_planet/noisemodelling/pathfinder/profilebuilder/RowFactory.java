@@ -15,7 +15,7 @@ public class RowFactory {
             "BridgePoint", BridgePoint::new
         );
 
-    public static RowMappable create(String type, ResultSet rs) throws SQLException {
+    public static RowMappable createRowMappable(String type, ResultSet rs) throws SQLException {
         ResultSetConstructor<? extends RowMappable> ctor = MAP.get(type);
         if (ctor == null) {
             throw new IllegalArgumentException("Unknown type: " + type);

@@ -11,7 +11,7 @@
       - [Preprocessing Pipeline](#preprocessing-pipeline)
       - [Role of Processed Walls](#role-of-processed-walls)
   - [Typical workflow of creating Scene](#typical-workflow-of-creating-scene)
-  - [Tests & Validation Mapping](#tests--validation-mapping)
+  - [Tests \& Validation Mapping](#tests--validation-mapping)
     - [Algorithm-to-test mapping](#algorithm-to-test-mapping)
     - [File-based identity checks](#file-based-identity-checks)
   - [Related Classes](#related-classes)
@@ -222,13 +222,13 @@ title ProfileBuilder — Preprocessing Pipeline
 
 ## Typical workflow of creating Scene
 
-A typical workflow for creating a `Scene` object in the JDBC module is implemented in `DefaultTableLoader.create()`. The method orchestrates the construction of a complete `SceneWithEmission` object for a given computation cell.
+A typical workflow for creating a `Scene` object in the JDBC module is implemented in `DefaultTableLoader.createScene()`. The method orchestrates the construction of a complete `SceneWithEmission` object for a given computation cell.
 
 ```plantuml
 @startuml
 top to bottom direction
 skinparam componentStyle rectangle
-title Typical Scene Creation Workflow — DefaultTableLoader.create()
+title Typical Scene Creation Workflow — DefaultTableLoader.createScene()
 
 [Create ProfileBuilder\nwith FrequencyConfig] --> [Create SceneWithEmission\nwith ProfileBuilder & settings]
 
