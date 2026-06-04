@@ -91,7 +91,7 @@ class DelaunayReceiversMaker extends GridMapMaker {
   + generateReceivers(Connection, cellI, cellJ, ...): void
   + computeDelaunay(LayerDelaunay, Envelope, ...): void
   + feedDelaunay(List<Building>, LayerDelaunay, ...): void
-  + fetchCellSource(Connection, Envelope, ...): void
+  + collectCellSourceGeometries(Connection, Envelope, ...): void
   + generateResultTable(Connection, receiverTable, trianglesTable, ...): void
 }
 
@@ -187,6 +187,8 @@ verticesTableName;
     
     :Insert triangles into
 trianglesTableName;
+    
+    > **Note (bridges):** Receiver points that fall on bridge decks or directly underneath bridges need bridge-aware handling—verify deck-relative heights and consider flagging or excluding such points for bridge-specific processing.
   }
 }
 

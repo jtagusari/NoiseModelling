@@ -214,26 +214,12 @@ For detailed source processing steps, see [source_algorithms.md](source_algorith
 
 ### 4.2: Path Finding
 
-**Process**: Compute propagation paths from all sources to all receivers in the cell.
+Overview: This step computes propagation paths (direct sound, diffraction, reflection) between all sources and receivers within the cell. For detailed algorithms (ray geometry, obstacle detection, diffraction identification, multi-bounce reflections, and `CutProfile` generation) see [Docs-dev/pathfinder_algorithms.md](Docs-dev/pathfinder_algorithms.md).
 
-**Tasks**:
-- Enumerate all source-receiver pairs within the cell
-- Compute direct paths and multi-bounce reflection paths
-- Detect obstacles (buildings) blocking direct sound
-- Calculate geometric divergence components
-- Identify diffraction edges and compute diffraction angles
-- Build `CutProfile` objects describing the complete propagation geometry
-
-**Threading**: Path finding is multi-threaded with one thread per receiver, allowing parallel computation of paths.
-
-**Output**: `CutProfile` objects containing detailed propagation geometry for each source-receiver pair.
-
-**Details**: See [pathfinder_algorithms.md](pathfinder_algorithms.md) for comprehensive path finding algorithms, including:
-- Ray geometry computation
-- Obstacle detection
-- Diffraction identification
-- Multi-bounce reflection handling
-- Profile building mechanisms
+Implementation notes:
+- Processing is performed per receiver and may be parallelized (thread count depends on runtime configuration).
+- `PathFinder.run()` assumes receiver absolute heights have been established beforehand; call `ensureAbsoluteReceiverHeights()` prior to running path finding.
+- Output consists of `CutProfile` objects, which are passed to the attenuation computation phase.
 
 ### 4.3: Attenuation Computation
 

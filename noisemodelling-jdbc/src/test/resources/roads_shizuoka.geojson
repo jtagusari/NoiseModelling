@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "roads_shizuoka",
+"features": [
+{ "type": "Feature", "properties": { "PK": 1, "LV_D": 600.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 138.382552,34.976900 ], [ 138.383648,34.976900 ] ] } },
+{ "type": "Feature", "properties": { "PK": 2, "LV_D": 1200.0, "BRIDGE_PK": 100 }, "geometry": { "type": "LineString", "coordinates": [ [ 138.382552,34.977118 ], [ 138.383648,34.977118 ] ] } },
+{ "type": "Feature", "properties": { "PK": 3, "LV_D": 600.0 }, "geometry": { "type": "LineString", "coordinates": [ [ 138.383100,34.976786 ], [ 138.383100,34.977414 ] ] } }
+]
+}

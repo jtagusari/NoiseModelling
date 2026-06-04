@@ -15,6 +15,7 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.slf4j.Logger;
@@ -431,6 +432,39 @@ public class ProfileBuilderTest {
         assertEquals(0, profileBuilder.getGroundEffects().size());
         // No topography triangles should be created
         assertEquals(0, profileBuilder.getTriangles().size());
+    }
+
+    @Test
+    public void bridgeAddingTest() throws Exception {
+        ProfileBuilder profileBuilder = new ProfileBuilder();
+
+        GeometryFactory gf = new GeometryFactory();
+        Coordinate[] coords = new Coordinate[]{ new Coordinate(0, 0, 10), new Coordinate(10, 0, 10) };
+        LineString centerLine = gf.createLineString(coords);
+
+        List<BridgePoint> bps = BridgePoint.createBridgePoints(
+                centerLine,
+                1L,
+                Scene.HeightType.ABSOLUTE,
+                0.5,
+                3.0,
+                3.0,
+                1.0,
+                1.0,
+                BridgePoint.Position.CENTER,
+                Bridge.GirderType.STEEL_BOX,
+                Bridge.SlabType.STEEL
+        );
+
+        Bridge bridge = new Bridge.Builder(bps).withAlphas(Arrays.asList(0.1, 0.1, 0.1)).setPrimaryKey(1L).build();
+        profileBuilder.addBridge(bridge);
+        profileBuilder.finishFeeding();
+
+        assertEquals(1, profileBuilder.getBridgeCount());
+        assertNotNull(profileBuilder.getBridge(0).getDeckGeometry());
+
+        boolean found = profileBuilder.getProcessedWalls().stream().anyMatch(w -> w.getPrimaryKey() == 1L);
+        assertEquals(true, found);
     }
 
     /**

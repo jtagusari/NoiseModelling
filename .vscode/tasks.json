@@ -1,35 +1,181 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "build_wps",
-      "type": "shell",
-      "command": "./gradlew.bat",
-      "args": ["build"],
-      "options": {
-        "cwd": "${workspaceFolder}/wps_scripts"
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      },
-      "problemMatcher": ["$gradle"],
-      "detail": "Generated task for Gradle build of wps_scripts"
-    },
-    {
-      "label": "build_wps_without_test",
-      "type": "shell",
-      "command": "./gradlew.bat",
-      "args": ["build", "-x", "test"],
-      "options": {
-        "cwd": "${workspaceFolder}/wps_scripts"
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      },
-      "problemMatcher": ["$gradle"],
-      "detail": "Generated task for Gradle build of wps_scripts"
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build_wps",
+			"type": "shell",
+			"command": "./gradlew.bat",
+			"args": [
+				"build"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/wps_scripts"
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"problemMatcher": [
+				"$gradle"
+			],
+			"detail": "Generated task for Gradle build of wps_scripts"
+		},
+		{
+			"label": "build_wps_without_test",
+			"type": "shell",
+			"command": "./gradlew.bat",
+			"args": [
+				"build",
+				"-x",
+				"test"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/wps_scripts"
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"problemMatcher": [
+				"$gradle"
+			],
+			"detail": "Generated task for Gradle build of wps_scripts"
+		},
+		{
+			"label": "run_hatori_ic_elevated_case",
+			"type": "shell",
+			"command": "pwsh.exe",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"$root = 'c:\\Users\\taiki_8\\research\\NoiseModelling\\wps_scripts'; $dist = Join-Path $root 'dist-run\\NoiseModelling_without_gui-5.0.1-SNAPSHOT'; $env:JAVA_HOME = 'C:\\Program Files\\Java\\jdk-11.0.2'; $env:PATH = \"$env:JAVA_HOME\\bin;$env:PATH\"; Push-Location $dist; try { New-Item -ItemType Directory -Force (Join-Path $root 'out') | Out-Null; & .\\bin\\wps_scripts.bat -w $root -s (Join-Path $root 'launcher-src\\hatori_ic_elevated_case.groovy') -outDir (Join-Path $root 'out') } finally { Pop-Location }"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "run_standalone_hatori_ic",
+			"type": "shell",
+			"command": "java",
+			"args": [
+				"-cp",
+				"c:\\Users\\taiki_8\\research\\NoiseModelling\\wps_scripts\\dist-run\\NoiseModelling_without_gui-5.0.1-SNAPSHOT\\lib\\*",
+				"groovy.ui.GroovyMain",
+				"c:\\Users\\taiki_8\\research\\NoiseModelling\\run_hatori_ic_elevated_case.groovy",
+				"c:\\Users\\taiki_8\\research\\NoiseModelling\\wps_scripts\\out"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "run_tmp_table_calc",
+			"type": "shell",
+			"command": "C:\\Users\\taiki_8\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+			"args": [
+				"tmp_table_calc.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run_cnossos_lv_mv_smoke",
+			"type": "shell",
+			"command": "C:\\Users\\taiki_8\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+			"args": [
+				"cnossos_eu_predict.py",
+				"--bridge-mode",
+				"--lv-traffic",
+				"300",
+				"--mv-traffic",
+				"30",
+				"--speed-lv",
+				"45",
+				"--speed-mv",
+				"45",
+				"--profile-max-distance",
+				"20",
+				"--profile-step",
+				"10",
+				"--out-csv",
+				"tmp_lv_mv.csv",
+				"--out-plot",
+				"tmp_lv_mv.png"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "cleanup_tmp_lv_mv",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"del",
+				"/q",
+				"tmp_lv_mv.csv",
+				"tmp_lv_mv.png"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run_lv_mv_10min_table",
+			"type": "shell",
+			"command": "C:\\Users\\taiki_8\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+			"args": [
+				"tmp_lv_mv_10min_calc.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "smoke_cnossos_after_flow_fix",
+			"type": "shell",
+			"command": "C:\\Users\\taiki_8\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+			"args": [
+				"cnossos_eu_predict.py",
+				"--bridge-mode",
+				"--lv-traffic",
+				"1800",
+				"--mv-traffic",
+				"180",
+				"--speed-lv",
+				"45",
+				"--speed-mv",
+				"45",
+				"--profile-max-distance",
+				"20",
+				"--profile-step",
+				"10",
+				"--out-csv",
+				"tmp_flowfix.csv",
+				"--out-plot",
+				"tmp_flowfix.png"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "recalc_and_plot_lv_mv",
+			"type": "shell",
+			"command": "C:\\Users\\taiki_8\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+			"args": [
+				"cnossos_eu_predict.py",
+				"--bridge-mode",
+				"--lv-traffic",
+				"1800",
+				"--mv-traffic",
+				"180",
+				"--speed-lv",
+				"45",
+				"--speed-mv",
+				"45",
+				"--profile-max-distance",
+				"100",
+				"--profile-step",
+				"5",
+				"--out-csv",
+				"tmp_flowfix_recalc.csv",
+				"--out-plot",
+				"tmp_flowfix_recalc.png"
+			],
+			"isBackground": false
+		}
+	]
 }

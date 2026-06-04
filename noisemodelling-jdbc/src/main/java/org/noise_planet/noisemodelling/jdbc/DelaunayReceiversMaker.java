@@ -431,7 +431,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
      * @param sourceGeometries List to feed
      * @throws SQLException
      */
-    public void fetchCellSource(Connection connection, Envelope fetchEnvelope, boolean doIntersection, List<Geometry> sourceGeometries)
+    public void collectCellSourceGeometries(Connection connection, Envelope fetchEnvelope, boolean doIntersection, List<Geometry> sourceGeometries)
             throws SQLException {
 
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
@@ -495,7 +495,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         List<Geometry> sourceDelaunayGeometries = new LinkedList<>();
 
         if(!sourcesTableName.isEmpty()) {
-            fetchCellSource(connection, cellEnvelope, true, sourceDelaunayGeometries);
+            collectCellSourceGeometries(connection, cellEnvelope, true, sourceDelaunayGeometries);
         }
 
         List<Building> buildings = new LinkedList<>();

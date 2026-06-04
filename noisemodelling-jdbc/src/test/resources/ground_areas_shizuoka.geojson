@@ -1,0 +1,57 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[138.382552,34.976552],[138.383100,34.976552],[138.383100,34.976999],[138.382552,34.976999],[138.382552,34.976552]]]
+      },
+      "properties": {
+        "ID_WAY": 201,
+        "PRIORITY": 1,
+        "G": 0.3,
+        "GROUND_TYPE": "grass"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[138.383100,34.976552],[138.383648,34.976552],[138.383648,34.976999],[138.383100,34.976999],[138.383100,34.976552]]]
+      },
+      "properties": {
+        "ID_WAY": 202,
+        "PRIORITY": 1,
+        "G": 0.08,
+        "GROUND_TYPE": "asphalt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[138.382552,34.976999],[138.383100,34.976999],[138.383100,34.977446],[138.382552,34.977446],[138.382552,34.976999]]]
+      },
+      "properties": {
+        "ID_WAY": 203,
+        "PRIORITY": 2,
+        "G": 0.6,
+        "GROUND_TYPE": "vegetation"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[138.383100,34.976999],[138.383648,34.976999],[138.383648,34.977446],[138.383100,34.977446],[138.383100,34.976999]]]
+      },
+      "properties": {
+        "ID_WAY": 204,
+        "PRIORITY": 1,
+        "G": 0.15,
+        "GROUND_TYPE": "asphalt"
+      }
+    }
+  ]
+}

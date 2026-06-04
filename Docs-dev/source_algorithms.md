@@ -65,7 +65,7 @@ end note
 
 rectangle "Step 3: Source Loading\n+ Emission Registration" as step3 #FFFFCC
 note right of step3
-  **fetchCellSource():**
+  **loadCellSourcesAndEmissions():**
   • SELECT * FROM SOURCES WHERE THE_GEOM && envelope
   • SceneWithEmission.addSourceDb()
   • sourceEmissionsMap[pk] filled
@@ -82,7 +82,7 @@ note right of step4
 end note
 
 step1 -down-> step2 : input tables ready
-step2 -down-> step3 : fetchCellSource()
+step2 -down-> step3 : loadCellSourcesAndEmissions()
 step3 -down-> step4 : per receiver\n(sampling + elevation)
 
 ' PHASE 2: Propagation Calculation
@@ -159,7 +159,7 @@ The entire pipeline is orchestrated within a cell-based computation framework:
 
 Step 1 performs preprocessing of traffic input to prepare the database tables required by `fetchCell()`.
 
-This includes validating and normalizing input formats (detailed, AADF, TMJA), populating the `ROADS` table with geometry and period-specific traffic fields, ensuring a primary key and spatial indices exist, and applying optional conversions or defaults (e.g., period distribution from AADF/TMJA). The prepared tables (and any derived tables) are then ready to be consumed by `DefaultTableLoader.fetchCellSource()` during cell processing.
+This includes validating and normalizing input formats (detailed, AADF, TMJA), populating the `ROADS` table with geometry and period-specific traffic fields, ensuring a primary key and spatial indices exist, and applying optional conversions or defaults (e.g., period distribution from AADF/TMJA). The prepared tables (and any derived tables) are then ready to be consumed by `DefaultTableLoader.loadCellSourcesAndEmissions()` during cell processing.
 
 The `ROADS` table creation process provides the input traffic data required for emission calculation. This user-defined table serves as the database prerequisite for the entire road emission processing pipeline.
 
@@ -253,7 +253,7 @@ Scene with ProfileBuilder containing all geometry data, spatial indices built, r
 
 ## Step 3: Source Loading, Emission Calculation, and Scene Registration
 
-Geometry loading and emission calculation occur together while sources are added to the Scene. `DefaultTableLoader.fetchCellSource()` iterates source rows within the cell envelope and calls `SceneWithEmission.addSourceDb()`; this registers the geometry and, depending on input mode, parses and registers emissions from the same row.
+Geometry loading and emission calculation occur together while sources are added to the Scene. `DefaultTableLoader.loadCellSourcesAndEmissions()` iterates source rows within the cell envelope and calls `SceneWithEmission.addSourceDb()`; this registers the geometry and, depending on input mode, parses and registers emissions from the same row.
 
 **What `INPUT_MODE` means:**
 `INPUT_MODE` is a `SceneDatabaseInputSettings` value that tells the loader how to interpret source/emission fields in the database.
@@ -273,7 +273,7 @@ Geometry loading and emission calculation occur together while sources are added
 - `SceneWithAttenuation`: extends `Scene` with attenuation settings (period parameters, directivity, ground factors)
 - `SceneWithEmission`: extends `SceneWithAttenuation` with `sourceEmissionsMap` and emission parsing/registration
 
-**Combined Flow in `fetchCellSource()`:**
+**Combined Flow in `loadCellSourcesAndEmissions()`:**
 
 1. **Geometry Loading** — Executes `SELECT * FROM SOURCES WHERE THE_GEOM && envelope`, clips by cell envelope, and validates Z coordinates
 2. **Scene Registration** — `SceneWithEmission.addSourceDb()` registers the LineString and bridge relationship metadata
@@ -290,77 +290,19 @@ Geometry loading and emission calculation occur together while sources are added
 **Output:**
 Scene populated with source geometries, attributes, and emission spectra, ready for sampling (Step 4)
 
+
+**Test**:
+As `loadCellSourcesAndEmissions()` method is integrated method, there is not unit test for this method.
+See `SourceAlgotihmsTest` for the integrated test.
+
 ## Step 4: LineString Point Sampling and Elevation Conversion
 
-This step samples Scene-registered LineString geometries into discrete point sources with absolute elevations for propagation calculations. The implementation uses `LineStringSplitter.splitLineStringIntoPoints()` and `SourceCollector.calculateAbsoluteElevation()` to convert LineString geometries into discrete point samples with correct absolute elevations in a single integrated process. During propagation calculation, this process is performed for each receiver based on receiver-source distance.
+Overview: Sample LineString geometries registered in the Scene (e.g., road segments) into discrete point sources per receiver and determine absolute elevations for each sampled point. The implementation uses `SourceCollector.collectSourcePoints()` together with `ElevationConverter.calculateAbsoluteElevation()`. For full algorithmic details (segmentation rules, Z interpolation, mirror-source generation) see [Docs-dev/pathfinder_algorithms.md](Docs-dev/pathfinder_algorithms.md).
 
-**Algorithm:**
+Key implementation notes:
+- Sampling density: the implementation uses `segmentSizeConstraint = max(1.0, receiverDistance / 2.0)`, so the minimum segment length is 1.0 m.
+- Elevation conversion: relative heights (`HEIGHT_TYPE = RELATIVE`) are converted to absolute elevations by `SourceCollector.calculateAbsoluteElevation()`, which uses the `BridgeRelationship` to map to DEM ground elevation or bridge deck heights as appropriate.
+- Mirror sources: bridge-reflection mirror sources are created by `addMirrorSourceIfNeeded()`. When multiple bridges qualify, the bridge with the lowest underside (bridge bottom) above the source is selected.
+- Precondition: always call `ProfileBuilder.finishFeeding()` before sampling sources; spatial indices (STRtree) and bridge information produced by `finishFeeding()` are required.
 
-1. **Input:**
-  - Scene-registered LineString geometries (complete road segments from Step 3)
-  - Source attributes: `sourcePk`, `bridgeRelationship`, orientation
-  - Receiver position for distance-based sampling calculation
-
-2. **Segment Size Determination:**
-   - `segmentSizeConstraint = max(1.0, receiverDistance / 2.0)`
-   - Ensures point density adapts to receiver proximity
-   - Closer receivers → higher sampling density for accuracy
-
-3. **Short Geometry Handling** (length < segmentSizeConstraint):
-   - Single midpoint at `length / 2.0` position
-   - Entire segment treated as one point source
-
-4. **Long Geometry Handling** (length ≥ segmentSizeConstraint):
-   - `numSegments = ceil(length / segmentSizeConstraint)`
-   - `actualSegmentSize = length / numSegments`
-   - Points placed at regular intervals along LineString
-
-5. **Elevation Conversion:**
-   - **For each sampled point**, retrieve `HEIGHT_TYPE` from Scene via `scene.getSourceHeightTypeByPk(sourcePk)`
-   - **If HEIGHT_TYPE = RELATIVE (default):**
-     - Call `calculateAbsoluteElevation()` to convert relative Z to absolute elevation based on `BridgeRelationship`:
-       - **SOURCE_NOT_RELATED_TO_BRIDGE:** `absoluteZ = DEM_ground_elevation + coord.z` (typically DEM + 0.05m)
-       - **ACTUAL_SOURCE_ON_BRIDGE:** `absoluteZ = bridge_deck_height + coord.z` (typically deck + 0.05m)
-       - **IMAGINARY_SOURCE_UNDER_BRIDGE:** `absoluteZ = (bridge_deck_height - deck_thickness) + coord.z` (typically bridge_bottom - 0.05m)
-   - **If HEIGHT_TYPE = ABSOLUTE:**
-     - Skip elevation conversion — `coord.z` already contains absolute elevation in DEM coordinate system
-     - Use Z coordinate as-is (no transformation needed)
-   - **Result:** After this step, `coord.z` always contains absolute elevation regardless of original `HEIGHT_TYPE`
-
-6. **SourcePointInfo Creation:**
-   - Each sampled point becomes a `SourcePointInfo` object **with absolute elevation**
-   - All points share the same `sourcePk` for emission data lookup
-   - Position (with absolute Z), segment length (`li`), orientation, and `bridgeRelationship` assigned to each point
-   - **Note:** This step is executed for all sources regardless of `HEIGHT_TYPE`
-
-7. **MIRROR_SOURCE Generation (Bridge Reflection):**
-   - `addMirrorSourceIfNeeded()` checks if each sampled point (with absolute elevation) is within any bridge footprint (2D projection)
-   - **Conditions for MIRROR_SOURCE creation:**
-     - Source point must be within bridge footprint (`bridge.isPointWithinBridgeFootprint()`)
-     - Original source type must NOT be `IMAGINARY_SOURCE_UNDER_BRIDGE` (skip virtual sources)
-     - If original source is `ACTUAL_SOURCE_ON_BRIDGE`, skip the bridge it's on (only create MIRROR_SOURCE for other bridges above)
-     - Bridge bottom (`deckHeight - deckThickness`) must be above source Z elevation (absolute)
-     - Among multiple qualifying bridges, select the one with minimum bridge bottom height
-   - **MIRROR_SOURCE properties:**
-     - `RelationType = MIRROR_SOURCE`
-     - `bridgePkAbove` = bridge causing reflection (minimum bridge bottom above source)
-     - `bridgePkOn` = inherited from original if `ACTUAL_SOURCE_ON_BRIDGE`, otherwise `-1`
-     - Same `sourcePk`, orientation as original (shares emission data)
-     - **Absolute elevation:** Calculated using reflection formula: `originalZ + 2 × (bridgeBottom - originalZ)`
-   - **Physical meaning:** Represents sound reflection from bridge underside, modeling secondary sound path from bridge structure
-
-**Output:**
-- Multiple `SourcePointInfo` objects with **absolute elevations** (discrete point sources sampled from LineString)
-- Additional `MIRROR_SOURCE` objects for sources under bridge footprints (bridge reflection modeling) with **absolute elevations**
-- Each point retains: position coordinates with **absolute Z**, segment length (`li`), `sourcePk` (for emission data lookup), `bridgeRelationship`, orientation
-- **Ready for propagation:** Source processing complete with absolute elevations. Receiver elevation conversion and acoustic path construction are handled in propagation phase (see [propagation_algorithms.md](propagation_algorithms.md))
-
-**Key Design Principles:**
-
-- **Integrated Processing:** Sampling and elevation conversion performed in single pass, eliminating redundant coordinate transformation
-- **Receiver-Dependent:** Sampling density varies per receiver based on distance
-- **Absolute Coordinates:** All output coordinates use absolute elevations (sea level reference), ready for direct propagation calculation
-- **Post-Scene Processing:** Operates on geometries already registered in Scene (Step 3)
-- **Per-Calculation Execution:** Performed repeatedly for each receiver during propagation
-- **Shared Emission Data:** All sampled points from same LineString reference same emission data via `sourcePk`
-- **Bridge Reflection:** MIRROR_SOURCE generation uses absolute elevations for accurate reflection modeling
+Refer to [Docs-dev/pathfinder_algorithms.md](Docs-dev/pathfinder_algorithms.md) for additional details and design trade-offs.

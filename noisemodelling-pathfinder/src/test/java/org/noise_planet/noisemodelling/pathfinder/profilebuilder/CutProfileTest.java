@@ -16,6 +16,8 @@ import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +37,7 @@ public class CutProfileTest {
     private CutProfile cutProfile;
     private CutPointSource source;
     private CutPointReceiver receiver;
+    private static final Logger logger = LoggerFactory.getLogger(CutProfileTest.class);
 
     @BeforeEach
     public void setUp() {
@@ -404,7 +407,9 @@ public class CutProfileTest {
 
     @Test
     public void TBCCoordinates2D() throws Exception {
-        CutProfile cutProfileCase = loadCutProfile("TBC06");
+        CutProfile cutProfileCase = loadCutProfile("TC01_Direct");
+        ObjectMapper mapper = new ObjectMapper();
+        logger.info("Loaded CutProfile (TC01_Direct):\n{}", mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cutProfileCase));
         List<Coordinate> cutPointCoordinates2D = cutProfileCase.generateCutPointCoordinates2D();
         assertNotNull(cutPointCoordinates2D);
     }

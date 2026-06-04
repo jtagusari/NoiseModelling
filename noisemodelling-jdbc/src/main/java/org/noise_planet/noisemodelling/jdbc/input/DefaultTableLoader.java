@@ -297,7 +297,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
         scene.setComputeHorizontalDiffraction(noiseMapByReceiverMaker.isComputeHorizontalDiffraction());
 
         // Fetch all source located in expandedCellEnvelop
-        fetchCellSource(connection, expandedCellEnvelop, scene, true);
+        loadCellSourcesAndEmissions(connection, expandedCellEnvelop, scene, true);
 
         // Fetch receivers
         fetchCellReceiver(connection, cellEnvelope, scene, skipReceivers);
@@ -812,7 +812,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
      * @param scene (Out) Propagation process input data
      * @throws SQLException
      */
-    public void fetchCellSource(Connection connection, Envelope fetchEnvelope, SceneWithEmission scene, boolean doIntersection)
+    public void loadCellSourcesAndEmissions(Connection connection, Envelope fetchEnvelope, SceneWithEmission scene, boolean doIntersection)
             throws SQLException {
         String sourcesTableName = noiseMapByReceiverMaker.getSourcesTableName();
         GeometryFactory geometryFactory = noiseMapByReceiverMaker.getGeometryFactory();

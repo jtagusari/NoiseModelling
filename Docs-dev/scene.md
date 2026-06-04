@@ -175,9 +175,11 @@ title ProfileBuilder — Feeding data (step-by-step)
 
 
 @enduml
-```
+`
 
-### Preprocessing ProfileBuilder
+#### Adding Buildinaa
+
+### Finish ProfileBuilder Preprocess
 
 Finalizing the `ProfileBuilder` by calling `finishFeeding()` executes a multi-step preprocessing pipeline that builds a TIN/DEM from topographic points, propagates elevations into buildings/walls/bridges, exports building and wall facets to spatial indexes, and constructs processed wall facets used for reflection and diffraction calculations.
 The `ProfileBuilder` instance is effectively read-only after `finishFeeding()`.

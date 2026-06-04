@@ -35,3 +35,6 @@ __pycache__/
 
 # temporary outputs
 tmp_*
+
+# for private use
+calc_test/*

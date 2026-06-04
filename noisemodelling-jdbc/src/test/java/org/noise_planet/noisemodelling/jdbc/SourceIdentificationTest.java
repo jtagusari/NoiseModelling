@@ -449,11 +449,11 @@ public class SourceIdentificationTest {
 
         // Step 3: Source Loading, Emission Calculation, and Scene Registration
         // Registers source geometries and emission spectra into Scene
-        // (see source_algorithms.md Step 3: "fetchCellSource() ... registers geometry and emissions")
+        // (see source_algorithms.md Step 3: "loadCellSourcesAndEmissions() ... registers geometry and emissions")
         LOGGER.info("");
         LOGGER.info("Step 3: Loading sources and registering emissions...");
         LOGGER.info("  (ProfileBuilder finalization is now complete - proceeds to source loading)");
-        tableLoader.fetchCellSource(connection, mainEnvelope, scene, true);
+        tableLoader.loadCellSourcesAndEmissions(connection, mainEnvelope, scene, true);
         LOGGER.info("  ✓ Source geometries (LineStrings) registered in Scene");
         LOGGER.info("  ✓ Source emissions (spectra) registered via sourcePk lookup");
 
