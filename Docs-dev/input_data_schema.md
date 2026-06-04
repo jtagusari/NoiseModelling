@@ -8,6 +8,7 @@
   - [Terrain (DEM) Data](#terrain-dem-data)
   - [Ground Areas Table](#ground-areas-table)
   - [Computational Parameters](#computational-parameters)
+  - [Data Validation Checklist](#data-validation-checklist)
 
 ## Overview
 
@@ -261,7 +262,7 @@ To keep test coverage clear and non-overlapping, bridge-related tests in this re
 
 **Java Mapping**:
 - Per-period atmospheric parameters are loaded by `DefaultTableLoader.loadAtmosphericTableSettings(...)` using `AttenuationParameters.readFromDatabase(ResultSet, map)`.
-- Global propagation settings are read from `NoiseMapByReceiverMaker` and injected into `SceneWithEmission` when `DefaultTableLoader.create(...)` builds each cell scene.
+- Global propagation settings are read from `NoiseMapByReceiverMaker` and injected into `SceneWithEmission` when `DefaultTableLoader.createScene(...)` builds each cell scene.
 
 ## Data Validation Checklist
 

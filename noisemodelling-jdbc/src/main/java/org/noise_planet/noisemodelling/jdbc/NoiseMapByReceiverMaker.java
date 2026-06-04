@@ -61,6 +61,57 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         this.receiverTableName = receiverTableName;
     }
 
+    public NoiseMapByReceiverMaker(String buildingsTableName, String sourcesTableName, String receiverTableName, String bridgePointsTableName, String soilTableName, String demTable) {
+        super(buildingsTableName, sourcesTableName, bridgePointsTableName, soilTableName, demTable);
+        this.receiverTableName = receiverTableName;
+    }
+
+    public static class Builder{
+        private String buildingsTableName;
+        private String sourcesTableName;
+        private String receiverTableName;
+        private String bridgePointsTableName = null;
+        private String soilTableName = null;
+        private String demTable = null;
+
+        public Builder setBuildingsTableName(String buildingsTableName) {
+            this.buildingsTableName = buildingsTableName;
+            return this;
+        }
+
+        public Builder setSourcesTableName(String sourcesTableName) {
+            this.sourcesTableName = sourcesTableName;
+            return this;
+        }
+
+        public Builder setReceiverTableName(String receiverTableName) {
+            this.receiverTableName = receiverTableName;
+            return this;
+        }
+
+        public Builder setBridgePointsTableName(String bridgePointsTableName) {
+            this.bridgePointsTableName = bridgePointsTableName;
+            return this;
+        }
+
+        public Builder setSoilTableName(String soilTableName) {
+            this.soilTableName = soilTableName;
+            return this;
+        }
+
+        public Builder setDemTable(String demTable) {
+            this.demTable = demTable;
+            return this;
+        }
+
+        public NoiseMapByReceiverMaker build() {
+            if(buildingsTableName == null || sourcesTableName == null || receiverTableName == null) {
+                throw new IllegalStateException("Table names for buildings, sources and receivers must be provided");
+            }
+            return new NoiseMapByReceiverMaker(buildingsTableName, sourcesTableName, receiverTableName, bridgePointsTableName, soilTableName, demTable);
+        }
+    }
+
     /**
      * @return Settings of the database (expected tables names; fields, global settings of the computation)
      */
@@ -189,7 +240,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
      * @return Data input for cell evaluation
      * @throws SQLException
      */
-    public SceneWithEmission prepareCell(Connection connection, CellIndex cellIndex,
+    public SceneWithEmission requestCellScene(Connection connection, CellIndex cellIndex,
                                          Set<Long> skipReceivers) throws SQLException, IOException {
 
         Envelope cellEnvelope = getCellEnv(cellIndex);
@@ -204,7 +255,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
                     mainEnvelope.getMinY(), mainEnvelope.getMaxY()));
         }
 
-        return tableLoader.create(connection, cellIndex, skipReceivers);
+        return tableLoader.createScene(connection, cellIndex, skipReceivers);
     }
 
     /**
@@ -279,7 +330,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
      */
     public CutPlaneVisitorFactory evaluateCell(Connection connection, CellIndex cellIndex,
                                         ProgressVisitor progression, Set<Long> skipReceivers) throws SQLException, IOException {
-        SceneWithEmission scene = prepareCell(connection, cellIndex, skipReceivers);
+        SceneWithEmission scene = requestCellScene(connection, cellIndex, skipReceivers);
 
         if(verbose) {
             LOGGER.info(String.format("  Number of receivers: %d", scene.receivers.size()));
@@ -287,7 +338,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             LOGGER.info(String.format("  Number of buildings: %d", scene.profileBuilder.getBuildingCount()));
         }
 
-        CutPlaneVisitorFactory computeRaysOut = computeRaysOutFactory.create(scene);
+        CutPlaneVisitorFactory computeRaysOut = computeRaysOutFactory.createCutPlaneVisitorFactory(scene);
 
         PathFinder computeRays = new PathFinder(scene, progression);
 
@@ -382,7 +433,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
          * @param skipReceivers Do not process the receivers primary keys in this set and once included add the new receivers primary in it
          * @return Scene to feed the data
          */
-        SceneWithEmission create(Connection connection, CellIndex cellIndex, Set<Long> skipReceivers) throws SQLException;
+        SceneWithEmission createScene(Connection connection, CellIndex cellIndex, Set<Long> skipReceivers) throws SQLException;
     }
 
     /**
@@ -416,7 +467,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
          * @param cellData the scene data for the current computation cell
          * @return an object that computes paths out for noise map computation.
          */
-        CutPlaneVisitorFactory create(SceneWithEmission cellData);
+        CutPlaneVisitorFactory createCutPlaneVisitorFactory(SceneWithEmission cellData);
     }
 
 

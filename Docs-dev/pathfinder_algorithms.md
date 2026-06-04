@@ -223,7 +223,7 @@ skinparam ranksep 12
 title Cell Evaluation & PathFinder Integration
 
 rectangle A as "NoiseMapByReceiverMaker.evaluateCell()"
-rectangle B as "prepareCell() → SceneWithEmission\n(loads geometry, sources, receivers for cell)"
+rectangle B as "requestCellScene() → SceneWithEmission\n(loads geometry, sources, receivers for cell)"
 rectangle C as "PathFinder.run(scene, visitor)"
 rectangle D as "PathExecutionManager coordinates\nper-receiver work queue"
 rectangle E as "ReceiverProcessor per receiver\n(source collection, profile retrieval, propagation)"
@@ -242,7 +242,7 @@ F --> G
 
 ### Integration Responsibilities
 
-- **evaluateCell() Coordination**: Creates a `SceneWithEmission` by invoking `prepareCell()`, then instantiates `PathFinder` with the scene and a result visitor
+- **evaluateCell() Coordination**: Creates a `SceneWithEmission` by invoking `requestCellScene()`, then instantiates `PathFinder` with the scene and a result visitor
 - **Propagation Computation**: `PathFinder.run()` orchestrates the complete path-finding pipeline for all receivers in the cell, invoking the threading and per-receiver processing components described in [Finding Paths](pathfinder_algorithms.md#finding-paths)
 - **Result Collection**: Results from path-finding (per-receiver ray/cut-plane contributions) are collected by the visitor (typically `AttenuationComputeOutput`) which computes acoustic attenuation and aggregates per-cell noise levels
 - **Memory Efficiency**: Cell-based decomposition ensures only relevant sources, receivers and geometry are held in memory for each cell
