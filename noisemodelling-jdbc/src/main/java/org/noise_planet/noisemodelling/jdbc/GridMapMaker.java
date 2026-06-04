@@ -15,7 +15,6 @@ import org.h2gis.utilities.TableLocation;
 import org.h2gis.utilities.dbtypes.DBTypes;
 import org.h2gis.utilities.dbtypes.DBUtils;
 import org.locationtech.jts.geom.*;
-import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +24,10 @@ import java.sql.*;
 import static org.h2gis.utilities.GeometryTableUtilities.getGeometryColumnNames;
 import static org.h2gis.utilities.GeometryTableUtilities.getSRID;
 /**
- * Common attributes and functions across DelaunayGrid and NoiseMap receiver computation
+ * Shared grid and input-table configuration for map makers.
+ *
+ * This base class manages computation envelope, grid subdivision and common
+ * acoustic/geometric parameters used by receiver and Delaunay workflows.
  * @author Nicolas Fortin
  */
 public abstract class GridMapMaker {
@@ -33,7 +35,7 @@ public abstract class GridMapMaker {
     // When computing cell size, try to keep propagation distance away from the cell
     // inferior to this ratio (in comparison with cell width)
     protected static final double MINIMAL_BUFFER_RATIO = 0.3;
-    protected DefaultTableLoader.BuildingTableParameters buildingTableParameters = new DefaultTableLoader.BuildingTableParameters();
+    protected BuildingTableSettings buildingTableParameters = new BuildingTableSettings();
     protected final String sourcesTableName;
     protected String soilTableName = "";
     // Digital elevation model table. (Contains points or triangles)
@@ -58,7 +60,7 @@ public abstract class GridMapMaker {
 
     protected GeometryFactory geometryFactory;
 
-    // Initialised attributes
+    // Runtime-initialized attributes
     /**
      *  Side computation cell count (same on X and Y)
      */
@@ -78,7 +80,7 @@ public abstract class GridMapMaker {
         this.demTable = demTable;
     }
 
-    public DefaultTableLoader.BuildingTableParameters getBuildingTableParameters() {
+    public BuildingTableSettings getBuildingTableParameters() {
         return buildingTableParameters;
     }
 
@@ -105,7 +107,7 @@ public abstract class GridMapMaker {
                 cellIndex.getLongitudeIndex(), getCellWidth(), getCellHeight());
     }
     /**
-     * Compute the envelope corresping to parameters
+        * Compute the envelope corresponding to grid indices and dimensions.
      *
      * @param mainEnvelope Global envelope
      * @param cellI        I cell index
@@ -158,6 +160,26 @@ public abstract class GridMapMaker {
             throw new SQLException(new IllegalArgumentException(
                     "Maximum wall seeking distance cannot be superior than maximum propagation distance"));
         }
+        initializeGridState(connection);
+    }
+
+    /**
+     * Resolve the geometry factory and computation envelope from the database-backed configuration.
+     * Subclasses can override this method when the initialization source differs.
+     */
+    protected void initializeGridState(Connection connection) throws SQLException {
+        geometryFactory = createGeometryFactory(connection);
+
+        if(mainEnvelope.isNull()) {
+            // Derive computation envelope once; grid dimensions are resolved from this extent.
+            setMainEnvelope(getComputationEnvelope(connection));
+        }
+    }
+
+    /**
+     * Resolve the SRID and create the geometry factory used by grid computations.
+     */
+    protected GeometryFactory createGeometryFactory(Connection connection) throws SQLException {
         int srid = 0;
         DBTypes dbTypes = DBUtils.getDBType(connection.unwrap(Connection.class));
         if(!sourcesTableName.isEmpty()) {
@@ -166,32 +188,7 @@ public abstract class GridMapMaker {
         if(srid == 0) {
             srid = getSRID(connection, TableLocation.parse(buildingTableParameters.buildingsTableName, dbTypes));
         }
-        geometryFactory = new GeometryFactory(new PrecisionModel(), srid);
-
-        // Steps of execution
-        // Evaluation of the main bounding box (sourcesTableName+buildingsTableName)
-        // Split domain into 4^subdiv cells
-        // For each cell :
-        // Expand bounding box cell by maxSrcDist
-        // Build delaunay triangulation from buildingsTableName polygon processed by
-        // intersection with non extended bounding box
-        // Save the list of sourcesTableName index inside the extended bounding box
-        // Save the list of buildingsTableName index inside the extended bounding box
-        // Make a structure to keep the following information
-        // Triangle list with the 3 vertices index
-        // Vertices list (as receivers)
-        // For each vertices within the cell bounding box (not the extended
-        // one)
-        // Find all sourcesTableName within maxSrcDist
-        // For All found sourcesTableName
-        // Test if there is a gap(no building) between source and receiver
-        // if not then append the distance attenuated sound level to the
-        // receiver
-        // Save the triangle geometry with the db_m value of the 3 vertices
-        if(mainEnvelope.isNull()) {
-            // 1 Step - Evaluation of the main bounding box (sources)
-            setMainEnvelope(getComputationEnvelope(connection));
-        }
+        return new GeometryFactory(new PrecisionModel(), srid);
     }
 
     /**
@@ -216,7 +213,7 @@ public abstract class GridMapMaker {
 
     /**
      * This table must contain a POINT or LINESTRING column
-     * @return Table name that contain linear and/or punctual sound sources geometries.*
+     * @return Table name containing linear and/or punctual sound source geometries.
      */
     public String getSourcesTableName() {
         return sourcesTableName;
@@ -345,7 +342,7 @@ public abstract class GridMapMaker {
 
     /**
      * @return Sound propagation stop at this distance, default to 750m.
-     * Computation cell size if proportional with this value.
+        * Computation cell size is proportional to this value.
      */
 
     public double getMaximumPropagationDistance() {
@@ -354,14 +351,14 @@ public abstract class GridMapMaker {
 
     /**
      * @param maximumPropagationDistance  Sound propagation stop at this distance, default to 750m.
-     * Computation cell size if proportional with this value.
+        * Computation cell size is proportional to this value.
      */
     public void setMaximumPropagationDistance(double maximumPropagationDistance) {
         this.maximumPropagationDistance = maximumPropagationDistance;
     }
 
     /**
-     *
+     * Set global ground coefficient used when no local ground effect table applies.
      */
     public void setGs(double gs) {
         this.gs = gs;
@@ -431,7 +428,7 @@ public abstract class GridMapMaker {
     }
 
     /**
-     * @return {@link #getBuildingsTableName()} eName} table field name for buildings height above the ground.
+        * @return {@link #getBuildingsTableName()} table field name for building height above the ground.
      */
 
     public String getHeightField() {
@@ -439,7 +436,7 @@ public abstract class GridMapMaker {
     }
 
     /**
-     * @param heightField {@link #getBuildingsTableName()}} table field name for buildings height above the ground.
+        * @param heightField {@link #getBuildingsTableName()} table field name for building height above the ground.
      */
     public void setHeightField(String heightField) {
         buildingTableParameters.heightField = heightField;

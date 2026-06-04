@@ -322,10 +322,10 @@ public class TableLoaderTest {
 
         NoiseMapDatabaseParameters parameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
 
-        noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+        noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
 
         // Use train directivity functions instead of discrete directivity
-        noiseMapByReceiverMaker.getSceneInputSettings().setUseTrainDirectivity(true);
+        noiseMapByReceiverMaker.setUseTrainDirectivity(true);
 
         noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 

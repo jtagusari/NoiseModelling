@@ -482,10 +482,10 @@ def exec(Connection connection, Map input) {
     // add optional discrete directivity table name
     if(tableSourceDirectivity.isEmpty()) {
         // Use train directivity functions instead of discrete directivity
-        pointNoiseMap.sceneInputSettings.setUseTrainDirectivity(true)
+                pointNoiseMap.setUseTrainDirectivity(true)
     } else {
         // Load table into specialized class
-        pointNoiseMap.sceneInputSettings.setDirectivityTableName(tableSourceDirectivity)
+                pointNoiseMap.setDirectivityTableName(tableSourceDirectivity)
         logger.info(String.format(Locale.ROOT, "Loaded directivity from %s table", tableSourceDirectivity))
     }
 
@@ -530,7 +530,7 @@ def exec(Connection connection, Map input) {
         environmentalData.setTemperature(input['confTemperature'] as Double)
     }
     if(input.containsKey("tablePeriodAtmosphericSettings")) {
-        pointNoiseMap.getSceneInputSettings().setPeriodAtmosphericSettingsTableName(input.get("tablePeriodAtmosphericSettings") as String)
+                pointNoiseMap.setPeriodAtmosphericSettingsTableName(input.get("tablePeriodAtmosphericSettings") as String)
     }
 
     // Building height field name

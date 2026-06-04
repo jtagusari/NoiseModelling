@@ -376,5 +376,7 @@ The `NoiseMapByReceiverMaker` class serves as the orchestrator coordinating all 
 4. **Integrates PathFinder**: Creates PathFinder instances with prepared scenes
 5. **Manages AttenuationComputeOutput**: Coordinates visitor-pattern result collection
 6. **Coordinates Threading**: Manages multi-threaded path finding and result aggregation
+7. **Splits Loader Contexts**: Exposes one-time `LoaderInitContext` and per-cell `CellSceneContext` to `TableLoader`
+8. **Stabilizes Input Settings**: `DefaultTableLoader.initialize(...)` snapshots `SceneDatabaseInputSettingsView`, resolves `INPUT_MODE_GUESS` once, and reuses the resolved mode for all subsequent `createScene(...)` calls
 
 For detailed NoiseMapByReceiverMaker architecture and orchestration patterns, see [noisemapbyreceivermaker_algorithms.md](noisemapbyreceivermaker_algorithms.md).

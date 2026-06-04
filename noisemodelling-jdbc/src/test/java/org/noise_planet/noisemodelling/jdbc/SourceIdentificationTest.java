@@ -398,7 +398,7 @@ public class SourceIdentificationTest {
 
         DefaultTableLoader tableLoader = new DefaultTableLoader();
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("NO_BUILDINGS", "ROADS", "RECEIVERS");
-        noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN);
+        noiseMapByReceiverMaker.setInputMode("INPUT_MODE_TRAFFIC_FLOW_DEN");
         noiseMapByReceiverMaker.setDemTable("DEM");
         noiseMapByReceiverMaker.setBridgePointsTableName("BRIDGE_POINTS");
         noiseMapByReceiverMaker.setMaximumPropagationDistance(100.0);
@@ -407,7 +407,7 @@ public class SourceIdentificationTest {
 
         DefaultProgressVisitor progressVisitor = new DefaultProgressVisitor(1, null);
         noiseMapByReceiverMaker.initialize(connection, progressVisitor);
-        tableLoader.initialize(connection, noiseMapByReceiverMaker);
+        tableLoader.initialize(connection, noiseMapByReceiverMaker.getLoaderInitContext());
         
         Envelope mainEnvelope = new Envelope(0, 100, 0, 100);
         LOGGER.info("Main envelope (calculation region): [0,100] × [0,100]");
@@ -447,10 +447,10 @@ public class SourceIdentificationTest {
         // Note: Soil areas would be loaded here with fetchCellSoilAreas() if available
         // Skipped in this test: tableLoader.fetchCellSoilAreas(connection, expandedCellEnvelop, scene.profileBuilder);
         
-        tableLoader.fetchCellDem(connection, expandedCellEnvelop, scene.profileBuilder);
+        tableLoader.fetchCellDem(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder);
         LOGGER.info("  ✓ DEM (topographic points) loaded");
         
-        tableLoader.fetchCellBridge(connection, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
+        tableLoader.fetchCellBridge(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder, geometryFactory);
         LOGGER.info("  ✓ Bridge geometry (BRIDGE_POINTS table) loaded");
 
         // Step 2d: ProfileBuilder Finalization (Critical step - MUST be done BEFORE Step 3)
@@ -470,7 +470,7 @@ public class SourceIdentificationTest {
         LOGGER.info("");
         LOGGER.info("Step 3: Loading sources and registering emissions...");
         LOGGER.info("  (ProfileBuilder finalization is now complete - proceeds to source loading)");
-        tableLoader.fetchCellSource(connection, mainEnvelope, scene, true);
+        tableLoader.fetchCellSource(connection, noiseMapByReceiverMaker.getCellSceneContext(), mainEnvelope, scene, true);
         LOGGER.info("  ✓ Source geometries (LineStrings) registered in Scene");
         LOGGER.info("  ✓ Source emissions (spectra) registered via sourcePk lookup");
 

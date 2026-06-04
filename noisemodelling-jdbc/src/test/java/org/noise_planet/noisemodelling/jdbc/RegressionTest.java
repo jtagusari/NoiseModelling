@@ -43,7 +43,7 @@ public class RegressionTest {
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
                     "LW_ROADS", "RECEIVERS");
 
-            noiseMapByReceiverMaker.sceneDatabaseInputSettings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
 
             noiseMapByReceiverMaker.setMaximumPropagationDistance(500.0);
             noiseMapByReceiverMaker.setSoundReflectionOrder(1);

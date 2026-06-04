@@ -122,7 +122,7 @@ class Main {
         defaultParameters.writeToDatabase(connection, atmosphericSettingsTableName, "N");
 
         noiseMapByReceiverMaker.setGridDim(1);
-        noiseMapByReceiverMaker.getSceneInputSettings().setPeriodAtmosphericSettingsTableName(atmosphericSettingsTableName);
+        noiseMapByReceiverMaker.setPeriodAtmosphericSettingsTableName(atmosphericSettingsTableName);
 
         noiseMapByReceiverMaker.run(connection, progressLogger);
 

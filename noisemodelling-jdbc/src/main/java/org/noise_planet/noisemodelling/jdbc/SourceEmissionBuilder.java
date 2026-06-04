@@ -240,6 +240,10 @@ public class SourceEmissionBuilder {
         for (int idFreq = 0; idFreq < frequencyBands.size(); idFreq++) {
             String lwField = this.frequencyFieldPrepend + periodAppend + frequencyBands.get(idFreq);
             Double lw = getDouble(lwField, -99);
+            if(lw < -90 && !periodAppend.isEmpty()) {
+                String legacyLwField = this.frequencyFieldPrepend + frequencyBands.get(idFreq) + "_" + periodAppend;
+                lw = getDouble(legacyLwField, -99);
+            }
             if(lw >= -90) {
                 emissionInWatts[idFreq] = dBToW(lw);
                 anyFieldExists = true;

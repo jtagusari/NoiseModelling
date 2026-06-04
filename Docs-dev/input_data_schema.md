@@ -262,7 +262,8 @@ To keep test coverage clear and non-overlapping, bridge-related tests in this re
 
 **Java Mapping**:
 - Per-period atmospheric parameters are loaded by `DefaultTableLoader.loadAtmosphericTableSettings(...)` using `AttenuationParameters.readFromDatabase(ResultSet, map)`.
-- Global propagation settings are read from `NoiseMapByReceiverMaker` and injected into `SceneWithEmission` when `DefaultTableLoader.createScene(...)` builds each cell scene.
+- Global propagation and input settings are exposed by `NoiseMapByReceiverMaker` through read-only loader contexts and injected into `SceneWithEmission` when `DefaultTableLoader.createScene(...)` builds each cell scene.
+- `DefaultTableLoader.initialize(...)` first snapshots `SceneDatabaseInputSettingsView` into mutable internal settings, resolves `INPUT_MODE_GUESS` if needed, then reuses that resolved mode consistently for per-cell source/emission loading.
 
 ## Data Validation Checklist
 

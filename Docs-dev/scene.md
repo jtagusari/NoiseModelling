@@ -228,9 +228,9 @@ top to bottom direction
 skinparam componentStyle rectangle
 title Typical Scene Creation Workflow — DefaultTableLoader.createScene()
 
-[Create ProfileBuilder\nwith FrequencyConfig] --> [Create SceneWithEmission\nwith ProfileBuilder & settings]
+[Create ProfileBuilder\nwith FrequencyConfig] --> [Create SceneWithEmission\nwith ProfileBuilder & resolved settings snapshot]
 
-[Create SceneWithEmission\nwith ProfileBuilder & settings] --> [Configure Acoustic Parameters\n(directivity, atmospheric, attenuation)]
+[Create SceneWithEmission\nwith ProfileBuilder & resolved settings snapshot] --> [Configure Acoustic Parameters\n(directivity, atmospheric, attenuation)]
 
 [Configure Acoustic Parameters\n(directivity, atmospheric, attenuation)] --> [Load Geometry into ProfileBuilder\n(buildings, terrain, ground, bridges)]
 
@@ -251,7 +251,9 @@ title Typical Scene Creation Workflow — DefaultTableLoader.createScene()
    Create a `ProfileBuilder` instance with frequency configuration for the computation band (octave or third-octave).
 
 2. **Create SceneWithEmission**  
-   Instantiate `SceneWithEmission` with the `ProfileBuilder` and input settings. This extended Scene class adds emission spectra and virtual source management.
+  Instantiate `SceneWithEmission` with the `ProfileBuilder` and the loader's resolved settings snapshot (created during `DefaultTableLoader.initialize(...)`). This extended Scene class adds emission spectra and virtual source management.
+
+  If `INPUT_MODE_GUESS` was configured initially, the mode has already been inferred and persisted before `createScene(...)` runs.
 
 3. **Configure Acoustic Parameters**  
    - Set direction attributes (omnidirectional or train-specific directivity spheres)

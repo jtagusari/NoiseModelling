@@ -97,11 +97,9 @@ public class SceneWithEmissionWithDb {
 
         // Setup SceneWithEmission with OCTAVE frequency configuration
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneWithEmission scene = new SceneWithEmission(profileBuilder);
-
-        // Configure input mode for LW DEN input
-        SceneDatabaseInputSettings settings = scene.getSceneDatabaseInputSettings();
-        settings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+        settings.setInputMode("INPUT_MODE_LW_DEN");
+        SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
         // Note: frequencyFieldPrepend is public, but already defaults to "HZ"
 
         // Load and parse the source
@@ -181,10 +179,9 @@ public class SceneWithEmissionWithDb {
         }
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneWithEmission scene = new SceneWithEmission(profileBuilder);
-
-        SceneDatabaseInputSettings settings = scene.getSceneDatabaseInputSettings();
-        settings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+        settings.setInputMode("INPUT_MODE_LW_DEN");
+        SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
         try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM LW_DEN_SOURCES ORDER BY PK");
              SpatialResultSet rs = ps.executeQuery().unwrap(SpatialResultSet.class)) {
@@ -247,10 +244,9 @@ public class SceneWithEmissionWithDb {
         }
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneWithEmission scene = new SceneWithEmission(profileBuilder);
-
-        SceneDatabaseInputSettings settings = scene.getSceneDatabaseInputSettings();
-        settings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+        settings.setInputMode("INPUT_MODE_LW_DEN");
+        SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
         try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM LW_DEN_SOURCES WHERE PK=1");
              SpatialResultSet rs = ps.executeQuery().unwrap(SpatialResultSet.class)) {

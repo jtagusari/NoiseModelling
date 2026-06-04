@@ -233,13 +233,11 @@ public class ReceiverIdentificationTest {
             // initialize DefaultTableLoader
             DefaultTableLoader tableLoader = new DefaultTableLoader();
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("NO_BUILDINGS_TABLE", "NO_SOURCES", "RECEIVERS");
-            noiseMapByReceiverMaker.setInputMode(
-                SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION
-            );
+            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_ATTENUATION");
             noiseMapByReceiverMaker.setMainEnvelope(envelope);
             DefaultProgressVisitor progressVisitor = new DefaultProgressVisitor(1, null);
             noiseMapByReceiverMaker.initialize(connection, progressVisitor);
-            tableLoader.initialize(connection, noiseMapByReceiverMaker);
+            tableLoader.initialize(connection, noiseMapByReceiverMaker.getLoaderInitContext());
 
             LOGGER.info("--- Initializing Scene then Loading and Registering Receivers using fetchCellReceiver method---");
             // Create scene and load receivers within envelope using fetchCellReceiver
@@ -247,7 +245,7 @@ public class ReceiverIdentificationTest {
 
             Set<Long> skipReceivers = new HashSet<>();
 
-            tableLoader.fetchCellReceiver(connection, envelope, scene, skipReceivers);
+            tableLoader.fetchCellReceiver(connection, noiseMapByReceiverMaker.getCellSceneContext(), envelope, scene, skipReceivers);
             
             
             // ============================================================

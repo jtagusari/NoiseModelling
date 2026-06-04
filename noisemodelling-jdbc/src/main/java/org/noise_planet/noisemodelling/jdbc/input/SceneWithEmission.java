@@ -62,9 +62,9 @@ public class SceneWithEmission extends SceneWithAttenuation {
     * @param sceneDatabaseInputSettings controls how database fields are
     *                                  interpreted when reading emissions
      */
-    public SceneWithEmission(ProfileBuilder profileBuilder, SceneDatabaseInputSettings sceneDatabaseInputSettings) {
+    public SceneWithEmission(ProfileBuilder profileBuilder, SceneDatabaseInputSettingsView sceneDatabaseInputSettings) {
         super(profileBuilder);
-        this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
+        this.sceneDatabaseInputSettings = new SceneDatabaseInputSettings(sceneDatabaseInputSettings);
     }
 
     /**
@@ -224,7 +224,15 @@ public class SceneWithEmission extends SceneWithAttenuation {
      *
      * @return the current scene database input settings
      */
-    public SceneDatabaseInputSettings getSceneDatabaseInputSettings() {
-        return this.sceneDatabaseInputSettings;
+    public SceneDatabaseInputSettingsView getSceneDatabaseInputSettings() {
+        return this.sceneDatabaseInputSettings.copy();
+    }
+
+    public void setInputMode(SceneDatabaseInputSettings.INPUT_MODE inputMode) {
+        this.sceneDatabaseInputSettings.setInputMode(inputMode);
+    }
+
+    public void setInputMode(String inputMode) {
+        this.sceneDatabaseInputSettings.setInputMode(inputMode);
     }
 }

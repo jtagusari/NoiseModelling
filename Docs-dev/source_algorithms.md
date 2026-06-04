@@ -260,7 +260,13 @@ Geometry loading and emission calculation occur together while sources are added
 - `INPUT_MODE_TRAFFIC_FLOW_DEN` / `INPUT_MODE_LW_DEN`: emission data is embedded in the sources table (DEN periods in one row)
 - `INPUT_MODE_TRAFFIC_FLOW` / `INPUT_MODE_LW`: emission data is stored in a separate emission table (one row per period)
 - `INPUT_MODE_ATTENUATION`: no emission parsing (attenuation-only inputs)
-- `INPUT_MODE_GUESS`: auto-detected from available columns
+- `INPUT_MODE_GUESS`: auto-detected from available columns during `DefaultTableLoader.initialize(...)`
+
+**Lifecycle note (current implementation):**
+- `NoiseMapByReceiverMaker` exposes `SceneDatabaseInputSettingsView` through read-only contexts.
+- `DefaultTableLoader.initialize(...)` copies that view into an internal mutable `SceneDatabaseInputSettings` snapshot.
+- If the mode is `INPUT_MODE_GUESS`, the guessed mode is resolved once and stored in that snapshot.
+- `createScene(...)` and `fetchCellSource(...)` then use the resolved snapshot, not the original unresolved view.
 
 **What `addSourceDb()` does:**
 `SceneWithEmission.addSourceDb()` extends `SceneWithAttenuation.addSourceDb()` and combines registration with emission parsing.

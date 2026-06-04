@@ -10,8 +10,11 @@
     - [Overview](#overview)
     - [Key Responsibilities](#key-responsibilities)
     - [Scene Contents](#scene-contents)
-  - [Path Finding Integration](#path-finding-integration)
+  - [Loader Context Split \& Settings Lifecycle](#loader-context-split--settings-lifecycle)
     - [Overview](#overview-1)
+    - [DefaultTableLoader Initialization Behavior](#defaulttableloader-initialization-behavior)
+  - [Path Finding Integration](#path-finding-integration)
+    - [Overview](#overview-2)
     - [Key Steps](#key-steps)
   - [Attenuation Computation](#attenuation-computation)
   - [Result Aggregation](#result-aggregation)
@@ -35,6 +38,7 @@ The class extends `GridMapMaker` and orchestrates the complete noise mapping wor
 - Database integration for input data loading
 - Multi-threaded processing coordination
 - Integration with PathFinder and AttenuationComputeOutput components
+- Read-only context exposure for loader initialization and per-cell scene creation
 
 ## GridMapMaker — Base Architecture
 
@@ -68,10 +72,23 @@ class NoiseMapByReceiverMaker extends GridMapMaker {
   
   + NoiseMapByReceiverMaker(buildings, sources, receivers)
   + run(ProgressVisitor): IComputeRaysOut
+  + initialize(Connection, ProgressVisitor): void
   + evaluateCell(Connection, CellIndex, ProgressVisitor): void
   + requestCellScene(Connection, CellIndex, Set<Long>): SceneWithEmission
+  + getLoaderInitContext(): LoaderInitContext
+  + getCellSceneContext(): CellSceneContext
+  + getSceneInputSettings(): SceneDatabaseInputSettingsView
+  + setInputMode(INPUT_MODE): void
+  + setInputMode(String): void
+  + setUseTrainDirectivity(boolean): void
   + searchPopulatedCells(Connection): Map<CellIndex, Integer>
 }
+
+interface LoaderInitContext
+interface CellSceneContext
+
+NoiseMapByReceiverMaker ..|> LoaderInitContext
+NoiseMapByReceiverMaker ..|> CellSceneContext
 
 
 note right of NoiseMapByReceiverMaker
@@ -212,6 +229,7 @@ end note
 
 - **Envelope Computation**: Calculate cell boundary and expanded envelope (expanded by `maximumPropagationDistance + 2 × maximumReflectionDistance`)
 - **TableLoader Delegation**: Invoke `TableLoader.createScene()` to construct the complete scene
+- **Context Delegation**: Pass `CellSceneContext` for per-cell geometry/physics parameters and `LoaderInitContext` for one-time loader setup
 - **Receiver Deduplication**: Track receivers already processed to avoid redundant computation across cell boundaries
 
 ### Scene Contents
@@ -220,6 +238,50 @@ The returned `SceneWithEmission` contains:
 - **Geometry**: Buildings, walls, bridges, terrain (via finalized `ProfileBuilder`)
 - **Sources and Receivers**: Acoustic sources and receiver points for the cell
 - **Acoustic Configuration**: Frequency arrays, attenuation parameters, directivity attributes, and propagation settings
+
+## Loader Context Split & Settings Lifecycle
+
+The current implementation explicitly splits loader dependencies into two read-only context interfaces:
+
+- `LoaderInitContext`: values required once in `TableLoader.initialize(...)` (source/emission table names, frequency prefix, scene input settings, verbose flag)
+- `CellSceneContext`: values required for each cell in `TableLoader.createScene(...)` (cell envelope, geometry factory, propagation flags, input table names)
+
+`NoiseMapByReceiverMaker` implements both interfaces and exposes them through:
+
+- `getLoaderInitContext()`
+- `getCellSceneContext()`
+
+### Overview
+
+```plantuml
+@startuml
+title Loader Context and Settings Flow
+
+[NoiseMapByReceiverMaker.initialize()] as init
+[getLoaderInitContext()] as initCtx
+[DefaultTableLoader.initialize()] as loaderInit
+
+[NoiseMapByReceiverMaker.requestCellScene()] as request
+[getCellSceneContext()] as cellCtx
+[DefaultTableLoader.createScene()] as create
+
+init --> initCtx
+initCtx --> loaderInit
+
+request --> cellCtx
+cellCtx --> create
+
+@enduml
+```
+
+### DefaultTableLoader Initialization Behavior
+
+`DefaultTableLoader.initialize(...)` now takes a snapshot copy of `SceneDatabaseInputSettingsView` into a mutable `SceneDatabaseInputSettings` instance. This has two important consequences:
+
+1. **Input mode guessing is persistent**: when mode is `INPUT_MODE_GUESS`, the guessed mode is stored in the loader snapshot and reused later by `createScene(...)`.
+2. **Per-cell behavior remains consistent**: every scene built by the same loader instance uses the same resolved input mode and associated settings.
+
+This avoids a mismatch where mode inference would occur at initialization time but scene construction would still use an unresolved `INPUT_MODE_GUESS` view.
 
 For detailed step-by-step scene construction workflow and implementation patterns, see [Typical workflow of creating Scene](scene.md#typical-workflow-of-creating-scene) in the scene documentation.
 

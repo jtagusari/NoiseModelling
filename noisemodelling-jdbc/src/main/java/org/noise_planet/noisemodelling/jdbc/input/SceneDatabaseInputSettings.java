@@ -15,21 +15,21 @@ import java.sql.ResultSet;
 import java.util.Map;
 
 /**
- * SceneWithEmission will read table according to this settings
+ * Configuration describing how scene/emission data must be read from database tables.
  */
-public class SceneDatabaseInputSettings {
+public class SceneDatabaseInputSettings implements SceneDatabaseInputSettingsView {
     public enum INPUT_MODE {
-        /** Guess input mode at NoiseMapByReceiverMaker.TableLoader#initialize step */
+        /** Auto-detect the input mode from available source/emission columns. */
         INPUT_MODE_GUESS,
-        /** Read traffic from geometry source table */
+        /** Read DEN traffic-flow fields directly from the source geometry table. */
         INPUT_MODE_TRAFFIC_FLOW_DEN,
-        /** Read source emission noise level limited to DEN periods from source geometry table */
+        /** Read DEN emission levels directly from the source geometry table. */
         INPUT_MODE_LW_DEN,
-        /** Read traffic from emission source table for each period */
+        /** Read per-period traffic-flow fields from the emission table. */
         INPUT_MODE_TRAFFIC_FLOW,
-        /** Read source emission noise level from source emission table for each period */
+        /** Read per-period emission levels from the emission table. */
         INPUT_MODE_LW,
-        /** Compute only attenuation */
+        /** Compute attenuation only (no source emission lookup). */
         INPUT_MODE_ATTENUATION }
 
     INPUT_MODE inputMode = INPUT_MODE.INPUT_MODE_GUESS;
@@ -43,7 +43,7 @@ public class SceneDatabaseInputSettings {
      * Read {@link org.noise_planet.noisemodelling.propagation.AttenuationParameters} values from this table
      */
     String periodAtmosphericSettingsTableName = "";
-    /** Cnossos coefficient version  (1 = 2015, 2 = 2020) */
+    /** Cnossos coefficient version (1 = 2015, 2 = 2020). */
     int coefficientVersion = 2;
     public String frequencyFieldPrepend = "HZ";
 
@@ -54,6 +54,32 @@ public class SceneDatabaseInputSettings {
     public SceneDatabaseInputSettings(INPUT_MODE inputMode, String sourcesEmissionTableName) {
         this.inputMode = inputMode;
         this.sourcesEmissionTableName = sourcesEmissionTableName;
+    }
+
+    public SceneDatabaseInputSettings(SceneDatabaseInputSettings other) {
+        this.inputMode = other.inputMode;
+        this.sourcesEmissionTableName = other.sourcesEmissionTableName;
+        this.sourceEmissionPrimaryKeyField = other.sourceEmissionPrimaryKeyField;
+        this.directivityTableName = other.directivityTableName;
+        this.useTrainDirectivity = other.useTrainDirectivity;
+        this.periodAtmosphericSettingsTableName = other.periodAtmosphericSettingsTableName;
+        this.coefficientVersion = other.coefficientVersion;
+        this.frequencyFieldPrepend = other.frequencyFieldPrepend;
+    }
+
+    public SceneDatabaseInputSettings(SceneDatabaseInputSettingsView other) {
+        this.inputMode = other.getInputMode();
+        this.sourcesEmissionTableName = other.getSourcesEmissionTableName();
+        this.sourceEmissionPrimaryKeyField = other.getSourceEmissionPrimaryKeyField();
+        this.directivityTableName = other.getDirectivityTableName();
+        this.useTrainDirectivity = other.isUseTrainDirectivity();
+        this.periodAtmosphericSettingsTableName = other.getPeriodAtmosphericSettingsTableName();
+        this.coefficientVersion = other.getCoefficientVersion();
+        this.frequencyFieldPrepend = other.getFrequencyFieldPrepend();
+    }
+
+    public SceneDatabaseInputSettings copy() {
+        return new SceneDatabaseInputSettings(this);
     }
 
     public String getDirectivityTableName() {
@@ -87,6 +113,10 @@ public class SceneDatabaseInputSettings {
 
     public void setInputMode(INPUT_MODE inputMode) {
         this.inputMode = inputMode;
+    }
+
+    public void setInputMode(String inputMode) {
+        this.inputMode = INPUT_MODE.valueOf(inputMode);
     }
 
     public String getSourcesEmissionTableName() {

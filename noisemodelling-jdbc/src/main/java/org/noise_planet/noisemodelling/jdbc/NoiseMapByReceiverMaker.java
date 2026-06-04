@@ -20,8 +20,12 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.io.WKTWriter;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
+import org.noise_planet.noisemodelling.jdbc.input.CellSceneContext;
+import org.noise_planet.noisemodelling.jdbc.input.LoaderInitContext;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettingsView;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
+import org.noise_planet.noisemodelling.jdbc.input.TableLoader;
 import org.noise_planet.noisemodelling.jdbc.output.DefaultCutPlaneProcessing;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitorFactory;
@@ -38,10 +42,14 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Compute noise propagation at specified receiver points.
+ * Computes sound propagation for a set of receivers stored in database tables.
+ *
+ * This class orchestrates the full workflow:
+ * initialize data access and geometry context, build per-cell scenes through a TableLoader,
+ * run ray/path computation, then delegate output handling.
  * @author Nicolas Fortin
  */
-public class NoiseMapByReceiverMaker extends GridMapMaker {
+public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitContext, CellSceneContext {
     private final String receiverTableName;
     private TableLoader tableLoader = new DefaultTableLoader();
     /** Tell table writer thread to empty current stacks then stop waiting for new data */
@@ -66,13 +74,19 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         this.receiverTableName = receiverTableName;
     }
 
+    /**
+     * Fluent builder used to create a NoiseMapByReceiverMaker with optional table settings.
+     */
     public static class Builder{
         private String buildingsTableName;
         private String sourcesTableName;
         private String receiverTableName;
-        private String bridgePointsTableName = null;
-        private String soilTableName = null;
-        private String demTable = null;
+        private String bridgePointsTableName = "";
+        private String soilTableName = "";
+        private String demTable = "";
+        private String heightField = "HEIGHT";
+
+        public Builder() {}
 
         public Builder setBuildingsTableName(String buildingsTableName) {
             this.buildingsTableName = buildingsTableName;
@@ -103,6 +117,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             this.demTable = demTable;
             return this;
         }
+
 
         public NoiseMapByReceiverMaker build() {
             if(buildingsTableName == null || sourcesTableName == null || receiverTableName == null) {
@@ -139,12 +154,28 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         sceneDatabaseInputSettings.setInputMode(inputMode);
     }
 
+    public void setInputMode(String inputMode) {
+        sceneDatabaseInputSettings.setInputMode(inputMode);
+    }
+
     public String getSourceEmissionPrimaryKeyField() {
         return sceneDatabaseInputSettings.getSourceEmissionPrimaryKeyField();
     }
 
     public void setSourceEmissionPrimaryKeyField(String sourceEmissionPrimaryKeyField) {
         sceneDatabaseInputSettings.setSourceEmissionPrimaryKeyField(sourceEmissionPrimaryKeyField);
+    }
+
+    public void setUseTrainDirectivity(boolean useTrainDirectivity) {
+        sceneDatabaseInputSettings.setUseTrainDirectivity(useTrainDirectivity);
+    }
+
+    public void setDirectivityTableName(String directivityTableName) {
+        sceneDatabaseInputSettings.setDirectivityTableName(directivityTableName);
+    }
+
+    public void setPeriodAtmosphericSettingsTableName(String periodAtmosphericSettingsTableName) {
+        sceneDatabaseInputSettings.setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName);
     }
 
 
@@ -159,8 +190,8 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         sceneDatabaseInputSettings.setFrequencyFieldPrepend(frequencyFieldPrepend);
     }
 
-    public SceneDatabaseInputSettings getSceneInputSettings() {
-        return sceneDatabaseInputSettings;
+    public SceneDatabaseInputSettingsView getSceneInputSettings() {
+        return sceneDatabaseInputSettings.copy();
     }
 
     /**
@@ -255,7 +286,22 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
                     mainEnvelope.getMinY(), mainEnvelope.getMaxY()));
         }
 
-        return tableLoader.createScene(connection, cellIndex, skipReceivers);
+        // Delegate all cell data extraction/assembly to the configured TableLoader.
+        return tableLoader.createScene(connection, getCellSceneContext(), cellIndex, skipReceivers);
+    }
+
+    /**
+     * @return Read-only context used by table loaders during one-time initialization.
+     */
+    public LoaderInitContext getLoaderInitContext() {
+        return this;
+    }
+
+    /**
+     * @return Read-only context used by table loaders for per-cell scene creation.
+     */
+    public CellSceneContext getCellSceneContext() {
+        return this;
     }
 
     /**
@@ -292,7 +338,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         LOGGER.info("Collect all receivers in order to localize populated cells");
         geometryField = geometryFields.get(0);
         ResultSet rs = connection.createStatement().executeQuery("SELECT " + geometryField + " FROM " + receiverTableName);
-        // Construct RTree with cells envelopes
+        // Build an RTree index of cell envelopes to quickly map each receiver to one/many cells.
         STRtree rtree = new STRtree();
         for(int i = 0; i < gridDim; i++) {
             for(int j = 0; j < gridDim; j++) {
@@ -301,7 +347,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
                 rtree.insert(refEnv, new CellIndex(j, i));
             }
         }
-        // Iterate over receivers and look for intersecting cells
+        // Assign each receiver coordinate to intersecting cells and count receivers per cell.
         try (SpatialResultSet srs = rs.unwrap(SpatialResultSet.class)) {
             while (srs.next()) {
                 Geometry pt = srs.getGeometry();
@@ -350,11 +396,11 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             computeRays.setThreadCount(threadCount);
         }
 
-        // if(!receiverHasAbsoluteZCoordinates) {
+        // Receivers are normalized to absolute heights for consistent propagation geometry.
         computeRays.ensureAbsoluteReceiverHeights();
-        // }
 
         if(!sourceHasAbsoluteZCoordinates) {
+            // Convert relative source heights to absolute heights only when required by inputs.
             computeRays.makeSourceRelativeZToAbsolute();
         }
 
@@ -379,7 +425,8 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
     @Override
     public void initialize(Connection connection, ProgressVisitor progression) throws SQLException {
         super.initialize(connection, progression);
-        tableLoader.initialize(connection, this);
+        // Initialize collaborators after base geometry/grid initialization is complete.
+        tableLoader.initialize(connection, getLoaderInitContext());
         computeRaysOutFactory.initialize(connection, this);
     }
 
@@ -392,7 +439,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
         // Set of already processed receivers
         Set<Long> receivers = new HashSet<>();
 
-        // Fetch cell identifiers with receivers
+        // Process only cells that actually contain receivers.
         Map<CellIndex, Integer> cells = searchPopulatedCells(connection);
         ProgressVisitor progressVisitor = progressLogger.subProcess(cells.size());
 
@@ -410,30 +457,6 @@ public class NoiseMapByReceiverMaker extends GridMapMaker {
             computeRaysOutFactory.stop();
             progressLogger.endOfProgress();
         }
-    }
-
-    /**
-     * A factory interface for initializing input propagation process data for noise map computation.
-     */
-    public interface TableLoader {
-
-        /**
-         * Called only once when the settings are set.
-         * @param connection             the database connection to be used for initialization.
-         * @param noiseMapByReceiverMaker the noise map by receiver maker object associated with the computation process.
-         * @throws SQLException if an SQL exception occurs while initializing the propagation process data factory.
-         */
-        void initialize(Connection connection, NoiseMapByReceiverMaker noiseMapByReceiverMaker) throws SQLException;
-
-        /**
-         * Called on each sub-domain in order to create cell input data.
-         *
-         * @param connection          Active connection
-         * @param cellIndex           Active cell covering the computation
-         * @param skipReceivers Do not process the receivers primary keys in this set and once included add the new receivers primary in it
-         * @return Scene to feed the data
-         */
-        SceneWithEmission createScene(Connection connection, CellIndex cellIndex, Set<Long> skipReceivers) throws SQLException;
     }
 
     /**

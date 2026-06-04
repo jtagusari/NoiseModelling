@@ -66,9 +66,14 @@ public class NoiseMapByReceiverMakerTest {
         try(Statement st = connection.createStatement()) {
             st.execute(String.format("CALL SHPREAD('%s', 'LANDCOVER2000')", NoiseMapByReceiverMakerTest.class.getResource("landcover2000.shp").getFile()));
             st.execute(getRunScriptRes("scene_with_landcover.sql"));
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS", "ROADS_GEOM", "RECEIVERS");
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setSourcesTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setSoilTableName("LAND_G")
+                    .build();
+            // NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS", "ROADS_GEOM", "RECEIVERS");
             noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setSoilTableName("LAND_G");
             noiseMapByReceiverMaker.setFrequencyFieldPrepend("DB_M");
             noiseMapByReceiverMaker.initialize(connection, new EmptyProgressVisitor());
 
@@ -139,11 +144,11 @@ public class NoiseMapByReceiverMakerTest {
             noiseMapByReceiverMaker.setSoundReflectionOrder(0);
             noiseMapByReceiverMaker.setMaximumPropagationDistance(1000);
             noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setCoefficientVersion(1);
 
             // Use train directivity functions instead of discrete directivity
-            noiseMapByReceiverMaker.getSceneInputSettings().setUseTrainDirectivity(true);
+            noiseMapByReceiverMaker.setUseTrainDirectivity(true);
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
@@ -179,7 +184,7 @@ public class NoiseMapByReceiverMakerTest {
             noiseMapByReceiverMaker.setSoundReflectionOrder(0);
             noiseMapByReceiverMaker.setMaximumPropagationDistance(1000);
             noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setCoefficientVersion(1);
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportRaysMethod = NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE;
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportCnossosPathWithAttenuation = true;
@@ -255,7 +260,7 @@ public class NoiseMapByReceiverMakerTest {
             noiseMapByReceiverMaker.setSoundReflectionOrder(0);
             noiseMapByReceiverMaker.setMaximumPropagationDistance(1000);
             noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setCoefficientVersion(1);
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportRaysMethod = NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE;
             noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportCnossosPathWithAttenuation = true;
