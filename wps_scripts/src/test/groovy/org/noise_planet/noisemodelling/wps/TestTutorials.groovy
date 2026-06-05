@@ -41,6 +41,9 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipFile
 
 import static org.junit.jupiter.api.Assertions.assertTrue
@@ -51,6 +54,89 @@ import static org.junit.jupiter.api.Assertions.assertTrue
  */
 class TestTutorials extends JdbcTestCase {
     Logger LOGGER = LoggerFactory.getLogger(TestTutorials.class)
+
+        private static final String MATSIM_DTD_URL_PREFIX_REGEX = "(?i)https?://www\\.matsim\\.org/files/dtd/"
+
+        private static void copyLocalMatsimDtds(Path matsimFolder) {
+                Map<String, String> dtdResources = [
+                                "network_v2.dtd"   : "/org/noise_planet/noisemodelling/wps/matsim-dtd/network_v2.dtd",
+                                "facilities_v2.dtd": "/org/noise_planet/noisemodelling/wps/matsim-dtd/facilities_v2.dtd",
+                                "population_v6.dtd": "/org/noise_planet/noisemodelling/wps/matsim-dtd/population_v6.dtd"
+                ]
+                dtdResources.forEach { fileName, resourcePath ->
+                        InputStream resourceInput = TestTutorials.class.getResourceAsStream(resourcePath)
+                        if (resourceInput == null) {
+                                throw new IllegalStateException("Missing MATSim DTD resource: " + resourcePath)
+                        }
+                        try {
+                                Files.copy(resourceInput, matsimFolder.resolve(fileName), StandardCopyOption.REPLACE_EXISTING)
+                        } finally {
+                                resourceInput.close()
+                        }
+                }
+        }
+
+        private static String restoreDoctypeIfMissing(String xmlContent) {
+                if (xmlContent.contains("<!DOCTYPE")) {
+                        return xmlContent
+                }
+
+                String doctype = null
+                if (xmlContent =~ /(?is)<\s*network\b/) {
+                        doctype = "<!DOCTYPE network SYSTEM \"network_v2.dtd\">"
+                } else if (xmlContent =~ /(?is)<\s*facilities\b/) {
+                        doctype = "<!DOCTYPE facilities SYSTEM \"facilities_v2.dtd\">"
+                } else if (xmlContent =~ /(?is)<\s*population\b/) {
+                        doctype = "<!DOCTYPE population SYSTEM \"population_v6.dtd\">"
+                }
+
+                if (doctype == null) {
+                        return xmlContent
+                }
+
+                return xmlContent.replaceFirst(/(?is)^\s*<\?xml[^>]*\?>\s*/, '$0' + doctype + "\n")
+        }
+
+        private static void localizeExternalDtdUrls(Path filePath) {
+                String fileName = filePath.getFileName().toString().toLowerCase()
+                if (fileName.endsWith(".xml.gz")) {
+                        String xmlContent
+                        GZIPInputStream gzipInputStream = new GZIPInputStream(Files.newInputStream(filePath))
+                        try {
+                                xmlContent = new String(gzipInputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                        } finally {
+                                gzipInputStream.close()
+                        }
+                        String localized = restoreDoctypeIfMissing(xmlContent).replaceAll(MATSIM_DTD_URL_PREFIX_REGEX, "")
+                        if (localized != xmlContent) {
+                                GZIPOutputStream gzipOutputStream = new GZIPOutputStream(Files.newOutputStream(filePath))
+                                try {
+                                        gzipOutputStream.write(localized.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                                } finally {
+                                        gzipOutputStream.close()
+                                }
+                        }
+                        return
+                }
+                if (fileName.endsWith(".xml")) {
+                        String xmlContent = Files.readString(filePath)
+                        String localized = restoreDoctypeIfMissing(xmlContent).replaceAll(MATSIM_DTD_URL_PREFIX_REGEX, "")
+                        if (localized != xmlContent) {
+                                Files.writeString(filePath, localized)
+                        }
+                }
+        }
+
+        private static void sanitizeMatsimXmlFiles(Path matsimFolder) {
+                copyLocalMatsimDtds(matsimFolder)
+                def walk = Files.walk(matsimFolder)
+                try {
+                        walk.filter { Files.isRegularFile(it) && (it.fileName.toString().toLowerCase().endsWith(".xml") || it.fileName.toString().toLowerCase().endsWith(".xml.gz")) }
+                                        .forEach { localizeExternalDtdUrls(it) }
+                } finally {
+                        walk.close()
+                }
+        }
 
 
     void testTutorialGetStarted() {
@@ -300,6 +386,9 @@ class TestTutorials extends JdbcTestCase {
             // Clean up
             zipFile.close();
         }
+
+                sanitizeMatsimXmlFiles(tempDataDir)
+
         new Import_OSM().exec(connection, Map.of(
                 "pathFile", osmFile,
                 "targetSRID", srid,
