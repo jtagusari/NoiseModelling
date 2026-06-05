@@ -26,7 +26,7 @@ public interface CellSceneContext {
     /** @return Maximum wall/corner search distance for reflections/diffractions. */
     double getMaximumReflectionDistance();
     /** @return Building table and associated field settings. */
-    BuildingTableSettings getBuildingTableParameters();
+    BuildingTableSettings getBuildingTableSettings();
     /** @return Maximum reflection order to compute. */
     int getSoundReflectionOrder();
     /** @return Whether body-barrier mode is enabled. */

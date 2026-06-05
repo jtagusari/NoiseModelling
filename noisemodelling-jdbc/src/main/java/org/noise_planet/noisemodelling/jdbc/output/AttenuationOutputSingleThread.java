@@ -11,7 +11,7 @@ package org.noise_planet.noisemodelling.jdbc.output;
 
 import org.h2gis.api.ProgressVisitor;
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
@@ -47,7 +47,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     private static final Logger LOGGER = LoggerFactory.getLogger(AttenuationOutputSingleThread.class);
     private static final int UNKNOWN_SOURCE_ID = -1;
     AttenuationOutputMultiThread multiThread;
-    NoiseMapDatabaseParameters dbSettings;
+    CalculationIOSettings dbSettings;
     public List<CnossosPathExt> cnossosPaths = new ArrayList<>();
 
     /**
@@ -80,7 +80,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
      */
     public AttenuationOutputSingleThread(AttenuationOutputMultiThread multiThreadParent, ProgressVisitor progressVisitor) {
         this.multiThread = multiThreadParent;
-        this.dbSettings = multiThreadParent.noiseMapDatabaseParameters;
+        this.dbSettings = multiThreadParent.calculationIOSettings;
         this.progressVisitor = progressVisitor;
     }
 
@@ -105,7 +105,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
 
     private double[] processAndStoreAttenuation(AttenuationParameters data, CnossosPathExt proPathParameters, String period) {
         double[] attenuation = AttenuationCnossosExt.computeCnossosAttenuation(data, proPathParameters, multiThread.sceneWithEmission,
-                multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix);
+                multiThread.calculationIOSettings.exportAttenuationMatrix);
         if (attenuation != null) {
             boolean hasNonFinite = false;
             for (double value : attenuation) {
@@ -121,8 +121,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 LOGGER.warn("Receiver PK {} source PK {}: Non-finite attenuation computed (distance={} m).", receiverPk, sourcePk, distance);
             }
         }
-        if(multiThread.noiseMapDatabaseParameters.exportRaysMethod == NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE &&
-                multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix) {
+        if(multiThread.calculationIOSettings.exportRaysMethod == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE &&
+                multiThread.calculationIOSettings.exportAttenuationMatrix) {
             CnossosPathExt cnossosPath = new CnossosPathExt(proPathParameters);
             cnossosPath.setTimePeriod(period);
             cnossosPaths.add(cnossosPath);
@@ -166,8 +166,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
             long sourcePk = source.getSourcePk() == -1 ? source.getSourceId() : source.getSourcePk();
 
             // export path if required
-            if(multiThread.noiseMapDatabaseParameters.exportRaysMethod == NoiseMapDatabaseParameters.ExportRaysMethods
-                    .TO_RAYS_TABLE && !multiThread.noiseMapDatabaseParameters.exportAttenuationMatrix) {
+            if(multiThread.calculationIOSettings.exportRaysMethod == CalculationIOSettings.ExportRaysMethods
+                    .TO_RAYS_TABLE && !multiThread.calculationIOSettings.exportAttenuationMatrix) {
                 // Use only one ray as the ray is the same if we not keep absorption values
                 // Copy path content in order to keep original ids for other method calls
                 this.cnossosPaths.add(cnossosPath);
@@ -406,7 +406,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     @Override
     public void finalizeReceiver(ReceiverPointInfo receiver) {
         if(!this.cnossosPaths.isEmpty()) {
-            if(dbSettings.getExportRaysMethod() == NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE) {
+            if(dbSettings.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE) {
                 // Push propagation rays
                 pushInStack(multiThread.resultsCache.cnossosPaths, this.cnossosPaths);
             }

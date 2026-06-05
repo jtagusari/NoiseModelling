@@ -232,8 +232,22 @@ public class ReceiverIdentificationTest {
 
             // initialize DefaultTableLoader
             DefaultTableLoader tableLoader = new DefaultTableLoader();
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("NO_BUILDINGS_TABLE", "NO_SOURCES", "RECEIVERS");
-            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_ATTENUATION");
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION)
+                    .build();
+            
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("NO_BUILDINGS_TABLE")
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("NO_SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setThreadCount(1)
+                    .build();
+
             noiseMapByReceiverMaker.setMainEnvelope(envelope);
             DefaultProgressVisitor progressVisitor = new DefaultProgressVisitor(1, null);
             noiseMapByReceiverMaker.initialize(connection, progressVisitor);

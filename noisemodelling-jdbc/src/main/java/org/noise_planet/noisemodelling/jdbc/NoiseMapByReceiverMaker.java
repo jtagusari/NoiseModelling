@@ -19,15 +19,16 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.io.WKTWriter;
-import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.CellSceneContext;
 import org.noise_planet.noisemodelling.jdbc.input.LoaderInitContext;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettingsView;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.TableLoader;
 import org.noise_planet.noisemodelling.jdbc.output.DefaultCutPlaneProcessing;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
+import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitorFactory;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.ProfilerThread;
@@ -50,46 +51,70 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Nicolas Fortin
  */
 public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitContext, CellSceneContext {
-    private final String receiverTableName;
-    private TableLoader tableLoader = new DefaultTableLoader();
     /** Tell table writer thread to empty current stacks then stop waiting for new data */
     public AtomicBoolean exitWhenDone = new AtomicBoolean(false);
     /** If true, all processing are aborted and all threads will be shutdown */
     public AtomicBoolean aborted = new AtomicBoolean(false);
-    private final NoiseMapDatabaseParameters noiseMapDatabaseParameters = new NoiseMapDatabaseParameters();
-    private IComputeRaysOutFactory computeRaysOutFactory = new DefaultCutPlaneProcessing(noiseMapDatabaseParameters, exitWhenDone, aborted);
     private static final Logger LOGGER = LoggerFactory.getLogger(NoiseMapByReceiverMaker.class);
-    private int threadCount = 0;
+
+    private final String receiverTableName;
+    private final TableLoader tableLoader;
+    private final CalculationIOSettings calculationIOSettings;
+    private final IComputeRaysOutFactory computeRaysOutFactory;
+    private final int threadCount;
     private ProfilerThread profilerThread;
+    private final SceneDatabaseInputSettings sceneDatabaseInputSettings;
 
-    SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
-
-    public NoiseMapByReceiverMaker(String buildingsTableName, String sourcesTableName, String receiverTableName) {
-        super(buildingsTableName, sourcesTableName);
+    public NoiseMapByReceiverMaker(BuildingTableSettings buildingTableSettings, String sourcesTableName, String receiverTableName, String bridgePointsTableName, String soilTableName, String demTable, SceneDatabaseInputSettings sceneDatabaseInputSettings, PropagationSettings propagationSettings, CalculationIOSettings calculationIOSettings, IComputeRaysOutFactory computeRaysOutFactory, String sound_lvl_field, int gridDim, int threadCount, TableLoader tableLoader) {
+        super(buildingTableSettings, sourcesTableName, soilTableName, demTable, bridgePointsTableName, propagationSettings, sound_lvl_field);
+        
         this.receiverTableName = receiverTableName;
-    }
+        this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
 
-    public NoiseMapByReceiverMaker(String buildingsTableName, String sourcesTableName, String receiverTableName, String bridgePointsTableName, String soilTableName, String demTable) {
-        super(buildingsTableName, sourcesTableName, bridgePointsTableName, soilTableName, demTable);
-        this.receiverTableName = receiverTableName;
+        this.calculationIOSettings = calculationIOSettings;
+        this.computeRaysOutFactory = computeRaysOutFactory;
+
+        this.gridDim = gridDim;
+        this.threadCount = threadCount;
+        this.tableLoader = tableLoader;
     }
 
     /**
      * Fluent builder used to create a NoiseMapByReceiverMaker with optional table settings.
      */
     public static class Builder{
+        private BuildingTableSettings buildingTableSettings;
         private String buildingsTableName;
         private String sourcesTableName;
         private String receiverTableName;
         private String bridgePointsTableName = "";
         private String soilTableName = "";
         private String demTable = "";
-        private String heightField = "HEIGHT";
+        private SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
+        private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
+        private CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
+        private String sound_lvl_field = "DB_M";
+        private int gridDim = 0;
+        private int threadCount = 0;
+        private IComputeRaysOutFactory computeRaysOutFactory;
+        private TableLoader tableLoader;
+        private AtomicBoolean exitWhenDone = new AtomicBoolean(false);
+        private AtomicBoolean aborted = new AtomicBoolean(false);
 
         public Builder() {}
 
         public Builder setBuildingsTableName(String buildingsTableName) {
             this.buildingsTableName = buildingsTableName;
+            return this;
+        }
+
+        public Builder setBuildingTableSettings(BuildingTableSettings buildingTableSettings) {
+            this.buildingTableSettings = buildingTableSettings;
+            return this;
+        }
+
+        public Builder setPropagationSettings(PropagationSettings propagationSettings) {
+            this.propagationSettings = propagationSettings;
             return this;
         }
 
@@ -118,20 +143,66 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
             return this;
         }
 
+        public Builder setSceneDatabaseInputSettings(SceneDatabaseInputSettings sceneDatabaseInputSettings) {
+            this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
+            return this;
+        }
+
+        public Builder setSoundLevelField(String sound_lvl_field) {
+            this.sound_lvl_field = sound_lvl_field;
+            return this;
+        }
+
+        public Builder setCalculationIOSettings(CalculationIOSettings calculationIOSettings) {
+            this.calculationIOSettings = calculationIOSettings;
+            return this;
+        }
+
+        public Builder setGridDim(int gridDim) {
+            this.gridDim = gridDim;
+            return this;
+        }
+
+        public Builder setThreadCount(int threadCount) {
+            this.threadCount = threadCount;
+            return this;
+        }
+
+        public Builder setComputeRaysOutFactory(IComputeRaysOutFactory computeRaysOutFactory) {
+            this.computeRaysOutFactory = computeRaysOutFactory;
+            return this;
+        }
+
+        public Builder setTableLoader(TableLoader tableLoader) {
+            this.tableLoader = tableLoader;
+            return this;
+        }
+
 
         public NoiseMapByReceiverMaker build() {
-            if(buildingsTableName == null || sourcesTableName == null || receiverTableName == null) {
-                throw new IllegalStateException("Table names for buildings, sources and receivers must be provided");
+            if(buildingsTableName == null && buildingTableSettings == null) {
+                throw new IllegalStateException("Either buildings table name or building table settings must be provided");
             }
-            return new NoiseMapByReceiverMaker(buildingsTableName, sourcesTableName, receiverTableName, bridgePointsTableName, soilTableName, demTable);
+            if(sourcesTableName == null || receiverTableName == null) {
+                throw new IllegalStateException("Table names for sources and receivers must be provided");
+            }
+
+            if(computeRaysOutFactory == null) {
+                computeRaysOutFactory = new DefaultCutPlaneProcessing(calculationIOSettings, exitWhenDone, aborted);
+            }
+
+            if(tableLoader == null) {
+                tableLoader = new DefaultTableLoader();
+            }
+            return new NoiseMapByReceiverMaker(buildingTableSettings, sourcesTableName, receiverTableName, bridgePointsTableName, soilTableName, demTable, sceneDatabaseInputSettings, propagationSettings, calculationIOSettings, computeRaysOutFactory,sound_lvl_field, gridDim, threadCount, tableLoader);
         }
     }
 
     /**
      * @return Settings of the database (expected tables names; fields, global settings of the computation)
      */
-    public NoiseMapDatabaseParameters getNoiseMapDatabaseParameters() {
-        return noiseMapDatabaseParameters;
+    public CalculationIOSettings getCalculationIOSettings() {
+        return calculationIOSettings;
     }
 
 
@@ -150,32 +221,8 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         return sceneDatabaseInputSettings.getInputMode();
     }
 
-    public void setInputMode(SceneDatabaseInputSettings.INPUT_MODE inputMode) {
-        sceneDatabaseInputSettings.setInputMode(inputMode);
-    }
-
-    public void setInputMode(String inputMode) {
-        sceneDatabaseInputSettings.setInputMode(inputMode);
-    }
-
     public String getSourceEmissionPrimaryKeyField() {
         return sceneDatabaseInputSettings.getSourceEmissionPrimaryKeyField();
-    }
-
-    public void setSourceEmissionPrimaryKeyField(String sourceEmissionPrimaryKeyField) {
-        sceneDatabaseInputSettings.setSourceEmissionPrimaryKeyField(sourceEmissionPrimaryKeyField);
-    }
-
-    public void setUseTrainDirectivity(boolean useTrainDirectivity) {
-        sceneDatabaseInputSettings.setUseTrainDirectivity(useTrainDirectivity);
-    }
-
-    public void setDirectivityTableName(String directivityTableName) {
-        sceneDatabaseInputSettings.setDirectivityTableName(directivityTableName);
-    }
-
-    public void setPeriodAtmosphericSettingsTableName(String periodAtmosphericSettingsTableName) {
-        sceneDatabaseInputSettings.setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName);
     }
 
 
@@ -183,32 +230,17 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         return sceneDatabaseInputSettings.getFrequencyFieldPrepend();
     }
 
-    /**
-     * @param frequencyFieldPrepend Text preceding the frequency in source emission table (default LW)
-     */
-    public void setFrequencyFieldPrepend(String frequencyFieldPrepend) {
-        sceneDatabaseInputSettings.setFrequencyFieldPrepend(frequencyFieldPrepend);
-    }
 
     public SceneDatabaseInputSettingsView getSceneInputSettings() {
         return sceneDatabaseInputSettings.copy();
     }
 
-    /**
-     * This table must contain a source identifier column named IDSOURCE, a **PERIOD** VARCHAR field,
-     * and emission spectrum in dB(A) or road traffic information
-     * Spectrum column name must be LW{@link #sound_lvl_field}. Where HERTZ is a number
-     * @param sourcesEmissionTableName Source emission table name
-     */
-    public void setSourcesEmissionTableName(String sourcesEmissionTableName) {
-        sceneDatabaseInputSettings.setSourcesEmissionTableName(sourcesEmissionTableName);
-    }
 
     /**
      * true if train propagation is computed (multiple reflection between the train and a screen)
      */
     public boolean isBodyBarrier() {
-        return bodyBarrier;
+        return propagationSettings.isBodyBarrier();
     }
 
     /**
@@ -227,26 +259,6 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         return receiverTableName;
     }
 
-    /**
-     * Computation stacks and timing are collected by this class in order
-     * to profile the execution of the simulation
-     * @param profilerThread Instance of ProfilerThread
-     */
-    public void setProfilerThread(ProfilerThread profilerThread) {
-        this.profilerThread = profilerThread;
-    }
-
-    public void setComputeRaysOutFactory(IComputeRaysOutFactory computeRaysOutFactory) {
-        this.computeRaysOutFactory = computeRaysOutFactory;
-    }
-
-    /**
-     * Do not call this method after {@link #initialize(Connection, ProgressVisitor)} has been called
-     * @param tableLoader Object that generate scene for each sub-cell using database data
-     */
-    public void setPropagationProcessDataFactory(TableLoader tableLoader) {
-        this.tableLoader = tableLoader;
-    }
 
     /**
      * @return Object that generate scene for each sub-cell using database data
@@ -259,9 +271,6 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         return threadCount;
     }
 
-    public void setThreadCount(int threadCount) {
-        this.threadCount = threadCount;
-    }
 
     /**
      * Initialisation of data structures needed for sound propagation.
@@ -314,7 +323,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
     protected Envelope getComputationEnvelope(Connection connection) throws SQLException {
         DBTypes dbTypes = DBUtils.getDBType(connection);
         Envelope envelopeInternal = GeometryTableUtilities.getEnvelope(connection, TableLocation.parse(receiverTableName, dbTypes)).getEnvelopeInternal();
-        envelopeInternal.expandBy(maximumPropagationDistance);
+        envelopeInternal.expandBy(propagationSettings.getMaximumPropagationDistance());
         return envelopeInternal;
     }
 

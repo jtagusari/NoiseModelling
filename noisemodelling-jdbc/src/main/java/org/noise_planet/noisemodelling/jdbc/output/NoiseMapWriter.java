@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import org.locationtech.jts.geom.*;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.utils.StringPreparedStatements;
@@ -56,7 +56,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
     File sqlFilePath;
     private Connection connection;
     NoiseMapByReceiverMaker noiseMapByReceiverMaker;
-    NoiseMapDatabaseParameters databaseParameters;
+    CalculationIOSettings databaseParameters;
     ResultsCache resultsCache;
     Writer writer;
     ObjectWriter jsonWriter;
@@ -76,7 +76,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
                           AtomicBoolean exitWhenDone, AtomicBoolean aborted) {
         this.connection = connection;
         this.noiseMapByReceiverMaker = noiseMapByReceiverMaker;
-        databaseParameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
+        databaseParameters = noiseMapByReceiverMaker.getCalculationIOSettings();
         this.resultsCache = ResultsCache;
         this.srid = noiseMapByReceiverMaker.getGeometryFactory().getSRID();
         if(noiseMapByReceiverMaker.getPropagationProcessDataFactory() instanceof DefaultTableLoader) {
@@ -360,7 +360,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
      * @throws IOException
      */
     public void init() throws SQLException, IOException {
-        if(databaseParameters.getExportRaysMethod() == NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE) {
+        if(databaseParameters.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE) {
             boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
                     equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
             if(databaseParameters.dropResultsTable) {

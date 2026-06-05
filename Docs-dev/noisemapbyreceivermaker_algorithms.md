@@ -67,7 +67,7 @@ class NoiseMapByReceiverMaker extends GridMapMaker {
   + String receiverTableName
   + TableLoader tableLoader
   + IComputeRaysOutFactory computeRaysOutFactory
-  + NoiseMapDatabaseParameters noiseMapDatabaseParameters
+  + CalculationIOSettings calculationIOSettings
   + SceneDatabaseInputSettings sceneDatabaseInputSettings
   
   + NoiseMapByReceiverMaker(buildings, sources, receivers)

@@ -69,19 +69,6 @@ public class AttenuationParameters {
     public AttenuationParameters(FrequencyBand frequencyBand) {
         frequencyConfig.setFrequencyBand(frequencyBand);
         frequencyConfig.setFrequencyArraysUsingBand(frequencyBand);
-        // if(frequencyBand == FrequencyBand.OCTAVE) {
-        //     // Default frequencies are in octave bands
-            
-        //     // freq_lvl = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(frequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE));
-        //     // freq_lvl_exact = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE));
-        //     // freq_lvl_a_weighting = Arrays.asList(AcousticIndicatorsFunctions.asOctaveBands(FrequencyConfig.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE));
-        // } else {
-        //     frequencyConfig.setFrequencyOctaveBands(FrequencyBand.ONE_THIRD_OCTAVE);
-        //     // third octave bands
-        //     // freq_lvl = Arrays.stream(FrequencyConfig.DEFAULT_FREQUENCIES_THIRD_OCTAVE).boxed().collect(Collectors.toList());
-        //     // freq_lvl_exact = Arrays.asList(FrequencyConfig.DEFAULT_FREQUENCIES_EXACT_THIRD_OCTAVE);
-        //     // freq_lvl_a_weighting = Arrays.asList(FrequencyConfig.DEFAULT_FREQUENCIES_A_WEIGHTING_THIRD_OCTAVE);
-        // }
         init();
     }
 
@@ -91,9 +78,6 @@ public class AttenuationParameters {
      */
     public AttenuationParameters(AttenuationParameters other) {
         this.frequencyConfig = other.frequencyConfig;
-        // this.freq_lvl = other.freq_lvl;
-        // this.freq_lvl_exact = other.freq_lvl_exact;
-        // this.freq_lvl_a_weighting = other.freq_lvl_a_weighting;
         this.temperature = other.temperature;
         this.celerity = other.celerity;
         this.humidity = other.humidity;
@@ -105,28 +89,12 @@ public class AttenuationParameters {
         this.windRose = other.windRose;
     }
 
-    // /**
-    //  * @param freq_lvl Frequency values for column names
-    //  * @param freq_lvl_exact Exact frequency values for computations
-    //  * @param freq_lvl_a_weighting A weighting values
-    //  */
-    // public AttenuationParameters(List<Integer> freq_lvl, List<Double> freq_lvl_exact,
-    //                              List<Double> freq_lvl_a_weighting) {
-    //     this.freq_lvl = Collections.unmodifiableList(freq_lvl);
-    //     this.freq_lvl_exact = Collections.unmodifiableList(freq_lvl_exact);
-    //     this.freq_lvl_a_weighting = Collections.unmodifiableList(freq_lvl_a_weighting);
-    //     init();
-    // }
-
 
     /**
      * @param frequencyConfig Frequency configuration
      */
     public AttenuationParameters(FrequencyConfig frequencyConfig) {
         this.frequencyConfig = frequencyConfig;
-        // this.freq_lvl = frequencyConfig.getFrequencyArray();
-        // this.freq_lvl_exact = frequencyConfig.getExactFrequencyArray();
-        // this.freq_lvl_a_weighting = frequencyConfig.getAWeightingArray();
         init();
     }
     protected void init() {
@@ -147,11 +115,6 @@ public class AttenuationParameters {
 
     public void setFrequencies(List<Integer> frequencyArray) {
         frequencyConfig.setFrequencyArray(frequencyArray);
-        // Copy the provided list to avoid modifying external unmodifiable lists
-        // this.freq_lvl = new ArrayList<>(freq_lvl);
-        // freq_lvl_exact = new ArrayList<>();
-        // freq_lvl_a_weighting = new ArrayList<>();
-        // ProfileBuilder.initializeFrequencyArrayFromReference(new ArrayList<>(this.freq_lvl), freq_lvl_exact, freq_lvl_a_weighting);
         init();
     }
 

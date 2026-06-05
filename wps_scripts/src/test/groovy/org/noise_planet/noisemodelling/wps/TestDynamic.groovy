@@ -2,7 +2,7 @@ package org.noise_planet.noisemodelling.wps
 
 import groovy.sql.Sql
 import org.h2gis.utilities.JDBCUtilities
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings
 import org.noise_planet.noisemodelling.wps.Acoustic_Tools.Create_Isosurface;
 import org.noise_planet.noisemodelling.wps.Acoustic_Tools.DynamicIndicators;
 import org.noise_planet.noisemodelling.wps.Database_Manager.Add_Primary_Key;
@@ -162,7 +162,7 @@ class TestDynamic extends JdbcTestCase {
         new Noise_From_Attenuation_Matrix().exec(connection,
                 ["lwTable"   : "SOURCES_EMISSION",
                  "lwTable_sourceId": "IDSOURCE",
-                 "attenuationTable": NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
+                 "attenuationTable": CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
                  "outputTable"   : "LT_GEOM"
                 ])
 
@@ -229,7 +229,7 @@ class TestDynamic extends JdbcTestCase {
                 ])
 
         def periods = JDBCUtilities.getUniqueFieldValues(connection,
-                NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, "PERIOD")
+                CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, "PERIOD")
 
 
         assertEquals(expected.size(), periods.size())
@@ -237,7 +237,7 @@ class TestDynamic extends JdbcTestCase {
 
         // This step is optional, it compute the L10, L50 and L90 at each receiver from the table LT_GEOM
         String res =new DynamicIndicators().exec(connection,
-                ["tableName"   : NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
+                ["tableName"   : CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
                 "columnName"   : "LAEQ",
                 "outputTableName" : "INDICATORS"
                 ])
@@ -318,16 +318,16 @@ class TestDynamic extends JdbcTestCase {
                 ])
 
         def periods = JDBCUtilities.getUniqueFieldValues(connection,
-                NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, "PERIOD")
+                CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, "PERIOD")
 
         // Export result table
         new Export_Table().exec(connection,
-                [exportPath: new File(tutorialOutputFolder, NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME+".shp").absolutePath,
-                 tableToExport: NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
+                [exportPath: new File(tutorialOutputFolder, CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME+".shp").absolutePath,
+                 tableToExport: CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
 
         // This step is optional, it compute the L10, L50 and L90 at each receiver from the table RECEIVERS_LEVEL
         String res = new DynamicIndicators().exec(connection,
-                ["tableName"      : NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
+                ["tableName"      : CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
                  "columnName"     : "LAEQ",
                  "outputTableName": "INDICATORS"
                 ])
@@ -337,7 +337,7 @@ class TestDynamic extends JdbcTestCase {
 
         // Compute contouring noise map
         new Create_Isosurface().exec(connection,
-                ["resultTable"      : NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
+                ["resultTable"      : CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
                  "smoothCoefficient": 0])
 
         assertTrue(JDBCUtilities.tableExists(connection, "CONTOURING_NOISE_MAP"))

@@ -6,6 +6,7 @@ import org.h2gis.utilities.JDBCUtilities;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 
 import java.sql.Connection;
@@ -39,25 +40,42 @@ public class RegressionTest {
         try(Statement st = connection.createStatement()) {
             st.execute(getRunScriptRes("regression_nan/lw_roads.sql"));
 
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .build();
 
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "LW_ROADS", "RECEIVERS");
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(500.0)
+                    .setSoundReflectionOrder(1)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .build();
+            
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("LW")
+                    .build();
+            
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setExportReceiverPosition(true)
+                    .build();
 
-            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("LW_ROADS")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .setThreadCount(1)
+                    .build();
 
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(500.0);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(1);
-            noiseMapByReceiverMaker.setThreadCount(1);
-            noiseMapByReceiverMaker.setFrequencyFieldPrepend("LW");
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(true);
-            noiseMapByReceiverMaker.setComputeVerticalDiffraction(true);
 
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
-            NoiseMapDatabaseParameters parameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
-
-            try(ResultSet rs = st.executeQuery("SELECT LEQ FROM " + parameters.receiversLevelTable + " WHERE PERIOD='DEN'")) {
+            try(ResultSet rs = st.executeQuery("SELECT LEQ FROM " + noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable() + " WHERE PERIOD='DEN'")) {
                 assertTrue(rs.next());
                 assertEquals(36.77, rs.getDouble(1), 0.1);
                 assertFalse(rs.next());

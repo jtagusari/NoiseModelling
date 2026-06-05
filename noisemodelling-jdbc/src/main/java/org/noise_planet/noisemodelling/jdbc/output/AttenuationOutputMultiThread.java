@@ -10,7 +10,7 @@
 package org.noise_planet.noisemodelling.jdbc.output;
 
 import org.h2gis.api.ProgressVisitor;
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitorFactory;
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AttenuationOutputMultiThread implements CutPlaneVisitorFactory {
     public ResultsCache resultsCache = new ResultsCache();
     public SceneWithEmission sceneWithEmission;
-    public NoiseMapDatabaseParameters noiseMapDatabaseParameters = new NoiseMapDatabaseParameters();
+    public CalculationIOSettings calculationIOSettings = new CalculationIOSettings();
     public AtomicBoolean exitWhenDone = new AtomicBoolean(false);
     public AtomicBoolean aborted = new AtomicBoolean(false);
     public AtomicLong cnossosPathCount = new AtomicLong();
@@ -35,13 +35,13 @@ public class AttenuationOutputMultiThread implements CutPlaneVisitorFactory {
      * Create NoiseMap constructor
      * @param inputData
      * @param resultsCache
-     * @param noiseMapDatabaseParameters
+     * @param calculationIOSettings
      */
     public AttenuationOutputMultiThread(SceneWithEmission inputData,
-                                        ResultsCache resultsCache, NoiseMapDatabaseParameters noiseMapDatabaseParameters, AtomicBoolean exitWhenDone, AtomicBoolean aborted) {
+                                        ResultsCache resultsCache, CalculationIOSettings calculationIOSettings, AtomicBoolean exitWhenDone, AtomicBoolean aborted) {
         this.resultsCache = resultsCache;
         this.sceneWithEmission = inputData;
-        this.noiseMapDatabaseParameters = noiseMapDatabaseParameters;
+        this.calculationIOSettings = calculationIOSettings;
         this.exitWhenDone = exitWhenDone;
         this.aborted = aborted;
     }

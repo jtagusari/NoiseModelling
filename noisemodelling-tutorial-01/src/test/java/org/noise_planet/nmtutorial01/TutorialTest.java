@@ -8,7 +8,7 @@ import org.h2gis.utilities.dbtypes.DBTypes;
 import org.h2gis.utilities.dbtypes.DBUtils;
 import org.junit.jupiter.api.Test;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.postgresql.util.PSQLException;
 import org.slf4j.Logger;
@@ -38,7 +38,7 @@ public class TutorialTest {
             connection.createStatement().execute("DROP TABLE IF EXISTS contouring_noise_map");
             NoiseMapByReceiverMaker map = Main.mainWithConnection(connection, "target/postgis");
             String receiverTable = TableLocation.capsIdentifier(
-                    NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, DBTypes.POSTGIS);
+                    CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, DBTypes.POSTGIS);
             assertTrue(JDBCUtilities.tableExists(connection.unwrap(Connection.class), receiverTable));
             assertTrue(JDBCUtilities.hasField(connection.unwrap(Connection.class), receiverTable, "period"));
             assertTrue(JDBCUtilities.tableExists(connection.unwrap(Connection.class), "contouring_noise_map"));
@@ -76,7 +76,7 @@ public class TutorialTest {
             NoiseMapByReceiverMaker map = Main.mainWithConnection(connection, "target/h2gis");
 
             String receiverTable = TableLocation.capsIdentifier(
-                    NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, DBTypes.H2GIS);
+                    CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME, DBTypes.H2GIS);
             assertTrue(JDBCUtilities.tableExists(connection.unwrap(Connection.class), receiverTable));
             assertTrue(JDBCUtilities.hasField(connection.unwrap(Connection.class), receiverTable, "period"));
             assertTrue(JDBCUtilities.tableExists(connection.unwrap(Connection.class), "contouring_noise_map"));

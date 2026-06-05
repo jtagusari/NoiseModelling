@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
@@ -189,10 +190,15 @@ public class IsoSurfaceJDBCTest {
         try(Statement st = connection.createStatement()) {
             st.execute(String.format("CALL SHPREAD('%s', 'LANDCOVER2000')", NoiseMapByReceiverMakerTest.class.getResource("landcover2000.shp").getFile()));
             st.execute(getRunScriptRes("scene_with_landcover.sql"));
-            DelaunayReceiversMaker noisemap = new DelaunayReceiversMaker("BUILDINGS", "ROADS_GEOM");
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .build();
+            DelaunayReceiversMaker noisemap = new DelaunayReceiversMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_GEOM")
+                    .build();
             noisemap.setReceiverHasAbsoluteZCoordinates(false);
             noisemap.setSourceHasAbsoluteZCoordinates(false);
-            noisemap.setHeightField("HEIGHT");
             noisemap.initialize(connection, new EmptyProgressVisitor());
 
             AtomicInteger pk = new AtomicInteger(0);
@@ -214,35 +220,56 @@ public class IsoSurfaceJDBCTest {
             int srid = org.h2gis.utilities.GeometryTableUtilities.getSRID(connection, "BUILDINGS");
             IsoSurface isoSurface = new IsoSurface(IsoSurface.NF31_133_ISO, srid);
             // Generate delaunay triangulation
-            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker("BUILDINGS", "ROADS_TRAFF");
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .build();
+            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_TRAFF")
+                    .build();
             delaunayReceiversMaker.setMaximumArea(800);
             delaunayReceiversMaker.setGridDim(1);
             delaunayReceiversMaker.run(connection, "RECEIVERS" , isoSurface.getTriangleTable());
 
-            // Create noise map for 4 periods
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "ROADS_TRAFF", "RECEIVERS");
+            // Create noise map for 4 periods            
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(100)
+                    .setSoundReflectionOrder(0)
+                    .setComputeHorizontalDiffraction(false)
+                    .setBodyBarrier(false)
+                    .build();
+            
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .build();
+            
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setExportReceiverPosition(true)
+                    .setMaximumError(3)
+                    .build();
 
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(100);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(false);
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportReceiverPosition = true;
-            noiseMapByReceiverMaker.setGridDim(1);
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setMaximumError(3);
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_TRAFF")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .setGridDim(1)
+                    .build();
 
             noiseMapByReceiverMaker.run(connection, new RootProgressVisitor(1, true, 5));
 
             int receiversRowCount = JDBCUtilities.getRowCount(connection, "RECEIVERS");
 
             int resultRowCount = JDBCUtilities.getRowCount(connection,
-                    noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().receiversLevelTable);
+                    noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable);
 
             // D E N and DEN, should be 4 more rows than receivers
             assertEquals(receiversRowCount * 4, resultRowCount);
 
             LOGGER.info("Create iso surface");
             // Create contouring noise map
-            isoSurface.setPointTable(noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().receiversLevelTable);
+            isoSurface.setPointTable(noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable);
             isoSurface.setPointTableField("LAEQ");
             isoSurface.setSmooth(false); // faster
             isoSurface.setMergeTriangles(false); // faster

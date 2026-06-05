@@ -22,7 +22,7 @@ import org.locationtech.jts.geom.*;
 import org.locationtech.jts.index.quadtree.Quadtree;
 import org.locationtech.jts.operation.union.CascadedPolygonUnion;
 import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +40,7 @@ import static org.noise_planet.noisemodelling.emission.utils.Utils.dbaToW;
 public class IsoSurface {
     Logger log = LoggerFactory.getLogger(IsoSurface.class);
     static final int BATCH_MAX_SIZE = 500;
-    String pointTable = NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME;
+    String pointTable = CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME;
     String triangleTable = "TRIANGLES";
     String outputTable = "CONTOURING_NOISE_MAP";
     String pointTableField = "LAEQ";

@@ -78,6 +78,67 @@ public class SceneDatabaseInputSettings implements SceneDatabaseInputSettingsVie
         this.frequencyFieldPrepend = other.getFrequencyFieldPrepend();
     }
 
+    public static class Builder {
+        private INPUT_MODE inputMode = INPUT_MODE.INPUT_MODE_GUESS;
+        private String sourcesEmissionTableName = "";
+        private String sourceEmissionPrimaryKeyField = "IDSOURCE";
+        private String directivityTableName = "";
+        private boolean useTrainDirectivity = false;
+        private String periodAtmosphericSettingsTableName = "";
+        private int coefficientVersion = 2;
+        private String frequencyFieldPrepend = "HZ";
+
+        public Builder setInputMode(INPUT_MODE inputMode) {
+            this.inputMode = inputMode;
+            return this;
+        }
+
+        public Builder setSourcesEmissionTableName(String sourcesEmissionTableName) {
+            this.sourcesEmissionTableName = sourcesEmissionTableName;
+            return this;
+        }
+
+        public Builder setSourceEmissionPrimaryKeyField(String sourceEmissionPrimaryKeyField) {
+            this.sourceEmissionPrimaryKeyField = sourceEmissionPrimaryKeyField;
+            return this;
+        }
+        public Builder setDirectivityTableName(String directivityTableName) {
+            this.directivityTableName = directivityTableName;
+            return this;
+        }
+        public Builder setUseTrainDirectivity(boolean useTrainDirectivity) {
+            this.useTrainDirectivity = useTrainDirectivity;
+            return this;
+        }
+        public Builder setPeriodAtmosphericSettingsTableName(String periodAtmosphericSettingsTableName) {
+            this.periodAtmosphericSettingsTableName = periodAtmosphericSettingsTableName;
+            return this;
+        }
+        public Builder setCoefficientVersion(int coefficientVersion) {
+            this.coefficientVersion = coefficientVersion;
+            return this;
+        }
+
+        public Builder setFrequencyFieldPrepend(String frequencyFieldPrepend) {
+            this.frequencyFieldPrepend = frequencyFieldPrepend;
+            return this;
+        }
+
+        public SceneDatabaseInputSettings build() {
+            SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+            settings.inputMode = this.inputMode;
+            settings.sourcesEmissionTableName = this.sourcesEmissionTableName;
+            settings.sourceEmissionPrimaryKeyField = this.sourceEmissionPrimaryKeyField;
+            settings.directivityTableName = this.directivityTableName;
+            settings.useTrainDirectivity = this.useTrainDirectivity;
+            settings.periodAtmosphericSettingsTableName = this.periodAtmosphericSettingsTableName;
+            settings.coefficientVersion = this.coefficientVersion;
+            settings.frequencyFieldPrepend = this.frequencyFieldPrepend;
+            return settings;
+        }
+
+    }
+
     public SceneDatabaseInputSettings copy() {
         return new SceneDatabaseInputSettings(this);
     }

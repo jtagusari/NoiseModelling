@@ -80,19 +80,7 @@ public class Main {
             GeoJsonRead.readGeoJson(connection, Main.class.getResource("dem_lorient.geojson").getFile(), "dem");
 
             // Init NoiseModelling
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("buildings", "lw_roads", "receivers");
 
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(160.0d);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(true);
-            noiseMapByReceiverMaker.setComputeVerticalDiffraction(true);
-            // Building height field name
-            noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            // Point cloud height above sea level POINT(X Y Z)
-            noiseMapByReceiverMaker.setDemTable("DEM");
-            // Do not propagate for low emission or far away sources.
-            // error in dB
-            noiseMapByReceiverMaker.setMaximumError(0.1d);
 
             // Init custom input in order to compute more than just attenuation
             // LW_ROADS contain Day Evening Night emission spectrum
@@ -104,19 +92,41 @@ public class Main {
             noiseMapParameters.setComputeLDEN(true);
 
             NoiseMapMaker tableWriter = new NoiseMapMaker(connection, noiseMapParameters);
-
             tableWriter.setKeepRays(true);
 
-            noiseMapByReceiverMaker.setPropagationProcessDataFactory(tableWriter);
-            noiseMapByReceiverMaker.setComputeRaysOutFactory(tableWriter);
-
-            RootProgressVisitor progressLogger = new RootProgressVisitor(1, true, 1);
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setMaximumPropagationDistance(160.0d)
+                    .setSoundReflectionOrder(0)
+                    .build();
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("buildings")
+                    .setHeightField("HEIGHT")
+                    .build();
+            
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setMaximumError(0.1d)
+                    .build();
+            
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setSourcesTableName("lw_roads")
+                    .setReceiverTableName("receivers")
+                    .setDemTable("DEM")
+                    .setThreadCount(1)
+                    .setGridDim(2)
+                    .setComputeRaysOutFactory(tableWriter)
+                    .setTableLoader(tableWriter)
+                    .build();
+                    
 
             noiseMapByReceiverMaker.initialize(connection, new EmptyProgressVisitor());
-
-            // force the creation of a 2x2 cells
-            noiseMapByReceiverMaker.setGridDim(2);
-
+            
+            
+            RootProgressVisitor progressLogger = new RootProgressVisitor(1, true, 1);
 
             // Set of already processed receivers
             Set<Long> receivers = new HashSet<>();

@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit test for SceneWithEmission.addSourceDb() method.
  * Tests emission parsing from database for CNOSSOS road sources.
  */
-public class SceneWithEmissionWithDb {
+public class SceneWithEmissionWithDbTest {
     private Connection connection;
 
     @BeforeEach
@@ -97,8 +97,9 @@ public class SceneWithEmissionWithDb {
 
         // Setup SceneWithEmission with OCTAVE frequency configuration
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
-        settings.setInputMode("INPUT_MODE_LW_DEN");
+        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings.Builder()
+                .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                .build();
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
         // Note: frequencyFieldPrepend is public, but already defaults to "HZ"
 

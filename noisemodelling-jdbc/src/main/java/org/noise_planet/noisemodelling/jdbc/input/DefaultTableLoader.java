@@ -240,6 +240,10 @@ public class DefaultTableLoader implements TableLoader {
         return directionAttributes;
     }
 
+    public void setAttenuationParameters(AttenuationParameters defaultParameters) {
+        this.defaultParameters = defaultParameters;
+    }
+
     /**
      * Extracts valid frequency bands from column names matching a prefix (e.g. HZ1000).
      */
@@ -292,7 +296,7 @@ public class DefaultTableLoader implements TableLoader {
         // feed freeFieldFinder for fast intersection query
         // optimization
         // Fetch buildings in extendedEnvelope
-        fetchCellBuildings(connection, cellContext.getBuildingTableParameters(), expandedCellEnvelop,
+        fetchCellBuildings(connection, cellContext.getBuildingTableSettings(), expandedCellEnvelop,
                 scene.profileBuilder, geometryFactory);
 
         //if we have topographic points data
@@ -406,18 +410,18 @@ public class DefaultTableLoader implements TableLoader {
     /**
      * Fetches buildings data for the specified cell envelope and adds them to the profile builder.
      * @param connection     the database connection to use for querying the buildings data.
-     * @param buildingTableParameters Database settings for the building table
+     * @param buildingTableSettings Database settings for the building table
      * @param fetchEnvelope  the envelope representing the cell to fetch buildings data for.
      * @param builder        the profile builder to which the buildings data will be added.
      * @param geometryFactory geometry factory instance with SRID set.
      * @throws SQLException  if an SQL exception occurs while fetching the buildings data.
      */
-    public static void fetchCellBuildings(Connection connection, BuildingTableSettings buildingTableParameters,
+    public static void fetchCellBuildings(Connection connection, BuildingTableSettings buildingTableSettings,
                                           Envelope fetchEnvelope, ProfileBuilder builder,
                                           GeometryFactory geometryFactory) throws SQLException {
         List<Building> buildings = new LinkedList<>();
         List<Wall> walls = new LinkedList<>();
-        fetchCellBuildings(connection,buildingTableParameters, fetchEnvelope, buildings, walls, geometryFactory);
+        fetchCellBuildings(connection,buildingTableSettings, fetchEnvelope, buildings, walls, geometryFactory);
         for(Building building : buildings) {
             builder.addBuilding(building);
         }
@@ -429,7 +433,7 @@ public class DefaultTableLoader implements TableLoader {
     /**
      * Fetches building data for the specified cell envelope and adds them to the provided list of buildings.
      * @param connection      the database connection to use for querying the building data.
-     * @param buildingTableParameters Database settings for the building table
+     * @param buildingTableSettings Database settings for the building table
      * @param fetchEnvelope   the envelope representing the cell to fetch building data for.
      * @param buildings       the list to which the fetched buildings will be added.
      * @param walls Wall list to feed
@@ -437,34 +441,34 @@ public class DefaultTableLoader implements TableLoader {
      * @throws SQLException   if an SQL exception occurs while fetching the building data.
      */
     public static void fetchCellBuildings(Connection connection,
-                                          BuildingTableSettings buildingTableParameters,
+                                          BuildingTableSettings buildingTableSettings,
                                           Envelope fetchEnvelope,
                                           List<Building> buildings,
                                           List<Wall> walls,
                                           GeometryFactory geometryFactory) throws SQLException {
         Geometry envGeo = geometryFactory.toGeometry(fetchEnvelope);
-        boolean fetchAlpha = JDBCUtilities.hasField(connection, buildingTableParameters.buildingsTableName,
-                buildingTableParameters.alphaFieldName);
+        boolean fetchAlpha = JDBCUtilities.hasField(connection, buildingTableSettings.getBuildingsTableName(),
+                buildingTableSettings.getAlphaFieldName());
         String additionalQuery = "";
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-        if(!buildingTableParameters.heightField.isEmpty()) {
-            additionalQuery += ", " + TableLocation.quoteIdentifier(buildingTableParameters.heightField, dbType);
+        if(!buildingTableSettings.getHeightField().isEmpty()) {
+            additionalQuery += ", " + TableLocation.quoteIdentifier(buildingTableSettings.getHeightField(), dbType);
         }
         if(fetchAlpha) {
-            additionalQuery += ", " + buildingTableParameters.alphaFieldName;
+            additionalQuery += ", " + buildingTableSettings.getAlphaFieldName();
         }
         String pkBuilding = "";
         final int indexPk = JDBCUtilities.getIntegerPrimaryKey(connection.unwrap(Connection.class),
-                new TableLocation(buildingTableParameters.buildingsTableName, dbType));
+                new TableLocation(buildingTableSettings.getBuildingsTableName(), dbType));
         if(indexPk > 0) {
-            pkBuilding = JDBCUtilities.getColumnName(connection, buildingTableParameters.buildingsTableName, indexPk);
+            pkBuilding = JDBCUtilities.getColumnName(connection, buildingTableSettings.getBuildingsTableName(), indexPk);
             additionalQuery += ", " + pkBuilding;
         }
         String buildingGeomName = getGeometryColumnNames(connection,
-                TableLocation.parse(buildingTableParameters.buildingsTableName, dbType)).get(0);
+                TableLocation.parse(buildingTableSettings.getBuildingsTableName(), dbType)).get(0);
         try (PreparedStatement st = connection.prepareStatement(
                 "SELECT " + TableLocation.quoteIdentifier(buildingGeomName) + additionalQuery + " FROM " +
-                        buildingTableParameters.buildingsTableName + " WHERE " +
+                        buildingTableSettings.getBuildingsTableName() + " WHERE " +
                         TableLocation.quoteIdentifier(buildingGeomName, dbType) + " && ?::geometry")) {
             st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
             try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
@@ -472,7 +476,7 @@ public class DefaultTableLoader implements TableLoader {
                 if(!pkBuilding.isEmpty()) {
                     columnIndex = JDBCUtilities.getFieldIndex(rs.getMetaData(), pkBuilding);
                 }
-                double oldAlpha = buildingTableParameters.defaultWallAbsorption;
+                double oldAlpha = buildingTableSettings.getDefaultWallAbsorption();
                 while (rs.next()) {
                     // Clip each building geometry to the fetched envelope to keep per-cell consistency.
                     Geometry building = rs.getGeometry();
@@ -486,7 +490,7 @@ public class DefaultTableLoader implements TableLoader {
                         }
                         if(intersectedGeometry instanceof Polygon || intersectedGeometry instanceof MultiPolygon || intersectedGeometry instanceof LineString) {
                             if(fetchAlpha) {
-                                oldAlpha = rs.getDouble(buildingTableParameters.alphaFieldName);
+                                oldAlpha = rs.getDouble(buildingTableSettings.getAlphaFieldName());
                             }
 
                             long pk = -1;
@@ -497,10 +501,10 @@ public class DefaultTableLoader implements TableLoader {
                                 Geometry geometry = intersectedGeometry.getGeometryN(i);
                                 if(geometry instanceof Polygon && !geometry.isEmpty()) {
                                     Building poly = new Building((Polygon) geometry,
-                                            buildingTableParameters.heightField.isEmpty() ?
+                                            buildingTableSettings.getHeightField().isEmpty() ?
                                                     Double.MAX_VALUE :
-                                                    rs.getDouble(buildingTableParameters.heightField),
-                                            oldAlpha, pk, buildingTableParameters.zBuildings);
+                                                    rs.getDouble(buildingTableSettings.getHeightField()),
+                                            oldAlpha, pk, buildingTableSettings.isZBuildings());
                                     buildings.add(poly);
                                 } else if (geometry instanceof LineString) {
                                     // Convert border lines into individual wall segments.
@@ -511,8 +515,8 @@ public class DefaultTableLoader implements TableLoader {
                                                 -1, ProfileBuilder.IntersectionType.WALL);
                                         wall.setG(oldAlpha);
                                         wall.setPrimaryKey(pk);
-                                        wall.setHeight(buildingTableParameters.heightField.isEmpty() ?
-                                                Double.MAX_VALUE : rs.getDouble(buildingTableParameters.heightField));
+                                        wall.setHeight(buildingTableSettings.getHeightField().isEmpty() ?
+                                                Double.MAX_VALUE : rs.getDouble(buildingTableSettings.getHeightField()));
                                         walls.add(wall);
                                     }
                                 }

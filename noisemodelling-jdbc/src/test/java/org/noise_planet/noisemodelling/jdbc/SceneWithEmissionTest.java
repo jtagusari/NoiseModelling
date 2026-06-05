@@ -16,7 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.*;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
+import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.output.AttenuationOutputMultiThread;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
@@ -55,32 +57,44 @@ public class SceneWithEmissionTest {
             String receiverTableName, String sourcesEmissionTableName) throws SQLException, IOException {
 
         // Init NoiseModelling
-        NoiseMapByReceiverMaker noiseMap = new NoiseMapByReceiverMaker(buildingsTableName,
-                sourcesTableName, receiverTableName);
+        PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                .setMaximumPropagationDistance(5000.0)
+                .setSoundReflectionOrder(1)
+                .setComputeHorizontalDiffraction(true)
+                .setComputeVerticalDiffraction(true)
+                .build();
+        
+        SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                .setSourcesEmissionTableName(sourcesEmissionTableName)
+                .build();
 
-        noiseMap.setMaximumPropagationDistance(5000.0);
-        noiseMap.setSoundReflectionOrder(1);
-        noiseMap.setThreadCount(1);
-        noiseMap.setComputeHorizontalDiffraction(true);
-        noiseMap.setComputeVerticalDiffraction(true);
-        if(!sourcesEmissionTableName.isEmpty()) {
-            noiseMap.setSourcesEmissionTableName(sourcesEmissionTableName);
-        }
-        NoiseMapDatabaseParameters parameters = noiseMap.getNoiseMapDatabaseParameters();
-        parameters.mergeSources = false;
-        parameters.maximumError = maxError;
+        CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                .setMaximumError(maxError)
+                .setMergeSources(false)
+                .build();
+        
+        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                .setBuildingsTableName(buildingsTableName)
+                .setHeightField("HEIGHT")
+                .build();
 
-        // Building height field name
-        noiseMap.setHeightField("HEIGHT");
+        NoiseMapByReceiverMaker noiseMap = new NoiseMapByReceiverMaker.Builder()
+                .setPropagationSettings(propagationSettings)
+                .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                .setBuildingTableSettings(buildingTableSettings)
+                .setCalculationIOSettings(calculationIOSettings)
+                .setSourcesTableName(sourcesTableName)
+                .setReceiverTableName(receiverTableName)
+                .setThreadCount(1)
+                .setGridDim(1)
+                .build();
 
-
-        noiseMap.setGridDim(1);
 
         noiseMap.run(connection, new EmptyProgressVisitor());
 
         Statement st = connection.createStatement();
         List<Long> sourcePks = new LinkedList<>();
-        try(ResultSet rs = st.executeQuery("SELECT DISTINCT IDSOURCE FROM " + parameters.receiversLevelTable)) {
+        try(ResultSet rs = st.executeQuery("SELECT DISTINCT IDSOURCE FROM " + noiseMap.getCalculationIOSettings().getReceiversLevelTable())) {
             while (rs.next()) {
                 sourcePks.add(rs.getLong(1));
             }
@@ -93,7 +107,7 @@ public class SceneWithEmissionTest {
     }
 
     /**
-     * Test optimisation feature {@link NoiseMapDatabaseParameters#setMaximumError(double)}
+     * Test optimisation feature {@link CalculationIOSettings#setMaximumError(double)}
      * This feature is disabled and all sound sources are computed
      */
     @Test
@@ -130,7 +144,7 @@ public class SceneWithEmissionTest {
     }
 
     /**
-     * Test optimisation feature {@link NoiseMapDatabaseParameters#setMaximumError(double)}
+     * Test optimisation feature {@link CalculationIOSettings#setMaximumError(double)}
      * This feature is disabled and all sound sources are computed
      */
     @Test

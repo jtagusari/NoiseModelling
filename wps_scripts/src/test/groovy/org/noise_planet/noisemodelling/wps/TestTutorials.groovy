@@ -17,7 +17,7 @@ import org.h2gis.functions.io.shp.SHPRead
 import org.h2gis.utilities.GeometryTableUtilities
 import org.h2gis.utilities.JDBCUtilities
 import org.h2gis.utilities.TableLocation
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings
 import org.noise_planet.noisemodelling.wps.Acoustic_Tools.Create_Isosurface
 import org.noise_planet.noisemodelling.wps.Database_Manager.Display_Database
 import org.noise_planet.noisemodelling.wps.Database_Manager.Table_Visualization_Data
@@ -181,11 +181,11 @@ class TestTutorials extends JdbcTestCase {
                  "frequencyFieldPrepend": "LW"])
 
         def countReceivers = sql.firstRow("SELECT COUNT(*) FROM RECEIVERS")[0] as Integer
-        def countResult = sql.firstRow("SELECT COUNT(*) FROM $NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME".toString())[0] as Integer
+        def countResult = sql.firstRow("SELECT COUNT(*) FROM $CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME".toString())[0] as Integer
 
         assertEquals(4*countReceivers, countResult)
 
-        def minLevel = sql.firstRow("SELECT MIN(LW1000) FROM $NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME".toString())[0] as Double
+        def minLevel = sql.firstRow("SELECT MIN(LW1000) FROM $CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME".toString())[0] as Double
 
         assertNotSame(-99.0, minLevel)
     }
@@ -235,9 +235,9 @@ class TestTutorials extends JdbcTestCase {
         res =  new Display_Database().exec(connection, [])
 
         // Check database
-        def output = new Table_Visualization_Data().exec(connection, ["tableName": NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
+        def output = new Table_Visualization_Data().exec(connection, ["tableName": CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
 
-        assertTrue(res.contains(NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME))
+        assertTrue(res.contains(CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME))
 
         assertTrue(output.contains("PERIOD"))
 
@@ -250,7 +250,7 @@ class TestTutorials extends JdbcTestCase {
 
         new Export_Table().exec(connection,
                 ["exportPath"   : "build/tmp/tutoPointSource.geojson",
-                 "tableToExport": NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
+                 "tableToExport": CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
 
 
     }
@@ -313,16 +313,16 @@ class TestTutorials extends JdbcTestCase {
                                                         ])
 
         new Create_Isosurface().exec(connection,
-                [resultTable: NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
+                [resultTable: CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME,
                  smoothCoefficient : 0.4])
 
         new Export_Table().exec(connection, [exportPath:"build/tmp/CONTOURING_NOISE_MAP.shp", tableToExport: "CONTOURING_NOISE_MAP"])
 
         new Export_Table().exec(connection,
                 [exportPath:"build/tmp/TUTO_DIR_RECEIVERS_LEVEL.shp",
-                 tableToExport: NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
+                 tableToExport: CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
 
-        def columnNames = JDBCUtilities.getColumnNames(connection, NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME)
+        def columnNames = JDBCUtilities.getColumnNames(connection, CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME)
 
         assertTrue(columnNames.contains("IDRECEIVER"))
         assertTrue(columnNames.contains("PERIOD"))

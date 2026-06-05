@@ -19,6 +19,8 @@ import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
+
 import java.sql.*;
 
 import static org.h2gis.utilities.GeometryTableUtilities.getGeometryColumnNames;
@@ -31,32 +33,24 @@ import static org.h2gis.utilities.GeometryTableUtilities.getSRID;
  * @author Nicolas Fortin
  */
 public abstract class GridMapMaker {
+    public boolean verbose = true;
     private static final Logger LOGGER = LoggerFactory.getLogger(GridMapMaker.class);
-    // When computing cell size, try to keep propagation distance away from the cell
-    // inferior to this ratio (in comparison with cell width)
     protected static final double MINIMAL_BUFFER_RATIO = 0.3;
-    protected BuildingTableSettings buildingTableParameters = new BuildingTableSettings();
+
+    protected final BuildingTableSettings buildingTableSettings;
     protected final String sourcesTableName;
-    protected String soilTableName = "";
+    protected final String soilTableName;
     // Digital elevation model table. (Contains points or triangles)
-    protected String demTable = "";
+    protected final String demTable;
     // Bridge points table name. Contains BRIDGE_POINTS data with geometry and structural properties
-    protected String bridgePointsTableName = "";
-    protected String sound_lvl_field = "DB_M";
+    protected final String bridgePointsTableName;
+    // protected final String sound_lvl_field = "DB_M";
+    protected final String sound_lvl_field;
     // True if Z of sound source and receivers are relative to the ground
     protected boolean receiverHasAbsoluteZCoordinates = false;
     protected boolean sourceHasAbsoluteZCoordinates = false;
-    protected double maximumPropagationDistance = 750;
-    protected double maximumReflectionDistance = 100;
-    protected double gs = 0;
-    // Soil areas are split by the provided size in order to reduce the propagation time
-    protected double groundSurfaceSplitSideLength = 200;
-    protected int soundReflectionOrder = 2;
 
-    protected boolean bodyBarrier = false; // it needs to be true if train propagation is computed (multiple reflection between the train and a screen)
-    public boolean verbose = true;
-    protected boolean computeHorizontalDiffraction = true;
-    protected boolean computeVerticalDiffraction = true;
+    protected final PropagationSettings propagationSettings;
 
     protected GeometryFactory geometryFactory;
 
@@ -67,21 +61,25 @@ public abstract class GridMapMaker {
     protected int gridDim = 0;
     protected Envelope mainEnvelope = new Envelope();
 
-    public GridMapMaker(String buildingsTableName, String sourcesTableName) {
-        this.buildingTableParameters.buildingsTableName = buildingsTableName;
+    public GridMapMaker(BuildingTableSettings buildingTableSettings, String sourcesTableName, String soilTableName, String demTable, String bridgePointsTableName, PropagationSettings propagationSettings, String sound_lvl_field) {
+        this.buildingTableSettings = buildingTableSettings;
         this.sourcesTableName = sourcesTableName;
-    }
-
-    public GridMapMaker(String buildingsTableName, String sourcesTableName, String bridgePointsTableName, String soilTableName, String demTable) {
-        this.buildingTableParameters.buildingsTableName = buildingsTableName;
-        this.sourcesTableName = sourcesTableName;
-        this.bridgePointsTableName = bridgePointsTableName;
         this.soilTableName = soilTableName;
         this.demTable = demTable;
+        this.bridgePointsTableName = bridgePointsTableName;
+        this.propagationSettings = propagationSettings;
+        this.sound_lvl_field = sound_lvl_field;
     }
 
-    public BuildingTableSettings getBuildingTableParameters() {
-        return buildingTableParameters;
+    // public GridMapMaker(String buildingsTableName, String sourcesTableName) {
+    //     this.buildingTableSettings = new BuildingTableSettings.Builder()
+    //             .setBuildingsTableName(buildingsTableName)
+    //             .build();
+    //     this.sourcesTableName = sourcesTableName;
+    // }
+
+    public BuildingTableSettings getBuildingTableSettings() {
+        return buildingTableSettings;
     }
 
 
@@ -125,20 +123,16 @@ public abstract class GridMapMaker {
     }
 
     public double getGroundSurfaceSplitSideLength() {
-        return groundSurfaceSplitSideLength;
-    }
-
-    public void setGroundSurfaceSplitSideLength(double groundSurfaceSplitSideLength) {
-        this.groundSurfaceSplitSideLength = groundSurfaceSplitSideLength;
+        return propagationSettings.getGroundSurfaceSplitSideLength();
     }
 
 
     /**
      * true if train propagation is computed (multiple reflection between the train and a screen)
      */
-    public void setBodyBarrier(boolean bodyBarrier) {
-        this.bodyBarrier = bodyBarrier;
-    }
+    // public void setBodyBarrier(boolean bodyBarrier) {
+    //     this.bodyBarrier = bodyBarrier;
+    // }
 
     public double getCellWidth() {
         return mainEnvelope.getWidth() / gridDim;
@@ -156,7 +150,7 @@ public abstract class GridMapMaker {
      * @throws java.sql.SQLException
      */
     public void initialize(Connection connection, ProgressVisitor progression) throws SQLException {
-        if(soundReflectionOrder > 0 && maximumPropagationDistance < maximumReflectionDistance) {
+        if(propagationSettings.getSoundReflectionOrder() > 0 && propagationSettings.getMaximumPropagationDistance() < propagationSettings.getMaximumReflectionDistance()) {
             throw new SQLException(new IllegalArgumentException(
                     "Maximum wall seeking distance cannot be superior than maximum propagation distance"));
         }
@@ -186,7 +180,7 @@ public abstract class GridMapMaker {
             srid = getSRID(connection, TableLocation.parse(sourcesTableName, dbTypes));
         }
         if(srid == 0) {
-            srid = getSRID(connection, TableLocation.parse(buildingTableParameters.buildingsTableName, dbTypes));
+            srid = getSRID(connection, TableLocation.parse(buildingTableSettings.getBuildingsTableName(), dbTypes));
         }
         return new GeometryFactory(new PrecisionModel(), srid);
     }
@@ -208,7 +202,7 @@ public abstract class GridMapMaker {
      * @return Table name that contains buildings
      */
     public String getBuildingsTableName() {
-        return buildingTableParameters.buildingsTableName;
+        return buildingTableSettings.getBuildingsTableName();
     }
 
     /**
@@ -263,26 +257,9 @@ public abstract class GridMapMaker {
     }
 
     public boolean iszBuildings() {
-        return buildingTableParameters.zBuildings;
+        return buildingTableSettings.isZBuildings();
     }
 
-    public void setzBuildings(boolean zBuildings) {
-        buildingTableParameters.zBuildings = zBuildings;
-    }
-
-    /**
-     * Extracted from NMPB 2008-2 7.3.2
-     * Soil areas POLYGON, with a dimensionless coefficient G:
-     *  - Law, meadow, field of cereals G=1
-     *  - Undergrowth (resinous or decidious) G=1
-     *  - Compacted earth, track G=0.3
-     *  - Road surface G=0
-     *  - Smooth concrete G=0
-     * @param soilTableName Table name of grounds properties
-     */
-    public void setSoilTableName(String soilTableName) {
-        this.soilTableName = soilTableName;
-    }
 
     /**
      * Digital Elevation model table name. Currently only a table with POINTZ column is supported.
@@ -293,14 +270,6 @@ public abstract class GridMapMaker {
         return demTable;
     }
 
-    /**
-     * Digital Elevation model table name. Currently only a table with POINTZ column is supported.
-     * DEM points too close with buildings are not fetched.
-     * @param demTable Digital Elevation model table name
-     */
-    public void setDemTable(String demTable) {
-        this.demTable = demTable;
-    }
 
     /**
      * Bridge points table name. Table must contain BRIDGE_POINTS with POINT geometry,
@@ -313,16 +282,6 @@ public abstract class GridMapMaker {
     }
 
     /**
-     * Bridge points table name. Table must contain BRIDGE_POINTS with POINT geometry,
-     * BRIDGE_PK, structural properties (deck height, width, thickness, barrier heights),
-     * and bridge type information (girder type, slab type).
-     * @param bridgePointsTableName Bridge points table name
-     */
-    public void setBridgePointsTableName(String bridgePointsTableName) {
-        this.bridgePointsTableName = bridgePointsTableName;
-    }
-
-    /**
      * Field name of the {@link #sourcesTableName}HERTZ. Where HERTZ is a number [100-5000].
      * Without the hertz value.
      * @return Hertz field prefix
@@ -332,55 +291,23 @@ public abstract class GridMapMaker {
     }
 
     /**
-     * Field name of the {@link #sourcesTableName}HERTZ. Where HERTZ is a number [100-5000].
-     * Without the hertz value.
-     * @param sound_lvl_field Hertz field prefix
-     */
-    public void setSound_lvl_field(String sound_lvl_field) {
-        this.sound_lvl_field = sound_lvl_field;
-    }
-
-    /**
      * @return Sound propagation stop at this distance, default to 750m.
         * Computation cell size is proportional to this value.
      */
 
     public double getMaximumPropagationDistance() {
-        return maximumPropagationDistance;
-    }
-
-    /**
-     * @param maximumPropagationDistance  Sound propagation stop at this distance, default to 750m.
-        * Computation cell size is proportional to this value.
-     */
-    public void setMaximumPropagationDistance(double maximumPropagationDistance) {
-        this.maximumPropagationDistance = maximumPropagationDistance;
-    }
-
-    /**
-     * Set global ground coefficient used when no local ground effect table applies.
-     */
-    public void setGs(double gs) {
-        this.gs = gs;
+        return propagationSettings.getMaximumPropagationDistance();
     }
 
     public double getGs() {
-        return this.gs;
+        return propagationSettings.getGs();
     }
 
     /**
      * @return Reflection and diffraction maximum search distance, default to 400m.
     */
     public double getMaximumReflectionDistance() {
-        return maximumReflectionDistance;
-    }
-
-    /**
-     * @param maximumReflectionDistance Reflection and diffraction seek walls and corners up to X meters
-     *                                  from the direct propagation line. Default to 100m.
-     */
-    public void setMaximumReflectionDistance(double maximumReflectionDistance) {
-        this.maximumReflectionDistance = maximumReflectionDistance;
+        return propagationSettings.getMaximumReflectionDistance();
     }
 
     /**
@@ -388,43 +315,21 @@ public abstract class GridMapMaker {
      * 2 means propagation of rays up to 2 collision with walls.
      */
     public int getSoundReflectionOrder() {
-        return soundReflectionOrder;
-    }
-
-    /**
-     * @param soundReflectionOrder Sound reflection order. 0 order mean 0 reflection depth.
-     * 2 means propagation of rays up to 2 collision with walls.
-     */
-    public void setSoundReflectionOrder(int soundReflectionOrder) {
-        this.soundReflectionOrder = soundReflectionOrder;
+        return propagationSettings.getSoundReflectionOrder();
     }
 
     /**
      * @return True if diffraction rays will be computed on vertical edges (around buildings)
      */
     public boolean isComputeHorizontalDiffraction() {
-        return computeHorizontalDiffraction;
-    }
-
-    /**
-     * @param computeHorizontalDiffraction True if diffraction rays will be computed on vertical edges (around buildings)
-     */
-    public void setComputeHorizontalDiffraction(boolean computeHorizontalDiffraction) {
-        this.computeHorizontalDiffraction = computeHorizontalDiffraction;
+        return propagationSettings.isComputeHorizontalDiffraction();
     }
 
     /**
      * @return Global default wall absorption on sound reflection.
      */
     public double getWallAbsorption() {
-        return buildingTableParameters.defaultWallAbsorption;
-    }
-
-    /**
-     * @param wallAbsorption Set default global wall absorption on sound reflection.
-     */
-    public void setWallAbsorption(double wallAbsorption) {
-        buildingTableParameters.defaultWallAbsorption = wallAbsorption;
+        return buildingTableSettings.getDefaultWallAbsorption();
     }
 
     /**
@@ -432,15 +337,9 @@ public abstract class GridMapMaker {
      */
 
     public String getHeightField() {
-        return buildingTableParameters.heightField;
+        return buildingTableSettings.getHeightField();
     }
 
-    /**
-        * @param heightField {@link #getBuildingsTableName()} table field name for building height above the ground.
-     */
-    public void setHeightField(String heightField) {
-        buildingTableParameters.heightField = heightField;
-    }
 
     /**
      * @return The envelope of computation area.
@@ -460,7 +359,7 @@ public abstract class GridMapMaker {
             // Compute subdivision level using envelope and maximum propagation distance
             double greatestSideLength = mainEnvelope.maxExtent();
             int subdivisionLevel = 0;
-            while(maximumPropagationDistance / (greatestSideLength / Math.pow(2, subdivisionLevel)) < MINIMAL_BUFFER_RATIO) {
+            while(propagationSettings.getMaximumPropagationDistance() / (greatestSideLength / Math.pow(2, subdivisionLevel)) < MINIMAL_BUFFER_RATIO) {
                 subdivisionLevel++;
             }
             gridDim = (int) Math.pow(2, subdivisionLevel);
@@ -478,15 +377,7 @@ public abstract class GridMapMaker {
      * @return True if diffraction of horizontal edges is computed.
      */
     public boolean isComputeVerticalDiffraction() {
-        return computeVerticalDiffraction;
-    }
-
-    /**
-     * Activate of deactivate diffraction of horizontal edges. Height of buildings must be provided.
-     * @param computeVerticalDiffraction New value
-     */
-    public void setComputeVerticalDiffraction(boolean computeVerticalDiffraction) {
-        this.computeVerticalDiffraction = computeVerticalDiffraction;
+        return propagationSettings.isComputeVerticalDiffraction();
     }
 
 }

@@ -13,22 +13,78 @@ package org.noise_planet.noisemodelling.jdbc;
  */
 public class BuildingTableSettings {
     /** Building geometry table name. */
-    public String buildingsTableName;
+    private final String buildingsTableName;
     /** Building height field name (height above local ground). */
-    public String heightField = "HEIGHT";
+    private final String heightField;
     /** Wall absorption coefficient field name. */
-    public String alphaFieldName = "G";
+    private final String alphaFieldName;
     /** Global default wall absorption value used when no per-feature value is available. */
-    public double defaultWallAbsorption = 100000;
+    private final double defaultWallAbsorption;
     /**
      * If true, use Z values from building polygons.
      * In this mode, Z is interpreted as altitude (sea level to top of wall).
      */
-    public boolean zBuildings = false;
+    private final boolean zBuildings;
 
-    public BuildingTableSettings() {
+    public BuildingTableSettings(String buildingsTableName, String heightField, String alphaFieldName, double defaultWallAbsorption, boolean zBuildings) {
+        this.buildingsTableName = buildingsTableName;
+        this.heightField = heightField;
+        this.alphaFieldName = alphaFieldName;
+        this.defaultWallAbsorption = defaultWallAbsorption;
+        this.zBuildings = zBuildings;
     }
 
+    public static class Builder {
+        private String buildingsTableName;
+        private String heightField = "HEIGHT";
+        private String alphaFieldName = "G";
+        private double defaultWallAbsorption = 100000;
+        private boolean zBuildings = false;
+
+        public Builder setBuildingsTableName(String buildingsTableName) {
+            this.buildingsTableName = buildingsTableName;
+            return this;
+        }
+
+        public Builder setHeightField(String heightField) {
+            this.heightField = heightField;
+            return this;
+        }
+
+        public Builder setAlphaFieldName(String alphaFieldName) {
+            this.alphaFieldName = alphaFieldName;
+            return this;
+        }
+
+        public Builder setDefaultWallAbsorption(double defaultWallAbsorption) {
+            this.defaultWallAbsorption = defaultWallAbsorption;
+            return this;
+        }
+
+        public Builder setZBuildings(boolean zBuildings) {
+            this.zBuildings = zBuildings;
+            return this;
+        }
+
+        public BuildingTableSettings build() {
+            BuildingTableSettings settings = new BuildingTableSettings(buildingsTableName, heightField, alphaFieldName, defaultWallAbsorption, zBuildings);
+            return settings;
+        }
+    }
+
+
+    public String getBuildingsTableName() {
+        return buildingsTableName;
+    }
+
+
+    public boolean isZBuildings() {
+        return zBuildings;
+    }
+
+    public double getDefaultWallAbsorption() {
+        return defaultWallAbsorption;
+    }
 
     /**
         * @return Building absorption coefficient column name.
@@ -42,9 +98,9 @@ public class BuildingTableSettings {
         * @param alphaFieldName Building absorption coefficient column name.
      */
 
-    public void setAlphaFieldName(String alphaFieldName) {
-        this.alphaFieldName = alphaFieldName;
-    }
+    // public void setAlphaFieldName(String alphaFieldName) {
+    //     this.alphaFieldName = alphaFieldName;
+    // }
 
 
     /**
@@ -57,7 +113,7 @@ public class BuildingTableSettings {
     /**
         * @param heightField {@link #buildingsTableName} field name for building height above ground.
      */
-    public void setHeightField(String heightField) {
-        this.heightField = heightField;
-    }
+    // public void setHeightField(String heightField) {
+    //     this.heightField = heightField;
+    // }
 }

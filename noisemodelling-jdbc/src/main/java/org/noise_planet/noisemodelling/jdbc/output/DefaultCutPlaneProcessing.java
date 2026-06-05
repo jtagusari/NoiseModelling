@@ -2,7 +2,7 @@ package org.noise_planet.noisemodelling.jdbc.output;
 
 import org.h2gis.api.ProgressVisitor;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitorFactory;
 import org.noise_planet.noisemodelling.pathfinder.ThreadPool;
@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DefaultCutPlaneProcessing implements NoiseMapByReceiverMaker.IComputeRaysOutFactory {
     ResultsCache resultsCache = new ResultsCache();
-    final NoiseMapDatabaseParameters noiseMapDatabaseParameters;
+    final CalculationIOSettings calculationIOSettings;
     NoiseMapWriter noiseMapWriter;
     ProfilerThread profilerThread;
     Connection connection;
@@ -31,12 +31,12 @@ public class DefaultCutPlaneProcessing implements NoiseMapByReceiverMaker.ICompu
     Future<Boolean> noiseMapWriterFuture;
 
     /**
-     * @param noiseMapDatabaseParameters Database settings
+     * @param calculationIOSettings Database settings
      * @param exitWhenDone Tell table writer thread to empty current stacks then stop waiting for new data
      * @param aborted If true, all processing are aborted and all threads will be shutdown
      */
-    public DefaultCutPlaneProcessing(NoiseMapDatabaseParameters noiseMapDatabaseParameters, AtomicBoolean exitWhenDone, AtomicBoolean aborted) {
-        this.noiseMapDatabaseParameters = noiseMapDatabaseParameters;
+    public DefaultCutPlaneProcessing(CalculationIOSettings calculationIOSettings, AtomicBoolean exitWhenDone, AtomicBoolean aborted) {
+        this.calculationIOSettings = calculationIOSettings;
         this.exitWhenDone = exitWhenDone;
         this.aborted = aborted;
     }
@@ -48,20 +48,20 @@ public class DefaultCutPlaneProcessing implements NoiseMapByReceiverMaker.ICompu
      */
     @Override
     public CutPlaneVisitorFactory createCutPlaneVisitorFactory(SceneWithEmission scene) {
-        return new AttenuationOutputMultiThread(scene, resultsCache, noiseMapDatabaseParameters, exitWhenDone, aborted);
+        return new AttenuationOutputMultiThread(scene, resultsCache, calculationIOSettings, exitWhenDone, aborted);
     }
 
     @Override
     public void initialize(Connection connection, NoiseMapByReceiverMaker noiseMapByReceiverMaker) throws SQLException {
         this.connection = connection;
         this.noiseMapByReceiverMaker = noiseMapByReceiverMaker;
-        if(noiseMapDatabaseParameters.CSVProfilerOutputPath != null) {
-            profilerThread = new ProfilerThread(noiseMapDatabaseParameters.CSVProfilerOutputPath);
+        if(calculationIOSettings.CSVProfilerOutputPath != null) {
+            profilerThread = new ProfilerThread(calculationIOSettings.CSVProfilerOutputPath);
             profilerThread.addMetric(resultsCache);
             profilerThread.addMetric(new JVMMemoryMetric());
             profilerThread.addMetric(new ReceiverStatsMetric());
-            profilerThread.setWriteInterval(noiseMapDatabaseParameters.CSVProfilerWriteInterval);
-            profilerThread.setFlushInterval(noiseMapDatabaseParameters.CSVProfilerWriteInterval);
+            profilerThread.setWriteInterval(calculationIOSettings.CSVProfilerWriteInterval);
+            profilerThread.setFlushInterval(calculationIOSettings.CSVProfilerWriteInterval);
         }
     }
 

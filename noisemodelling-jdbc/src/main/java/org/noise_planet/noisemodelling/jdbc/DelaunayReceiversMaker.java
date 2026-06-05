@@ -21,6 +21,7 @@ import org.locationtech.jts.operation.buffer.BufferOp;
 import org.locationtech.jts.operation.buffer.BufferParameters;
 import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.Triangle;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunay;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
@@ -65,8 +66,121 @@ public class DelaunayReceiversMaker extends GridMapMaker {
      * @param buildingsTableName Buildings table
      * @param sourcesTableName Source table name
      */
-    public DelaunayReceiversMaker(String buildingsTableName, String sourcesTableName) {
-        super(buildingsTableName, sourcesTableName);
+    // public DelaunayReceiversMaker(String buildingsTableName, String sourcesTableName) {
+    //     super(buildingsTableName, sourcesTableName);
+    // }
+    
+    public DelaunayReceiversMaker(BuildingTableSettings buildingTableSettings, String sourcesTableName, String soilTableName, String demTable, String bridgePointsTableName, PropagationSettings propagationSettings, String sound_lvl_field, double roadWidth, double maximumArea, long nbreceivers, double receiverHeight, double buildingBuffer, String exceptionDumpFolder, AtomicInteger constraintId, double epsilon, double geometrySimplificationDistance, boolean isoSurfaceInBuildings) {
+        super(buildingTableSettings, sourcesTableName, soilTableName, demTable, bridgePointsTableName, propagationSettings, sound_lvl_field);
+        this.roadWidth = roadWidth;
+        this.maximumArea = maximumArea;
+        this.nbreceivers = nbreceivers;
+        this.receiverHeight = receiverHeight;
+        this.buildingBuffer = buildingBuffer;
+        this.exceptionDumpFolder = exceptionDumpFolder;
+        this.constraintId = constraintId;
+        this.epsilon = epsilon;
+        this.geometrySimplificationDistance = geometrySimplificationDistance;
+        this.isoSurfaceInBuildings = isoSurfaceInBuildings;
+    }
+
+    public static class Builder{
+        private BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder().build();
+        private String sourcesTableName;
+        private String soilTableName;
+        private String demTable;
+        private String bridgePointsTableName;
+        private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
+        private String sound_lvl_field;
+        private Double receiverHeight = 4.0;
+        private double roadWidth = 2;
+        private double maximumArea = 75;
+        private long nbreceivers = 0;
+        private double buildingBuffer = 2;
+        private String exceptionDumpFolder = "";
+        private AtomicInteger constraintId = new AtomicInteger(1);
+        private double epsilon = 1e-6;
+        private double geometrySimplificationDistance = 1;
+        private boolean isoSurfaceInBuildings = false;
+
+        public Builder setBuildingTableSettings(BuildingTableSettings buildingTableSettings) {
+            this.buildingTableSettings = buildingTableSettings;
+            return this;
+        }
+
+        public Builder setSourcesTableName(String sourcesTableName) {
+            this.sourcesTableName = sourcesTableName;
+            return this;
+        }
+
+        public Builder setSoilTableName(String soilTableName) {
+            this.soilTableName = soilTableName;
+            return this;
+        }
+
+        public Builder setDemTable(String demTable) {
+            this.demTable = demTable;
+            return this;
+        }
+
+        public Builder setBridgePointsTableName(String bridgePointsTableName) {
+            this.bridgePointsTableName = bridgePointsTableName;
+            return this;
+        }
+
+        public Builder setPropagationSettings(PropagationSettings propagationSettings) {
+            this.propagationSettings = propagationSettings;
+            return this;
+        }
+
+        public Builder setSoundLvlField(String sound_lvl_field) {
+            this.sound_lvl_field = sound_lvl_field;
+            return this;
+        }
+
+        public Builder setReceiverHeight(Double receiverHeight) {
+            this.receiverHeight = receiverHeight;
+            return this;
+        }
+
+        public Builder setRoadWidth(double roadWidth) {
+            this.roadWidth = roadWidth;
+            return this;
+        }
+
+        public Builder setMaximumArea(double maximumArea) {
+            this.maximumArea = maximumArea;
+            return this;
+        }
+
+        public Builder setBuildingBuffer(double buildingBuffer) {
+            this.buildingBuffer = buildingBuffer;
+            return this;
+        }
+
+        public Builder setExceptionDumpFolder(String exceptionDumpFolder) {
+            this.exceptionDumpFolder = exceptionDumpFolder;
+            return this;
+        }
+
+        public Builder setEpsilon(double epsilon) {
+            this.epsilon = epsilon;
+            return this;
+        }
+
+        public Builder setGeometrySimplificationDistance(double geometrySimplificationDistance) {
+            this.geometrySimplificationDistance = geometrySimplificationDistance;
+            return this;
+        }
+
+        public Builder setIsoSurfaceInBuildings(boolean isoSurfaceInBuildings) {
+            this.isoSurfaceInBuildings = isoSurfaceInBuildings;
+            return this;
+        }
+
+        public DelaunayReceiversMaker build() {
+            return new DelaunayReceiversMaker(buildingTableSettings, sourcesTableName, soilTableName, demTable, bridgePointsTableName, propagationSettings, sound_lvl_field, roadWidth, maximumArea, nbreceivers, receiverHeight, buildingBuffer, exceptionDumpFolder, constraintId, epsilon, geometrySimplificationDistance, isoSurfaceInBuildings);
+        }
     }
 
     /**
@@ -341,9 +455,9 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         if(!sourcesTableName.isEmpty() && JDBCUtilities.getRowCount(connection, sourcesTableName) > 0) {
             computationEnvelope.expandToInclude(GeometryTableUtilities.getEnvelope(connection, TableLocation.parse(sourcesTableName, dbTypes)).getEnvelopeInternal());
         }
-        if(!buildingTableParameters.buildingsTableName.isEmpty() && JDBCUtilities.getRowCount(connection, buildingTableParameters.buildingsTableName) > 0) {
+        if(!buildingTableSettings.getBuildingsTableName().isEmpty() && JDBCUtilities.getRowCount(connection, buildingTableSettings.getBuildingsTableName()) > 0) {
             computationEnvelope.expandToInclude(GeometryTableUtilities.getEnvelope(connection,
-                    TableLocation.parse(buildingTableParameters.buildingsTableName, dbTypes)).getEnvelopeInternal());
+                    TableLocation.parse(buildingTableSettings.getBuildingsTableName(), dbTypes)).getEnvelopeInternal());
         }
         return computationEnvelope;
     }
@@ -502,7 +616,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         List<Wall> walls = new LinkedList<>();
         Envelope expandedCell = new Envelope(cellEnvelope);
         expandedCell.expandBy(buildingBuffer);
-        DefaultTableLoader.fetchCellBuildings(connection, buildingTableParameters,cellEnvelope, buildings, walls,
+        DefaultTableLoader.fetchCellBuildings(connection, buildingTableSettings,cellEnvelope, buildings, walls,
                 geometryFactory);
 
         LayerTinfour cellMesh = new LayerTinfour();
@@ -511,7 +625,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         cellMesh.setMaxArea(maximumArea > 1 ? maximumArea : 0);
 
         try {
-            computeDelaunay(cellMesh, mainEnvelope, cellI, cellJ, maximumPropagationDistance, sourceDelaunayGeometries, roadWidth, maximumArea, buildingBuffer, buildings);
+            computeDelaunay(cellMesh, mainEnvelope, cellI, cellJ, propagationSettings.getMaximumPropagationDistance(), sourceDelaunayGeometries, roadWidth, maximumArea, buildingBuffer, buildings);
         } catch (LayerDelaunayError err) {
             throw new SQLException(err.getLocalizedMessage(), err);
         }

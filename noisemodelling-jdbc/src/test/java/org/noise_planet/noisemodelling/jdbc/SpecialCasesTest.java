@@ -19,6 +19,9 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
+import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
+import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -146,15 +149,29 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(h=+4m-above), PK2(h=-2m-below), PK3(h=0m-ground)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(100.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(false);
-            noiseMapMaker.setComputeVerticalDiffraction(false);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
+
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+            
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(100.0)
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
             
             // Run computation
             LOGGER.info("Running computation...");
@@ -162,7 +179,7 @@ public class SpecialCasesTest {
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             LOGGER.info("\n=== Results ===");
@@ -252,15 +269,28 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(inside, 1.5m), PK2(inside, 6m), PK3(above, 12m), PK4(outside, 1.5m)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(100.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(true);
-            noiseMapMaker.setComputeVerticalDiffraction(true);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+            
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(100.0)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setSoundReflectionOrder(0)
+                    .build();
+            
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
             
             // Run computation
             LOGGER.info("Running computation...");
@@ -268,7 +298,7 @@ public class SpecialCasesTest {
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             LOGGER.info("\n=== Results ===");
@@ -345,19 +375,33 @@ public class SpecialCasesTest {
                     "(ST_GeomFromText('POINT Z(100.0 100.0 1.5)', 2154), 'RELATIVE')");
             LOGGER.info("Receiver C (PK=3): far outside (100, 100, 1.5m) - DISTANCE BASELINE");
             
-            // Configure with ray export enabled
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(200.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(true);
-            noiseMapMaker.setComputeVerticalDiffraction(true);
-            noiseMapMaker.setSoundReflectionOrder(2);  // Allow reflections
-            noiseMapMaker.setDemTable("DEM");
+
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+            
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(200.0)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setSoundReflectionOrder(2)
+                    .build();
+            
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
             
             // Enable ray path output tables
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
-            params.exportRaysMethod = NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE;
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
+            params.exportRaysMethod = CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE;
             params.exportCnossosPathWithAttenuation = true;
             
             LOGGER.info("");
@@ -567,18 +611,32 @@ public class SpecialCasesTest {
             st.execute("INSERT INTO RECEIVERS(THE_GEOM, HEIGHT_TYPE) VALUES " +
                     "(ST_GeomFromText('POINT Z(30.0 50.0 1.5)', 2154), 'RELATIVE')");
             
-            // Run computation
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(200.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(true);
-            noiseMapMaker.setComputeVerticalDiffraction(true);
-            noiseMapMaker.setSoundReflectionOrder(2);
-            noiseMapMaker.setDemTable("DEM");
+
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
             
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
-            params.exportRaysMethod = NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE;
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(200.0)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setSoundReflectionOrder(2)
+                    .build();
+            
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
+            
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
+            params.exportRaysMethod = CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE;
             params.exportCnossosPathWithAttenuation = true;
             
             noiseMapMaker.initialize(connection, new EmptyProgressVisitor());
@@ -675,15 +733,29 @@ public class SpecialCasesTest {
                     "(ST_GeomFromText('POINT Z(100.0 50.0 5.0)', 2154), 'RELATIVE')");
             LOGGER.info("Receivers: PK1(50,50,1.5m), PK2(50,50,7.0m), PK3(100,50,5.0m-ref)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(500.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(false);
-            noiseMapMaker.setComputeVerticalDiffraction(false);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
+
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(500.0)
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
             
             // Run computation
             LOGGER.info("Running computation...");
@@ -691,7 +763,7 @@ public class SpecialCasesTest {
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             try (ResultSet rs = st.executeQuery(
@@ -748,23 +820,37 @@ public class SpecialCasesTest {
                     "(ST_GeomFromText('POINT Z(100.0 50.0 1.5)', 2154), 'RELATIVE')");
             LOGGER.info("Receivers: PK1(d=0), PK2(d≈0.001m), PK3(d=1m), PK4(d=50m-ref)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(500.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(false);
-            noiseMapMaker.setComputeVerticalDiffraction(false);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
-            
+
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(500.0)
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
+
             // Run computation
             LOGGER.info("Running computation...");
             noiseMapMaker.initialize(connection, new EmptyProgressVisitor());
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             try (ResultSet rs = st.executeQuery(
@@ -832,15 +918,29 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(just beyond, 70m), PK2(far, 150m), PK3(above, 20m), PK4(aside, side path)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(300.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(true);
-            noiseMapMaker.setComputeVerticalDiffraction(true);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
+
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(300.0)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setSoundReflectionOrder(0)
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
             
             // Run computation
             LOGGER.info("Running computation...");
@@ -848,7 +948,7 @@ public class SpecialCasesTest {
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             LOGGER.info("\n=== Results ===");
@@ -939,15 +1039,28 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(beyond all, 90m), PK2(between B2-B3, 55m), PK3(between B1-B2, 35m), PK4(above all, 20m), PK5(side, min-diff)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(300.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(true);
-            noiseMapMaker.setComputeVerticalDiffraction(true);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(300.0)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setSoundReflectionOrder(0)
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
             
             // Run computation
             LOGGER.info("Running computation...");
@@ -955,7 +1068,7 @@ public class SpecialCasesTest {
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             LOGGER.info("\n=== Results ===");
@@ -1071,23 +1184,38 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(B1-B2 overlap, x=35), PK2(B2-B3 overlap, x=45), PK3(B1-only, x=25), PK4(beyond, x=65), PK5(above all), PK6(far, x=70)");
             
-            // Configure NoiseMapByReceiverMaker
-            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker(
-                    "BUILDINGS", "SOURCES", "RECEIVERS");
-            noiseMapMaker.setMaximumPropagationDistance(400.0);
-            noiseMapMaker.setHeightField("HEIGHT");
-            noiseMapMaker.setComputeHorizontalDiffraction(true);
-            noiseMapMaker.setComputeVerticalDiffraction(true);
-            noiseMapMaker.setSoundReflectionOrder(0);
-            noiseMapMaker.setDemTable("DEM");
             
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .setAlphaFieldName("G")
+                    .setDefaultWallAbsorption(100000.0)
+                    .setZBuildings(false)
+                    .build();
+
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setMaximumPropagationDistance(400.0)
+                    .setComputeHorizontalDiffraction(true)
+                    .setComputeVerticalDiffraction(true)
+                    .setSoundReflectionOrder(0)
+                    .build();
+
+            NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setDemTable("DEM")
+                    .setPropagationSettings(propagationSettings)
+                    .build();
+
+
             // Run computation
             LOGGER.info("Running computation with overlapping building geometries...");
             noiseMapMaker.initialize(connection, new EmptyProgressVisitor());
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve and analyze results
-            NoiseMapDatabaseParameters params = noiseMapMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
             String resultsTable = params.receiversLevelTable;
             
             LOGGER.info("\n=== Results: Overlapping Building Geometry ===");

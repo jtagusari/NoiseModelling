@@ -26,6 +26,8 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
+import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
@@ -397,12 +399,29 @@ public class SourceIdentificationTest {
         LOGGER.info("========================================");
 
         DefaultTableLoader tableLoader = new DefaultTableLoader();
-        NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("NO_BUILDINGS", "ROADS", "RECEIVERS");
-        noiseMapByReceiverMaker.setInputMode("INPUT_MODE_TRAFFIC_FLOW_DEN");
-        noiseMapByReceiverMaker.setDemTable("DEM");
-        noiseMapByReceiverMaker.setBridgePointsTableName("BRIDGE_POINTS");
-        noiseMapByReceiverMaker.setMaximumPropagationDistance(100.0);
-        noiseMapByReceiverMaker.setMaximumReflectionDistance(50.0);
+        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                .setBuildingsTableName("NO_BUILDINGS") // No buildings for this test
+                .build();
+        SceneDatabaseInputSettings sceneInputSettings = new SceneDatabaseInputSettings.Builder()
+                .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN)
+                .build();
+        
+        PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                .setMaximumPropagationDistance(100.0)
+                .setMaximumReflectionDistance(50.0)
+                .build();
+
+        NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                .setBuildingTableSettings(buildingTableSettings)
+                .setSceneDatabaseInputSettings(sceneInputSettings)
+                .setSourcesTableName("ROADS")
+                .setReceiverTableName("RECEIVERS")
+                .setDemTable("DEM")
+                .setBridgePointsTableName("BRIDGE_POINTS")
+                .setPropagationSettings(propagationSettings)
+                .build();
+
+
         noiseMapByReceiverMaker.setMainEnvelope(new Envelope(0.0, 100.0, 0.0, 100.0));
 
         DefaultProgressVisitor progressVisitor = new DefaultProgressVisitor(1, null);

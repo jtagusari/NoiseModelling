@@ -21,6 +21,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.WKTWriter;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.output.NoiseMapWriter;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
@@ -66,15 +67,22 @@ public class NoiseMapByReceiverMakerTest {
         try(Statement st = connection.createStatement()) {
             st.execute(String.format("CALL SHPREAD('%s', 'LANDCOVER2000')", NoiseMapByReceiverMakerTest.class.getResource("landcover2000.shp").getFile()));
             st.execute(getRunScriptRes("scene_with_landcover.sql"));
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
                     .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .build();
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_GUESS)
+                    .setFrequencyFieldPrepend("DB_M")
+                    .build();
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
                     .setSourcesTableName("ROADS_GEOM")
                     .setReceiverTableName("RECEIVERS")
                     .setSoilTableName("LAND_G")
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .build();
-            // NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS", "ROADS_GEOM", "RECEIVERS");
-            noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setFrequencyFieldPrepend("DB_M");
+
             noiseMapByReceiverMaker.initialize(connection, new EmptyProgressVisitor());
 
             Set<Long> processedReceivers = new HashSet<>();
@@ -137,22 +145,40 @@ public class NoiseMapByReceiverMakerTest {
             st.execute("create table receivers(id serial PRIMARY KEY, the_geom GEOMETRY(POINTZ));\n" +
                     "insert into receivers(the_geom) values ('POINTZ (223915.72 6757490.22 0.0)');" +
                     "insert into receivers(the_geom) values ('POINTZ (223925.72 6757480.22 0.0)');");
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "ROADS_GEOM", "RECEIVERS");
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(false);
-            noiseMapByReceiverMaker.setComputeVerticalDiffraction(false);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(1000);
-            noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setCoefficientVersion(1);
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .build();
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .setMaximumPropagationDistance(1000)
+                    .setBodyBarrier(true)
+                    .build();
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("HZ")
+                    .setCoefficientVersion(1)
+                    .setUseTrainDirectivity(true)
+                    .build();
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setCoefficientVersion(1)
+                    .build();
 
-            // Use train directivity functions instead of discrete directivity
-            noiseMapByReceiverMaker.setUseTrainDirectivity(true);
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .build();
+
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
-            NoiseMapDatabaseParameters parameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
+            CalculationIOSettings parameters = noiseMapByReceiverMaker.getCalculationIOSettings();
 
             try(ResultSet rs = st.executeQuery("SELECT HZ63 FROM " + parameters.receiversLevelTable + " WHERE PERIOD='DEN' ORDER BY IDRECEIVER")) {
                 assertTrue(rs.next());
@@ -177,20 +203,39 @@ public class NoiseMapByReceiverMakerTest {
             st.execute("create table receivers(id serial PRIMARY KEY, the_geom GEOMETRY(pointZ));\n" +
                     "insert into receivers(the_geom) values ('POINTZ (223922.55 6757495.27 4.0)');" +
                     "insert into receivers(the_geom) values ('POINTZ (223936.42 6757471.91 4.0)');");
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "ROADS_GEOM", "RECEIVERS");
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(false);
-            noiseMapByReceiverMaker.setComputeVerticalDiffraction(false);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(1000);
-            noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setCoefficientVersion(1);
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportRaysMethod = NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE;
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportCnossosPathWithAttenuation = true;
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportAttenuationMatrix = true;
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().mergeSources = true;
-            noiseMapByReceiverMaker.setBodyBarrier(true);
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .setMaximumPropagationDistance(1000)
+                    .setBodyBarrier(true)
+                    .build();
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("HZ")
+                    .setCoefficientVersion(1)
+                    .setUseTrainDirectivity(true)
+                    .build();
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .build();
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setCoefficientVersion(1)
+                    .setExportRaysMethod(CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE)
+                    .setExportAttenuationMatrix(true)
+                    .setExportCnossosPathWithAttenuation(true)
+                    .setMergeSources(true)
+                    .build();
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .build();
+
 
             // Use train directivity functions instead of discrete directivity
             DefaultTableLoader defaultTableLoader = ((DefaultTableLoader) noiseMapByReceiverMaker.getPropagationProcessDataFactory());
@@ -207,9 +252,11 @@ public class NoiseMapByReceiverMakerTest {
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
-            NoiseMapDatabaseParameters parameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
+            // CalculationIOSettings parameters = noiseMapByReceiverMaker.getCalculationIOSettings();
+            String receiversLevelTable = noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable();
+            String raysTable = noiseMapByReceiverMaker.getCalculationIOSettings().getRaysTable();
 
-            try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, HZ63 FROM " + parameters.receiversLevelTable + " WHERE PERIOD='DEN' ORDER BY IDRECEIVER")) {
+            try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, HZ63 FROM " + receiversLevelTable + " WHERE PERIOD='DEN' ORDER BY IDRECEIVER")) {
                 assertTrue(rs.next());
                 assertEquals(1, rs.getInt(1));
                 assertEquals(68.3, rs.getDouble(2), 1);
@@ -219,7 +266,7 @@ public class NoiseMapByReceiverMakerTest {
                 assertFalse(rs.next());
             }
 
-            try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, PATH FROM " + parameters.raysTable + " WHERE PERIOD='D' ORDER BY IDRECEIVER")) {
+            try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, PATH FROM " + raysTable + " WHERE PERIOD='D' ORDER BY IDRECEIVER")) {
                 assertTrue(rs.next());
                 assertEquals(1, rs.getInt(1));
                 CnossosPathExt cnossosPath = NoiseMapWriter.jsonToPropagationPath(rs.getString(2));
@@ -253,20 +300,39 @@ public class NoiseMapByReceiverMakerTest {
                     "insert into receivers(the_geom) values ('POINTZ (2.5 3 1.0)');" + //behind
                     "insert into receivers(the_geom) values ('POINTZ (3.5 2 1.0)');" + //right
                     "insert into receivers(the_geom) values ('POINTZ (3.5 4 1.0)');"); //left
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "ROADS_GEOM", "RECEIVERS");
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(false);
-            noiseMapByReceiverMaker.setComputeVerticalDiffraction(false);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(1000);
-            noiseMapByReceiverMaker.setHeightField("HEIGHT");
-            noiseMapByReceiverMaker.setInputMode("INPUT_MODE_LW_DEN");
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setCoefficientVersion(1);
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportRaysMethod = NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE;
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportCnossosPathWithAttenuation = true;
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportAttenuationMatrix = true;
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().mergeSources = true;
-            noiseMapByReceiverMaker.setBodyBarrier(true);
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .setMaximumPropagationDistance(1000)
+                    .setBodyBarrier(true)
+                    .build();
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("HZ")
+                    .setCoefficientVersion(1)
+                    .setUseTrainDirectivity(true)
+                    .build();
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setHeightField("HEIGHT")
+                    .setBuildingsTableName("BUILDINGS")
+                    .build();
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setCoefficientVersion(1)
+                    .setExportRaysMethod(CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE)
+                    .setExportAttenuationMatrix(true)
+                    .setExportCnossosPathWithAttenuation(true)
+                    .setMergeSources(true)
+                    .build();
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .build();
+
 
             // Use train directivity functions instead of discrete directivity
             DefaultTableLoader defaultTableLoader = ((DefaultTableLoader) noiseMapByReceiverMaker.getPropagationProcessDataFactory());
@@ -283,10 +349,11 @@ public class NoiseMapByReceiverMakerTest {
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
-            NoiseMapDatabaseParameters parameters = noiseMapByReceiverMaker.getNoiseMapDatabaseParameters();
+            // CalculationIOSettings parameters = noiseMapByReceiverMaker.getCalculationIOSettings();
+            String RaysTable = noiseMapByReceiverMaker.getCalculationIOSettings().getRaysTable();
 
             List<CnossosPathExt> pathsParameters = new ArrayList<>();
-            try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, PATH FROM " + parameters.raysTable + " WHERE PERIOD='D' ORDER BY IDRECEIVER")) {
+            try(ResultSet rs = st.executeQuery("SELECT IDRECEIVER, PATH FROM " + RaysTable + " WHERE PERIOD='D' ORDER BY IDRECEIVER")) {
                 while (rs.next()) {
                     CnossosPathExt cnossosPath = NoiseMapWriter.jsonToPropagationPath(rs.getString("PATH"));
                     pathsParameters.add(cnossosPath);
@@ -329,30 +396,57 @@ public class NoiseMapByReceiverMakerTest {
 
             int srid = org.h2gis.utilities.GeometryTableUtilities.getSRID(connection, "BUILDINGS");
             IsoSurface isoSurface = new IsoSurface(IsoSurface.NF31_133_ISO, srid);
-            // Generate delaunay triangulation
-            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker("BUILDINGS", "ROADS_TRAFF");
+            // Generate delaunay triangulation           
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .build();
+        
+            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("ROADS_TRAFF")
+                    .build();
             delaunayReceiversMaker.setMaximumArea(800);
             delaunayReceiversMaker.setGridDim(1);
             delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
 
             // Create noise map for 4 periods
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "SOURCES_GEOM", "RECEIVERS");
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .setMaximumPropagationDistance(100)
+                    .setBodyBarrier(false)
+                    .build();
+            
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setMaximumError(3)
+                    .setExportReceiverPosition(true)
+                    .build();
+            
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setSourcesEmissionTableName("SOURCES_EMISSION")
+                    .build();
+            
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .setGridDim(1)
+                    .build();
 
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(100);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(false);
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportReceiverPosition = true;
-            noiseMapByReceiverMaker.setGridDim(1);
-            noiseMapByReceiverMaker.setSourcesEmissionTableName("SOURCES_EMISSION");
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setMaximumError(3);
+
+
 
             noiseMapByReceiverMaker.run(connection, new RootProgressVisitor(1, true, 5));
 
             int receiversRowCount = JDBCUtilities.getRowCount(connection, "RECEIVERS");
 
             int resultRowCount = JDBCUtilities.getRowCount(connection,
-                    noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().receiversLevelTable);
+                    noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable());
 
             // D E N, should be 3 more rows than receivers
             assertEquals(receiversRowCount * 3, resultRowCount);
@@ -375,30 +469,58 @@ public class NoiseMapByReceiverMakerTest {
             int srid = org.h2gis.utilities.GeometryTableUtilities.getSRID(connection, "BUILDINGS");
             IsoSurface isoSurface = new IsoSurface(IsoSurface.NF31_133_ISO, srid);
             // Generate delaunay triangulation
-            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker("BUILDINGS", "SOURCES_GEOM");
+            
+            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+                    .setBuildingsTableName("BUILDINGS")
+                    .setHeightField("HEIGHT")
+                    .build();
+         
+            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES_GEOM")
+                    .build();
+
             delaunayReceiversMaker.setMaximumArea(800);
             delaunayReceiversMaker.setGridDim(1);
             delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
 
             // Create noise map for 4 periods
-            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker("BUILDINGS",
-                    "SOURCES_GEOM", "RECEIVERS");
 
-            noiseMapByReceiverMaker.setFrequencyFieldPrepend("LW");
-            noiseMapByReceiverMaker.setMaximumPropagationDistance(100);
-            noiseMapByReceiverMaker.setSoundReflectionOrder(0);
-            noiseMapByReceiverMaker.setComputeHorizontalDiffraction(false);
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().exportReceiverPosition = true;
-            noiseMapByReceiverMaker.setGridDim(1);
-            noiseMapByReceiverMaker.setSourcesEmissionTableName("SOURCES_EMISSION");
-            noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().setMaximumError(3);
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setSourcesEmissionTableName("SOURCES_EMISSION")
+                    .setFrequencyFieldPrepend("LW")
+                    .build();
+            
+            PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                    .setComputeHorizontalDiffraction(false)
+                    .setComputeVerticalDiffraction(false)
+                    .setSoundReflectionOrder(0)
+                    .setMaximumPropagationDistance(100)
+                    .setBodyBarrier(false)
+                    .build();
+            
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setMaximumError(3)
+                    .setExportReceiverPosition(true)
+                    .build();
+            
+            NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
+                    .setBuildingTableSettings(buildingTableSettings)
+                    .setSourcesTableName("SOURCES_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setPropagationSettings(propagationSettings)
+                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .setGridDim(1)
+                    .build();
+
 
             noiseMapByReceiverMaker.run(connection, new RootProgressVisitor(1, true, 5));
 
             int receiversRowCount = JDBCUtilities.getRowCount(connection, "RECEIVERS");
 
             int resultRowCount = JDBCUtilities.getRowCount(connection,
-                    noiseMapByReceiverMaker.getNoiseMapDatabaseParameters().receiversLevelTable);
+                    noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable);
 
             // D E N, should be 3 more rows than receivers
             assertEquals(receiversRowCount * 3, resultRowCount);
