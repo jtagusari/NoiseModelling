@@ -85,7 +85,7 @@ public class CalculationIOSettings {
         private int CSVProfilerWriteInterval = 60;
         private boolean exportCnossosPathWithAttenuation = false;
         private boolean keepAbsorption = false;
-        private int maximumRaysOutputCount = 5000;
+        private int maximumRaysOutputCount = 0;
         private ExportRaysMethods exportRaysMethod = ExportRaysMethods.NONE;
         private int coefficientVersion = 2;
         private double maximumError = 1.0;
@@ -227,58 +227,18 @@ public class CalculationIOSettings {
         return exportReceiverPosition;
     }
 
-    /**
-     * @param exportReceiverPosition If true the position of the receiver (with the altitude if available) will be
-     *                               exported into the results tables
-     */
-    // public void setExportReceiverPosition(boolean exportReceiverPosition) {
-    //     this.exportReceiverPosition = exportReceiverPosition;
-    // }
-
-    /**
-     * @param maximumRaysOutputCount if export rays, do not keep more than this number of rays per computation area (0 infinite)
-     */
-    // public void setMaximumRaysOutputCount(int maximumRaysOutputCount) {
-    //     this.maximumRaysOutputCount = maximumRaysOutputCount;
-    // }
-
     public boolean isComputeLAEQOnly() {
         return computeLAEQOnly;
     }
-
-    // public void setComputeLAEQOnly(boolean computeLAEQOnly) {
-    //     this.computeLAEQOnly = computeLAEQOnly;
-    // }
 
 
     public ExportRaysMethods getExportRaysMethod() {
         return exportRaysMethod;
     }
 
-    /**
-     * Export rays in table (beware this could take a lot of storage space) or keep on memory or do not keep
-     * @param exportRaysMethod
-     */
-    // public void setExportRaysMethod(ExportRaysMethods exportRaysMethod) {
-    //     this.exportRaysMethod = exportRaysMethod;
-    // }
-
-
-    // public void setExportCnossosPathWithAttenuation(boolean exportCnossosPathWithAttenuation) {
-    //     this.exportCnossosPathWithAttenuation = exportCnossosPathWithAttenuation;
-    // }
-
     public boolean isKeepAbsorption() {
         return keepAbsorption;
     }
-
-    /**
-     * @param exportAttenuationMatrix If true store absorption values in propagation path objects
-     * @see #setExportAttenuationMatrix(boolean)
-     */
-    // public void setExportAttenuationMatrix(boolean exportAttenuationMatrix) {
-    //     this.exportAttenuationMatrix = exportAttenuationMatrix;
-    // }
 
     /**
      * @param coefficientVersion Cnossos revisions have multiple coefficients for road emission formulae this parameter

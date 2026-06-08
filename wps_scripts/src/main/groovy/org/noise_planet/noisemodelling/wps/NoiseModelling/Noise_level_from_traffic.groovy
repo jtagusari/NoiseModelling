@@ -28,6 +28,7 @@ import org.h2gis.utilities.dbtypes.DBUtils
 import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings.ExportRaysMethods
 import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings
