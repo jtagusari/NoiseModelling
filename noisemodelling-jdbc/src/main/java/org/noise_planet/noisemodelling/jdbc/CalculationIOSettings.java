@@ -88,7 +88,7 @@ public class CalculationIOSettings {
         private int maximumRaysOutputCount = 0;
         private ExportRaysMethods exportRaysMethod = ExportRaysMethods.NONE;
         private int coefficientVersion = 2;
-        private double maximumError = 1.0;
+        private double maximumError = 0;
         private int geojsonColumnSizeLimit = 1000000;
         private boolean mergeSources = true;
         private String receiversLevelTable = DEFAULT_RECEIVERS_LEVEL_TABLE_NAME;
