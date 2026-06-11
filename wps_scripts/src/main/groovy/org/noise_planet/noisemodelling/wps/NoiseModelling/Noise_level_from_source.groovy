@@ -30,7 +30,12 @@ import org.h2gis.utilities.dbtypes.DBTypes
 import org.h2gis.utilities.dbtypes.DBUtils
 import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings.ExportRaysMethods
+import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader
+import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings
+import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.RootProgressVisitor
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters
@@ -302,6 +307,7 @@ def run(input) {
 @CompileStatic
 def exec(Connection connection, Map input) {
     long startCompute = System.currentTimeMillis()
+    int maximumRaysToExport = 5000
 
     DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class))
 
@@ -466,54 +472,98 @@ def exec(Connection connection, Map input) {
     // Initialize NoiseModelling propagation part
     // --------------------------------------------
 
-    NoiseMapByReceiverMaker pointNoiseMap = new NoiseMapByReceiverMaker(building_table_name, sources_table_name, receivers_table_name)
 
-    def parameters = pointNoiseMap.getNoiseMapDatabaseParameters()
-
-    parameters.setMergeSources(!confExportSourceId)
-    parameters.exportReceiverPosition = true
-
+    String tableSourcesEmission = ""
     if (input['tableSourcesEmission']) {
         // Use the right default database caps according to db type
-        String tableSourcesEmission = TableLocation.capsIdentifier(input['tableSourcesEmission'] as String, dbType)
-        pointNoiseMap.setSourcesEmissionTableName(tableSourcesEmission)
+        tableSourcesEmission = TableLocation.capsIdentifier(input['tableSourcesEmission'] as String, dbType)
     }
 
     // add optional discrete directivity table name
+    boolean useTrainDirectivity = false
     if(tableSourceDirectivity.isEmpty()) {
         // Use train directivity functions instead of discrete directivity
-        pointNoiseMap.sceneInputSettings.setUseTrainDirectivity(true)
+        useTrainDirectivity = true
     } else {
         // Load table into specialized class
-        pointNoiseMap.sceneInputSettings.setDirectivityTableName(tableSourceDirectivity)
         logger.info(String.format(Locale.ROOT, "Loaded directivity from %s table", tableSourceDirectivity))
     }
 
-    if (input['tableSourceEmission']) {
-        // Use the right default database caps according to db type
-        String tableSourceEmission = TableLocation.capsIdentifier(input['tableSourceEmission'] as String, dbType)
-        pointNoiseMap.setSourcesEmissionTableName(tableSourceEmission)
-    }
 
-    sql.execute("drop table if exists " + TableLocation.parse(pointNoiseMap.noiseMapDatabaseParameters.receiversLevelTable))
 
+    def confRaysName = ""
+    CalculationIOSettings.ExportRaysMethods exportRaysMethod = CalculationIOSettings.ExportRaysMethods.NONE
+    boolean exportAttenuationMatrix = false
+    boolean exportCnossosPathWithAttenuation = false
+    boolean keepAbsorption = false
+    int maximumRaysOutputCount = 0
     if (input['confRaysName'] && !((input['confRaysName'] as String).isEmpty())) {
-        parameters.setRaysTable(input['confRaysName'] as String)
-        parameters.setExportRaysMethod(NoiseMapDatabaseParameters.ExportRaysMethods.TO_RAYS_TABLE)
-        parameters.exportAttenuationMatrix = true
-        parameters.exportCnossosPathWithAttenuation = true
-        parameters.keepAbsorption = true
+        confRaysName = input['confRaysName'] as String
+        exportRaysMethod = CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE
+        exportAttenuationMatrix = true
+        exportCnossosPathWithAttenuation = true
+        keepAbsorption = true
+        maximumRaysOutputCount = maximumRaysToExport
+    }
+    
+    File csvProfilerOutputPath = null
+    int csvProfilerWriteInterval = 60
+    if(recordProfile) {
+        LocalDateTime now = LocalDateTime.now()
+        csvProfilerOutputPath = new File(String.format("profile_%d_%d_%d_%dh%d.csv",
+                now.getYear(), now.getMonthValue(), now.getDayOfMonth(), now.getHour(), now.getMinute()))
+        csvProfilerWriteInterval = 120 // delay write csv line in seconds
     }
 
-    pointNoiseMap.setComputeHorizontalDiffraction(compute_vertical_diffraction)
-    pointNoiseMap.setComputeVerticalDiffraction(compute_horizontal_diffraction)
-    pointNoiseMap.setSoundReflectionOrder(reflexion_order)
-    pointNoiseMap.setFrequencyFieldPrepend(frequencyFieldPrepend)
 
+    String periodAtmosphericSettingsTableName = ""
+    if(input.containsKey("tablePeriodAtmosphericSettings")) {
+        periodAtmosphericSettingsTableName = input.get("tablePeriodAtmosphericSettings") as String
+    }
+
+    SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+        .setUseTrainDirectivity(useTrainDirectivity)
+        .setDirectivityTableName(tableSourceDirectivity)
+        .setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName)
+        .setSourcesEmissionTableName(tableSourcesEmission)
+        .setFrequencyFieldPrepend(frequencyFieldPrepend)
+        .build()
+
+
+    CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                .setMergeSources(!confExportSourceId)
+                .setExportReceiverPosition(true)
+                .setRaysTable(confRaysName)
+                .setExportRaysMethod(exportRaysMethod)
+                .setExportAttenuationMatrix(exportAttenuationMatrix)
+                .setExportCnossosPathWithAttenuation(exportCnossosPathWithAttenuation)
+                .setMaximumRaysOutputCount(maximumRaysOutputCount)
+                .setKeepAbsorption(keepAbsorption)
+                .setCSVProfilerOutputPath(csvProfilerOutputPath)
+                .setCSVProfilerWriteInterval(csvProfilerWriteInterval)
+                .setMaximumError(confMaxError)
+                .build()
+
+    sql.execute("drop table if exists " + TableLocation.parse(calculationIOSettings.getReceiversLevelTable()))
+
+    PropagationSettings propagationSettings = new PropagationSettings.Builder()
+        .setMaximumPropagationDistance(max_src_dist)
+        .setMaximumReflectionDistance(max_ref_dist)
+        .setComputeHorizontalDiffraction(compute_vertical_diffraction)
+        .setComputeVerticalDiffraction(compute_horizontal_diffraction)
+        .setSoundReflectionOrder(reflexion_order)
+        .build()
+
+    BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+        .setBuildingsTableName(building_table_name)
+        .setHeightField("HEIGHT")
+        .setAlphaFieldName("G")
+        .setDefaultWallAbsorption(wall_alpha)
+        .build()
+    
 
     // Set environmental parameters
-    DefaultTableLoader defaultTableLoader = (DefaultTableLoader)pointNoiseMap.tableLoader
-    AttenuationParameters environmentalData = defaultTableLoader.defaultParameters
+    AttenuationParameters environmentalData = new AttenuationParameters()
 
     if (input.containsKey('confFavorableOccurrencesDefault')) {
         StringTokenizer tk = new StringTokenizer(input['confFavorableOccurrencesDefault'] as String, ',')
@@ -529,37 +579,22 @@ def exec(Connection connection, Map input) {
     if (input.containsKey('confTemperature')) {
         environmentalData.setTemperature(input['confTemperature'] as Double)
     }
-    if(input.containsKey("tablePeriodAtmosphericSettings")) {
-        pointNoiseMap.getSceneInputSettings().setPeriodAtmosphericSettingsTableName(input.get("tablePeriodAtmosphericSettings") as String)
-    }
 
-    // Building height field name
-    pointNoiseMap.setHeightField("HEIGHT")
-    // Import table with Snow, Forest, Grass, Pasture field polygons. Attribute G is associated with each polygon
-    if (ground_table_name != "") {
-        pointNoiseMap.setSoilTableName(ground_table_name)
-    }
-    // Point cloud height above sea level POINT(X Y Z)
-    if (dem_table_name != "") {
-        pointNoiseMap.setDemTable(dem_table_name)
-    }
+    DefaultTableLoader tableLoader = new DefaultTableLoader()
+    tableLoader.setAttenuationParameters(environmentalData)
 
-    pointNoiseMap.setMaximumPropagationDistance(max_src_dist)
-    pointNoiseMap.setMaximumReflectionDistance(max_ref_dist)
-    pointNoiseMap.setWallAbsorption(wall_alpha)
-    pointNoiseMap.setThreadCount(n_thread)
-
-
-    if(recordProfile) {
-        LocalDateTime now = LocalDateTime.now()
-        pointNoiseMap.noiseMapDatabaseParameters.CSVProfilerOutputPath = new File(String.format("profile_%d_%d_%d_%dh%d.csv",
-                now.getYear(), now.getMonthValue(), now.getDayOfMonth(), now.getHour(), now.getMinute()))
-        pointNoiseMap.noiseMapDatabaseParameters.CSVProfilerWriteInterval = 120 // delay write csv line in seconds
-    }
-
-    // Do not propagate for low emission or far away sources
-    // Maximum error in dB
-    parameters.setMaximumError(confMaxError)
+    NoiseMapByReceiverMaker pointNoiseMap = new NoiseMapByReceiverMaker.Builder()
+        .setBuildingTableSettings(buildingTableSettings)
+        .setSourcesTableName(sources_table_name)
+        .setReceiverTableName(receivers_table_name)
+        .setDemTable(dem_table_name)
+        .setSoilTableName(ground_table_name)
+        .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+        .setCalculationIOSettings(calculationIOSettings)
+        .setPropagationSettings(propagationSettings)
+        .setTableLoader(tableLoader)
+        .setThreadCount(n_thread)
+        .build()
 
     // --------------------------------------------
     // Run Calculations
@@ -581,5 +616,5 @@ def exec(Connection connection, Map input) {
     String timeString = String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, seconds)
     logger.info( "Calculation Done in $timeString ! ")
 
-    return "Calculation Done ! The table $pointNoiseMap.noiseMapDatabaseParameters.receiversLevelTable have been created."
+    return "Calculation Done ! The table $pointNoiseMap.calculationIOSettings.receiversLevelTable have been created."
 }

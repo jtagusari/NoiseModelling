@@ -38,6 +38,7 @@ import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.RootProgressVisitor;
 import org.noise_planet.noisemodelling.propagation.*
 import org.noise_planet.noisemodelling.jdbc.*
+import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -254,7 +255,23 @@ def exec(Connection connection, input) {
     sql.execute("DROP TABLE IF EXISTS TRIANGLES")
 
     // Generate receivers grid for noise map rendering
-    DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker(building_table_name, sources_table_name)
+    BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
+            .setBuildingsTableName(building_table_name)
+            .build()
+    
+    PropagationSettings propagationSettings = new PropagationSettings.Builder()
+            .setMaximumPropagationDistance(maxCellDist)
+            .build()
+
+    DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()   
+            .setBuildingTableSettings(buildingTableSettings)
+            .setPropagationSettings(propagationSettings)
+            .setSourcesTableName(sources_table_name)
+            .setReceiverHeight(height)
+            .setRoadWidth(roadWidth)
+            .setMaximumArea(maxArea)
+            .setIsoSurfaceInBuildings(isoSurfaceInBuildings)
+            .build()
 
     if (fence != null) {
         // Reproject fence
@@ -271,17 +288,6 @@ def exec(Connection connection, input) {
         }
     }
 
-
-    // Avoid loading to much geometries when doing Delaunay triangulation
-    delaunayReceiversMaker.setMaximumPropagationDistance(maxCellDist)
-    // Receiver height relative to the ground
-    delaunayReceiversMaker.setReceiverHeight(height)
-    // No receivers closer than road width distance
-    delaunayReceiversMaker.setRoadWidth(roadWidth)
-    // No triangles larger than provided area
-    delaunayReceiversMaker.setMaximumArea(maxArea)
-
-    delaunayReceiversMaker.setIsoSurfaceInBuildings(isoSurfaceInBuildings)
 
     logger.info("Delaunay initialize")
     delaunayReceiversMaker.initialize(connection, new EmptyProgressVisitor())

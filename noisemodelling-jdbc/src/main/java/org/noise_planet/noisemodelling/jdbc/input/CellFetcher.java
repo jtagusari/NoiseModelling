@@ -100,7 +100,7 @@ public class CellFetcher{
             st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
             try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
                 while (rs.next()) {
-                    RowMappable row = RowFactory.createRowMappable(objectType.name(), rs);
+                    RowMappable row = RowFactory.create(objectType.name(), rs);
                     if(row != null) {
                         result.add(row);
                     }

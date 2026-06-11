@@ -18,7 +18,7 @@ import org.h2gis.utilities.JDBCUtilities
 import org.h2gis.utilities.GeometryTableUtilities
 import org.h2gis.utilities.TableLocation
 import org.junit.Test
-import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters
+import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings
 import org.noise_planet.noisemodelling.wps.Acoustic_Tools.Add_Laeq_Leq_columns
 import org.noise_planet.noisemodelling.wps.Acoustic_Tools.Create_Isosurface
 import org.noise_planet.noisemodelling.wps.NoiseModelling.Noise_level_from_traffic
@@ -85,10 +85,10 @@ class TestAcousticTools extends JdbcTestCase {
                                                          confFavorableOccurrencesDefault: "0.5, 0.1, 0.1, 0.1, 0.2, 0.5," +
                                                                  " 0.7, 0.8, 0.8, 0.6, 0.5, 0.5, 0.5, 0.5, 0.5, 0.2"])
 
-        new Create_Isosurface().exec(connection, [resultTable : NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
+        new Create_Isosurface().exec(connection, [resultTable : CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
 
         assertEquals(2154, GeometryTableUtilities.getSRID(connection, TableLocation.parse("ROADS2")))
-        assertEquals(2154, GeometryTableUtilities.getSRID(connection, TableLocation.parse(NoiseMapDatabaseParameters.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME)))
+        assertEquals(2154, GeometryTableUtilities.getSRID(connection, TableLocation.parse(CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME)))
         assertEquals(2154, GeometryTableUtilities.getSRID(connection, TableLocation.parse("CONTOURING_NOISE_MAP")))
 
 

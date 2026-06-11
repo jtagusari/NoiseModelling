@@ -69,7 +69,7 @@ class NoiseMapByReceiverMaker extends GridMapMaker {
   + NoiseMapByReceiverMaker(buildings, sources, receivers)
   + run(ProgressVisitor): IComputeRaysOut
   + evaluateCell(Connection, CellIndex, ProgressVisitor): void
-  + requestCellScene(Connection, CellIndex, Set<Long>): SceneWithEmission
+  + prepareCell(Connection, CellIndex, Set<Long>): SceneWithEmission
   + searchPopulatedCells(Connection): Map<CellIndex, Integer>
 }
 
@@ -121,7 +121,7 @@ partition "Cell Processing" {
   :evaluateCell(cellIndex);
   
   partition "Scene Preparation" {
-    :requestCellScene() → SceneWithEmission;
+    :prepareCell() → SceneWithEmission;
     note right
       Loads:
       - Buildings in expanded envelope
@@ -183,7 +183,7 @@ Before processing individual cells, the system initializes the computational gri
 
 ## Scene Preparation
 
-The `requestCellScene()` method creates a complete `SceneWithEmission` object containing all necessary data for propagation computation. This method acts as the bridge between database storage and the in-memory `Scene` representation, delegating the actual scene construction details to the `TableLoader` interface (typically `DefaultTableLoader`).
+The `prepareCell()` method creates a complete `SceneWithEmission` object containing all necessary data for propagation computation. This method acts as the bridge between database storage and the in-memory `Scene` representation, delegating the actual scene construction details to the `TableLoader` interface (typically `DefaultTableLoader`).
 
 ### Overview
 
@@ -191,16 +191,16 @@ The `requestCellScene()` method creates a complete `SceneWithEmission` object co
 @startuml
 title Scene Preparation — Overview
 
-[NoiseMapByReceiverMaker.requestCellScene()] as requestCellScene
+[NoiseMapByReceiverMaker.prepareCell()] as prepareCell
 
-[TableLoader.createScene()] as createScene
+[TableLoader.create()] as create
 
 [SceneWithEmission] as scene
 
-requestCellScene --> createScene : cell envelope,\nexpanded envelope
-createScene --> scene : ProfileBuilder,\nsources, receivers,\nacoustic parameters
+prepareCell --> create : cell envelope,\nexpanded envelope
+create --> scene : ProfileBuilder,\nsources, receivers,\nacoustic parameters
 
-note right of requestCellScene
+note right of prepareCell
   **Input:** Cell index, connection, skip set
   **Output:** SceneWithEmission ready for propagation
 end note
@@ -211,7 +211,7 @@ end note
 ### Key Responsibilities
 
 - **Envelope Computation**: Calculate cell boundary and expanded envelope (expanded by `maximumPropagationDistance + 2 × maximumReflectionDistance`)
-- **TableLoader Delegation**: Invoke `TableLoader.createScene()` to construct the complete scene
+- **TableLoader Delegation**: Invoke `TableLoader.create()` to construct the complete scene
 - **Receiver Deduplication**: Track receivers already processed to avoid redundant computation across cell boundaries
 
 ### Scene Contents
@@ -246,7 +246,7 @@ atten --> eval : aggregated noise levels
 
 ### Key Steps
 
-1. **Scene Creation**: `requestCellScene()` loads cell geometry, sources, and receivers into a finalized `SceneWithEmission`
+1. **Scene Creation**: `prepareCell()` loads cell geometry, sources, and receivers into a finalized `SceneWithEmission`
 2. **PathFinder Invocation**: `PathFinder.run(scene, visitor)` orchestrates per-receiver path-finding and propagation computation
 3. **Result Collection**: Results from path-finding are collected by the `AttenuationComputeOutput` visitor which computes acoustic attenuation
 4. **Cell Aggregation**: Per-receiver results are aggregated and contribute to final noise map

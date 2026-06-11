@@ -32,7 +32,7 @@ The process involves several key steps:
 `AcousticPathConfiguration` is a parameter object that consolidates all geometric and processing data required to construct an acoustic path (`Path`).
 It centralizes data produced from a vertical `CutProfile` and additional processing inputs so downstream builders and validators receive a single, self-contained configuration object rather than many primitive parameters.
 
-An instance holds the `CutProfile` and associated data such as the 2D reprojected coordinates (`cutPointCoordinates2D`), which are initialized with a `CutProfile` instance.
+An instance holds the `CutProfile` and associated data such as the 2D reprojected coordinates (`CutPointCoordinates2D`), which are initialized with a `CutProfile` instance.
 It also includes horizontal diffraction pivot candidates (`horizontalEdgePivotPoints`), while it can be set after finishing the following steps
 
 ```plantuml

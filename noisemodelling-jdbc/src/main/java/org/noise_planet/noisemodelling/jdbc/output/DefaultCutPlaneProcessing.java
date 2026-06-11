@@ -47,7 +47,7 @@ public class DefaultCutPlaneProcessing implements NoiseMapByReceiverMaker.ICompu
      * @return A new instance of IComputePathsOut initialized with the provided parameters.
      */
     @Override
-    public CutPlaneVisitorFactory createCutPlaneVisitorFactory(SceneWithEmission scene) {
+    public CutPlaneVisitorFactory create(SceneWithEmission scene) {
         return new AttenuationOutputMultiThread(scene, resultsCache, noiseMapDatabaseParameters, exitWhenDone, aborted);
     }
 

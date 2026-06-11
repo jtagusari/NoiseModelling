@@ -114,6 +114,10 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
                 frequencySet.addAll(readFrequenciesFromLwTable(noiseMapByReceiverMaker.getFrequencyFieldPrepend()+periodFieldName, sourceFields));
             }
             frequencyConfig.setFrequencyArray(frequencySet);
+            // frequencyArray = new ArrayList<>(frequencySet);
+            // exactFrequencyArray = new ArrayList<>();
+            // aWeightingArray = new ArrayList<>();
+            // FrequencyConfig.initializeFrequencyArrayFromReference(frequencyArray, exactFrequencyArray, aWeightingArray);
         }
         defaultParameters.setFrequencies(frequencyConfig.getFrequencyArray());
         // Load atmospheric data from database
@@ -244,7 +248,7 @@ public class DefaultTableLoader implements NoiseMapByReceiverMaker.TableLoader {
     }
 
     @Override
-    public SceneWithEmission createScene(Connection connection, CellIndex cellIndex,
+    public SceneWithEmission create(Connection connection, CellIndex cellIndex,
                                     Set<Long> skipReceivers) throws SQLException {
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
         GeometryFactory geometryFactory = noiseMapByReceiverMaker.getGeometryFactory();

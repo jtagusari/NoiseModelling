@@ -77,7 +77,7 @@ public class NoiseMapByReceiverMakerTest {
             double expectedMaxArea = Math.pow(noiseMapByReceiverMaker.getGroundSurfaceSplitSideLength(), 2);
             assertFalse(populatedCells.isEmpty());
             for (Map.Entry<CellIndex, Integer> indexIntegerEntry : populatedCells.entrySet()) {
-                SceneWithEmission scene = noiseMapByReceiverMaker.requestCellScene(connection, indexIntegerEntry.getKey(), processedReceivers);
+                SceneWithEmission scene = noiseMapByReceiverMaker.prepareCell(connection, indexIntegerEntry.getKey(), processedReceivers);
                 assertFalse(scene.profileBuilder.getGroundEffects().isEmpty());
                 for(GroundAbsorption soil : scene.profileBuilder.getGroundEffects()) {
                     assertTrue(soil.getGeometry().getArea() < expectedMaxArea);
