@@ -11,6 +11,7 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
@@ -38,17 +39,22 @@ public class CutProfileTest {
     private CutPointSource source;
     private CutPointReceiver receiver;
     private static final Logger logger = LoggerFactory.getLogger(CutProfileTest.class);
+    // Preloaded test case read once and reused across tests
+    private static CutProfile cutProfileCaseStatic;
+
 
     @BeforeEach
-    public void setUp() {
-        // Create test source and receiver points
-        source = new CutPointSource(new Coordinate(0, 0, 5));
-        source.setGroundCoefficient(0.5);
-        
-        receiver = new CutPointReceiver(new Coordinate(100, 0, 3));
-        receiver.setGroundCoefficient(0.3);
-        
-        cutProfile = new CutProfile(source, receiver);
+    public void setUp() throws IOException{        
+        cutProfile = loadCutProfile("TC01_Direct");
+    }
+
+    private static CutProfile loadCutProfile(String utName) throws IOException {
+        String testCaseFileName = utName + ".json";
+        try(InputStream inputStream = PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName)) {
+            Objects.requireNonNull(inputStream, "Missing test resource: test_cases/" + testCaseFileName);
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(inputStream, CutProfile.class);
+        } 
     }
 
     @Test
@@ -70,8 +76,8 @@ public class CutProfileTest {
         
         assertNotNull(retrievedSource);
         assertNotNull(retrievedReceiver);
-        assertEquals(0, retrievedSource.getCoordinate().x, 1e-9);
-        assertEquals(100, retrievedReceiver.getCoordinate().x, 1e-9);
+        assertEquals(10, retrievedSource.getCoordinate().x, 1e-9);
+        assertEquals(200, retrievedReceiver.getCoordinate().x, 1e-9);
     }
 
     @Test
@@ -93,6 +99,8 @@ public class CutProfileTest {
         CutPointTopography topo2 = new CutPointTopography(new Coordinate(25, 0, 10));
         
         // Test without sorting first
+        CutPointSource source = cutProfile.getSource();
+        CutPointReceiver receiver = cutProfile.getReceiver();
         CutProfile testProfile = new CutProfile(source, receiver);
         testProfile.insertCutPoint(false, topo1, topo2);
         
@@ -164,6 +172,8 @@ public class CutProfileTest {
         midPoint.setGroundCoefficient(0.8);
         
         // Create a new profile to avoid the sorting issue
+        CutPointSource source = cutProfile.getSource();
+        CutPointReceiver receiver = cutProfile.getReceiver();
         CutProfile testProfile = new CutProfile(source, receiver);
         testProfile.insertCutPoint(false, midPoint);
         
@@ -212,9 +222,37 @@ public class CutProfileTest {
     @Test
     public void testComputePts2D() {
         List<Coordinate> pts2D = cutProfile.generateCutPointCoordinates2D();
+        List<CutPoint> cutPoints = cutProfile.getCutPoints();
         
         assertNotNull(pts2D);
         assertEquals(2, pts2D.size());
+        assertEquals(cutPoints.size(), pts2D.size());
+        logger.info("2D result: ");
+        for (int i = 0; i < pts2D.size(); i++) {
+            Coordinate point2D = pts2D.get(i);
+            CutPoint cutPoint = cutPoints.get(i);
+            logger.info("  x={}, z={}, type={}", point2D.x, point2D.y, cutPoint.getClass().getSimpleName());
+        }
+        // First point should be at x=0 after coordinate system transformation
+        assertEquals(0.0, pts2D.get(0).x, 1e-9);
+    }
+
+    
+    @Test
+    public void testComputePts2DComplex() throws IOException {
+        CutProfile cutProfileComplex = loadCutProfile("TC08_Direct");
+        List<Coordinate> pts2D = cutProfileComplex.generateCutPointCoordinates2D();
+        List<CutPoint> cutPoints = cutProfileComplex.getCutPoints();
+        
+        assertNotNull(pts2D);
+        assertEquals(5, pts2D.size());
+        assertEquals(cutPoints.size(), pts2D.size());
+        logger.info("2D result (complex TC08_Direct case): ");
+        for (int i = 0; i < pts2D.size(); i++) {
+            Coordinate point2D = pts2D.get(i);
+            CutPoint cutPoint = cutPoints.get(i);
+            logger.info("  x={}, z={}, type={}", point2D.x, point2D.y, cutPoint.getClass().getSimpleName());
+        }
         // First point should be at x=0 after coordinate system transformation
         assertEquals(0.0, pts2D.get(0).x, 1e-9);
     }
@@ -241,6 +279,8 @@ public class CutProfileTest {
     @Test
     public void testComputePts2DGroundWithTolerance() {
         // Create a new profile to avoid sorting issues
+        CutPointSource source = cutProfile.getSource();
+        CutPointReceiver receiver = cutProfile.getReceiver();
         CutProfile testProfile = new CutProfile(source, receiver);
         
         // Add some intermediate points
@@ -342,6 +382,8 @@ public class CutProfileTest {
         CutPointTopography topo1 = new CutPointTopography(new Coordinate(75, 0, 8));
         CutPointTopography topo2 = new CutPointTopography(new Coordinate(25, 0, 10));
         
+        CutPointSource source = cutProfile.getSource();
+        CutPointReceiver receiver = cutProfile.getReceiver();
         CutProfile profile = new CutProfile(source, receiver);
         
         // This should now work without IndexOutOfBoundsException
@@ -357,10 +399,10 @@ public class CutProfileTest {
         assertTrue(points.get(points.size() - 1) instanceof CutPointReceiver);
         
         // Verify sorting by distance from source
-        assertEquals(0, points.get(0).getCoordinate().x, 1e-9);   // source
+        assertEquals(10, points.get(0).getCoordinate().x, 1e-9);   // source
         assertEquals(25, points.get(1).getCoordinate().x, 1e-9);  // topo2 (closer)
         assertEquals(75, points.get(2).getCoordinate().x, 1e-9);  // topo1 (farther)
-        assertEquals(100, points.get(3).getCoordinate().x, 1e-9); // receiver
+        assertEquals(200, points.get(3).getCoordinate().x, 1e-9); // receiver
     }
 
     @Test
@@ -396,21 +438,4 @@ public class CutProfileTest {
     }
     
 
-    private static CutProfile loadCutProfile(String utName) throws IOException {
-        String testCaseFileName = utName + ".json";
-        try(InputStream inputStream = PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName)) {
-            Objects.requireNonNull(inputStream, "Missing test resource: test_cases/" + testCaseFileName);
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(inputStream, CutProfile.class);
-        }
-    }
-
-    @Test
-    public void TBCCoordinates2D() throws Exception {
-        CutProfile cutProfileCase = loadCutProfile("TC01_Direct");
-        ObjectMapper mapper = new ObjectMapper();
-        logger.info("Loaded CutProfile (TC01_Direct):\n{}", mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cutProfileCase));
-        List<Coordinate> cutPointCoordinates2D = cutProfileCase.generateCutPointCoordinates2D();
-        assertNotNull(cutPointCoordinates2D);
-    }
 }
