@@ -1,0 +1,20 @@
+{
+  "receiver2D" : {
+    "y" : 14.0,
+    "x" : 198.04031414744156
+  },
+  "source2D" : {
+    "y" : 1.0,
+    "x" : 0.0
+  },
+  "pivots" : [ {
+    "x" : 0.0,
+    "z" : 1.0,
+    "type" : "SOURCE"
+  }, {
+    "x" : 198.04031414744156,
+    "z" : 14.0,
+    "type" : "RECEIVER"
+  } ],
+  "testCase" : "TC16_Reflection"
+}

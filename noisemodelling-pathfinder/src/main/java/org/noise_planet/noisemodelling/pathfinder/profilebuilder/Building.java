@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-public class Building extends Obstruction implements RowMappable {
+public class Building extends Obstruction {
     /** Building footprint. */
     Polygon poly;
     /** Height of the building. */

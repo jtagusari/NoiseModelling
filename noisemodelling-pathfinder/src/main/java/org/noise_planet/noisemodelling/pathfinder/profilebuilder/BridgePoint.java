@@ -44,7 +44,7 @@ import static java.lang.Double.NaN;
  * - Geometric calculations or interpolations (delegated to other components)
  * - Spatial queries or relationships (delegated to BridgeQueryHelper)
  */
-public class BridgePoint implements RowMappable {
+public class BridgePoint {
     
     /**
      * Enum for bridge point position

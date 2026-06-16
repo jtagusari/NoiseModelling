@@ -14,7 +14,6 @@ import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitorFactory;
-import org.noise_planet.noisemodelling.propagation.AttenuationComputeOutput;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -24,12 +23,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * of AttenuationOutputSingleThread
  */
 public class AttenuationOutputMultiThread implements CutPlaneVisitorFactory {
-    public ResultsCache resultsCache = new ResultsCache();
-    public SceneWithEmission sceneWithEmission;
-    public CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
-    public AtomicBoolean exitWhenDone = new AtomicBoolean(false);
-    public AtomicBoolean aborted = new AtomicBoolean(false);
-    public AtomicLong cnossosPathCount = new AtomicLong();
+    private ResultsCache resultsCache = new ResultsCache();
+    private SceneWithEmission sceneWithEmission;
+    private CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
+    private AtomicBoolean exitWhenDone = new AtomicBoolean(false);
+    private AtomicBoolean aborted = new AtomicBoolean(false);
+    private AtomicLong cnossosPathCount = new AtomicLong();
 
     /**
      * Create NoiseMap constructor
@@ -59,4 +58,27 @@ public class AttenuationOutputMultiThread implements CutPlaneVisitorFactory {
         return new AttenuationOutputSingleThread(this, visitor);
     }
 
+    public CalculationIOSettings getCalculationIOSettings() {
+        return calculationIOSettings;
+    }
+
+    public ResultsCache getResultsCache() {
+        return resultsCache;
+    }
+
+    public SceneWithEmission getSceneWithEmission() {
+        return sceneWithEmission;
+    }
+
+    public AtomicBoolean getExitWhenDone() {
+        return exitWhenDone;
+    }
+
+    public AtomicBoolean getAborted() {
+        return aborted;
+    }
+
+    public AtomicLong getCnossosPathCount() {
+        return cnossosPathCount;
+    }
 }

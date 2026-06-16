@@ -251,8 +251,8 @@ public class SceneWithEmissionTest {
         computeRays.ensureAbsoluteReceiverHeights();
         computeRays.run(propDataOutTest);
 
-        List<ReceiverNoiseLevel> levelsPerReceiver = new ArrayList<>(propDataOut.resultsCache.receiverLevels);
-        List<ReceiverNoiseLevel> levelsPerReceiverLines = new ArrayList<>(propDataOutTest.resultsCache.receiverLevels);
+        List<ReceiverNoiseLevel> levelsPerReceiver = new ArrayList<>(propDataOut.getResultsCache().receiverLevels);
+        List<ReceiverNoiseLevel> levelsPerReceiverLines = new ArrayList<>(propDataOutTest.getResultsCache().receiverLevels);
 
         assertEquals(6, levelsPerReceiver.size());
         assertEquals(6, levelsPerReceiverLines.size());
@@ -328,9 +328,9 @@ public class SceneWithEmissionTest {
 
             //Actual values
             // number of propagation paths between two walls = reflectionOrder * 2 + 1
-            assertEquals(i * 2 + 1, propDataOut.cnossosPathCount.get());
+            assertEquals(i * 2 + 1, propDataOut.getCnossosPathCount().get());
 
-            double globalPowerAtReceiver = AcousticIndicatorsFunctions.sumDbArray(propDataOut.resultsCache.receiverLevels.pop().getLevels());
+            double globalPowerAtReceiver = AcousticIndicatorsFunctions.sumDbArray(propDataOut.getResultsCache().receiverLevels.pop().getLevels());
             if(i == 0) {
                 firstPowerAtReceiver = globalPowerAtReceiver;
             } else {
@@ -387,10 +387,10 @@ public class SceneWithEmissionTest {
         AttenuationOutputMultiThread outputMultiThread = new AttenuationOutputMultiThread(scene);
         computeRays.run(outputMultiThread);
 
-        assertEquals(1, outputMultiThread.resultsCache.queueSize.get());
+        assertEquals(1, outputMultiThread.getResultsCache().queueSize.get());
 
         assertEquals(14.6, AcousticIndicatorsFunctions.wToDb(sumArray(roadLvl.length,
-                AcousticIndicatorsFunctions.dBToW(outputMultiThread.resultsCache.receiverLevels.pop().getLevels()))),
+                AcousticIndicatorsFunctions.dBToW(outputMultiThread.getResultsCache().receiverLevels.pop().getLevels()))),
                 0.1);
     }
 

@@ -13,38 +13,61 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
-import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossos;
 import org.noise_planet.noisemodelling.propagation.cnossos.AttenuationCnossosExt;
 
 import java.io.IOException;
-import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class RayAttenuationComputeOutputTest {
 
+    private static final double DELTA = 0.1;
 
-
-    @Test
-    public void testPropagationPathReceiverUnder() throws IOException {
-        JsonMapper.Builder builder = JsonMapper.builder();
-        JsonMapper mapper = builder.build();
-
+    private static CnossosPathExt loadSpecialRay() throws IOException {
+        JsonMapper mapper = JsonMapper.builder().build();
         mapper.setVisibility(mapper.getSerializationConfig().getDefaultVisibilityChecker()
                 .withFieldVisibility(JsonAutoDetect.Visibility.ANY)
                 .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
-
-        CnossosPathExt cnossosPath = mapper.readValue(
+        return mapper.readValue(
                 RayAttenuationComputeOutputTest.class.getResourceAsStream("special_ray.json"),
-                CnossosPathExt.class
-        );
-        AttenuationParameters attenuationCnossosParameters = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
-        double[] aBoundary = AttenuationCnossosExt.aBoundary(cnossosPath,attenuationCnossosParameters);
-        for(double value : aBoundary) {
-            assertFalse(Double.isNaN(value));
+                CnossosPathExt.class);
+    }
+
+    /**
+     * Regression test: special_ray.json has NaN z-coordinates. aBoundary must not produce NaN.
+     * This specific edge case (receiver under an obstacle with near-zero zrH) previously caused NaN.
+     */
+    @Test
+    public void testPropagationPathReceiverUnderNoNaN() throws IOException {
+        CnossosPathExt cnossosPath = loadSpecialRay();
+        AttenuationParameters data = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
+
+        double[] aBoundary = AttenuationCnossosExt.aBoundary(cnossosPath, data);
+
+        for (double value : aBoundary) {
+            assertFalse(Double.isNaN(value), "aBoundary must not contain NaN");
+        }
+    }
+
+    /**
+     * Verify the actual aBoundary values for special_ray.json (unfavorable, one DIFH point).
+     * Expected: positive diffraction attenuation increasing with frequency.
+     */
+    @Test
+    public void testPropagationPathReceiverUnderValues() throws IOException {
+        CnossosPathExt cnossosPath = loadSpecialRay();
+        AttenuationParameters data = new AttenuationParameters(FrequencyConfig.FrequencyBand.OCTAVE);
+
+        double[] aBoundary = AttenuationCnossosExt.aBoundary(cnossosPath, data);
+
+        double[] expected = {4.85, 4.92, 5.07, 5.34, 5.85, 12.64, 31.79, 41.14};
+        assertEquals(expected.length, aBoundary.length);
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(expected[i], aBoundary[i], DELTA,
+                    "aBoundary[" + i + "] mismatch");
         }
     }
 }

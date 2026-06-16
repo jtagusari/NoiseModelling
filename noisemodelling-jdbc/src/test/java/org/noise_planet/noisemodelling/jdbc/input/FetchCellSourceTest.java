@@ -10,11 +10,8 @@ import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
-import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
-import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 
 import java.sql.Connection;
 import java.sql.Statement;

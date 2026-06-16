@@ -80,7 +80,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
      */
     public AttenuationOutputSingleThread(AttenuationOutputMultiThread multiThreadParent, ProgressVisitor progressVisitor) {
         this.multiThread = multiThreadParent;
-        this.dbSettings = multiThreadParent.calculationIOSettings;
+        this.dbSettings = multiThreadParent.getCalculationIOSettings();
         this.progressVisitor = progressVisitor;
     }
 
@@ -104,8 +104,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     }
 
     private double[] processAndStoreAttenuation(AttenuationParameters data, CnossosPathExt proPathParameters, String period) {
-        double[] attenuation = AttenuationCnossosExt.computeCnossosAttenuation(data, proPathParameters, multiThread.sceneWithEmission,
-                multiThread.calculationIOSettings.isExportAttenuationMatrix());
+        double[] attenuation = AttenuationCnossosExt.computeCnossosAttenuation(data, proPathParameters, multiThread.getSceneWithEmission(),
+                multiThread.getCalculationIOSettings().isExportAttenuationMatrix());
         if (attenuation != null) {
             boolean hasNonFinite = false;
             for (double value : attenuation) {
@@ -121,8 +121,8 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 LOGGER.warn("Receiver PK {} source PK {}: Non-finite attenuation computed (distance={} m).", receiverPk, sourcePk, distance);
             }
         }
-        if(multiThread.calculationIOSettings.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE &&
-                multiThread.calculationIOSettings.isExportAttenuationMatrix()) {
+        if(multiThread.getCalculationIOSettings().getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE &&
+                multiThread.getCalculationIOSettings().isExportAttenuationMatrix()) {
             CnossosPathExt cnossosPath = new CnossosPathExt(proPathParameters);
             cnossosPath.setTimePeriod(period);
             cnossosPaths.add(cnossosPath);
@@ -151,7 +151,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     public PathSearchStrategy onNewCutPlane(CutProfile cutProfile) {
         cutProfileCount.addAndGet(1);
         PathSearchStrategy strategy = PathSearchStrategy.CONTINUE;
-        final SceneWithEmission scene = multiThread.sceneWithEmission;
+        final SceneWithEmission scene = multiThread.getSceneWithEmission();
         CnossosPathExt cnossosPath = CnossosPathBuilder.buildCnossosPath(
             cutProfile,
             scene.profileBuilder.getExactFrequencyArray(),
@@ -159,15 +159,15 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
             scene.isBodyBarrier()
         );
         if(cnossosPath != null) {
-            multiThread.cnossosPathCount.addAndGet(1);
+            multiThread.getCnossosPathCount().addAndGet(1);
             CutPointSource source = cutProfile.getSource();
             CutPointReceiver receiver = cutProfile.getReceiver();
 
             long sourcePk = source.getSourcePk() == -1 ? source.getSourceId() : source.getSourcePk();
 
             // export path if required
-            if(multiThread.calculationIOSettings.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods
-                    .TO_RAYS_TABLE && !multiThread.calculationIOSettings.isExportAttenuationMatrix()) {
+            if(multiThread.getCalculationIOSettings().getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods
+                    .TO_RAYS_TABLE && !multiThread.getCalculationIOSettings().isExportAttenuationMatrix()) {
                 // Use only one ray as the ray is the same if we not keep absorption values
                 // Copy path content in order to keep original ids for other method calls
                 this.cnossosPaths.add(cnossosPath);
@@ -298,14 +298,14 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         this.cutProfileCount = cutProfileCount;
         // Quickly evaluate the maximum expected power level at receiver location
         // using all nearby sources maximum emission in reflective direct field
-        if(dbSettings.getMaximumError() > 0 && !multiThread.sceneWithEmission.getSourceEmissionsMap().isEmpty()) {
-            wjAtReceiver = new HashMap<>(multiThread.sceneWithEmission.getPeriodSet().size());
-            for (String period : multiThread.sceneWithEmission.getPeriodSet()) {
+        if(dbSettings.getMaximumError() > 0 && !multiThread.getSceneWithEmission().getSourceEmissionsMap().isEmpty()) {
+            wjAtReceiver = new HashMap<>(multiThread.getSceneWithEmission().getPeriodSet().size());
+            for (String period : multiThread.getSceneWithEmission().getPeriodSet()) {
                 wjAtReceiver.put(period, 0.0);
             }
             maximumWjExpectedSplAtReceiver.clear();
 
-            final SceneWithEmission scene = multiThread.sceneWithEmission;
+            final SceneWithEmission scene = multiThread.getSceneWithEmission();
             for (SourcePointInfo sourcePointInfo : sourceList) {
                 // Use scene's attenuation parameters which contain the correct frequencies from profileBuilder
                 double[] attenuation = dBToW(computeFastAttenuation(sourcePointInfo, receiver, scene.getAttenuationParameters()));
@@ -334,20 +334,20 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
      * @param data receiver noise level in dB
      */
     public void pushInStack(ConcurrentLinkedDeque<ReceiverNoiseLevel> stack, ReceiverNoiseLevel data) {
-        while(multiThread.resultsCache.queueSize.get() > dbSettings.getOutputMaximumQueue()) {
+        while(multiThread.getResultsCache().queueSize.get() > dbSettings.getOutputMaximumQueue()) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException ex) {
-                multiThread.aborted.set(true);
+                multiThread.getAborted().set(true);
                 break;
             }
-            if(multiThread.aborted.get()) {
+            if(multiThread.getAborted().get()) {
                 progressVisitor.cancel();
                 return;
             }
         }
         stack.add(data);
-        multiThread.resultsCache.queueSize.incrementAndGet();
+        multiThread.getResultsCache().queueSize.incrementAndGet();
     }
 
     /**
@@ -356,20 +356,20 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
      * @param data rays
      */
     public void pushInStack(ConcurrentLinkedDeque<CnossosPathExt> stack, Collection<CnossosPathExt> data) {
-        while(multiThread.resultsCache.queueSize.get() > dbSettings.getOutputMaximumQueue()) {
+        while(multiThread.getResultsCache().queueSize.get() > dbSettings.getOutputMaximumQueue()) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException ex) {
-                multiThread.aborted.set(true);
+                multiThread.getAborted().set(true);
                 break;
             }
-            if(multiThread.aborted.get()) {
+            if(multiThread.getAborted().get()) {
                 progressVisitor.cancel();
                 return;
             }
         }
-        if(dbSettings.getMaximumRaysOutputCount() == 0 || multiThread.resultsCache.totalRaysInserted.get() < dbSettings.getMaximumRaysOutputCount()) {
-            long newTotalRays = multiThread.resultsCache.totalRaysInserted.addAndGet(data.size());
+        if(dbSettings.getMaximumRaysOutputCount() == 0 || multiThread.getResultsCache().totalRaysInserted.get() < dbSettings.getMaximumRaysOutputCount()) {
+            long newTotalRays = multiThread.getResultsCache().totalRaysInserted.addAndGet(data.size());
             if(dbSettings.getMaximumRaysOutputCount() > 0 && newTotalRays > dbSettings.getMaximumRaysOutputCount()) {
                 // too many rays, remove unwanted rays
                 int newListSize = data.size() - (int)(newTotalRays - dbSettings.getMaximumRaysOutputCount());
@@ -387,7 +387,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 }
             }
             stack.addAll(data);
-            multiThread.resultsCache.queueSize.addAndGet(data.size());
+            multiThread.getResultsCache().queueSize.addAndGet(data.size());
         }
     }
 
@@ -408,7 +408,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         if(!this.cnossosPaths.isEmpty()) {
             if(dbSettings.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE) {
                 // Push propagation rays
-                pushInStack(multiThread.resultsCache.cnossosPaths, this.cnossosPaths);
+                pushInStack(multiThread.getResultsCache().cnossosPaths, this.cnossosPaths);
             }
         }
         // Convert to dB then pushed cached entries for this receiver into multi-thread instance
@@ -418,7 +418,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
         for (Map.Entry<Integer, TimePeriodParameters> periodParametersEntry : receiverAttenuationList.entrySet()) {
             TimePeriodParameters periodParameters = periodParametersEntry.getValue();
             for (Map.Entry<String, double[]> levelsAtPeriod : periodParameters.levelsPerPeriod.entrySet()) {
-                pushInStack(multiThread.resultsCache.receiverLevels, new ReceiverNoiseLevel(periodParameters.source,
+                pushInStack(multiThread.getResultsCache().receiverLevels, new ReceiverNoiseLevel(periodParameters.source,
                         receiver, levelsAtPeriod.getKey(),
                         AcousticIndicatorsFunctions.wToDb(levelsAtPeriod.getValue())));
                 if(dbSettings.isMergeSources()) {
@@ -435,7 +435,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                             AcousticIndicatorsFunctions.multiplicationArray(levels,
                                     SourceEmission.RATIOS[period.ordinal()]));
                 }
-                pushInStack(multiThread.resultsCache.receiverLevels, new ReceiverNoiseLevel(periodParameters.source,
+                pushInStack(multiThread.getResultsCache().receiverLevels, new ReceiverNoiseLevel(periodParameters.source,
                         receiver, SourceEmission.DEN_PERIOD,
                         AcousticIndicatorsFunctions.wToDb(lden)));
                 if(dbSettings.isMergeSources()) {
@@ -444,16 +444,16 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
             }
         }
         if (dbSettings.isMergeSources()) {
-            Set<String> difference = new HashSet<>(multiThread.sceneWithEmission.getPeriodSet());
+            Set<String> difference = new HashSet<>(multiThread.getSceneWithEmission().getPeriodSet());
             if(computeLden) {
                 difference.add(SourceEmission.DEN_PERIOD);
             }
             difference.removeAll(collectedPeriod);
             // add missing periods levels for this receiver
-            double[] levels = new double[multiThread.sceneWithEmission.profileBuilder.getFrequencyArray().size()];
+            double[] levels = new double[multiThread.getSceneWithEmission().profileBuilder.getFrequencyArray().size()];
             Arrays.fill(levels, dbSettings.getNoSourceNoiseLevel());
             for (String period : difference) {
-                pushInStack(multiThread.resultsCache.receiverLevels,
+                pushInStack(multiThread.getResultsCache().receiverLevels,
                         new ReceiverNoiseLevel(new SourcePointInfo(), receiver, period, levels));
             }
         }
@@ -465,7 +465,7 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
 
     private boolean isComputeLden() {
         EmissionInputSettings.INPUT_MODE inputMode =
-                multiThread.sceneWithEmission.getEmissionInputSettings().getInputMode();
+                multiThread.getSceneWithEmission().getEmissionInputSettings().getInputMode();
 
         // Some input use convention source Day Evening and Night, and the expected result must also include
         // DEN which is a special mix of the three periods
