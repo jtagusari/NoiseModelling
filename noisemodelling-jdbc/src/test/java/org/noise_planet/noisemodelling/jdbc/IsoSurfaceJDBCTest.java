@@ -262,14 +262,14 @@ public class IsoSurfaceJDBCTest {
             int receiversRowCount = JDBCUtilities.getRowCount(connection, "RECEIVERS");
 
             int resultRowCount = JDBCUtilities.getRowCount(connection,
-                    noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable);
+                    noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable());
 
             // D E N and DEN, should be 4 more rows than receivers
             assertEquals(receiversRowCount * 4, resultRowCount);
 
             LOGGER.info("Create iso surface");
             // Create contouring noise map
-            isoSurface.setPointTable(noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable);
+            isoSurface.setPointTable(noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable());
             isoSurface.setPointTableField("LAEQ");
             isoSurface.setSmooth(false); // faster
             isoSurface.setMergeTriangles(false); // faster

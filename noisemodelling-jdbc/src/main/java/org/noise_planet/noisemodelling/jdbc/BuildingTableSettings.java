@@ -78,11 +78,11 @@ public class BuildingTableSettings {
     }
 
 
-    public boolean isZBuildings() {
+    public boolean useBuildingGeometryZ() {
         return zBuildings;
     }
 
-    public double getDefaultWallAbsorption() {
+    public double getBuildingDefaultAlpha() {
         return defaultWallAbsorption;
     }
 
@@ -90,7 +90,7 @@ public class BuildingTableSettings {
         * @return Building absorption coefficient column name.
      */
 
-    public String getAlphaFieldName() {
+    public String getBuildingAlphaField() {
         return alphaFieldName;
     }
 
@@ -106,7 +106,7 @@ public class BuildingTableSettings {
     /**
         * @return {@link #buildingsTableName} field name for building height above ground.
      */
-    public String getHeightField() {
+    public String getBuildingHeightField() {
         return heightField;
     }
 

@@ -469,7 +469,7 @@ public class SourceIdentificationTest {
         tableLoader.fetchCellDem(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder);
         LOGGER.info("  ✓ DEM (topographic points) loaded");
         
-        tableLoader.fetchCellBridge(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder, geometryFactory);
+        tableLoader.fetchCellBridge(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder);
         LOGGER.info("  ✓ Bridge geometry (BRIDGE_POINTS table) loaded");
 
         // Step 2d: ProfileBuilder Finalization (Critical step - MUST be done BEFORE Step 3)

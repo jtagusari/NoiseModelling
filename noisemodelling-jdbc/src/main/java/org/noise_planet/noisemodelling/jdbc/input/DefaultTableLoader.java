@@ -272,47 +272,31 @@ public class DefaultTableLoader implements TableLoader {
     public SceneWithEmission createScene(Connection connection, CellSceneContext cellContext, CellIndex cellIndex,
                                     Set<Long> skipReceivers) throws SQLException {
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-        GeometryFactory geometryFactory = cellContext.getGeometryFactory();
 
         Envelope cellEnvelope = cellContext.getCellEnv(cellIndex);
+
         Envelope expandedCellEnvelop = new Envelope(cellEnvelope);
         double maximumPropagationDistance = cellContext.getMaximumPropagationDistance();
         double maximumReflectionDistance = cellContext.getMaximumReflectionDistance();
-
-        // We have to fetch input data at least at this distance from the receivers in order to have continuity
-        // between subdomains
         expandedCellEnvelop.expandBy(maximumPropagationDistance + 2 * maximumReflectionDistance);
 
         ProfileBuilder profileBuilder = new ProfileBuilder(frequencyConfig);
-        // profileBuilder.setFrequencyArray(frequencyArray);
+        
+        fetchCellBuildings(connection, cellContext, expandedCellEnvelop, profileBuilder);
+        fetchCellDem(connection, cellContext, expandedCellEnvelop, profileBuilder);
+        fetchCellSoilAreas(connection, cellContext, expandedCellEnvelop, profileBuilder);
+        fetchCellBridge(connection, cellContext, expandedCellEnvelop, profileBuilder);
+        
+        profileBuilder.finishFeeding();
+        
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, sceneInputSettings);
         scene.setDirectionAttributes(directionAttributes);
-        scene.cnossosParametersPerPeriod = cnossosParametersPerPeriod;
         scene.setAttenuationParameters(defaultParameters);
-        scene.periodSet.addAll(cnossosParametersPerPeriod.keySet());
-
-
-        // //////////////////////////////////////////////////////
-        // feed freeFieldFinder for fast intersection query
-        // optimization
-        // Fetch buildings in extendedEnvelope
-        fetchCellBuildings(connection, cellContext.getBuildingTableSettings(), expandedCellEnvelop,
-                scene.profileBuilder, geometryFactory);
-
-        //if we have topographic points data
-        fetchCellDem(connection, cellContext, expandedCellEnvelop, scene.profileBuilder);
-
-        // Fetch soil areas
-        fetchCellSoilAreas(connection, cellContext, expandedCellEnvelop, scene.profileBuilder);
-
-        // Fetch bridges
-        fetchCellBridge(connection, cellContext, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
-
-        scene.profileBuilder.finishFeeding();
-
+        scene.setCnossosParametersPerPeriod(cnossosParametersPerPeriod);
+        scene.addPeriods(cnossosParametersPerPeriod.keySet());
         scene.setReflexionOrder(cellContext.getSoundReflectionOrder());
         scene.setBodyBarrier(cellContext.isBodyBarrier());
-        scene.maxRefDist = maximumReflectionDistance;
+        scene.setMaxRefDist(maximumReflectionDistance);
         scene.setMaxSrcDist(maximumPropagationDistance);
         scene.setComputeVerticalDiffraction(cellContext.isComputeVerticalDiffraction());
         scene.setComputeHorizontalDiffraction(cellContext.isComputeHorizontalDiffraction());
@@ -416,12 +400,12 @@ public class DefaultTableLoader implements TableLoader {
      * @param geometryFactory geometry factory instance with SRID set.
      * @throws SQLException  if an SQL exception occurs while fetching the buildings data.
      */
-    public static void fetchCellBuildings(Connection connection, BuildingTableSettings buildingTableSettings,
-                                          Envelope fetchEnvelope, ProfileBuilder builder,
-                                          GeometryFactory geometryFactory) throws SQLException {
+    public static void fetchCellBuildings(Connection connection, CellSceneContext cellContext, 
+                                          Envelope fetchEnvelope, ProfileBuilder builder) throws SQLException {
         List<Building> buildings = new LinkedList<>();
         List<Wall> walls = new LinkedList<>();
-        fetchCellBuildings(connection,buildingTableSettings, fetchEnvelope, buildings, walls, geometryFactory);
+        GeometryFactory geometryFactory = cellContext.getGeometryFactory();
+        fetchCellBuildings(connection,cellContext.getBuildingTableSettings(), fetchEnvelope, buildings, walls, geometryFactory);
         for(Building building : buildings) {
             builder.addBuilding(building);
         }
@@ -448,14 +432,14 @@ public class DefaultTableLoader implements TableLoader {
                                           GeometryFactory geometryFactory) throws SQLException {
         Geometry envGeo = geometryFactory.toGeometry(fetchEnvelope);
         boolean fetchAlpha = JDBCUtilities.hasField(connection, buildingTableSettings.getBuildingsTableName(),
-                buildingTableSettings.getAlphaFieldName());
+                buildingTableSettings.getBuildingAlphaField());
         String additionalQuery = "";
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-        if(!buildingTableSettings.getHeightField().isEmpty()) {
-            additionalQuery += ", " + TableLocation.quoteIdentifier(buildingTableSettings.getHeightField(), dbType);
+        if(!buildingTableSettings.getBuildingHeightField().isEmpty()) {
+            additionalQuery += ", " + TableLocation.quoteIdentifier(buildingTableSettings.getBuildingHeightField(), dbType);
         }
         if(fetchAlpha) {
-            additionalQuery += ", " + buildingTableSettings.getAlphaFieldName();
+            additionalQuery += ", " + buildingTableSettings.getBuildingAlphaField();
         }
         String pkBuilding = "";
         final int indexPk = JDBCUtilities.getIntegerPrimaryKey(connection.unwrap(Connection.class),
@@ -476,7 +460,7 @@ public class DefaultTableLoader implements TableLoader {
                 if(!pkBuilding.isEmpty()) {
                     columnIndex = JDBCUtilities.getFieldIndex(rs.getMetaData(), pkBuilding);
                 }
-                double oldAlpha = buildingTableSettings.getDefaultWallAbsorption();
+                double oldAlpha = buildingTableSettings.getBuildingDefaultAlpha();
                 while (rs.next()) {
                     // Clip each building geometry to the fetched envelope to keep per-cell consistency.
                     Geometry building = rs.getGeometry();
@@ -490,7 +474,7 @@ public class DefaultTableLoader implements TableLoader {
                         }
                         if(intersectedGeometry instanceof Polygon || intersectedGeometry instanceof MultiPolygon || intersectedGeometry instanceof LineString) {
                             if(fetchAlpha) {
-                                oldAlpha = rs.getDouble(buildingTableSettings.getAlphaFieldName());
+                                oldAlpha = rs.getDouble(buildingTableSettings.getBuildingAlphaField());
                             }
 
                             long pk = -1;
@@ -501,10 +485,10 @@ public class DefaultTableLoader implements TableLoader {
                                 Geometry geometry = intersectedGeometry.getGeometryN(i);
                                 if(geometry instanceof Polygon && !geometry.isEmpty()) {
                                     Building poly = new Building((Polygon) geometry,
-                                            buildingTableSettings.getHeightField().isEmpty() ?
+                                            buildingTableSettings.getBuildingHeightField().isEmpty() ?
                                                     Double.MAX_VALUE :
-                                                    rs.getDouble(buildingTableSettings.getHeightField()),
-                                            oldAlpha, pk, buildingTableSettings.isZBuildings());
+                                                    rs.getDouble(buildingTableSettings.getBuildingHeightField()),
+                                            oldAlpha, pk, buildingTableSettings.useBuildingGeometryZ());
                                     buildings.add(poly);
                                 } else if (geometry instanceof LineString) {
                                     // Convert border lines into individual wall segments.
@@ -515,8 +499,8 @@ public class DefaultTableLoader implements TableLoader {
                                                 -1, ProfileBuilder.IntersectionType.WALL);
                                         wall.setG(oldAlpha);
                                         wall.setPrimaryKey(pk);
-                                        wall.setHeight(buildingTableSettings.getHeightField().isEmpty() ?
-                                                Double.MAX_VALUE : rs.getDouble(buildingTableSettings.getHeightField()));
+                                        wall.setHeight(buildingTableSettings.getBuildingHeightField().isEmpty() ?
+                                                Double.MAX_VALUE : rs.getDouble(buildingTableSettings.getBuildingHeightField()));
                                         walls.add(wall);
                                     }
                                 }
@@ -659,10 +643,9 @@ public class DefaultTableLoader implements TableLoader {
      * @param geometryFactory geometry factory instance with SRID set.
      * @throws SQLException   if an SQL exception occurs while fetching the bridge data.
      */
-    public void fetchCellBridge(Connection connection, CellSceneContext cellContext, Envelope fetchEnvelope, ProfileBuilder builder,
-                                   GeometryFactory geometryFactory) throws SQLException {
+    public void fetchCellBridge(Connection connection, CellSceneContext cellContext, Envelope fetchEnvelope, ProfileBuilder builder) throws SQLException {
         
-        
+        GeometryFactory geometryFactory = cellContext.getGeometryFactory();
         String bridgePointsTableName = cellContext.getBridgePointsTableName();
         if(!bridgePointsTableName.isEmpty()) {
             DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
@@ -869,5 +852,9 @@ public class DefaultTableLoader implements TableLoader {
             }
 
         }
+    }
+
+    public void putCnossosParametersPerPeriod(String key, AttenuationParameters cnossosParametersPerPeriod) {
+        this.cnossosParametersPerPeriod.put(key, cnossosParametersPerPeriod);
     }
 }

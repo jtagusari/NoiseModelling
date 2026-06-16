@@ -17,69 +17,59 @@ import java.io.File;
  * This is input only, these settings are never updated by org.noise_planet.noisemodelling.jdbc class
  */
 public class CalculationIOSettings {
-    public boolean exportAttenuationMatrix;
-    public static final String DEFAULT_RECEIVERS_LEVEL_TABLE_NAME = "RECEIVERS_LEVEL";
-    /**
-     * Noise level on the receiver for each period if mergeSources is true and no sound source were found
-     */
-    public double noSourceNoiseLevel = -99;
-
-    public CalculationIOSettings() {
-    }
-
-    /**
-     * Path to write the computation time and other statistics in a csv file
-     */
-    public File CSVProfilerOutputPath = null;
-    /**
-     * Create a new csv line after this time in seconds
-     */
-    public int CSVProfilerWriteInterval = 60;
-
-    /**
-     * With attenuation export also the json of the related cnossos path, for debugging purpose
-     */
-    public boolean exportCnossosPathWithAttenuation = false;
-    public boolean keepAbsorption = false; // in rays, keep store detailed absorption data
-    public int maximumRaysOutputCount = 0; // if export rays, do not keep more than this number of rays (0 infinite)
-
+    public static final String DEFAULT_RECEIVERS_LEVEL_TABLE_NAME = "RECEIVERS_LEVEL"; 
     public enum ExportRaysMethods {TO_RAYS_TABLE, NONE}
-    public ExportRaysMethods exportRaysMethod = ExportRaysMethods.NONE;
-    /** Cnossos revisions have multiple coefficients for road emission formulae
-     * this parameter will be removed when the final version of Cnossos will be published
-     */
-    public int coefficientVersion = 2;
+    private final boolean exportAttenuationMatrix; // if true, export also the attenuation matrix (source, receiver, attenuation) in the database
+    private final double noSourceNoiseLevel; // in dB, if mergeSources is true and no sound source were found, this noise level will be used for the receiver instead of -inf
+    private final File CSVProfilerOutputPath; // if not null, write computation time and other statistics in a csv file in this folder
+    private final int CSVProfilerWriteInterval; // create a new line in the csv profiler file after this time in seconds, if CSVProfilerOutputPath is not null
+    private final boolean exportCnossosPathWithAttenuation; // if true, export also the json of the related cnossos path in the attenuation output, for debugging purpose
+    private final boolean keepAbsorption; // in rays, keep store detailed absorption data
+    private final int maximumRaysOutputCount; // if export rays, do not keep more than this number of rays (0 infinite)
+    private final ExportRaysMethods exportRaysMethod; // if export rays, method to export rays, either in a database table or as a json in the results table, if exportAttenuationMatrix is true, the ray is exported in the RAYS table with attenuation values as attributes, otherwise only one ray per path is exported without attenuation values
+    private final int coefficientVersion; // version of the coefficients to use for attenuation calculation, this is used to keep track of changes in the coefficients and avoid confusion when comparing results with different versions of the software, the value is stored in the database output for reference
 
     // Output config
+    private final double maximumError; // in dB, if the sum of the contributions of the remaining sources is smaller than this value, the calculation is stopped and the final noise level is returned, this is used to speed up calculation by avoiding to calculate very low contributions that do not change significantly the final result, a value of 0 means that all sources are calculated, a value of 1 means that sources that contribute less than 1 dB to the final result are not calculated, a value of 3 means that sources that contribute less than 3 dB to the final result are not calculated, etc.
 
-    /** maximum dB Error, stop calculation if the sum of further sources contributions are smaller than this value */
-    public double maximumError = 0;
-
-    public int geojsonColumnSizeLimit = 1000000; // sql column size limitation for geojson
-
-    public int getMaximumRaysOutputCount() {
-        return maximumRaysOutputCount;
-    }
-    public int outputMaximumQueue = 50000;
-
-    public boolean mergeSources = true;
-
-    public String receiversLevelTable = DEFAULT_RECEIVERS_LEVEL_TABLE_NAME;
-    public String raysTable = "RAYS";
-
-    public File sqlOutputFile;
-    public Boolean sqlOutputFileCompression = true;
-    public Boolean dropResultsTable = true;
-    public boolean computeLAEQOnly = false;
+    private final int outputMaximumQueue; // maximum result stack to be inserted in database, if the stack is full, the computation core is waiting
+    private final boolean mergeSources; // if true, merge the contributions of all sources at each receiver
+    private final String receiversLevelTable; // output table with noise level per receiver/source, if mergeSources is true, this table contains the noise level per receiver, otherwise it contains the noise level per receiver and per source
+    private final String raysTable; // output table for rays data
+    private final Boolean sqlOutputFileCompression; // if true, compress the sql output file with gzip
+    private final Boolean dropResultsTable; // if true, drop the output table before creating it, this is useful for debugging and for very large outputs that can cause performance issues when inserting in the database
+    private final boolean computeLAEQOnly; // if true, only compute LAEQ values for each receiver, this is used to speed up calculation when only LAEQ values are needed, in this mode, the noise level for each source is not calculated and the maximum error threshold is not applied, the final LAEQ value is calculated by summing the contributions of all sources without applying the maximum error threshold, this means that the final LAEQ value is the same as if all sources were calculated, but the calculation is much faster because we do not need to calculate the noise level for each source and we do not need to apply the maximum error threshold
 
     /**
      * If true the position of the receiver (with the altitude if available) will be exported into the results tables
      */
     public boolean exportReceiverPosition = false;
 
+    public CalculationIOSettings(double noSourceNoiseLevel, File CSVProfilerOutputPath, int CSVProfilerWriteInterval, boolean exportCnossosPathWithAttenuation, boolean exportAttenuationMatrix, boolean keepAbsorption, int maximumRaysOutputCount, ExportRaysMethods exportRaysMethod, int coefficientVersion, double maximumError, int outputMaximumQueue, boolean mergeSources, String receiversLevelTable, String raysTable, Boolean sqlOutputFileCompression, Boolean dropResultsTable, boolean computeLAEQOnly, boolean exportReceiverPosition) {
+        this.noSourceNoiseLevel = noSourceNoiseLevel;
+        this.CSVProfilerOutputPath = CSVProfilerOutputPath;
+        this.CSVProfilerWriteInterval = CSVProfilerWriteInterval;
+        this.exportCnossosPathWithAttenuation = exportCnossosPathWithAttenuation;
+        this.exportAttenuationMatrix = exportAttenuationMatrix;
+        this.keepAbsorption = keepAbsorption;
+        this.maximumRaysOutputCount = maximumRaysOutputCount;
+        this.exportRaysMethod = exportRaysMethod;
+        this.coefficientVersion = coefficientVersion;
+        this.maximumError = maximumError;
+        this.outputMaximumQueue = outputMaximumQueue;
+        this.mergeSources = mergeSources;
+        this.receiversLevelTable = receiversLevelTable;
+        this.raysTable = raysTable;
+        this.sqlOutputFileCompression = sqlOutputFileCompression;
+        this.dropResultsTable = dropResultsTable;
+        this.computeLAEQOnly = computeLAEQOnly;
+        this.exportReceiverPosition = exportReceiverPosition;
+    }
+
+
 
     public static class Builder {
-        private boolean exportAttenuationMatrix;
+        private boolean exportAttenuationMatrix = false;
         private double noSourceNoiseLevel = -99;
         private File CSVProfilerOutputPath = null;
         private int CSVProfilerWriteInterval = 60;
@@ -89,11 +79,10 @@ public class CalculationIOSettings {
         private ExportRaysMethods exportRaysMethod = ExportRaysMethods.NONE;
         private int coefficientVersion = 2;
         private double maximumError = 0;
-        private int geojsonColumnSizeLimit = 1000000;
+        private int outputMaximumQueue = 50000;
         private boolean mergeSources = true;
         private String receiversLevelTable = DEFAULT_RECEIVERS_LEVEL_TABLE_NAME;
         private String raysTable = "RAYS";
-        private File sqlOutputFile;
         private Boolean sqlOutputFileCompression = true;
         private Boolean dropResultsTable = true;
         private boolean computeLAEQOnly = false;
@@ -149,8 +138,8 @@ public class CalculationIOSettings {
             return this;
         }
 
-        public Builder setGeojsonColumnSizeLimit(int geojsonColumnSizeLimit) {
-            this.geojsonColumnSizeLimit = geojsonColumnSizeLimit;
+        public Builder setOutputMaximumQueue(int outputMaximumQueue) {
+            this.outputMaximumQueue = outputMaximumQueue;
             return this;
         }
 
@@ -166,11 +155,6 @@ public class CalculationIOSettings {
 
         public Builder setRaysTable(String raysTable) {
             this.raysTable = raysTable;
-            return this;
-        }
-
-        public Builder setSqlOutputFile(File sqlOutputFile) {
-            this.sqlOutputFile = sqlOutputFile;
             return this;
         }
 
@@ -195,26 +179,7 @@ public class CalculationIOSettings {
         }
 
         public CalculationIOSettings build() {
-            CalculationIOSettings settings = new CalculationIOSettings();
-            settings.exportAttenuationMatrix = this.exportAttenuationMatrix;
-            settings.noSourceNoiseLevel = this.noSourceNoiseLevel;
-            settings.CSVProfilerOutputPath = this.CSVProfilerOutputPath;
-            settings.CSVProfilerWriteInterval = this.CSVProfilerWriteInterval;
-            settings.exportCnossosPathWithAttenuation = this.exportCnossosPathWithAttenuation;
-            settings.keepAbsorption = this.keepAbsorption;
-            settings.maximumRaysOutputCount = this.maximumRaysOutputCount;
-            settings.exportRaysMethod = this.exportRaysMethod;
-            settings.coefficientVersion = this.coefficientVersion;
-            settings.maximumError = this.maximumError;
-            settings.geojsonColumnSizeLimit = this.geojsonColumnSizeLimit;
-            settings.mergeSources = this.mergeSources;
-            settings.receiversLevelTable = this.receiversLevelTable;
-            settings.raysTable = this.raysTable;
-            settings.sqlOutputFile = this.sqlOutputFile;
-            settings.sqlOutputFileCompression = this.sqlOutputFileCompression;
-            settings.dropResultsTable = this.dropResultsTable;
-            settings.computeLAEQOnly = this.computeLAEQOnly;
-            settings.exportReceiverPosition = this.exportReceiverPosition;
+            CalculationIOSettings settings = new CalculationIOSettings(this.noSourceNoiseLevel, this.CSVProfilerOutputPath, this.CSVProfilerWriteInterval, this.exportCnossosPathWithAttenuation, this.exportAttenuationMatrix, this.keepAbsorption, this.maximumRaysOutputCount, this.exportRaysMethod, this.coefficientVersion, this.maximumError, this.outputMaximumQueue, this.mergeSources, this.receiversLevelTable, this.raysTable, this.sqlOutputFileCompression, this.dropResultsTable, this.computeLAEQOnly, this.exportReceiverPosition);
             return settings;
         }
     }
@@ -231,6 +196,10 @@ public class CalculationIOSettings {
         return computeLAEQOnly;
     }
 
+    public double getNoSourceNoiseLevel() {
+        return noSourceNoiseLevel;
+    }
+
 
     public ExportRaysMethods getExportRaysMethod() {
         return exportRaysMethod;
@@ -240,26 +209,10 @@ public class CalculationIOSettings {
         return keepAbsorption;
     }
 
-    /**
-     * @param coefficientVersion Cnossos revisions have multiple coefficients for road emission formulae this parameter
-     *                          will be removed when the final version of Cnossos will be published
-     */
-    public void setCoefficientVersion(int coefficientVersion) {
-        this.coefficientVersion = coefficientVersion;
-    }
-
     public int getCoefficientVersion() {
         return coefficientVersion;
     }
 
-    /**
-     * Maximum result stack to be inserted in database
-     * if the stack is full, the computation core is waiting
-     * @param outputMaximumQueue Maximum number of elements in stack
-    */
-    public void setOutputMaximumQueue(int outputMaximumQueue) {
-        this.outputMaximumQueue = outputMaximumQueue;
-    }
 
     /**
      * @return maximum dB Error, stop calculation if the maximum sum of further sources contributions are smaller than this value
@@ -268,17 +221,6 @@ public class CalculationIOSettings {
         return maximumError;
     }
 
-    /**
-     * @param maximumError maximum dB Error, stop calculation if the maximum sum of further sources contributions
-     *                    compared to the current level at the receiver position are smaller than this value
-     */
-    public void setMaximumError(double maximumError) {
-        this.maximumError = maximumError;
-    }
-
-    public void setMergeSources(boolean mergeSources) {
-        this.mergeSources = mergeSources;
-    }
 
     /**
      * @return Table name that contains rays dump (profile)
@@ -287,11 +229,6 @@ public class CalculationIOSettings {
         return raysTable;
     }
 
-    /**
-     */
-    public void setRaysTable(String raysTable) {
-        this.raysTable = raysTable;
-    }
 
     public boolean isMergeSources() {
         return mergeSources;
@@ -304,14 +241,35 @@ public class CalculationIOSettings {
         return receiversLevelTable;
     }
 
-    /**
-     * @param receiversLevelTable Output table with noise level per receiver/source
-     */
-    public void setReceiversLevelTable(String receiversLevelTable) {
-        this.receiversLevelTable = receiversLevelTable;
-    }
-
     public File getCSVProfilerOutputPath() {
         return CSVProfilerOutputPath;
+    }
+
+    public int getCSVProfilerWriteInterval() {
+        return CSVProfilerWriteInterval;
+    }
+
+    public boolean isExportAttenuationMatrix() {
+        return exportAttenuationMatrix;
+    }
+
+    public boolean isExportCnossosPathWithAttenuation() {
+        return exportCnossosPathWithAttenuation;
+    }
+    
+    public int getMaximumRaysOutputCount() {
+        return maximumRaysOutputCount;
+    }
+
+    public boolean isDropResultsTable() {
+        return dropResultsTable;
+    }
+
+    public boolean isSqlOutputFileCompression() {
+        return sqlOutputFileCompression;
+    }
+
+    public int getOutputMaximumQueue() {
+        return outputMaximumQueue;
     }
 }

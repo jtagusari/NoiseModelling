@@ -55,13 +55,13 @@ public class DefaultCutPlaneProcessing implements NoiseMapByReceiverMaker.ICompu
     public void initialize(Connection connection, NoiseMapByReceiverMaker noiseMapByReceiverMaker) throws SQLException {
         this.connection = connection;
         this.noiseMapByReceiverMaker = noiseMapByReceiverMaker;
-        if(calculationIOSettings.CSVProfilerOutputPath != null) {
-            profilerThread = new ProfilerThread(calculationIOSettings.CSVProfilerOutputPath);
+        if(calculationIOSettings.getCSVProfilerOutputPath() != null) {
+            profilerThread = new ProfilerThread(calculationIOSettings.getCSVProfilerOutputPath());
             profilerThread.addMetric(resultsCache);
             profilerThread.addMetric(new JVMMemoryMetric());
             profilerThread.addMetric(new ReceiverStatsMetric());
-            profilerThread.setWriteInterval(calculationIOSettings.CSVProfilerWriteInterval);
-            profilerThread.setFlushInterval(calculationIOSettings.CSVProfilerWriteInterval);
+            profilerThread.setWriteInterval(calculationIOSettings.getCSVProfilerWriteInterval());
+            profilerThread.setFlushInterval(calculationIOSettings.getCSVProfilerWriteInterval());
         }
     }
 

@@ -616,5 +616,5 @@ def exec(Connection connection, Map input) {
     String timeString = String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, seconds)
     logger.info( "Calculation Done in $timeString ! ")
 
-    return "Calculation Done ! The table $pointNoiseMap.calculationIOSettings.receiversLevelTable have been created."
+    return "Calculation Done ! The table $pointNoiseMap.calculationIOSettings.getReceiversLevelTable() have been created."
 }

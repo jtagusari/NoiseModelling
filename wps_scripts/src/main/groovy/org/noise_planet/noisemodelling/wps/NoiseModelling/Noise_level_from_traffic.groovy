@@ -632,6 +632,6 @@ def exec(Connection connection, Map input) {
 
     pointNoiseMap.run(connection, progressLogger)
 
-    return "Calculation Done ! The table $pointNoiseMap.calculationIOSettings.receiversLevelTable have been created."
+    return "Calculation Done ! The table $pointNoiseMap.calculationIOSettings.getReceiversLevelTable() have been created."
 }
 

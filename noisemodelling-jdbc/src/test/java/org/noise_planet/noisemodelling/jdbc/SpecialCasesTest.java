@@ -180,7 +180,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             LOGGER.info("\n=== Results ===");
             try (ResultSet rs = st.executeQuery(
@@ -299,7 +299,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             LOGGER.info("\n=== Results ===");
             try (ResultSet rs = st.executeQuery(
@@ -390,6 +390,11 @@ public class SpecialCasesTest {
                     .setComputeVerticalDiffraction(true)
                     .setSoundReflectionOrder(2)
                     .build();
+
+            CalculationIOSettings ioSettings = new CalculationIOSettings.Builder()
+                        .setExportRaysMethod(CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE)
+                        .setExportCnossosPathWithAttenuation(true)
+                        .build();
             
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
                     .setBuildingTableSettings(buildingTableSettings)
@@ -397,12 +402,9 @@ public class SpecialCasesTest {
                     .setReceiverTableName("RECEIVERS")
                     .setDemTable("DEM")
                     .setPropagationSettings(propagationSettings)
+                    .setCalculationIOSettings(ioSettings)
                     .build();
             
-            // Enable ray path output tables
-            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            params.exportRaysMethod = CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE;
-            params.exportCnossosPathWithAttenuation = true;
             
             LOGGER.info("");
             LOGGER.info("Running computation with ray path export enabled...");
@@ -410,7 +412,7 @@ public class SpecialCasesTest {
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
             
             // Retrieve sound level results
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = ioSettings.getReceiversLevelTable();
             LOGGER.info("");
             LOGGER.info("=== Sound Level Results ===");
             try (ResultSet rs = st.executeQuery(
@@ -626,6 +628,11 @@ public class SpecialCasesTest {
                     .setComputeVerticalDiffraction(true)
                     .setSoundReflectionOrder(2)
                     .build();
+        
+            CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
+                    .setExportRaysMethod(CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE)
+                    .setExportCnossosPathWithAttenuation(true)
+                    .build();        
             
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
                     .setBuildingTableSettings(buildingTableSettings)
@@ -633,11 +640,8 @@ public class SpecialCasesTest {
                     .setReceiverTableName("RECEIVERS")
                     .setDemTable("DEM")
                     .setPropagationSettings(propagationSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
                     .build();
-            
-            CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            params.exportRaysMethod = CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE;
-            params.exportCnossosPathWithAttenuation = true;
             
             noiseMapMaker.initialize(connection, new EmptyProgressVisitor());
             noiseMapMaker.run(connection, new EmptyProgressVisitor());
@@ -681,11 +685,11 @@ public class SpecialCasesTest {
      * Test Case 3: Source and Receiver at Same Location
      * 
      * Test scenarios:
-     * A) XY同一，Z異なる（同じ水平位置，異なる高さ）
+     * A) Same XY but different Z (vertical separation only)
      *    - Source at (50, 50, 5m), Receiver at (50, 50, 1.5m)
      *    - Vertical separation only, horizontal distance = 0
      * 
-     * B) XYZ完全同一（完全に同一位置）
+     * B) Completely identical position (same XY and Z)
      *    - Source at (50, 50, 1.5m), Receiver at (50, 50, 1.5m)
      *    - Horizontal distance = 0, vertical distance = 0
      * 
@@ -764,7 +768,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             try (ResultSet rs = st.executeQuery(
                     "SELECT IDRECEIVER, HZ1000 FROM " + resultsTable + " ORDER BY IDRECEIVER")) {
@@ -851,7 +855,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             try (ResultSet rs = st.executeQuery(
                     "SELECT IDRECEIVER, HZ1000 FROM " + resultsTable + " ORDER BY IDRECEIVER")) {
@@ -949,7 +953,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             LOGGER.info("\n=== Results ===");
             try (ResultSet rs = st.executeQuery(
@@ -1069,7 +1073,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             LOGGER.info("\n=== Results ===");
             try (ResultSet rs = st.executeQuery(
@@ -1216,7 +1220,7 @@ public class SpecialCasesTest {
             
             // Retrieve and analyze results
             CalculationIOSettings params = noiseMapMaker.getCalculationIOSettings();
-            String resultsTable = params.receiversLevelTable;
+            String resultsTable = params.getReceiversLevelTable();
             
             LOGGER.info("\n=== Results: Overlapping Building Geometry ===");
             try (ResultSet rs = st.executeQuery(

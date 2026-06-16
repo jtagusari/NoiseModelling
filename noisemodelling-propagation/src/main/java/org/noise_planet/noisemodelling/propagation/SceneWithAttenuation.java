@@ -73,14 +73,26 @@ public class SceneWithAttenuation extends Scene {
      * present, propagation uses these parameters instead of a single
      * global attenuation parameter set.
      */
-    public Map<String, AttenuationParameters> cnossosParametersPerPeriod = new HashMap<>();
+    private Map<String, AttenuationParameters> cnossosParametersPerPeriod = new HashMap<>();
 
     /**
      * Known set of all periods encountered in the scene. Used to ensure
      * that propagation outputs a consistent set of periods even if a
      * particular period contains no sources.
      */
-    public Set<String> periodSet = new HashSet<>();
+    private Set<String> periodSet = new HashSet<>();
+
+    public Set<String> getPeriodSet() {
+        return periodSet;
+    }
+
+    public void addPeriod(String period) {
+        this.periodSet.add(period);
+    }
+
+    public void addPeriods(Collection<String> periods) {
+        this.periodSet.addAll(periods);
+    }
 
     public SceneWithAttenuation(ProfileBuilder profileBuilder) {
         super(profileBuilder);
@@ -131,6 +143,29 @@ public class SceneWithAttenuation extends Scene {
                 }
             });
         });
+    }
+
+    public void setCnossosParametersPerPeriod(Map<String, AttenuationParameters> cnossosParametersPerPeriod) {
+        this.cnossosParametersPerPeriod = cnossosParametersPerPeriod;
+    }
+
+    public void putCnossosParametersPerPeriod(String period, AttenuationParameters parameters) {
+        this.cnossosParametersPerPeriod.put(period, parameters);
+    }
+
+    public boolean hasCnossosParametersPerPeriod() {
+        return !this.cnossosParametersPerPeriod.isEmpty();
+    }
+
+    public Set<Map.Entry<String, AttenuationParameters>> getCnossosParametersPerPeriodEntries() {
+        return cnossosParametersPerPeriod.entrySet();
+    }
+
+    public AttenuationParameters getCnossosParametersPerPeriod(String period) {
+        if (!cnossosParametersPerPeriod.containsKey(period)) {
+            return null;
+        }
+        return cnossosParametersPerPeriod.get(period);
     }
 
     /**

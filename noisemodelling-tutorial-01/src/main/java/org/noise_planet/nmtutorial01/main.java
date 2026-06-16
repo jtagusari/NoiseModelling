@@ -157,7 +157,7 @@ class Main {
         List<Double> isoLevels = IsoSurface.NF31_133_ISO; // default values
         IsoSurface isoSurface = new IsoSurface(isoLevels, srid);
         isoSurface.setSmoothCoefficient(0.5);
-        isoSurface.setPointTable(TableLocation.parse(noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable, dbType).toString());
+        isoSurface.setPointTable(TableLocation.parse(noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable(), dbType).toString());
         isoSurface.createTable(connection, "IDRECEIVER");
         logger.info("Export iso contours");
 

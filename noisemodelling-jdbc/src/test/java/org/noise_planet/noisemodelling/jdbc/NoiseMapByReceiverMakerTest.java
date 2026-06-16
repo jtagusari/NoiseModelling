@@ -180,7 +180,7 @@ public class NoiseMapByReceiverMakerTest {
 
             CalculationIOSettings parameters = noiseMapByReceiverMaker.getCalculationIOSettings();
 
-            try(ResultSet rs = st.executeQuery("SELECT HZ63 FROM " + parameters.receiversLevelTable + " WHERE PERIOD='DEN' ORDER BY IDRECEIVER")) {
+            try(ResultSet rs = st.executeQuery("SELECT HZ63 FROM " + parameters.getReceiversLevelTable() + " WHERE PERIOD='DEN' ORDER BY IDRECEIVER")) {
                 assertTrue(rs.next());
                 assertEquals(73.3, rs.getDouble(1), 0.1);
                 assertTrue(rs.next());
@@ -246,9 +246,9 @@ public class NoiseMapByReceiverMakerTest {
             eveningSettings.setTemperature(18);
             AttenuationParameters nightSettings = new AttenuationParameters();
             nightSettings.setTemperature(16);
-            defaultTableLoader.cnossosParametersPerPeriod.put("D", daySettings);
-            defaultTableLoader.cnossosParametersPerPeriod.put("E", eveningSettings);
-            defaultTableLoader.cnossosParametersPerPeriod.put("N", nightSettings);
+            defaultTableLoader.putCnossosParametersPerPeriod("D", daySettings);
+            defaultTableLoader.putCnossosParametersPerPeriod("E", eveningSettings);
+            defaultTableLoader.putCnossosParametersPerPeriod("N", nightSettings);
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
@@ -343,9 +343,9 @@ public class NoiseMapByReceiverMakerTest {
             eveningSettings.setTemperature(18);
             AttenuationParameters nightSettings = new AttenuationParameters();
             nightSettings.setTemperature(16);
-            defaultTableLoader.cnossosParametersPerPeriod.put("D", daySettings);
-            defaultTableLoader.cnossosParametersPerPeriod.put("E", eveningSettings);
-            defaultTableLoader.cnossosParametersPerPeriod.put("N", nightSettings);
+            defaultTableLoader.putCnossosParametersPerPeriod("D", daySettings);
+            defaultTableLoader.putCnossosParametersPerPeriod("E", eveningSettings);
+            defaultTableLoader.putCnossosParametersPerPeriod("N", nightSettings);
 
             noiseMapByReceiverMaker.run(connection, new EmptyProgressVisitor());
 
@@ -520,7 +520,7 @@ public class NoiseMapByReceiverMakerTest {
             int receiversRowCount = JDBCUtilities.getRowCount(connection, "RECEIVERS");
 
             int resultRowCount = JDBCUtilities.getRowCount(connection,
-                    noiseMapByReceiverMaker.getCalculationIOSettings().receiversLevelTable);
+                    noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable());
 
             // D E N, should be 3 more rows than receivers
             assertEquals(receiversRowCount * 3, resultRowCount);

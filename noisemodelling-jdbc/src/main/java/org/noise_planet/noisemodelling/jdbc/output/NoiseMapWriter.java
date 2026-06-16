@@ -86,7 +86,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
         }
         this.exitWhenDone = exitWhenDone;
         this.aborted = aborted;
-        if(databaseParameters.exportCnossosPathWithAttenuation) {
+        if(databaseParameters.isExportCnossosPathWithAttenuation()) {
             ObjectMapper mapper = new ObjectMapper();
             mapper.addMixIn(Coordinate.class, CoordinateMixin.class);
             mapper.addMixIn(LineSegment.class, LineSegmentMixin.class);
@@ -111,22 +111,22 @@ public class NoiseMapWriter implements Callable<Boolean> {
     void processRaysStack(ConcurrentLinkedDeque<CnossosPathExt> stack) throws SQLException {
         boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
                 equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
-        StringBuilder query = new StringBuilder("INSERT INTO " + databaseParameters.raysTable +
+        StringBuilder query = new StringBuilder("INSERT INTO " + databaseParameters.getRaysTable() +
                 "(the_geom , IDRECEIVER , IDSOURCE");
-        if(databaseParameters.exportCnossosPathWithAttenuation) {
+        if(databaseParameters.isExportCnossosPathWithAttenuation()) {
             query.append(", PATH");
         }
-        if(databaseParameters.exportAttenuationMatrix) {
+        if(databaseParameters.isExportAttenuationMatrix()) {
             query.append(", LEQ");
         }
         if(exportPeriod) {
             query.append(", PERIOD");
         }
         query.append(") VALUES (?, ?, ?");
-        if(databaseParameters.exportCnossosPathWithAttenuation) {
+        if(databaseParameters.isExportCnossosPathWithAttenuation()) {
             query.append(", ?");
         }
-        if(databaseParameters.exportAttenuationMatrix) {
+        if(databaseParameters.isExportAttenuationMatrix()) {
             query.append(", ?");
         }
         if(exportPeriod) {
@@ -150,7 +150,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
             ps.setObject(parameterIndex++, lineString);
             ps.setLong(parameterIndex++, row.getCutProfile().getReceiver().getReceiverPk());
             ps.setLong(parameterIndex++, row.getCutProfile().getSource().getSourcePk());
-            if(databaseParameters.exportCnossosPathWithAttenuation) {
+            if(databaseParameters.isExportCnossosPathWithAttenuation()) {
                 String json = "";
                 try {
                     json = propagationPathAsJSON(row);
@@ -159,7 +159,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
                 }
                 ps.setString(parameterIndex++, json);
             }
-            if(databaseParameters.exportAttenuationMatrix) {
+            if(databaseParameters.isExportAttenuationMatrix()) {
                 double globalValue = sumDbArray(row.aGlobal);
                 ps.setDouble(parameterIndex++, globalValue);
             }
@@ -197,16 +197,16 @@ public class NoiseMapWriter implements Callable<Boolean> {
         StringBuilder query = new StringBuilder("INSERT INTO ");
         query.append(tableName);
         query.append(" VALUES (? "); // ID_RECEIVER
-        if(!databaseParameters.mergeSources) {
+        if(!databaseParameters.isMergeSources()) {
             query.append(", ?"); // ID_SOURCE
         }
         if(exportPeriod) {
             query.append(", ?"); // PERIOD
         }
-        if(databaseParameters.exportReceiverPosition) {
+        if(databaseParameters.isExportReceiverPosition()) {
             query.append(", ?"); // THE_GEOM
         }
-        if (!databaseParameters.computeLAEQOnly) {
+        if (!databaseParameters.isComputeLAEQOnly()) {
             query.append(", ?".repeat(aWeightingArray.length)); // freq value LWXX
             query.append(", ?, ?);"); // laeq, leq
         }else{
@@ -225,18 +225,18 @@ public class NoiseMapWriter implements Callable<Boolean> {
             resultsCache.queueSize.decrementAndGet();
             int parameterIndex = 1;
             ps.setLong(parameterIndex++, row.getReceiver().getReceiverPk());
-            if(!databaseParameters.mergeSources) {
+            if(!databaseParameters.isMergeSources()) {
                 ps.setLong(parameterIndex++, row.getSource().getSourcePk());
             }
             if(exportPeriod) {
                 ps.setString(parameterIndex++, row.getPeriod());
             }
-            if(databaseParameters.exportReceiverPosition) {
+            if(databaseParameters.isExportReceiverPosition()) {
                 ps.setObject(parameterIndex++,  row.getReceiver().getCoordinate() != null ?
                         factory.createPoint(row.getReceiver().getCoordinate()):
                         factory.createPoint());
             }
-            if (!databaseParameters.computeLAEQOnly){
+            if (!databaseParameters.isComputeLAEQOnly()){
                 for(int idfreq = 0; idfreq < aWeightingArray.length; idfreq++) {
                     double value = row.getLevels()[idfreq];
                     if(!Double.isFinite(value)) {
@@ -254,7 +254,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
             ps.setDouble(parameterIndex++, value);
 
             // leq value
-            if (!databaseParameters.computeLAEQOnly) {
+            if (!databaseParameters.isComputeLAEQOnly()) {
                 ps.setDouble(parameterIndex++, wToDb(sumArray(AcousticIndicatorsFunctions.dBToW(row.getLevels()))));
             }
 
@@ -287,7 +287,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
                 equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
         StringBuilder sb = new StringBuilder("create table ");
         sb.append(tableName);
-        if(!databaseParameters.mergeSources) {
+        if(!databaseParameters.isMergeSources()) {
             sb.append(" (IDRECEIVER bigint NOT NULL");
             sb.append(", IDSOURCE bigint NOT NULL");
         } else {
@@ -296,12 +296,12 @@ public class NoiseMapWriter implements Callable<Boolean> {
         if(exportPeriod) {
             sb.append(", PERIOD VARCHAR NOT NULL");
         }
-        if(databaseParameters.exportReceiverPosition) {
+        if(databaseParameters.isExportReceiverPosition()) {
             sb.append(", THE_GEOM GEOMETRY(POINTZ,");
             sb.append(srid);
             sb.append(")");
         }
-        if (databaseParameters.computeLAEQOnly){
+        if (databaseParameters.isComputeLAEQOnly()){
             sb.append(", LAEQ REAL");
             sb.append(");");
         } else {
@@ -323,7 +323,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
     private String forgePkTable(String tableName) {
         boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
                 equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
-        if (databaseParameters.mergeSources) {
+        if (databaseParameters.isMergeSources()) {
             if(!exportPeriod) {
                 return "ALTER TABLE " + tableName + " ADD PRIMARY KEY(IDRECEIVER);";
             } else {
@@ -363,18 +363,18 @@ public class NoiseMapWriter implements Callable<Boolean> {
         if(databaseParameters.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE) {
             boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
                     equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
-            if(databaseParameters.dropResultsTable) {
-                String q = String.format("DROP TABLE IF EXISTS %s;", databaseParameters.raysTable);
+            if(databaseParameters.isDropResultsTable()) {
+                String q = String.format("DROP TABLE IF EXISTS %s;", databaseParameters.getRaysTable());
                 processQuery(q);
             }
-            StringBuilder sb = new StringBuilder("CREATE TABLE IF NOT EXISTS " + databaseParameters.raysTable + "(pk bigint auto_increment, the_geom " +
+            StringBuilder sb = new StringBuilder("CREATE TABLE IF NOT EXISTS " + databaseParameters.getRaysTable() + "(pk bigint auto_increment, the_geom " +
                     "geometry(LINESTRING Z,");
             sb.append(srid);
             sb.append("), IDRECEIVER bigint NOT NULL, IDSOURCE bigint NOT NULL");
-            if(databaseParameters.exportCnossosPathWithAttenuation) {
+            if(databaseParameters.isExportCnossosPathWithAttenuation()) {
                 sb.append(", PATH VARCHAR");
             }
-            if(databaseParameters.exportAttenuationMatrix) {
+            if(databaseParameters.isExportAttenuationMatrix()) {
                 sb.append(", LEQ DOUBLE");
             }
             if(exportPeriod) {
@@ -383,11 +383,11 @@ public class NoiseMapWriter implements Callable<Boolean> {
             sb.append(");");
             processQuery(sb.toString());
         }
-        if(databaseParameters.dropResultsTable) {
-            String q = String.format("DROP TABLE IF EXISTS %s;", databaseParameters.receiversLevelTable);
+        if(databaseParameters.isDropResultsTable()) {
+            String q = String.format("DROP TABLE IF EXISTS %s;", databaseParameters.getReceiversLevelTable());
             processQuery(q);
         }
-        String q = forgeCreateTable(databaseParameters.receiversLevelTable);
+        String q = forgeCreateTable(databaseParameters.getReceiversLevelTable());
         processQuery(q);
     }
 
@@ -400,7 +400,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
         while (!aborted.get()) {
             try {
                 if(!resultsCache.receiverLevels.isEmpty()) {
-                    processStack(databaseParameters.receiversLevelTable, resultsCache.receiverLevels);
+                    processStack(databaseParameters.getReceiversLevelTable(), resultsCache.receiverLevels);
                 } else if(!resultsCache.cnossosPaths.isEmpty()) {
                     processRaysStack(resultsCache.cnossosPaths);
                 } else {
@@ -424,7 +424,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
      */
     void createKeys()  throws SQLException, IOException {
         // Set primary keys
-        processQuery(forgePkTable(databaseParameters.receiversLevelTable));
+        processQuery(forgePkTable(databaseParameters.getReceiversLevelTable()));
         LOGGER.info("Primary keys applied");
     }
 
@@ -434,7 +434,7 @@ public class NoiseMapWriter implements Callable<Boolean> {
      * @throws IOException if an I/O error occurs while creating the stream
      */
     OutputStreamWriter getStream() throws IOException {
-        if(databaseParameters.sqlOutputFileCompression) {
+        if(databaseParameters.isSqlOutputFileCompression()) {
             return new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(sqlFilePath), WRITER_CACHE));
         } else {
             return new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(sqlFilePath), WRITER_CACHE));

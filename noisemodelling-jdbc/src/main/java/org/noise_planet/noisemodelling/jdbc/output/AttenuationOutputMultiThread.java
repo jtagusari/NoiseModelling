@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AttenuationOutputMultiThread implements CutPlaneVisitorFactory {
     public ResultsCache resultsCache = new ResultsCache();
     public SceneWithEmission sceneWithEmission;
-    public CalculationIOSettings calculationIOSettings = new CalculationIOSettings();
+    public CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
     public AtomicBoolean exitWhenDone = new AtomicBoolean(false);
     public AtomicBoolean aborted = new AtomicBoolean(false);
     public AtomicLong cnossosPathCount = new AtomicLong();

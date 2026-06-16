@@ -78,9 +78,9 @@ public class AttenuationVisitor implements CutPlaneVisitor {
      * @param path Propagation path result
      */
     public void addPropagationPath(CnossosPathExt path) {
-        if(!multiThreadParent.scene.cnossosParametersPerPeriod.isEmpty()) {
+        if(multiThreadParent.scene.hasCnossosParametersPerPeriod()) {
             for (Map.Entry<String, AttenuationParameters> cnossosParametersEntry :
-                    multiThreadParent.scene.cnossosParametersPerPeriod.entrySet()) {
+                    multiThreadParent.scene.getCnossosParametersPerPeriodEntries()) {
                 processPath(cnossosParametersEntry.getKey(), cnossosParametersEntry.getValue(), path);
             }
         } else {

@@ -193,7 +193,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
         sourceEmissions.add(sourceEmission);
         // Add period to periodSet to ensure missing periods can be filled later
         if(!sourceEmission.getPeriod().isEmpty()) {
-            this.periodSet.add(sourceEmission.getPeriod());
+            this.addPeriod(sourceEmission.getPeriod());
         }
     }
 

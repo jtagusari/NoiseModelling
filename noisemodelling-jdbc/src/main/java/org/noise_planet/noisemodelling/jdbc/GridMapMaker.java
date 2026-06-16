@@ -71,13 +71,6 @@ public abstract class GridMapMaker {
         this.sound_lvl_field = sound_lvl_field;
     }
 
-    // public GridMapMaker(String buildingsTableName, String sourcesTableName) {
-    //     this.buildingTableSettings = new BuildingTableSettings.Builder()
-    //             .setBuildingsTableName(buildingsTableName)
-    //             .build();
-    //     this.sourcesTableName = sourcesTableName;
-    // }
-
     public BuildingTableSettings getBuildingTableSettings() {
         return buildingTableSettings;
     }
@@ -257,7 +250,7 @@ public abstract class GridMapMaker {
     }
 
     public boolean iszBuildings() {
-        return buildingTableSettings.isZBuildings();
+        return buildingTableSettings.useBuildingGeometryZ();
     }
 
 
@@ -329,15 +322,15 @@ public abstract class GridMapMaker {
      * @return Global default wall absorption on sound reflection.
      */
     public double getWallAbsorption() {
-        return buildingTableSettings.getDefaultWallAbsorption();
+        return buildingTableSettings.getBuildingDefaultAlpha();
     }
 
     /**
         * @return {@link #getBuildingsTableName()} table field name for building height above the ground.
      */
 
-    public String getHeightField() {
-        return buildingTableSettings.getHeightField();
+    public String getBuildingHeightField() {
+        return buildingTableSettings.getBuildingHeightField();
     }
 
 
