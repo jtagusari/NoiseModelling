@@ -255,22 +255,26 @@ def exec(Connection connection, input) {
     sql.execute("DROP TABLE IF EXISTS TRIANGLES")
 
     // Generate receivers grid for noise map rendering
-    BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-            .setBuildingsTableName(building_table_name)
+    TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+            .setBuildingTableName(building_table_name)
+            .setSourceTableName(sources_table_name)
             .build()
     
     PropagationSettings propagationSettings = new PropagationSettings.Builder()
             .setMaximumPropagationDistance(maxCellDist)
             .build()
+    
+    ReceiverGenerationSettings receiverGenerationSettings = new ReceiverGenerationSettings.Builder()
+            .setReceiverHeight(height)
+            .setRoadBuffer(roadWidth)
+            .setMaximumTriangleArea(maxArea)
+            .setIsoSurfaceInBuildings(isoSurfaceInBuildings)
+            .build()
 
     DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()   
-            .setBuildingTableSettings(buildingTableSettings)
+            .setTableInputSettings(tableInputSettings)
             .setPropagationSettings(propagationSettings)
-            .setSourcesTableName(sources_table_name)
-            .setReceiverHeight(height)
-            .setRoadWidth(roadWidth)
-            .setMaximumArea(maxArea)
-            .setIsoSurfaceInBuildings(isoSurfaceInBuildings)
+            .setReceiverGenerationSettings(receiverGenerationSettings)
             .build()
 
     if (fence != null) {
@@ -305,6 +309,7 @@ def exec(Connection connection, input) {
     if(input['errorDumpFolder']) {
         // Will write the input mesh in this folder in order to
         // help debugging delaunay triangulation
+        String errorDumpFolder = input['errorDumpFolder'] as String
         delaunayReceiversMaker.setExceptionDumpFolder(input['errorDumpFolder'] as String)
     }
 

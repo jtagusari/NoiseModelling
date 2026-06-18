@@ -50,150 +50,38 @@ import static org.h2gis.utilities.GeometryTableUtilities.getGeometryColumnNames;
 public class DelaunayReceiversMaker extends GridMapMaker {
     private static final int BATCH_MAX_SIZE = 100;
     private Logger LOGGER = LoggerFactory.getLogger(DelaunayReceiversMaker.class);
-    private double roadWidth = 2;
-    private double maximumArea = 75;
-    private long nbreceivers = 0;
-    private double receiverHeight = 1.6;
-    private double buildingBuffer = 2;
-    private String exceptionDumpFolder = "";
-    private AtomicInteger constraintId = new AtomicInteger(1);
-    private double epsilon = 1e-6;
-    private double geometrySimplificationDistance = 1;
-    private boolean isoSurfaceInBuildings = false;
+    private final ReceiverGenerationSettings receiverGenerationSettings;
+    private final AtomicInteger constraintId = new AtomicInteger(1);
 
-    /**
-     * Create constructor DelaunayReceiversMaker
-     * @param buildingsTableName Buildings table
-     * @param sourcesTableName Source table name
-     */
-    // public DelaunayReceiversMaker(String buildingsTableName, String sourcesTableName) {
-    //     super(buildingsTableName, sourcesTableName);
-    // }
-    
-    public DelaunayReceiversMaker(BuildingTableSettings buildingTableSettings, String sourcesTableName, String soilTableName, String demTable, String bridgePointsTableName, PropagationSettings propagationSettings, String sound_lvl_field, double roadWidth, double maximumArea, long nbreceivers, double receiverHeight, double buildingBuffer, String exceptionDumpFolder, AtomicInteger constraintId, double epsilon, double geometrySimplificationDistance, boolean isoSurfaceInBuildings) {
-        super(buildingTableSettings, sourcesTableName, soilTableName, demTable, bridgePointsTableName, propagationSettings, sound_lvl_field);
-        this.roadWidth = roadWidth;
-        this.maximumArea = maximumArea;
-        this.nbreceivers = nbreceivers;
-        this.receiverHeight = receiverHeight;
-        this.buildingBuffer = buildingBuffer;
-        this.exceptionDumpFolder = exceptionDumpFolder;
-        this.constraintId = constraintId;
-        this.epsilon = epsilon;
-        this.geometrySimplificationDistance = geometrySimplificationDistance;
-        this.isoSurfaceInBuildings = isoSurfaceInBuildings;
+    public DelaunayReceiversMaker(TableInputSettings tableInputSettings, PropagationSettings propagationSettings, ReceiverGenerationSettings receiverGenerationSettings) {
+        super(tableInputSettings, propagationSettings);
+        this.receiverGenerationSettings = receiverGenerationSettings;
     }
 
+
     public static class Builder{
-        private BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder().build();
-        private String sourcesTableName;
-        private String soilTableName;
-        private String demTable;
-        private String bridgePointsTableName;
+        private TableInputSettings tableInputSettings = new TableInputSettings.Builder().build();
         private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
-        private String sound_lvl_field;
-        private Double receiverHeight = 4.0;
-        private double roadWidth = 2;
-        private double maximumArea = 75;
-        private long nbreceivers = 0;
-        private double buildingBuffer = 2;
-        private String exceptionDumpFolder = "";
-        private AtomicInteger constraintId = new AtomicInteger(1);
-        private double epsilon = 1e-6;
-        private double geometrySimplificationDistance = 1;
-        private boolean isoSurfaceInBuildings = false;
+        private ReceiverGenerationSettings receiverGenerationSettings = new ReceiverGenerationSettings.Builder().build();
 
-        public Builder setBuildingTableSettings(BuildingTableSettings buildingTableSettings) {
-            this.buildingTableSettings = buildingTableSettings;
+        public Builder setTableInputSettings(TableInputSettings tableInputSettings) {
+            this.tableInputSettings = tableInputSettings;
             return this;
         }
-
-        public Builder setSourcesTableName(String sourcesTableName) {
-            this.sourcesTableName = sourcesTableName;
-            return this;
-        }
-
-        public Builder setSoilTableName(String soilTableName) {
-            this.soilTableName = soilTableName;
-            return this;
-        }
-
-        public Builder setDemTable(String demTable) {
-            this.demTable = demTable;
-            return this;
-        }
-
-        public Builder setBridgePointsTableName(String bridgePointsTableName) {
-            this.bridgePointsTableName = bridgePointsTableName;
-            return this;
-        }
-
         public Builder setPropagationSettings(PropagationSettings propagationSettings) {
             this.propagationSettings = propagationSettings;
             return this;
         }
 
-        public Builder setSoundLvlField(String sound_lvl_field) {
-            this.sound_lvl_field = sound_lvl_field;
-            return this;
-        }
 
-        public Builder setReceiverHeight(Double receiverHeight) {
-            this.receiverHeight = receiverHeight;
-            return this;
-        }
-
-        public Builder setRoadWidth(double roadWidth) {
-            this.roadWidth = roadWidth;
-            return this;
-        }
-
-        public Builder setMaximumArea(double maximumArea) {
-            this.maximumArea = maximumArea;
-            return this;
-        }
-
-        public Builder setBuildingBuffer(double buildingBuffer) {
-            this.buildingBuffer = buildingBuffer;
-            return this;
-        }
-
-        public Builder setExceptionDumpFolder(String exceptionDumpFolder) {
-            this.exceptionDumpFolder = exceptionDumpFolder;
-            return this;
-        }
-
-        public Builder setEpsilon(double epsilon) {
-            this.epsilon = epsilon;
-            return this;
-        }
-
-        public Builder setGeometrySimplificationDistance(double geometrySimplificationDistance) {
-            this.geometrySimplificationDistance = geometrySimplificationDistance;
-            return this;
-        }
-
-        public Builder setIsoSurfaceInBuildings(boolean isoSurfaceInBuildings) {
-            this.isoSurfaceInBuildings = isoSurfaceInBuildings;
+        public Builder setReceiverGenerationSettings(ReceiverGenerationSettings receiverGenerationSettings) {
+            this.receiverGenerationSettings = receiverGenerationSettings;
             return this;
         }
 
         public DelaunayReceiversMaker build() {
-            return new DelaunayReceiversMaker(buildingTableSettings, sourcesTableName, soilTableName, demTable, bridgePointsTableName, propagationSettings, sound_lvl_field, roadWidth, maximumArea, nbreceivers, receiverHeight, buildingBuffer, exceptionDumpFolder, constraintId, epsilon, geometrySimplificationDistance, isoSurfaceInBuildings);
+            return new DelaunayReceiversMaker(tableInputSettings, propagationSettings, receiverGenerationSettings);
         }
-    }
-
-    /**
-     * @return True if isosurface will be placed into buildings
-     */
-    public boolean isIsoSurfaceInBuildings() {
-        return isoSurfaceInBuildings;
-    }
-    /**
-     * @param isoSurfaceInBuildings Set true in order to place isosurface in buildings
-     */
-    public void setIsoSurfaceInBuildings(boolean isoSurfaceInBuildings) {
-        this.isoSurfaceInBuildings = isoSurfaceInBuildings;
     }
 
     /**
@@ -221,34 +109,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
             }
         }
     }
-    /**
-     * @return When an exception occur, this folder with receiver the input data
-     */
-    public String getExceptionDumpFolder() {
-        return exceptionDumpFolder;
-    }
 
-    /**
-     * @param exceptionDumpFolder When an exception occur, this folder with receiver the input data
-     */
-    public void setExceptionDumpFolder(String exceptionDumpFolder) {
-        this.exceptionDumpFolder = exceptionDumpFolder;
-    }
-
-    /**
-     * @return Do not add receivers closer to specified distance
-     */
-    public double getBuildingBuffer() {
-        return buildingBuffer;
-    }
-
-    /**
-     * Do not add receivers closer to specified distance
-     * @param buildingBuffer Distance in meters
-     */
-    public void setBuildingBuffer(double buildingBuffer) {
-        this.buildingBuffer = buildingBuffer;
-    }
 
     /**
      * Explodes a geometry collection and adds polygons to the Delaunay triangulation tool.
@@ -303,6 +164,10 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         Envelope extendedEnvelope = new Envelope(boundingBoxFilter);
         extendedEnvelope.expandBy(srcDistance * 2.);
         Geometry linearRing = geometryFactory.toGeometry(boundingBoxFilter);
+        double geometrySimplificationDistance = receiverGenerationSettings.getGeometrySimplificationDistance();
+        double maximumTriangleArea = receiverGenerationSettings.getMaximumTriangleArea();
+
+
         if (!(linearRing instanceof Polygon)) {
             return;
         }
@@ -324,8 +189,8 @@ public class DelaunayReceiversMaker extends GridMapMaker {
             bufferBuildings = TopologyPreservingSimplifier.simplify(bufferBuildings, geometrySimplificationDistance);
             if(bufferBuildings.getNumPoints() > 3) {
                 // Densify buildings to follow triangle area constraint
-                if (maximumArea > 1) {
-                    double triangleSide = (2 * Math.pow(maximumArea, 0.5)) / Math.pow(3, 0.25);
+                if (maximumTriangleArea > 1) {
+                    double triangleSide = (2 * Math.pow(maximumTriangleArea, 0.5)) / Math.pow(3, 0.25);
                     bufferBuildings = Densifier.densify(bufferBuildings, triangleSide);
                 }
                 toUniteFinal.add(bufferBuildings); // Add buildingsTableName to triangulation
@@ -343,8 +208,8 @@ public class DelaunayReceiversMaker extends GridMapMaker {
                     // Remove small artifacts due to multiple buffer crosses
                     bufferRoads = TopologyPreservingSimplifier.simplify(bufferRoads, geometrySimplificationDistance);
                     // Densify roads to follow triangle area constraint
-                    if(maximumArea > 1) {
-                        double triangleSide = (2*Math.pow(maximumArea, 0.5)) / Math.pow(3, 0.25);
+                    if(maximumTriangleArea > 1) {
+                        double triangleSide = (2*Math.pow(maximumTriangleArea, 0.5)) / Math.pow(3, 0.25);
                         bufferRoads = Densifier.densify(bufferRoads, triangleSide);
                     }
                     toUniteFinal.add(bufferRoads); // Merge roads with minRecDist m
@@ -374,12 +239,12 @@ public class DelaunayReceiversMaker extends GridMapMaker {
      * @param cellJ J cell index
      * @param maxSrcDist Maximum propagation distance
      * @param minRecDist Minimal distance receiver-source
-     * @param maximumArea Maximum area of triangles
+     * @param maximumTriangleArea Maximum area of triangles
      * @throws LayerDelaunayError
      */
     public void computeDelaunay(LayerDelaunay cellMesh,
                                 Envelope mainEnvelope, int cellI, int cellJ, double maxSrcDist, Collection<Geometry> sources,
-                                double minRecDist, double maximumArea, double buildingBuffer, List<Building> buildings)
+                                double minRecDist, double maximumTriangleArea, double buildingBuffer, List<Building> buildings)
             throws LayerDelaunayError {
 
         Envelope cellEnvelope = getCellEnv(mainEnvelope, cellI, cellJ,
@@ -424,8 +289,8 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         LOGGER.info("Begin delaunay");
         cellMesh.setRetrieveNeighbors(false);
         // Add cell envelope
-        if (maximumArea > 1) {
-            double triangleSide = (2*Math.pow(maximumArea, 0.5)) / Math.pow(3, 0.25);
+        if (maximumTriangleArea > 1) {
+            double triangleSide = (2*Math.pow(maximumTriangleArea, 0.5)) / Math.pow(3, 0.25);
             Polygon polygon = (Polygon)Densifier.densify(new GeometryFactory().toGeometry(cellEnvelope), triangleSide);
             Coordinate[] points = polygon.getExteriorRing().getCoordinates();
             for(Coordinate point : points) {
@@ -452,27 +317,20 @@ public class DelaunayReceiversMaker extends GridMapMaker {
     protected Envelope getComputationEnvelope(Connection connection) throws SQLException {
         Envelope computationEnvelope = new Envelope();
         DBTypes dbTypes = DBUtils.getDBType(connection);
-        if(!sourcesTableName.isEmpty() && JDBCUtilities.getRowCount(connection, sourcesTableName) > 0) {
-            computationEnvelope.expandToInclude(GeometryTableUtilities.getEnvelope(connection, TableLocation.parse(sourcesTableName, dbTypes)).getEnvelopeInternal());
+        String sourceTableName = tableInputSettings.getSourceTableName();
+        String buildingTableName = tableInputSettings.getBuildingTableName();
+
+        if(!sourceTableName.isEmpty() && JDBCUtilities.getRowCount(connection, sourceTableName) > 0) {
+            computationEnvelope.expandToInclude(GeometryTableUtilities.getEnvelope(connection, TableLocation.parse(sourceTableName, dbTypes)).getEnvelopeInternal());
         }
-        if(!buildingTableSettings.getBuildingsTableName().isEmpty() && JDBCUtilities.getRowCount(connection, buildingTableSettings.getBuildingsTableName()) > 0) {
+        if(!buildingTableName.isEmpty() && JDBCUtilities.getRowCount(connection, buildingTableName) > 0) {
             computationEnvelope.expandToInclude(GeometryTableUtilities.getEnvelope(connection,
-                    TableLocation.parse(buildingTableSettings.getBuildingsTableName(), dbTypes)).getEnvelopeInternal());
+                    TableLocation.parse(buildingTableName, dbTypes)).getEnvelopeInternal());
         }
         return computationEnvelope;
     }
 
-    public double getEpsilon() {
-        return epsilon;
-    }
 
-    public double getGeometrySimplificationDistance() {
-        return geometrySimplificationDistance;
-    }
-
-    public void setGeometrySimplificationDistance(double geometrySimplificationDistance) {
-        this.geometrySimplificationDistance = geometrySimplificationDistance;
-    }
 
     public static void generateResultTable(Connection connection, String receiverTableName, String trianglesTableName,
                                            AtomicInteger receiverPK, List<Coordinate> vertices,
@@ -528,13 +386,6 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         }
     }
 
-    /**
-     * @param epsilon Merge points that are closer that this epsilon value
-     */
-    public void setEpsilon(double epsilon) {
-        this.epsilon = epsilon;
-    }
-
 
 
     /**
@@ -549,7 +400,9 @@ public class DelaunayReceiversMaker extends GridMapMaker {
             throws SQLException {
 
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-        TableLocation sourceTableIdentifier = TableLocation.parse(sourcesTableName, dbType);
+        String sourceTableName = tableInputSettings.getSourceTableName();
+
+        TableLocation sourceTableIdentifier = TableLocation.parse(sourceTableName, dbType);
         List<String> geomFields = getGeometryColumnNames(connection, sourceTableIdentifier);
         if (geomFields.isEmpty()) {
             throw new SQLException(String.format("The table %s does not exists or does not contain a geometry field", sourceTableIdentifier));
@@ -557,12 +410,12 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         String sourceGeomName = geomFields.get(0);
         Geometry domainConstraint = geometryFactory.toGeometry(fetchEnvelope);
         Tuple<String, Integer> primaryKey = JDBCUtilities.getIntegerPrimaryKeyNameAndIndex(
-                connection.unwrap(Connection.class), new TableLocation(sourcesTableName, dbType));
+                connection.unwrap(Connection.class), new TableLocation(sourceTableName, dbType));
         int pkIndex = primaryKey.second();
         if (pkIndex < 1) {
             throw new IllegalArgumentException(String.format("Source table %s does not contain a primary key", sourceTableIdentifier));
         }
-        try (PreparedStatement st = connection.prepareStatement("SELECT * FROM " + sourcesTableName + " WHERE "
+        try (PreparedStatement st = connection.prepareStatement("SELECT * FROM " + sourceTableName + " WHERE "
                 + TableLocation.quoteIdentifier(sourceGeomName) + " && ?::geometry")) {
             st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
             st.setFetchSize(DefaultTableLoader.DEFAULT_FETCH_SIZE);
@@ -593,6 +446,14 @@ public class DelaunayReceiversMaker extends GridMapMaker {
 
     public void generateReceivers(Connection connection, int cellI, int cellJ, String receiverTableName, String trianglesTableName, AtomicInteger receiverPK) throws SQLException, LayerDelaunayError, IOException {
 
+        double buildingBuffer = receiverGenerationSettings.getBuildingBuffer();
+        double roadBuffer = receiverGenerationSettings.getRoadBuffer();
+        double epsilon = receiverGenerationSettings.getEpsilon();
+        double maximumTriangleArea = receiverGenerationSettings.getMaximumTriangleArea();
+        String exceptionDumpFolder = receiverGenerationSettings.getExceptionDumpFolder();
+        double receiverHeight = receiverGenerationSettings.getReceiverHeight();
+        boolean isoSurfaceInBuildings = receiverGenerationSettings.isIsoSurfaceInBuildings();
+
         int ij = cellI * gridDim + cellJ + 1;
         if(verbose) {
             LOGGER.info("Begin processing of cell " + ij + " / " + gridDim * gridDim);
@@ -608,7 +469,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
 
         List<Geometry> sourceDelaunayGeometries = new LinkedList<>();
 
-        if(!sourcesTableName.isEmpty()) {
+        if(!tableInputSettings.getSourceTableName().isEmpty()) {
             fetchCellSource(connection, cellEnvelope, true, sourceDelaunayGeometries);
         }
 
@@ -616,16 +477,16 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         List<Wall> walls = new LinkedList<>();
         Envelope expandedCell = new Envelope(cellEnvelope);
         expandedCell.expandBy(buildingBuffer);
-        DefaultTableLoader.fetchCellBuildings(connection, buildingTableSettings,cellEnvelope, buildings, walls,
+        DefaultTableLoader.fetchCellBuildings(connection, tableInputSettings, cellEnvelope, buildings, walls,
                 geometryFactory);
 
         LayerTinfour cellMesh = new LayerTinfour();
         cellMesh.setEpsilon(epsilon);
         cellMesh.setDumpFolder(exceptionDumpFolder);
-        cellMesh.setMaxArea(maximumArea > 1 ? maximumArea : 0);
+        cellMesh.setMaxArea(maximumTriangleArea > 1 ? maximumTriangleArea : 0);
 
         try {
-            computeDelaunay(cellMesh, mainEnvelope, cellI, cellJ, propagationSettings.getMaximumPropagationDistance(), sourceDelaunayGeometries, roadWidth, maximumArea, buildingBuffer, buildings);
+            computeDelaunay(cellMesh, mainEnvelope, cellI, cellJ, propagationSettings.getMaximumPropagationDistance(), sourceDelaunayGeometries, roadBuffer, maximumTriangleArea, buildingBuffer, buildings);
         } catch (LayerDelaunayError err) {
             throw new SQLException(err.getLocalizedMessage(), err);
         }
@@ -657,37 +518,9 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         } else {
             triangles = cellMesh.getTriangles();
         }
-        nbreceivers += vertices.size();
 
         generateResultTable(connection, receiverTableName, trianglesTableName, receiverPK, vertices, geometryFactory,
                 triangles, cellI, cellJ, gridDim);
     }
 
-    public double getRoadWidth() {
-        return roadWidth;
-    }
-
-    public void setRoadWidth(double roadWidth) {
-        this.roadWidth = roadWidth;
-    }
-
-    public double getMaximumArea() {
-        return maximumArea;
-    }
-
-    public void setMaximumArea(double maximumArea) {
-        this.maximumArea = maximumArea;
-    }
-
-    public double getReceiverHeight() {
-        return receiverHeight;
-    }
-
-    public void setReceiverHeight(double receiverHeight) {
-        this.receiverHeight = receiverHeight;
-    }
-
-    public long getNbreceivers() {
-        return nbreceivers;
-    }
 }

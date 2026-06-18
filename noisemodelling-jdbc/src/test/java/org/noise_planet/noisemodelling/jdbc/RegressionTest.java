@@ -40,9 +40,11 @@ public class RegressionTest {
         try(Statement st = connection.createStatement()) {
             st.execute(getRunScriptRes("regression_nan/lw_roads.sql"));
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("LW_ROADS")
+                    .setReceiverTableName("RECEIVERS")
                     .build();
 
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -62,9 +64,7 @@ public class RegressionTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("LW_ROADS")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)

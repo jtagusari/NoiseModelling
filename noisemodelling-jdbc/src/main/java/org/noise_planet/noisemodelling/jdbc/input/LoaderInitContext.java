@@ -19,7 +19,7 @@ public interface LoaderInitContext {
     /** @return Prefix of frequency columns (for example HZ in HZ1000). */
     String getFrequencyFieldPrepend();
     /** @return Source geometry table name. */
-    String getSourcesTableName();
+    String getSourceTableName();
     /** @return Whether verbose logs are enabled. */
     boolean isVerbose();
 }

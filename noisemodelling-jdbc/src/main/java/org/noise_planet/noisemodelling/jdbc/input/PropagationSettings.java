@@ -8,21 +8,32 @@
  */
 package org.noise_planet.noisemodelling.jdbc.input;
 
+/**
+ * Assumptions under which sound propagation is computed: which physical phenomena to include
+ * (reflection, diffraction, ground absorption) and the spatial extent of the calculation domain.
+ * Use {@link Builder} to construct instances.
+ */
 public class PropagationSettings {
-    
-    private final double maximumPropagationDistance;
-    private final double maximumReflectionDistance;
-    private final double gs;
-    // Soil areas are split by the provided size in order to reduce the propagation time
-    private final double groundSurfaceSplitSideLength;
-    private final int soundReflectionOrder;
 
-    private final boolean bodyBarrier; // it needs to be true if train propagation is computed (multiple reflection between the train and a screen)
+    /** Maximum distance from a source at which propagation paths are traced, in metres. */
+    private final double maximumPropagationDistance;
+    /** Maximum distance from a source at which specular reflections are searched, in metres. */
+    private final double maximumReflectionDistance;
+    /** Default ground absorption coefficient (Gs): 0 = acoustically hard, 1 = fully absorptive. */
+    private final double gs;
+    /** Ground surface polygons larger than this side length are subdivided to reduce per-cell memory usage, in metres. */
+    private final double groundSurfaceSplitSideLength;
+    /** Number of successive specular reflections to compute. 0 disables reflection entirely. */
+    private final int soundReflectionOrder;
+    /** Enable multiple reflections between a train body and a trackside screen (required for railway scenarios). */
+    private final boolean bodyBarrier;
     private final boolean computeHorizontalDiffraction;
     private final boolean computeVerticalDiffraction;
+    /** Number of grid cells per side used to split the computation domain. 0 means no splitting. */
+    private final int gridDim;
 
 
-    public PropagationSettings(double maximumPropagationDistance, double maximumReflectionDistance, double gs, double groundSurfaceSplitSideLength, int soundReflectionOrder, boolean bodyBarrier, boolean verbose, boolean computeHorizontalDiffraction, boolean computeVerticalDiffraction) {
+    public PropagationSettings(double maximumPropagationDistance, double maximumReflectionDistance, double gs, double groundSurfaceSplitSideLength, int soundReflectionOrder, boolean bodyBarrier, boolean verbose, boolean computeHorizontalDiffraction, boolean computeVerticalDiffraction, int gridDim) {
         this.maximumPropagationDistance = maximumPropagationDistance;
         this.maximumReflectionDistance = maximumReflectionDistance;
         this.gs = gs;
@@ -31,6 +42,7 @@ public class PropagationSettings {
         this.bodyBarrier = bodyBarrier;
         this.computeHorizontalDiffraction = computeHorizontalDiffraction;
         this.computeVerticalDiffraction = computeVerticalDiffraction;
+        this.gridDim = gridDim;
     }
 
     public static class Builder {
@@ -45,6 +57,7 @@ public class PropagationSettings {
         public boolean verbose = true;
         private boolean computeHorizontalDiffraction = true;
         private boolean computeVerticalDiffraction = true;
+        private int gridDim = 0;
 
         public Builder setMaximumPropagationDistance(double maximumPropagationDistance) {
             this.maximumPropagationDistance = maximumPropagationDistance;
@@ -91,8 +104,13 @@ public class PropagationSettings {
             return this;
         }
 
+        public Builder setGridDim(int gridDim) {
+            this.gridDim = gridDim;
+            return this;
+        }
+
         public PropagationSettings build() {
-            return new PropagationSettings(maximumPropagationDistance, maximumReflectionDistance, gs, groundSurfaceSplitSideLength, soundReflectionOrder, bodyBarrier, verbose, computeHorizontalDiffraction, computeVerticalDiffraction);
+            return new PropagationSettings(maximumPropagationDistance, maximumReflectionDistance, gs, groundSurfaceSplitSideLength, soundReflectionOrder, bodyBarrier, verbose, computeHorizontalDiffraction, computeVerticalDiffraction, gridDim);
         }
     }
 
@@ -126,6 +144,10 @@ public class PropagationSettings {
 
     public boolean isComputeVerticalDiffraction() {
         return computeVerticalDiffraction;
+    }
+
+    public int getGridDim() {
+        return gridDim;
     }
 
 }

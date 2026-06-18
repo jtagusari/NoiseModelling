@@ -19,6 +19,8 @@ import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.flatbuffers.Table;
+
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 
 import java.sql.*;
@@ -37,19 +39,7 @@ public abstract class GridMapMaker {
     private static final Logger LOGGER = LoggerFactory.getLogger(GridMapMaker.class);
     protected static final double MINIMAL_BUFFER_RATIO = 0.3;
 
-    protected final BuildingTableSettings buildingTableSettings;
-    protected final String sourcesTableName;
-    protected final String soilTableName;
-    // Digital elevation model table. (Contains points or triangles)
-    protected final String demTable;
-    // Bridge points table name. Contains BRIDGE_POINTS data with geometry and structural properties
-    protected final String bridgePointsTableName;
-    // protected final String sound_lvl_field = "DB_M";
-    protected final String sound_lvl_field;
-    // True if Z of sound source and receivers are relative to the ground
-    protected boolean receiverHasAbsoluteZCoordinates = false;
-    protected boolean sourceHasAbsoluteZCoordinates = false;
-
+    protected final TableInputSettings tableInputSettings;
     protected final PropagationSettings propagationSettings;
 
     protected GeometryFactory geometryFactory;
@@ -58,21 +48,13 @@ public abstract class GridMapMaker {
     /**
      *  Side computation cell count (same on X and Y)
      */
-    protected int gridDim = 0;
     protected Envelope mainEnvelope = new Envelope();
+    protected int gridDim;
 
-    public GridMapMaker(BuildingTableSettings buildingTableSettings, String sourcesTableName, String soilTableName, String demTable, String bridgePointsTableName, PropagationSettings propagationSettings, String sound_lvl_field) {
-        this.buildingTableSettings = buildingTableSettings;
-        this.sourcesTableName = sourcesTableName;
-        this.soilTableName = soilTableName;
-        this.demTable = demTable;
-        this.bridgePointsTableName = bridgePointsTableName;
+    public GridMapMaker(TableInputSettings tableInputSettings, PropagationSettings propagationSettings) {
+        this.tableInputSettings = tableInputSettings;
         this.propagationSettings = propagationSettings;
-        this.sound_lvl_field = sound_lvl_field;
-    }
-
-    public BuildingTableSettings getBuildingTableSettings() {
-        return buildingTableSettings;
+        this.gridDim = propagationSettings.getGridDim();
     }
 
 
@@ -119,20 +101,12 @@ public abstract class GridMapMaker {
         return propagationSettings.getGroundSurfaceSplitSideLength();
     }
 
-
-    /**
-     * true if train propagation is computed (multiple reflection between the train and a screen)
-     */
-    // public void setBodyBarrier(boolean bodyBarrier) {
-    //     this.bodyBarrier = bodyBarrier;
-    // }
-
     public double getCellWidth() {
-        return mainEnvelope.getWidth() / gridDim;
+        return mainEnvelope.getWidth() / this.gridDim;
     }
 
     public double getCellHeight() {
-        return mainEnvelope.getHeight() / gridDim;
+        return mainEnvelope.getHeight() / this.gridDim;
     }
 
     abstract protected Envelope getComputationEnvelope(Connection connection) throws SQLException;
@@ -169,11 +143,11 @@ public abstract class GridMapMaker {
     protected GeometryFactory createGeometryFactory(Connection connection) throws SQLException {
         int srid = 0;
         DBTypes dbTypes = DBUtils.getDBType(connection.unwrap(Connection.class));
-        if(!sourcesTableName.isEmpty()) {
-            srid = getSRID(connection, TableLocation.parse(sourcesTableName, dbTypes));
+        if(!tableInputSettings.getSourceTableName().isEmpty()) {
+            srid = getSRID(connection, TableLocation.parse(tableInputSettings.getSourceTableName(), dbTypes));
         }
         if(srid == 0) {
-            srid = getSRID(connection, TableLocation.parse(buildingTableSettings.getBuildingsTableName(), dbTypes));
+            srid = getSRID(connection, TableLocation.parse(tableInputSettings.getBuildingTableName(), dbTypes));
         }
         return new GeometryFactory(new PrecisionModel(), srid);
     }
@@ -182,11 +156,11 @@ public abstract class GridMapMaker {
      * @return Side computation cell count (same on X and Y)
      */
     public int getGridDim() {
-        return gridDim;
+        return this.gridDim;
     }
 
-    public void setGridDim(int gridDim) {
-        this.gridDim = gridDim;
+    public TableInputSettings getTableInputSettings() {
+        return tableInputSettings;
     }
 
     /**
@@ -194,16 +168,16 @@ public abstract class GridMapMaker {
      * It may also contain a height field (0-N] average building height from the ground.
      * @return Table name that contains buildings
      */
-    public String getBuildingsTableName() {
-        return buildingTableSettings.getBuildingsTableName();
+    public String getBuildingTableName() {
+        return tableInputSettings.getBuildingTableName();
     }
 
     /**
      * This table must contain a POINT or LINESTRING column
      * @return Table name containing linear and/or punctual sound source geometries.
      */
-    public String getSourcesTableName() {
-        return sourcesTableName;
+    public String getSourceTableName() {
+        return tableInputSettings.getSourceTableName();
     }
 
     /**
@@ -216,41 +190,27 @@ public abstract class GridMapMaker {
      *  - Smooth concrete G=0
      * @return Table name of grounds properties
      */
-    public String getSoilTableName() {
-        return soilTableName;
+    public String getGroundTableName() {
+        return tableInputSettings.getGroundTableName();
     }
 
     /**
      * @return True if provided Z value are sea level (false for relative to ground level)
      */
     public boolean isReceiverHasAbsoluteZCoordinates() {
-        return receiverHasAbsoluteZCoordinates;
+        return tableInputSettings.isReceiverHasAbsoluteZCoordinates();
     }
 
-    /**
-     *
-     * @param receiverHasAbsoluteZCoordinates True if provided Z value are sea level (false for relative to ground level)
-     */
-    public void setReceiverHasAbsoluteZCoordinates(boolean receiverHasAbsoluteZCoordinates) {
-        this.receiverHasAbsoluteZCoordinates = receiverHasAbsoluteZCoordinates;
-    }
 
     /**
      * @return True if provided Z value are sea level (false for relative to ground level)
      */
     public boolean isSourceHasAbsoluteZCoordinates() {
-        return sourceHasAbsoluteZCoordinates;
-    }
-
-    /**
-     * @param sourceHasAbsoluteZCoordinates True if provided Z value are sea level (false for relative to ground level)
-     */
-    public void setSourceHasAbsoluteZCoordinates(boolean sourceHasAbsoluteZCoordinates) {
-        this.sourceHasAbsoluteZCoordinates = sourceHasAbsoluteZCoordinates;
+        return tableInputSettings.isSourceHasAbsoluteZCoordinates();
     }
 
     public boolean iszBuildings() {
-        return buildingTableSettings.useBuildingGeometryZ();
+        return tableInputSettings.useBuildingGeometryZ();
     }
 
 
@@ -259,8 +219,8 @@ public abstract class GridMapMaker {
      * DEM points too close with buildings are not fetched.
      * @return Digital Elevation model table name
      */
-    public String getDemTable() {
-        return demTable;
+    public String getTerrainTableName() {
+        return tableInputSettings.getTerrainTableName();
     }
 
 
@@ -270,8 +230,8 @@ public abstract class GridMapMaker {
      * and bridge type information (girder type, slab type).
      * @return Bridge points table name
      */
-    public String getBridgePointsTableName() {
-        return bridgePointsTableName;
+    public String getBridgePointTableName() {
+        return tableInputSettings.getBridgePointTableName();
     }
 
     /**
@@ -279,8 +239,8 @@ public abstract class GridMapMaker {
      * Without the hertz value.
      * @return Hertz field prefix
      */
-    public String getSound_lvl_field() {
-        return sound_lvl_field;
+    public String getSourceLevelFieldName() {
+        return tableInputSettings.getSourceLevelFieldName();
     }
 
     /**
@@ -322,15 +282,15 @@ public abstract class GridMapMaker {
      * @return Global default wall absorption on sound reflection.
      */
     public double getWallAbsorption() {
-        return buildingTableSettings.getBuildingDefaultAlpha();
+        return tableInputSettings.getBuildingDefaultAlpha();
     }
 
     /**
-        * @return {@link #getBuildingsTableName()} table field name for building height above the ground.
+        * @return {@link #getBuildingTableName()} table field name for building height above the ground.
      */
 
-    public String getBuildingHeightField() {
-        return buildingTableSettings.getBuildingHeightField();
+    public String getBuildingHeightFieldName() {
+        return tableInputSettings.getBuildingHeightFieldName();
     }
 
 
@@ -347,7 +307,7 @@ public abstract class GridMapMaker {
      */
     public void setMainEnvelope(Envelope mainEnvelope) {
         this.mainEnvelope = mainEnvelope;
-        if(gridDim == 0) {
+        if(this.gridDim == 0) {
             // Split domain into 4^subdiv cells
             // Compute subdivision level using envelope and maximum propagation distance
             double greatestSideLength = mainEnvelope.maxExtent();
@@ -355,7 +315,7 @@ public abstract class GridMapMaker {
             while(propagationSettings.getMaximumPropagationDistance() / (greatestSideLength / Math.pow(2, subdivisionLevel)) < MINIMAL_BUFFER_RATIO) {
                 subdivisionLevel++;
             }
-            gridDim = (int) Math.pow(2, subdivisionLevel);
+            this.gridDim = (int) Math.pow(2, subdivisionLevel);
             
             LOGGER.info("Cell subdivision computed:");
             LOGGER.info(String.format("  Envelope: X_range=[%.1f, %.1f], Y_range=[%.1f, %.1f], Width=%.1f, Height=%.1f",

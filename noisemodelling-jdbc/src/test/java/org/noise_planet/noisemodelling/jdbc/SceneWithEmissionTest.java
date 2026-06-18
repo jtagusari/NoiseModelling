@@ -62,6 +62,7 @@ public class SceneWithEmissionTest {
                 .setSoundReflectionOrder(1)
                 .setComputeHorizontalDiffraction(true)
                 .setComputeVerticalDiffraction(true)
+                .setGridDim(1)
                 .build();
         
         SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
@@ -72,21 +73,20 @@ public class SceneWithEmissionTest {
                 .setMaximumError(maxError)
                 .setMergeSources(false)
                 .build();
-        
-        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                .setBuildingsTableName(buildingsTableName)
-                .setHeightField("HEIGHT")
+
+        TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                .setBuildingTableName(buildingsTableName)
+                .setBuildingHeightFieldName("HEIGHT")
+                .setSourceTableName(sourcesTableName)
+                .setReceiverTableName(receiverTableName)
                 .build();
 
         NoiseMapByReceiverMaker noiseMap = new NoiseMapByReceiverMaker.Builder()
                 .setPropagationSettings(propagationSettings)
                 .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
-                .setBuildingTableSettings(buildingTableSettings)
+                .setTableInputSettings(tableInputSettings)
                 .setCalculationIOSettings(calculationIOSettings)
-                .setSourcesTableName(sourcesTableName)
-                .setReceiverTableName(receiverTableName)
                 .setThreadCount(1)
-                .setGridDim(1)
                 .build();
 
 

@@ -190,15 +190,17 @@ public class IsoSurfaceJDBCTest {
         try(Statement st = connection.createStatement()) {
             st.execute(String.format("CALL SHPREAD('%s', 'LANDCOVER2000')", NoiseMapByReceiverMakerTest.class.getResource("landcover2000.shp").getFile()));
             st.execute(getRunScriptRes("scene_with_landcover.sql"));
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .build();
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                .setBuildingTableName("BUILDINGS")
+                .setSourceTableName("ROADS_GEOM")
+                .setSourceHasAbsoluteZCoordinates(false)
+                .setReceiverHasAbsoluteZCoordinates(false)
+                .build();
+            
             DelaunayReceiversMaker noisemap = new DelaunayReceiversMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_GEOM")
-                    .build();
-            noisemap.setReceiverHasAbsoluteZCoordinates(false);
-            noisemap.setSourceHasAbsoluteZCoordinates(false);
+                .setTableInputSettings(tableInputSettings)
+                .build();
+
             noisemap.initialize(connection, new EmptyProgressVisitor());
 
             AtomicInteger pk = new AtomicInteger(0);
@@ -220,23 +222,35 @@ public class IsoSurfaceJDBCTest {
             int srid = org.h2gis.utilities.GeometryTableUtilities.getSRID(connection, "BUILDINGS");
             IsoSurface isoSurface = new IsoSurface(IsoSurface.NF31_133_ISO, srid);
             // Generate delaunay triangulation
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
+            TableInputSettings tableInputSettingsForReceiver = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setSourceTableName("ROADS_TRAFF")
                     .build();
-            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_TRAFF")
-                    .build();
-            delaunayReceiversMaker.setMaximumArea(800);
-            delaunayReceiversMaker.setGridDim(1);
-            delaunayReceiversMaker.run(connection, "RECEIVERS" , isoSurface.getTriangleTable());
 
-            // Create noise map for 4 periods            
+            ReceiverGenerationSettings receiverGenerationSettings = new ReceiverGenerationSettings.Builder()
+                    .setMaximumTriangleArea(800)
+                    .build();
+
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
                     .setMaximumPropagationDistance(100)
                     .setSoundReflectionOrder(0)
                     .setComputeHorizontalDiffraction(false)
                     .setBodyBarrier(false)
+                    .setGridDim(1)
+                    .build();
+
+            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
+                    .setTableInputSettings(tableInputSettingsForReceiver)
+                    .setReceiverGenerationSettings(receiverGenerationSettings)
+                    .setPropagationSettings(propagationSettings)
+                    .build();
+
+            delaunayReceiversMaker.run(connection, "RECEIVERS" , isoSurface.getTriangleTable());
+
+            
+            TableInputSettings tableInputSettingsForLevelCalculation = new TableInputSettings.Builder()
+                    .inheritTableInputSettings(tableInputSettingsForReceiver)
+                    .setReceiverTableName("RECEIVERS")
                     .build();
             
             SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
@@ -248,13 +262,10 @@ public class IsoSurfaceJDBCTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_TRAFF")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettingsForLevelCalculation)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
-                    .setGridDim(1)
                     .build();
 
             noiseMapByReceiverMaker.run(connection, new RootProgressVisitor(1, true, 5));

@@ -13,7 +13,7 @@ package org.noise_planet.noisemodelling.jdbc;
  */
 public class TableInputSettings {
     /** Building geometry table name. */
-    private final String buildingsTableName;
+    private final String buildingTableName;
     /** Building height field name (height above local ground). */
     private final String buildingHeightField;
     /** Wall absorption coefficient field name. */
@@ -27,54 +27,83 @@ public class TableInputSettings {
     private final boolean buildingGeometryZ;
 
     private final String sourcesTableName;
+    private final String sourceLevelFieldName;
+    private final boolean sourceHasAbsoluteZCoordinates;
     private final String receiverTableName;
-    private final String soilTableName;
-    private final String demTableName;
+    private final boolean receiverHasAbsoluteZCoordinates;
+    private final String groundTableName;
+    private final String terrainTableName;
     private final String bridgePointsTableName;
+    private final String atmosphericSettingsTableName;
 
 
-    public TableInputSettings(String buildingsTableName, String buildingHeightField, String buildingAlphaField, double buildingDefaultAlpha, boolean buildingGeometryZ, String sourcesTableName, String receiverTableName, String soilTableName, String demTableName, String bridgePointsTableName, String atmosphericSettingsTableName) {
-        this.buildingsTableName = buildingsTableName;
+    public TableInputSettings(String buildingTableName, String buildingHeightField, String buildingAlphaField, double buildingDefaultAlpha, boolean buildingGeometryZ, String sourcesTableName, String sourceLevelFieldName, boolean sourceHasAbsoluteZCoordinates, String receiverTableName, boolean receiverHasAbsoluteZCoordinates, String groundTableName, String terrainTableName, String bridgePointsTableName, String atmosphericSettingsTableName) {
+        this.buildingTableName = buildingTableName;
         this.buildingHeightField = buildingHeightField;
         this.buildingAlphaField = buildingAlphaField;
         this.buildingDefaultAlpha = buildingDefaultAlpha;
         this.buildingGeometryZ = buildingGeometryZ;
         this.sourcesTableName = sourcesTableName;
+        this.sourceLevelFieldName = sourceLevelFieldName;
+        this.sourceHasAbsoluteZCoordinates = sourceHasAbsoluteZCoordinates;
         this.receiverTableName = receiverTableName;
-        this.soilTableName = soilTableName;
-        this.demTableName = demTableName;
+        this.receiverHasAbsoluteZCoordinates = receiverHasAbsoluteZCoordinates;
+        this.groundTableName = groundTableName;
+        this.terrainTableName = terrainTableName;
         this.bridgePointsTableName = bridgePointsTableName;
+        this.atmosphericSettingsTableName = atmosphericSettingsTableName;
     }
 
     public static class Builder {
-        private String buildingsTableName;
+        private String buildingTableName;
         private String buildingHeightField = "HEIGHT";
         private String buildingAlphaField = "G";
         private double buildingDefaultAlpha = 100000;
         private boolean buildingGeometryZ = false;
         private String sourcesTableName;
+        private String sourceLevelFieldName = "DB_M";
+        private boolean sourceHasAbsoluteZCoordinates = false;
         private String receiverTableName;
-        private String soilTableName = "";
-        private String demTableName = "";
+        private boolean receiverHasAbsoluteZCoordinates = false;
+        private String groundTableName = "";
+        private String terrainTableName = "";
         private String bridgePointsTableName = "";
         private String atmosphericSettingsTableName = "";
 
-        public Builder setBuildingsTableName(String buildingsTableName) {
-            this.buildingsTableName = buildingsTableName;
+        public Builder inheritTableInputSettings(TableInputSettings tableInputSettings){
+            this.buildingTableName = tableInputSettings.getBuildingTableName();
+            this.buildingHeightField = tableInputSettings.getBuildingHeightFieldName();
+            this.buildingAlphaField = tableInputSettings.getBuildingAlphaField();
+            this.buildingDefaultAlpha = tableInputSettings.getBuildingDefaultAlpha();
+            this.buildingGeometryZ = tableInputSettings.useBuildingGeometryZ();
+            this.sourcesTableName = tableInputSettings.getSourceTableName();
+            this.sourceLevelFieldName = tableInputSettings.getSourceLevelFieldName();
+            this.sourceHasAbsoluteZCoordinates = tableInputSettings.isSourceHasAbsoluteZCoordinates();
+            this.receiverTableName = tableInputSettings.getReceiverTableName();
+            this.receiverHasAbsoluteZCoordinates = tableInputSettings.isReceiverHasAbsoluteZCoordinates();
+            this.groundTableName = tableInputSettings.getGroundTableName();
+            this.terrainTableName = tableInputSettings.getTerrainTableName();
+            this.bridgePointsTableName = tableInputSettings.getBridgePointTableName();
+            this.atmosphericSettingsTableName = tableInputSettings.getAtmosphericSettingsTableName();
             return this;
         }
 
-        public Builder setHeightField(String buildingHeightField) {
+        public Builder setBuildingTableName(String buildingTableName) {
+            this.buildingTableName = buildingTableName;
+            return this;
+        }
+
+        public Builder setBuildingHeightFieldName(String buildingHeightField) {
             this.buildingHeightField = buildingHeightField;
             return this;
         }
 
-        public Builder setAlphaFieldName(String buildingAlphaField) {
+        public Builder setBuildingAlphaFieldName(String buildingAlphaField) {
             this.buildingAlphaField = buildingAlphaField;
             return this;
         }
 
-        public Builder setDefaultWallAbsorption(double buildingDefaultAlpha) {
+        public Builder setBuildingDefaultAlpha(double buildingDefaultAlpha) {
             this.buildingDefaultAlpha = buildingDefaultAlpha;
             return this;
         }
@@ -84,8 +113,18 @@ public class TableInputSettings {
             return this;
         }
 
-        public Builder setSourcesTableName(String sourcesTableName) {
+        public Builder setSourceTableName(String sourcesTableName) {
             this.sourcesTableName = sourcesTableName;
+            return this;
+        }
+
+        public Builder setSourceLevelFieldName(String sourceLevelFieldName) {
+            this.sourceLevelFieldName = sourceLevelFieldName;
+            return this;
+        }
+
+        public Builder setSourceHasAbsoluteZCoordinates(boolean sourceHasAbsoluteZCoordinates) {
+            this.sourceHasAbsoluteZCoordinates = sourceHasAbsoluteZCoordinates;
             return this;
         }
 
@@ -94,13 +133,18 @@ public class TableInputSettings {
             return this;
         }
 
-        public Builder setSoilTableName(String soilTableName) {
-            this.soilTableName = soilTableName;
+        public Builder setReceiverHasAbsoluteZCoordinates(boolean receiverHasAbsoluteZCoordinates) {
+            this.receiverHasAbsoluteZCoordinates = receiverHasAbsoluteZCoordinates;
             return this;
         }
 
-        public Builder setDemTableName(String demTableName) {
-            this.demTableName = demTableName;
+        public Builder setGroundTableName(String groundTableName) {
+            this.groundTableName = groundTableName;
+            return this;
+        }
+
+        public Builder setTerrainTableName(String terrainTableName) {
+            this.terrainTableName = terrainTableName;
             return this;
         }
 
@@ -115,14 +159,14 @@ public class TableInputSettings {
         }
 
         public TableInputSettings build() {
-            TableInputSettings settings = new TableInputSettings(buildingsTableName, buildingHeightField, buildingAlphaField, buildingDefaultAlpha, buildingGeometryZ, sourcesTableName, receiverTableName, soilTableName, demTableName, bridgePointsTableName, atmosphericSettingsTableName);
+            TableInputSettings settings = new TableInputSettings(buildingTableName, buildingHeightField, buildingAlphaField, buildingDefaultAlpha, buildingGeometryZ, sourcesTableName, sourceLevelFieldName, sourceHasAbsoluteZCoordinates, receiverTableName, receiverHasAbsoluteZCoordinates, groundTableName, terrainTableName, bridgePointsTableName, atmosphericSettingsTableName);
             return settings;
         }
     }
 
 
-    public String getBuildingsTableName() {
-        return buildingsTableName;
+    public String getBuildingTableName() {
+        return buildingTableName;
     }
 
 
@@ -143,29 +187,45 @@ public class TableInputSettings {
     }
     
     /**
-        * @return {@link #buildingsTableName} field name for building height above ground.
+        * @return {@link #buildingTableName} field name for building height above ground.
      */
-    public String getBuildingHeightField() {
+    public String getBuildingHeightFieldName() {
         return buildingHeightField;
     }
 
-    public String getSourcesTableName() {
+    public String getSourceTableName() {
         return sourcesTableName;
+    }
+
+    public String getSourceLevelFieldName() {
+        return sourceLevelFieldName;
+    }
+
+    public boolean isSourceHasAbsoluteZCoordinates() {
+        return sourceHasAbsoluteZCoordinates;
     }
 
     public String getReceiverTableName() {
         return receiverTableName;
     }
 
-    public String getSoilTableName() {
-        return soilTableName;
+    public boolean isReceiverHasAbsoluteZCoordinates() {
+        return receiverHasAbsoluteZCoordinates;
     }
 
-    public String getDemTableName() {
-        return demTableName;
+    public String getGroundTableName() {
+        return groundTableName;
     }
 
-    public String getBridgePointsTableName() {
+    public String getTerrainTableName() {
+        return terrainTableName;
+    }
+
+    public String getBridgePointTableName() {
         return bridgePointsTableName;
+    }
+
+    public String getAtmosphericSettingsTableName() {
+        return atmosphericSettingsTableName;
     }
 }

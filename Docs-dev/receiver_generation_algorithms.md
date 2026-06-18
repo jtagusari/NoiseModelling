@@ -80,7 +80,7 @@ class DelaunayReceiversMaker extends GridMapMaker {
   + String verticesTableName
   + String trianglesTableName
   + double roadWidth
-  + double maximumArea
+  + double maximumTriangleArea
   + double receiverHeight
   + double buildingBuffer
   + double epsilon
@@ -120,13 +120,13 @@ end note
 
 **Key Characteristics**:
 - **Constrained Delaunay Triangulation**: Generates triangles respecting building boundaries and road centerlines as constraints
-- **Mesh Quality Control**: Uses `maximumArea` parameter to control triangle size and ensure adequate receiver density
+- **Mesh Quality Control**: Uses `maximumTriangleArea` parameter to control triangle size and ensure adequate receiver density
 - **Building-Aware**: Places receivers outside buildings (when `isoSurfaceInBuildings=false`) or includes building interiors (when `true`)
 - **Dual Output**: Generates both vertices (receiver points) and triangles (mesh structure) stored in separate database tables
 
 **Configuration Parameters**:
 - **roadWidth**: Buffer distance for road centerlines (default: 2 meters)
-- **maximumArea**: Maximum allowed triangle area in m² (controls mesh density and is passed to `Tinfour`'s `LayerTinfour` after validation). Default: 75 m². **Important**: Mesh refinement is only active when `maximumArea > 1`. If `maximumArea <= 1`, mesh refinement is disabled and `maxArea = 0` is passed to `Tinfour`, skipping all Steiner point insertion iterations.
+- **maximumTriangleArea**: Maximum allowed triangle area in m² (controls mesh density and is passed to `Tinfour`'s `LayerTinfour` after validation). Default: 75 m². **Important**: Mesh refinement is only active when `maximumTriangleArea > 1`. If `maximumTriangleArea <= 1`, mesh refinement is disabled and `maxArea = 0` is passed to `Tinfour`, skipping all Steiner point insertion iterations.
 - **receiverHeight**: Evaluation height for all receivers above ground (default: 1.6 meters)
 - **buildingBuffer**: Exclusion buffer distance from building boundaries (default: 2 meters)
 - **epsilon**: Point merging tolerance for duplicate vertices (default: 1e-6)
@@ -154,7 +154,7 @@ with buildingBuffer;
     
     :Simplify geometries;
     
-    :Densify based on maximumArea;
+    :Densify based on maximumTriangleArea;
     
     :Buffer and process roads
 with roadWidth;
@@ -202,10 +202,10 @@ stop
    - Merge overlapping buildings (union operation with buffer)
    - Apply `buildingBuffer` to create exclusion zones (buildings expanded outward)
    - Simplify using `TopologyPreservingSimplifier` with `geometrySimplificationDistance` (reduces vertices while maintaining topology)
-   - **Densify boundaries** based on `maximumArea` for consistent triangle sizing:
+   - **Densify boundaries** based on `maximumTriangleArea` for consistent triangle sizing:
      - Ensures constraint edges have adequate vertex spacing
      - Prevents constraint edges from being too long (would create large adjacent triangles)
-     - Calculated as: `triangleSide = (2 * sqrt(maximumArea)) / (3^0.25)` → densify at this distance interval
+     - Calculated as: `triangleSide = (2 * sqrt(maximumTriangleArea)) / (3^0.25)` → densify at this distance interval
    - Merge building polygons into single geometry
    - Intersect with cell envelope to remove out-of-bounds portions
 
@@ -294,12 +294,12 @@ When `maxArea > 0` (mesh refinement enabled):
 1. **Steiner Point Insertion**: New points added to oversized triangles
 2. **Constraint Re-enforcement**: Each `processDelaunay()` iteration re-validates all constraints
 3. **Convergence**: Refinement stops when all triangles satisfy `area ≤ maxArea`, **while still respecting all constraints**
-4. **Smart Densification**: Constraint boundaries are pre-densified based on `maximumArea` to ensure adequate constraint edge resolution
+4. **Smart Densification**: Constraint boundaries are pre-densified based on `maximumTriangleArea` to ensure adequate constraint edge resolution
 
 4. **Triangulation Execution**:
    - Set epsilon-based point merging tolerance
-   - Add cell envelope vertices with densification if `maximumArea > 1`
-   - **Validate maximumArea**: Only values `> 1` enable mesh refinement. If `maximumArea <= 1`, pass `0` to Tinfour to completely bypass refinement
+   - Add cell envelope vertices with densification if `maximumTriangleArea > 1`
+   - **Validate maximumTriangleArea**: Only values `> 1` enable mesh refinement. If `maximumTriangleArea <= 1`, pass `0` to Tinfour to completely bypass refinement
    - Call `processDelaunay()` to compute constrained Delaunay triangulation (see detailed workflow below)
    - LayerTinfour uses Tinfour library backend for robust triangulation
 
@@ -406,7 +406,7 @@ stop
    - Uses `TriangleCollector.visitSimpleTriangles()` to extract triangles from TIN
    - Returns list of `SimpleTriangle` objects with vertex references
 
-5. **Mesh Refinement** (if `maxArea > 0`, which requires `maximumArea > 1`):
+5. **Mesh Refinement** (if `maxArea > 0`, which requires `maximumTriangleArea > 1`):
    - **Quality Check**: Iterates through all triangles checking area constraint
    - **Steiner Point Insertion**: For oversized triangles (area > maxArea):
      - Calculates triangle centroid: `(va + vb + vc) / 3`
@@ -414,7 +414,7 @@ stop
      - Sets refinement flag to trigger re-triangulation with new point
    - **Iterative Process**: Continues until no triangles exceed area threshold or no oversized triangles remain
    - **Purpose**: Ensures adequate receiver density by preventing excessively large triangles
-   - **Skipped When**: `maxArea <= 0` (which occurs when `maximumArea <= 1`), producing unrefined initial triangulation
+   - **Skipped When**: `maxArea <= 0` (which occurs when `maximumTriangleArea <= 1`), producing unrefined initial triangulation
 
 6. **Result Extraction**:
    - **Vertex Processing**:
@@ -593,10 +593,10 @@ Before triangulation, LayerTinfour performs point deduplication using `epsilon` 
 
 **Mesh Refinement Algorithm Details**:
 
-The iterative refinement process ensures uniform mesh quality. Refinement is **only enabled** when `maximumArea > 1` (which passes a positive `maxArea` value to Tinfour's `setMaxArea()`):
+The iterative refinement process ensures uniform mesh quality. Refinement is **only enabled** when `maximumTriangleArea > 1` (which passes a positive `maxArea` value to Tinfour's `setMaxArea()`):
 
 ```
-// Example: maximumArea = 75 (> 1, so refinement is ENABLED)
+// Example: maximumTriangleArea = 75 (> 1, so refinement is ENABLED)
 Iteration 1:
   Input: Original points + constraints
   → Triangulate
@@ -616,9 +616,9 @@ Iteration 2:
 
 Output: Refined mesh with consistent density
 
-// Example: maximumArea = 0.5 (≤ 1, so refinement is DISABLED)
-Input: maximumArea = 0.5 → DelaunayReceiversMaker.java line 511:
-  cellMesh.setMaxArea(maximumArea > 1 ? maximumArea : 0);
+// Example: maximumTriangleArea = 0.5 (≤ 1, so refinement is DISABLED)
+Input: maximumTriangleArea = 0.5 → DelaunayReceiversMaker.java line 511:
+  cellMesh.setMaxArea(maximumTriangleArea > 1 ? maximumTriangleArea : 0);
   // evaluates to: cellMesh.setMaxArea(0)
 Result:
   → maxArea = 0 in LayerTinfour
@@ -627,13 +627,13 @@ Result:
 ```
 
 **Steiner Point Insertion Strategy**:
-- **Activation Condition**: Only when `maximumArea > 1` (determined by condition at DelaunayReceiversMaker line 511)
+- **Activation Condition**: Only when `maximumTriangleArea > 1` (determined by condition at DelaunayReceiversMaker line 511)
 - **Location**: Centroid of oversized triangle (arithmetic mean of three vertices)
 - **Z-coordinate**: Average of three vertex heights
 - **Effect**: Forces triangle subdivision in next iteration
 - **Guarantee**: Triangle area reduces by approximately factor of 4 (splits into ~4 smaller triangles)
-- **Convergence**: Typically 1-3 iterations sufficient for well-configured maximumArea values
-- **Disabling Refinement**: Set `maximumArea <= 1` to skip all iterations and use unrefined initial triangulation
+- **Convergence**: Typically 1-3 iterations sufficient for well-configured maximumTriangleArea values
+- **Disabling Refinement**: Set `maximumTriangleArea <= 1` to skip all iterations and use unrefined initial triangulation
 
 **Constrained Triangulation Mechanism**:
 
@@ -1036,7 +1036,7 @@ The algorithm implements a sophisticated screening mechanism:
 | **Module Location** | noisemodelling-pathfinder | wps_scripts | wps_scripts |
 | **Programmatic Access** | Direct API | WPS REST only | WPS REST only |
 | **Receiver Distribution** | Adaptive mesh | Uniform grid | Facade-based |
-| **Density Control** | maximumArea parameter | delta spacing | delta + distance |
+| **Density Control** | maximumTriangleArea parameter | delta spacing | delta + distance |
 | **Building Awareness** | Constraint polygons | Interior removal | Facade placement |
 | **Output Structure** | Vertices + Triangles | Points (+ optional triangles) | Points |
 | **Visualization Support** | Native triangle mesh | Optional triangulation | Point-based only |

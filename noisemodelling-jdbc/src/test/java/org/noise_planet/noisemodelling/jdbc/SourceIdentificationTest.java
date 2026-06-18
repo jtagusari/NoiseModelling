@@ -27,7 +27,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
-import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings;
+import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
@@ -399,8 +399,13 @@ public class SourceIdentificationTest {
         LOGGER.info("========================================");
 
         DefaultTableLoader tableLoader = new DefaultTableLoader();
-        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                .setBuildingsTableName("NO_BUILDINGS") // No buildings for this test
+        TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                .setBuildingTableName("NO_BUILDINGS") // No buildings for this test
+                .setBuildingHeightFieldName("HEIGHT")
+                .setSourceTableName("ROADS")
+                .setReceiverTableName("RECEIVERS")
+                .setTerrainTableName("DEM")
+                .setBridgePointsTableName("BRIDGE_POINTS")
                 .build();
         SceneDatabaseInputSettings sceneInputSettings = new SceneDatabaseInputSettings.Builder()
                 .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN)
@@ -412,12 +417,8 @@ public class SourceIdentificationTest {
                 .build();
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                .setBuildingTableSettings(buildingTableSettings)
+                .setTableInputSettings(tableInputSettings)
                 .setSceneDatabaseInputSettings(sceneInputSettings)
-                .setSourcesTableName("ROADS")
-                .setReceiverTableName("RECEIVERS")
-                .setDemTable("DEM")
-                .setBridgePointsTableName("BRIDGE_POINTS")
                 .setPropagationSettings(propagationSettings)
                 .build();
 

@@ -67,19 +67,19 @@ public class NoiseMapByReceiverMakerTest {
         try(Statement st = connection.createStatement()) {
             st.execute(String.format("CALL SHPREAD('%s', 'LANDCOVER2000')", NoiseMapByReceiverMakerTest.class.getResource("landcover2000.shp").getFile()));
             st.execute(getRunScriptRes("scene_with_landcover.sql"));
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .setGroundTableName("LAND_G")
                     .build();
             SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
                     .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_GUESS)
                     .setFrequencyFieldPrepend("DB_M")
                     .build();
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_GEOM")
-                    .setReceiverTableName("RECEIVERS")
-                    .setSoilTableName("LAND_G")
+                    .setTableInputSettings(tableInputSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .build();
 
@@ -145,9 +145,11 @@ public class NoiseMapByReceiverMakerTest {
             st.execute("create table receivers(id serial PRIMARY KEY, the_geom GEOMETRY(POINTZ));\n" +
                     "insert into receivers(the_geom) values ('POINTZ (223915.72 6757490.22 0.0)');" +
                     "insert into receivers(the_geom) values ('POINTZ (223925.72 6757480.22 0.0)');");
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
                     .build();
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
                     .setComputeHorizontalDiffraction(false)
@@ -167,9 +169,7 @@ public class NoiseMapByReceiverMakerTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_GEOM")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
@@ -216,9 +216,11 @@ public class NoiseMapByReceiverMakerTest {
                     .setCoefficientVersion(1)
                     .setUseTrainDirectivity(true)
                     .build();
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
                     .build();
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
                     .setCoefficientVersion(1)
@@ -228,9 +230,7 @@ public class NoiseMapByReceiverMakerTest {
                     .setMergeSources(true)
                     .build();
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_GEOM")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
@@ -313,9 +313,11 @@ public class NoiseMapByReceiverMakerTest {
                     .setCoefficientVersion(1)
                     .setUseTrainDirectivity(true)
                     .build();
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setHeightField("HEIGHT")
-                    .setBuildingsTableName("BUILDINGS")
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("ROADS_GEOM")
+                    .setReceiverTableName("RECEIVERS")
                     .build();
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
                     .setCoefficientVersion(1)
@@ -325,9 +327,7 @@ public class NoiseMapByReceiverMakerTest {
                     .setMergeSources(true)
                     .build();
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_GEOM")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
@@ -397,18 +397,15 @@ public class NoiseMapByReceiverMakerTest {
             int srid = org.h2gis.utilities.GeometryTableUtilities.getSRID(connection, "BUILDINGS");
             IsoSurface isoSurface = new IsoSurface(IsoSurface.NF31_133_ISO, srid);
             // Generate delaunay triangulation           
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
+            TableInputSettings tableInputSettingsForReceiver = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("ROADS_TRAFF")
                     .build();
-        
-            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("ROADS_TRAFF")
+
+            ReceiverGenerationSettings receiverGeneratorSettings = new ReceiverGenerationSettings.Builder()
+                    .setMaximumTriangleArea(800)
                     .build();
-            delaunayReceiversMaker.setMaximumArea(800);
-            delaunayReceiversMaker.setGridDim(1);
-            delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
 
             // Create noise map for 4 periods
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -417,7 +414,23 @@ public class NoiseMapByReceiverMakerTest {
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(100)
                     .setBodyBarrier(false)
+                    .setGridDim(1)
                     .build();
+
+            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
+                    .setTableInputSettings(tableInputSettingsForReceiver)
+                    .setReceiverGenerationSettings(receiverGeneratorSettings)
+                    .setPropagationSettings(propagationSettings)
+                    .build();
+                    
+            delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
+
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .inheritTableInputSettings(tableInputSettingsForReceiver)
+                    .setSourceTableName("SOURCES_GEOM")
+                    .setReceiverTableName("RECEIVERS")
+                    .build();
+
             
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
                     .setMaximumError(3)
@@ -429,13 +442,10 @@ public class NoiseMapByReceiverMakerTest {
                     .build();
             
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES_GEOM")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
-                    .setGridDim(1)
                     .build();
 
 
@@ -470,34 +480,44 @@ public class NoiseMapByReceiverMakerTest {
             IsoSurface isoSurface = new IsoSurface(IsoSurface.NF31_133_ISO, srid);
             // Generate delaunay triangulation
             
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .build();
-         
-            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES_GEOM")
-                    .build();
-
-            delaunayReceiversMaker.setMaximumArea(800);
-            delaunayReceiversMaker.setGridDim(1);
-            delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
-
-            // Create noise map for 4 periods
-
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setSourcesEmissionTableName("SOURCES_EMISSION")
-                    .setFrequencyFieldPrepend("LW")
+            TableInputSettings tableInputSettingsForReceiver = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("SOURCES_GEOM")
                     .build();
             
+            ReceiverGenerationSettings receiverGeneratorSettings = new ReceiverGenerationSettings.Builder()
+                    .setMaximumTriangleArea(800)
+                    .build();
+         
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
                     .setComputeHorizontalDiffraction(false)
                     .setComputeVerticalDiffraction(false)
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(100)
                     .setBodyBarrier(false)
+                    .setGridDim(1)
                     .build();
+
+            DelaunayReceiversMaker delaunayReceiversMaker = new DelaunayReceiversMaker.Builder()
+                    .setTableInputSettings(tableInputSettingsForReceiver)
+                    .setReceiverGenerationSettings(receiverGeneratorSettings)
+                    .setPropagationSettings(propagationSettings)
+                    .build();
+
+            delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
+
+            // Create noise map for 4 periods
+            TableInputSettings tableInputSettingsForLevel = new TableInputSettings.Builder()
+                    .inheritTableInputSettings(tableInputSettingsForReceiver)
+                    .setReceiverTableName("RECEIVERS")
+                    .build();
+
+            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+                    .setSourcesEmissionTableName("SOURCES_EMISSION")
+                    .setFrequencyFieldPrepend("LW")
+                    .build();
+            
             
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
                     .setMaximumError(3)
@@ -505,13 +525,10 @@ public class NoiseMapByReceiverMakerTest {
                     .build();
             
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES_GEOM")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettingsForLevel)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
-                    .setGridDim(1)
                     .build();
 
 

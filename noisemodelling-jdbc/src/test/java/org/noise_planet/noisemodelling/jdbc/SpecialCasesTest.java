@@ -21,7 +21,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
-import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings;
+import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -150,12 +150,15 @@ public class SpecialCasesTest {
             LOGGER.info("Receivers: PK1(h=+4m-above), PK2(h=-2m-below), PK3(h=0m-ground)");
             
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableBuildingTableSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
             
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -166,10 +169,7 @@ public class SpecialCasesTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableBuildingTableSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
             
@@ -269,12 +269,15 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(inside, 1.5m), PK2(inside, 6m), PK3(above, 12m), PK4(outside, 1.5m)");
             
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
             
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -285,10 +288,7 @@ public class SpecialCasesTest {
                     .build();
             
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
             
@@ -376,12 +376,15 @@ public class SpecialCasesTest {
             LOGGER.info("Receiver C (PK=3): far outside (100, 100, 1.5m) - DISTANCE BASELINE");
             
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
             
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -397,10 +400,7 @@ public class SpecialCasesTest {
                         .build();
             
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setCalculationIOSettings(ioSettings)
                     .build();
@@ -614,12 +614,15 @@ public class SpecialCasesTest {
                     "(ST_GeomFromText('POINT Z(30.0 50.0 1.5)', 2154), 'RELATIVE')");
             
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
             
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -635,10 +638,7 @@ public class SpecialCasesTest {
                     .build();        
             
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
@@ -738,12 +738,15 @@ public class SpecialCasesTest {
             LOGGER.info("Receivers: PK1(50,50,1.5m), PK2(50,50,7.0m), PK3(100,50,5.0m-ref)");
             
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
 
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -754,10 +757,7 @@ public class SpecialCasesTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
             
@@ -825,12 +825,15 @@ public class SpecialCasesTest {
             LOGGER.info("Receivers: PK1(d=0), PK2(d≈0.001m), PK3(d=1m), PK4(d=50m-ref)");
             
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
 
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -841,10 +844,7 @@ public class SpecialCasesTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
 
@@ -923,12 +923,15 @@ public class SpecialCasesTest {
             LOGGER.info("Receivers: PK1(just beyond, 70m), PK2(far, 150m), PK3(above, 20m), PK4(aside, side path)");
             
 
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
 
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -939,10 +942,7 @@ public class SpecialCasesTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
             
@@ -1043,12 +1043,15 @@ public class SpecialCasesTest {
             
             LOGGER.info("Receivers: PK1(beyond all, 90m), PK2(between B2-B3, 55m), PK3(between B1-B2, 35m), PK4(above all, 20m), PK5(side, min-diff)");
             
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
                     .setZBuildings(false)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .build();
 
             PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -1059,10 +1062,7 @@ public class SpecialCasesTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
             
@@ -1189,11 +1189,14 @@ public class SpecialCasesTest {
             LOGGER.info("Receivers: PK1(B1-B2 overlap, x=35), PK2(B2-B3 overlap, x=45), PK3(B1-only, x=25), PK4(beyond, x=65), PK5(above all), PK6(far, x=70)");
             
             
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("BUILDINGS")
-                    .setHeightField("HEIGHT")
-                    .setAlphaFieldName("G")
-                    .setDefaultWallAbsorption(100000.0)
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("BUILDINGS")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setBuildingAlphaFieldName("G")
+                    .setBuildingDefaultAlpha(100000.0)
+                    .setSourceTableName("SOURCES")
+                    .setReceiverTableName("RECEIVERS")
+                    .setTerrainTableName("DEM")
                     .setZBuildings(false)
                     .build();
 
@@ -1205,10 +1208,7 @@ public class SpecialCasesTest {
                     .build();
 
             NoiseMapByReceiverMaker noiseMapMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("SOURCES")
-                    .setReceiverTableName("RECEIVERS")
-                    .setDemTable("DEM")
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .build();
 

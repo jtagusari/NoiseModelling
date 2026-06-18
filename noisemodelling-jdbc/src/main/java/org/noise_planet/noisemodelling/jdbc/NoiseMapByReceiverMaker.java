@@ -57,7 +57,6 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
     public AtomicBoolean aborted = new AtomicBoolean(false);
     private static final Logger LOGGER = LoggerFactory.getLogger(NoiseMapByReceiverMaker.class);
 
-    private final String receiverTableName;
     private final TableLoader tableLoader;
     private final CalculationIOSettings calculationIOSettings;
     private final IComputeRaysOutFactory computeRaysOutFactory;
@@ -65,16 +64,14 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
     private ProfilerThread profilerThread;
     private final SceneDatabaseInputSettings sceneDatabaseInputSettings;
 
-    public NoiseMapByReceiverMaker(BuildingTableSettings buildingTableSettings, String sourcesTableName, String receiverTableName, String bridgePointsTableName, String soilTableName, String demTable, SceneDatabaseInputSettings sceneDatabaseInputSettings, PropagationSettings propagationSettings, CalculationIOSettings calculationIOSettings, IComputeRaysOutFactory computeRaysOutFactory, String sound_lvl_field, int gridDim, int threadCount, TableLoader tableLoader) {
-        super(buildingTableSettings, sourcesTableName, soilTableName, demTable, bridgePointsTableName, propagationSettings, sound_lvl_field);
+    public NoiseMapByReceiverMaker(TableInputSettings tableInputSettings, SceneDatabaseInputSettings sceneDatabaseInputSettings, PropagationSettings propagationSettings, CalculationIOSettings calculationIOSettings, IComputeRaysOutFactory computeRaysOutFactory, int threadCount, TableLoader tableLoader) {
+        super(tableInputSettings, propagationSettings);
         
-        this.receiverTableName = receiverTableName;
         this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
 
         this.calculationIOSettings = calculationIOSettings;
         this.computeRaysOutFactory = computeRaysOutFactory;
 
-        this.gridDim = gridDim;
         this.threadCount = threadCount;
         this.tableLoader = tableLoader;
     }
@@ -83,18 +80,10 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
      * Fluent builder used to create a NoiseMapByReceiverMaker with optional table settings.
      */
     public static class Builder{
-        private BuildingTableSettings buildingTableSettings;
-        private String buildingsTableName;
-        private String sourcesTableName;
-        private String receiverTableName;
-        private String bridgePointsTableName = "";
-        private String soilTableName = "";
-        private String demTable = "";
+        private TableInputSettings tableInputSettings;
         private SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
         private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
         private CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
-        private String sound_lvl_field = "DB_M";
-        private int gridDim = 0;
         private int threadCount = 0;
         private IComputeRaysOutFactory computeRaysOutFactory;
         private TableLoader tableLoader;
@@ -103,13 +92,8 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
 
         public Builder() {}
 
-        public Builder setBuildingsTableName(String buildingsTableName) {
-            this.buildingsTableName = buildingsTableName;
-            return this;
-        }
-
-        public Builder setBuildingTableSettings(BuildingTableSettings buildingTableSettings) {
-            this.buildingTableSettings = buildingTableSettings;
+        public Builder setTableInputSettings(TableInputSettings tableInputSettings) {
+            this.tableInputSettings = tableInputSettings;
             return this;
         }
 
@@ -118,48 +102,14 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
             return this;
         }
 
-        public Builder setSourcesTableName(String sourcesTableName) {
-            this.sourcesTableName = sourcesTableName;
-            return this;
-        }
-
-        public Builder setReceiverTableName(String receiverTableName) {
-            this.receiverTableName = receiverTableName;
-            return this;
-        }
-
-        public Builder setBridgePointsTableName(String bridgePointsTableName) {
-            this.bridgePointsTableName = bridgePointsTableName;
-            return this;
-        }
-
-        public Builder setSoilTableName(String soilTableName) {
-            this.soilTableName = soilTableName;
-            return this;
-        }
-
-        public Builder setDemTable(String demTable) {
-            this.demTable = demTable;
-            return this;
-        }
 
         public Builder setSceneDatabaseInputSettings(SceneDatabaseInputSettings sceneDatabaseInputSettings) {
             this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
             return this;
         }
 
-        public Builder setSoundLevelField(String sound_lvl_field) {
-            this.sound_lvl_field = sound_lvl_field;
-            return this;
-        }
-
         public Builder setCalculationIOSettings(CalculationIOSettings calculationIOSettings) {
             this.calculationIOSettings = calculationIOSettings;
-            return this;
-        }
-
-        public Builder setGridDim(int gridDim) {
-            this.gridDim = gridDim;
             return this;
         }
 
@@ -180,10 +130,10 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
 
 
         public NoiseMapByReceiverMaker build() {
-            if(buildingsTableName == null && buildingTableSettings == null) {
-                throw new IllegalStateException("Either buildings table name or building table settings must be provided");
+            if(tableInputSettings == null) {
+                throw new IllegalStateException("Either buildings table name or table input settings must be provided");
             }
-            if(sourcesTableName == null || receiverTableName == null) {
+            if(tableInputSettings.getSourceTableName() == null || tableInputSettings.getReceiverTableName() == null) {
                 throw new IllegalStateException("Table names for sources and receivers must be provided");
             }
 
@@ -194,7 +144,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
             if(tableLoader == null) {
                 tableLoader = new DefaultTableLoader();
             }
-            return new NoiseMapByReceiverMaker(buildingTableSettings, sourcesTableName, receiverTableName, bridgePointsTableName, soilTableName, demTable, sceneDatabaseInputSettings, propagationSettings, calculationIOSettings, computeRaysOutFactory,sound_lvl_field, gridDim, threadCount, tableLoader);
+            return new NoiseMapByReceiverMaker(tableInputSettings, sceneDatabaseInputSettings, propagationSettings, calculationIOSettings, computeRaysOutFactory, threadCount, tableLoader);
         }
     }
 
@@ -256,7 +206,11 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
      * @return Receiver table name
      */
     public String getReceiverTableName() {
-        return receiverTableName;
+        return tableInputSettings.getReceiverTableName();
+    }
+
+    public String getReceiversLevelTableName(){
+        return calculationIOSettings.getReceiversLevelTable();
     }
 
 
@@ -322,7 +276,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
     @Override
     protected Envelope getComputationEnvelope(Connection connection) throws SQLException {
         DBTypes dbTypes = DBUtils.getDBType(connection);
-        Envelope envelopeInternal = GeometryTableUtilities.getEnvelope(connection, TableLocation.parse(receiverTableName, dbTypes)).getEnvelopeInternal();
+        Envelope envelopeInternal = GeometryTableUtilities.getEnvelope(connection, TableLocation.parse(tableInputSettings.getReceiverTableName(), dbTypes)).getEnvelopeInternal();
         envelopeInternal.expandBy(propagationSettings.getMaximumPropagationDistance());
         return envelopeInternal;
     }
@@ -338,15 +292,15 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
             throw new IllegalStateException("Call initialize before calling searchPopulatedCells");
         }
         Map<CellIndex, Integer> cellIndices = new HashMap<>();
-        List<String> geometryFields = GeometryTableUtilities.getGeometryColumnNames(connection, TableLocation.parse(receiverTableName));
+        List<String> geometryFields = GeometryTableUtilities.getGeometryColumnNames(connection, TableLocation.parse(tableInputSettings.getReceiverTableName()));
         String geometryField;
         if(geometryFields.isEmpty()) {
-            throw new SQLException("The table "+receiverTableName+" does not contain a Geometry field, then the extent " +
+            throw new SQLException("The table "+tableInputSettings.getReceiverTableName()+" does not contain a Geometry field, then the extent " +
                     "cannot be computed");
         }
         LOGGER.info("Collect all receivers in order to localize populated cells");
         geometryField = geometryFields.get(0);
-        ResultSet rs = connection.createStatement().executeQuery("SELECT " + geometryField + " FROM " + receiverTableName);
+        ResultSet rs = connection.createStatement().executeQuery("SELECT " + geometryField + " FROM " + tableInputSettings.getReceiverTableName());
         // Build an RTree index of cell envelopes to quickly map each receiver to one/many cells.
         STRtree rtree = new STRtree();
         for(int i = 0; i < gridDim; i++) {
@@ -408,7 +362,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         // Receivers are normalized to absolute heights for consistent propagation geometry.
         computeRays.ensureAbsoluteReceiverHeights();
 
-        if(!sourceHasAbsoluteZCoordinates) {
+        if(!tableInputSettings.isSourceHasAbsoluteZCoordinates()) {
             // Convert relative source heights to absolute heights only when required by inputs.
             computeRays.makeSourceRelativeZToAbsolute();
         }

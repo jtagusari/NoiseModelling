@@ -29,7 +29,7 @@ import org.h2gis.utilities.wrapper.ConnectionWrapper
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings.ExportRaysMethods
-import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings
+import org.noise_planet.noisemodelling.jdbc.TableInputSettings
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader
@@ -579,11 +579,15 @@ def exec(Connection connection, Map input) {
         .setSoundReflectionOrder(reflexion_order)
         .build()
 
-    BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-        .setBuildingsTableName(building_table_name)
-        .setHeightField("HEIGHT")
-        .setAlphaFieldName("G")
-        .setDefaultWallAbsorption(wall_alpha)
+    TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+        .setBuildingTableName(building_table_name)
+        .setBuildingHeightFieldName("HEIGHT")
+        .setBuildingAlphaFieldName("G")
+        .setBuildingDefaultAlpha(wall_alpha)
+        .setSourceTableName(sources_table_name)
+        .setReceiverTableName(receivers_table_name)
+        .setTerrainTableName(dem_table_name)
+        .setGroundTableName(ground_table_name)
         .build()
 
 
@@ -609,11 +613,7 @@ def exec(Connection connection, Map input) {
     tableLoader.setAttenuationParameters(environmentalData)
 
     NoiseMapByReceiverMaker pointNoiseMap = new NoiseMapByReceiverMaker.Builder()
-        .setBuildingTableSettings(buildingTableSettings)
-        .setSourcesTableName(sources_table_name)
-        .setReceiverTableName(receivers_table_name)
-        .setDemTable(dem_table_name)
-        .setSoilTableName(ground_table_name)
+        .setTableInputSettings(tableInputSettings)
         .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
         .setCalculationIOSettings(calculationIOSettings)
         .setPropagationSettings(propagationSettings)
@@ -632,6 +632,6 @@ def exec(Connection connection, Map input) {
 
     pointNoiseMap.run(connection, progressLogger)
 
-    return "Calculation Done ! The table $pointNoiseMap.calculationIOSettings.getReceiversLevelTable() have been created."
+    return "Calculation Done ! The table ${pointNoiseMap.getReceiversLevelTableName()} have been created."
 }
 

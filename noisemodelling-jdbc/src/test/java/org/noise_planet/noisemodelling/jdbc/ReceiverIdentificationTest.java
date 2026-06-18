@@ -236,14 +236,14 @@ public class ReceiverIdentificationTest {
                     .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION)
                     .build();
             
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("NO_BUILDINGS_TABLE")
+            TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                    .setBuildingTableName("NO_BUILDINGS_TABLE")
+                    .setSourceTableName("NO_SOURCES")
+                    .setReceiverTableName("RECEIVERS")
                     .build();
 
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
-                    .setSourcesTableName("NO_SOURCES")
-                    .setReceiverTableName("RECEIVERS")
+                    .setTableInputSettings(tableInputSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                     .setThreadCount(1)
                     .build();

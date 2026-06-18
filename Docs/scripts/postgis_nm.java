@@ -100,9 +100,12 @@ public class Main {
                     .setMaximumPropagationDistance(160.0d)
                     .setSoundReflectionOrder(0)
                     .build();
-            BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                    .setBuildingsTableName("buildings")
-                    .setHeightField("HEIGHT")
+            TableInputSettings tableInputSettings = new TableIInputSettings.Builder()
+                    .setBuildingTableName("buildings")
+                    .setBuildingHeightFieldName("HEIGHT")
+                    .setSourceTableName("lw_roads")
+                    .setReceiverTableName("receivers")
+                    .setTerrainTableName("DEM")
                     .build();
             
             SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
@@ -110,12 +113,9 @@ public class Main {
                     .build();
             
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                    .setBuildingTableSettings(buildingTableSettings)
+                    .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
                     .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
-                    .setSourcesTableName("lw_roads")
-                    .setReceiverTableName("receivers")
-                    .setDemTable("DEM")
                     .setThreadCount(1)
                     .setGridDim(2)
                     .setComputeRaysOutFactory(tableWriter)

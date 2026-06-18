@@ -13,7 +13,8 @@ import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
-import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings;
+import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
+import org.noise_planet.noisemodelling.jdbc.ReceiverGenerationSettings;
 import org.noise_planet.noisemodelling.jdbc.DelaunayReceiversMaker;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.RootProgressVisitor;
@@ -74,28 +75,52 @@ class Main {
 
         logger.info("Generate receivers grid for noise map rendering");
 
-        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                .setBuildingsTableName(tableBuildings.toString())
-                .setHeightField(heightField)
-                .setAlphaFieldName("G")
-                .setDefaultWallAbsorption(100000)
+        TableInputSettings tableInputSettingsForReceiver = new TableInputSettings.Builder()
+                .setBuildingTableName(tableBuildings.toString())
+                .setBuildingHeightFieldName(heightField)
+                .setBuildingAlphaFieldName("G")
+                .setBuildingDefaultAlpha(100000)
                 .setZBuildings(false)
+                .setSourceTableName(tableLwRoads.toString())
+                .build();
+        
+        ReceiverGenerationSettings receiverGenerationSettings = new ReceiverGenerationSettings.Builder()
+                .setMaximumTriangleArea(0)
+                .setIsoSurfaceInBuildings(false)
+                .build();
+
+                
+        PropagationSettings propagationSettings = new PropagationSettings.Builder()
+                .setMaximumPropagationDistance(100.0)
+                .setMaximumReflectionDistance(100.0)
+                .setGs(0)
+                .setGroundSurfaceSplitSideLength(200)
+                .setSoundReflectionOrder(0)
+                .setBodyBarrier(false)
+                .setComputeHorizontalDiffraction(false)
+                .setComputeVerticalDiffraction(true)
+                .setGridDim(1)
                 .build();
 
         DelaunayReceiversMaker noiseMap = new DelaunayReceiversMaker.Builder()
-                .setBuildingTableSettings(buildingTableSettings)
-                .setSourcesTableName(tableLwRoads.toString())
+                .setTableInputSettings(tableInputSettingsForReceiver)
+                .setReceiverGenerationSettings(receiverGenerationSettings)
+                .setPropagationSettings(propagationSettings)
                 .build();
 
-        noiseMap.setGridDim(1);
-        noiseMap.setMaximumArea(0);
-        noiseMap.setIsoSurfaceInBuildings(false);
         sql.execute("DROP TABLE IF EXISTS RECEIVERS;");
         sql.execute("DROP TABLE IF EXISTS TRIANGLES;");
 
         noiseMap.run(connection, "RECEIVERS", "TRIANGLES");
 
         // Import MNT
+        TableInputSettings tableInputSettingsForLevel = new TableInputSettings.Builder()
+                .inheritTableInputSettings(tableInputSettingsForReceiver)
+                .setReceiverTableName("RECEIVERS")                
+                .setTerrainTableName(tableDemLorient.toString())
+                .build();
+
+
 
         logger.info("Import digital elevation model");
 
@@ -118,16 +143,6 @@ class Main {
         defaultParameters.setTemperature(10);
         defaultParameters.writeToDatabase(connection, atmosphericSettingsTableName, "N");
 
-        PropagationSettings propagationSettings = new PropagationSettings.Builder()
-                .setMaximumPropagationDistance(100.0)
-                .setMaximumReflectionDistance(100.0)
-                .setGs(0)
-                .setGroundSurfaceSplitSideLength(200)
-                .setSoundReflectionOrder(0)
-                .setBodyBarrier(false)
-                .setComputeHorizontalDiffraction(false)
-                .setComputeVerticalDiffraction(true)
-                .build();
         
         CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
                 .setMaximumError(3.0)
@@ -140,14 +155,10 @@ class Main {
                 .build();
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                .setBuildingTableSettings(buildingTableSettings)
+                .setTableInputSettings(tableInputSettingsForLevel)
                 .setPropagationSettings(propagationSettings)
                 .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                 .setCalculationIOSettings(calculationIOSettings)
-                .setSourcesTableName(tableLwRoads.toString())
-                .setDemTable(tableDemLorient.toString())
-                .setReceiverTableName("RECEIVERS")
-                .setGridDim(1)
                 .build();
 
         noiseMapByReceiverMaker.run(connection, progressLogger);
@@ -164,8 +175,8 @@ class Main {
         SHPWrite.exportTable(connection, Paths.get(workingDir, isoSurface.getOutputTable()+".shp").toString(),
                 isoSurface.getOutputTable(), ValueBoolean.TRUE);
 
-        SHPWrite.exportTable(connection, Paths.get(workingDir, noiseMapByReceiverMaker.getSourcesTableName()+".shp").toString(),
-                noiseMapByReceiverMaker.getSourcesTableName(), ValueBoolean.TRUE);
+        SHPWrite.exportTable(connection, Paths.get(workingDir, noiseMapByReceiverMaker.getSourceTableName()+".shp").toString(),
+                noiseMapByReceiverMaker.getSourceTableName(), ValueBoolean.TRUE);
 
         SHPWrite.exportTable(connection, Paths.get(workingDir, noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable()+".shp").toString(),
                 noiseMapByReceiverMaker.getCalculationIOSettings().getReceiversLevelTable(), ValueBoolean.TRUE);

@@ -316,9 +316,11 @@ public class TableLoaderTest {
         connection.createStatement().execute("UPDATE RECEPTEURS SET THE_GEOM = ST_UPDATEZ(THE_GEOM,4.0);");
         //connection.createStatement().execute("UPDATE LW_RAILWAY SET THE_GEOM = ST_SETSRID(ST_UPDATEZ(THE_GEOM,0.5),2154);");
 
-        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                .setBuildingsTableName("SCREENS")
-                .setHeightField("HEIGHT")
+        TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                .setBuildingTableName("SCREENS")
+                .setBuildingHeightFieldName("HEIGHT")
+                .setSourceTableName("LW_RAILWAY")
+                .setReceiverTableName("RECEPTEURS")
                 .build();
         
         SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
@@ -327,9 +329,7 @@ public class TableLoaderTest {
                 .build();
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                .setBuildingTableSettings(buildingTableSettings)
-                .setSourcesTableName("LW_RAILWAY")
-                .setReceiverTableName("RECEPTEURS")
+                .setTableInputSettings(tableInputSettings)
                 .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
                 .setThreadCount(1)
                 .build();
@@ -393,8 +393,10 @@ public class TableLoaderTest {
             st.execute("ALTER TABLE lw_roads drop column LWN8000");
         }
 
-        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                .setBuildingsTableName("BUILDINGS")
+        TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                .setBuildingTableName("BUILDINGS")
+                .setSourceTableName("LW_ROADS")
+                .setReceiverTableName("RECEIVERS")
                 .build();
 
         SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
@@ -403,9 +405,7 @@ public class TableLoaderTest {
 
         NoiseMapByReceiverMaker noiseMap = new NoiseMapByReceiverMaker.Builder()
                 .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
-                .setBuildingTableSettings(buildingTableSettings)
-                .setSourcesTableName("LW_ROADS")
-                .setReceiverTableName("RECEIVERS")
+                .setTableInputSettings(tableInputSettings)
                 .build();
 
 
@@ -435,14 +435,14 @@ public class TableLoaderTest {
             nbReceivers = rs.getInt(1);
         }
 
-        BuildingTableSettings buildingTableSettings = new BuildingTableSettings.Builder()
-                .setBuildingsTableName("BATI_FENCE")
+        TableInputSettings tableInputSettings = new TableInputSettings.Builder()
+                .setBuildingTableName("BATI_FENCE")
+                .setSourceTableName("LW_ROADS_FENCE")
+                .setReceiverTableName("RECEIVERS")
                 .build();
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
-                .setBuildingTableSettings(buildingTableSettings)
-                .setSourcesTableName("LW_ROADS_FENCE")
-                .setReceiverTableName("RECEIVERS")
+                .setTableInputSettings(tableInputSettings)
                 .build();
 
         noiseMapByReceiverMaker.initialize(connection, new EmptyProgressVisitor());

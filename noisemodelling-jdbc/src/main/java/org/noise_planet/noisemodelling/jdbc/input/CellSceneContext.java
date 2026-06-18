@@ -10,7 +10,7 @@ package org.noise_planet.noisemodelling.jdbc.input;
 
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.noise_planet.noisemodelling.jdbc.BuildingTableSettings;
+import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 
 /**
@@ -26,7 +26,7 @@ public interface CellSceneContext {
     /** @return Maximum wall/corner search distance for reflections/diffractions. */
     double getMaximumReflectionDistance();
     /** @return Building table and associated field settings. */
-    BuildingTableSettings getBuildingTableSettings();
+    TableInputSettings getTableInputSettings();
     /** @return Maximum reflection order to compute. */
     int getSoundReflectionOrder();
     /** @return Whether body-barrier mode is enabled. */
@@ -36,15 +36,15 @@ public interface CellSceneContext {
     /** @return Whether horizontal diffraction is enabled. */
     boolean isComputeHorizontalDiffraction();
     /** @return DEM table name. */
-    String getDemTable();
+    String getTerrainTableName();
     /** @return Soil table name. */
-    String getSoilTableName();
+    String getGroundTableName();
     /** @return Bridge points table name. */
-    String getBridgePointsTableName();
+    String getBridgePointTableName();
     /** @return Receiver table name. */
     String getReceiverTableName();
     /** @return Source geometry table name. */
-    String getSourcesTableName();
+    String getSourceTableName();
     /** @return Input-mode and emission/directivity settings used to build scenes. */
     SceneDatabaseInputSettingsView getSceneInputSettings();
 }
