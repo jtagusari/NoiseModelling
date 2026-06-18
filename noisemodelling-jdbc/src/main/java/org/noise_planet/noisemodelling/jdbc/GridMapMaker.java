@@ -19,6 +19,8 @@ import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.flatbuffers.Table;
+
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 
 import java.sql.*;
