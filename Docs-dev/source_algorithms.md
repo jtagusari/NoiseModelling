@@ -214,16 +214,16 @@ Cell selection and scene context preparation happen before any source loading or
 
 2. **ProfileBuilder Creation:**
    - `profileBuilder = new ProfileBuilder(frequencyConfig)` ← **Created at this stage**
-   - `scene = new SceneWithEmission(profileBuilder, sceneDatabaseInputSettings)`
+   - `scene = new SceneWithEmission(profileBuilder, emissionInputSettings)`
    - ProfileBuilder is initialized before any geometry data loading
 
 3. **Geometry Data Loading into ProfileBuilder:**
-   - **Buildings:** `fetchCellBuildings(connection, expandedCellEnvelop, profileBuilder, geometryFactory)`
+   - **Buildings:** `fetchCellBuilding(connection, expandedCellEnvelop, profileBuilder, geometryFactory)`
      - Loads building footprints with height and absorption coefficients
      - Includes walls extracted from LineString geometries
-   - **DEM (Digital Elevation Model):** `fetchCellDem(connection, expandedCellEnvelop, profileBuilder)`
+   - **DEM (Digital Elevation Model):** `fetchCellTerrain(connection, expandedCellEnvelop, profileBuilder)`
      - Loads topographic points for ground elevation interpolation
-   - **Soil Areas:** `fetchCellSoilAreas(connection, expandedCellEnvelop, profileBuilder)`
+   - **Soil Areas:** `fetchCellGround(connection, expandedCellEnvelop, profileBuilder)`
      - Loads ground surface properties (absorption coefficient G)
      - Splits large polygons into smaller cells for efficient processing
    - **Bridges:** `fetchCellBridge(connection, expandedCellEnvelop, profileBuilder, geometryFactory)`
@@ -256,15 +256,15 @@ Scene with ProfileBuilder containing all geometry data, spatial indices built, r
 Geometry loading and emission calculation occur together while sources are added to the Scene. `DefaultTableLoader.fetchCellSource()` iterates source rows within the cell envelope and calls `SceneWithEmission.addSourceDb()`; this registers the geometry and, depending on input mode, parses and registers emissions from the same row.
 
 **What `INPUT_MODE` means:**
-`INPUT_MODE` is a `SceneDatabaseInputSettings` value that tells the loader how to interpret source/emission fields in the database.
+`INPUT_MODE` is a `EmissionInputSettings` value that tells the loader how to interpret source/emission fields in the database.
 - `INPUT_MODE_TRAFFIC_FLOW_DEN` / `INPUT_MODE_LW_DEN`: emission data is embedded in the sources table (DEN periods in one row)
 - `INPUT_MODE_TRAFFIC_FLOW` / `INPUT_MODE_LW`: emission data is stored in a separate emission table (one row per period)
 - `INPUT_MODE_ATTENUATION`: no emission parsing (attenuation-only inputs)
 - `INPUT_MODE_GUESS`: auto-detected from available columns during `DefaultTableLoader.initialize(...)`
 
 **Lifecycle note (current implementation):**
-- `NoiseMapByReceiverMaker` exposes `SceneDatabaseInputSettingsView` through read-only contexts.
-- `DefaultTableLoader.initialize(...)` copies that view into an internal mutable `SceneDatabaseInputSettings` snapshot.
+- `NoiseMapByReceiverMaker` exposes `EmissionInputSettingsView` through read-only contexts.
+- `DefaultTableLoader.initialize(...)` copies that view into an internal mutable `EmissionInputSettings` snapshot.
 - If the mode is `INPUT_MODE_GUESS`, the guessed mode is resolved once and stored in that snapshot.
 - `createScene(...)` and `fetchCellSource(...)` then use the resolved snapshot, not the original unresolved view.
 

@@ -75,7 +75,7 @@ class TestAcousticTools extends JdbcTestCase {
         sql.execute("CREATE SPATIAL INDEX ON ROADS2(THE_GEOM)")
 
         new Delaunay_Grid().exec(connection, ["buildingTableName": "BUILDINGS",
-                                              "sourcesTableName" : "ROADS2",
+                                              "sourceTableName" : "ROADS2",
                                               "sourceDensification": 0]);
 
 

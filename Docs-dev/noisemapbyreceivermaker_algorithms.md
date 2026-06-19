@@ -3,6 +3,12 @@
 - [NoiseMapByReceiverMaker Algorithms](#noisemapbyreceivermaker-algorithms)
   - [Concepts \& Overview](#concepts--overview)
   - [GridMapMaker — Base Architecture](#gridmapmaker--base-architecture)
+  - [Settings Classes](#settings-classes)
+    - [TableInputSettings](#tableinputsettings)
+    - [PropagationSettings](#propagationsettings)
+    - [ComputationSettings](#computationsettings)
+    - [EmissionInputSettings](#emissioninputsettings)
+    - [CalculationIOSettings](#calculationiosettings)
   - [Receiver Generation Algorithms](#receiver-generation-algorithms)
   - [Cell-Based Processing](#cell-based-processing)
   - [Grid Initialization](#grid-initialization)
@@ -47,40 +53,32 @@ The class extends `GridMapMaker` and orchestrates the complete noise mapping wor
 ```plantuml
 @startuml
 class GridMapMaker {
-  + String buildingsTableName
-  + String sourcesTableName
-  + double maximumPropagationDistance
-  + double maximumReflectionDistance
-  + int soundReflectionOrder
-  + boolean bodyBarrier
-  + boolean computeVerticalDiffraction
-  + boolean computeHorizontalDiffraction
-  
-  + initialize(Connection): void
-  + run(ProgressVisitor): IComputeRaysOut
-  + getCellEnv(): Envelope
+  # TableInputSettings tableInputSettings
+  # PropagationSettings propagationSettings
+  # int gridDim
+  # Envelope mainEnvelope
+
+  + initialize(Connection, ProgressVisitor): void
+  + getCellEnv(CellIndex): Envelope
   + getCellWidth(): double
   + getCellHeight(): double
 }
 
 class NoiseMapByReceiverMaker extends GridMapMaker {
-  + String receiverTableName
-  + TableLoader tableLoader
-  + IComputeRaysOutFactory computeRaysOutFactory
-  + CalculationIOSettings calculationIOSettings
-  + SceneDatabaseInputSettings sceneDatabaseInputSettings
-  
-  + NoiseMapByReceiverMaker(buildings, sources, receivers)
-  + run(ProgressVisitor): IComputeRaysOut
+  - TableLoader tableLoader
+  - IComputeRaysOutFactory computeRaysOutFactory
+  - CalculationIOSettings calculationIOSettings
+  - EmissionInputSettings emissionInputSettings
+  - int threadCount
+
+  + {static} Builder
+  + run(Connection, ProgressVisitor): void
   + initialize(Connection, ProgressVisitor): void
-  + evaluateCell(Connection, CellIndex, ProgressVisitor): void
+  + evaluateCell(Connection, CellIndex, ProgressVisitor, Set<Long>): CutPlaneVisitorFactory
   + requestCellScene(Connection, CellIndex, Set<Long>): SceneWithEmission
   + getLoaderInitContext(): LoaderInitContext
   + getCellSceneContext(): CellSceneContext
-  + getSceneInputSettings(): SceneDatabaseInputSettingsView
-  + setInputMode(INPUT_MODE): void
-  + setInputMode(String): void
-  + setUseTrainDirectivity(boolean): void
+  + getEmissionInputSettings(): EmissionInputSettingsView
   + searchPopulatedCells(Connection): Map<CellIndex, Integer>
 }
 
@@ -102,9 +100,111 @@ end note
 ```
 
 **Key Extensions**:
-- **Receiver Management**: Handles receiver table and primary key tracking
+
+- **Receiver Management**: Receiver table name is accessed via `tableInputSettings.getReceiverTableName()`
 - **Scene Preparation**: Creates `SceneWithEmission` objects with source emission data
 - **Emission Integration**: Coordinates with emission calculation components
+- **Builder pattern**: Instances are created via `NoiseMapByReceiverMaker.Builder`; table/propagation/IO settings are supplied as dedicated objects (`TableInputSettings`, `PropagationSettings`, `CalculationIOSettings`, `EmissionInputSettings`)
+
+## Settings Classes
+
+`NoiseMapByReceiverMaker` accepts five dedicated settings objects.
+All classes follow the same immutable Builder pattern: construct via `new Xxx.Builder()...build()`.
+
+### TableInputSettings
+
+Specifies which database tables and columns hold the geometry and acoustic data.
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `buildingTableName` | — | Building polygon table; must not be empty when buildings are present |
+| `buildingHeightField` | `"HEIGHT"` | Column name for building height above local ground |
+| `buildingAlphaField` | `"G"` | Column name for wall absorption coefficient |
+| `buildingDefaultAlpha` | `100000` | Fallback absorption value when the per-feature column is absent |
+| `buildingGeometryZ` | `false` | When `true`, building polygon Z is treated as absolute altitude (sea level to top of wall) |
+| `sourceTableName` | — (required) | Sound source geometry table; must be non-null (`NoiseMapByReceiverMaker.Builder` enforces this) |
+| `sourceLevelFieldName` | `"DB_M"` | Column name for source power level |
+| `sourceHasAbsoluteZCoordinates` | `false` | When `true`, source Z is absolute altitude; otherwise relative to ground |
+| `receiverTableName` | — (required) | Receiver point table; must be non-null (`NoiseMapByReceiverMaker.Builder` enforces this) |
+| `receiverHasAbsoluteZCoordinates` | `false` | When `true`, receiver Z is absolute altitude; otherwise relative to ground |
+| `groundTableName` | `""` | Ground absorption polygon table (empty = not used) |
+| `terrainTableName` | `""` | DEM point table (empty = not used) |
+| `bridgePointsTableName` | `""` | Bridge point table (empty = not used) |
+| `periodAtmosphericSettingsTableName` | `""` | Table for period-specific atmospheric parameters (empty = not used) |
+
+### PropagationSettings
+
+Defines the physical assumptions under which sound propagation is computed: which phenomena to include and the spatial extent of the calculation domain.
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `maximumPropagationDistance` | `750` m | Maximum distance from a source at which propagation paths are traced |
+| `maximumReflectionDistance` | `100` m | Maximum distance from a source at which specular reflections are searched |
+| `gs` | `0` | Default ground absorption coefficient (0 = acoustically hard, 1 = fully absorptive) |
+| `soundReflectionOrder` | `2` | Number of successive specular reflections to compute (0 = disabled) |
+| `bodyBarrier` | `false` | Enable multiple reflections between a train body and a trackside screen (railway scenarios) |
+| `computeHorizontalDiffraction` | `true` | Compute horizontal (plan-view) diffraction around obstacles |
+| `computeVerticalDiffraction` | `true` | Compute vertical diffraction over obstacles |
+| `coefficientVersion` | `2` | CNOSSOS-EU coefficient version (1 = 2015, 2 = 2020) |
+
+### ComputationSettings
+
+Controls how the computation is executed: domain decomposition and geometry pre-processing for memory efficiency. These parameters do not affect the physical propagation model.
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `gridDim` | `0` | Number of grid cells per side for domain decomposition (0 = auto-computed from envelope and propagation distance) |
+| `groundSurfaceSplitSideLength` | `200` m | Side length for subdividing large ground-absorption polygons into tiles before intersection |
+
+### EmissionInputSettings
+
+Controls how source emission data is read from the database.
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `inputMode` | `INPUT_MODE_GUESS` | How emission data is located in the database (see table below) |
+| `sourcesEmissionTableName` | `""` | Separate emission table name (empty = emission data is in the source geometry table) |
+| `sourceEmissionPrimaryKeyField` | `"IDSOURCE"` | Source ID column in the emission table |
+| `directivityTableName` | `""` | Source directivity table name (empty = omnidirectional) |
+| `useTrainDirectivity` | `false` | Use built-in CNOSSOS railway directivity spheres |
+| `frequencyFieldPrepend` | `"HZ"` | Prefix used to identify frequency band columns (e.g. `HZ1000`) |
+
+**`INPUT_MODE` values**:
+
+| Value | Description |
+| --- | --- |
+| `INPUT_MODE_GUESS` | Auto-detect from available columns at initialization time |
+| `INPUT_MODE_LW` | Separate emission table contains per-period power levels (`HZ*` columns) |
+| `INPUT_MODE_LW_DEN` | Source geometry table contains DEN power levels |
+| `INPUT_MODE_TRAFFIC_FLOW` | Separate emission table contains traffic-flow data (`LV_SPD`, etc.) |
+| `INPUT_MODE_TRAFFIC_FLOW_DEN` | Source geometry table contains DEN traffic-flow data |
+| `INPUT_MODE_ATTENUATION` | Attenuation-only mode; no emission data is looked up |
+
+When `INPUT_MODE_GUESS` is set, mode inference runs once inside `DefaultTableLoader.initialize()` and the resolved mode is reused for every subsequent `createScene()` call.
+
+### CalculationIOSettings
+
+Controls output configuration and computation accuracy trade-offs.
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `receiversLevelTable` | `"RECEIVERS_LEVEL"` | Output table name for receiver noise levels |
+| `mergeSources` | `true` | When `true`, contributions from all sources are summed at each receiver |
+| `maximumError` | `0` dB | Stop adding source contributions when the remaining sum is below this threshold (0 = compute all) |
+| `exportRaysMethod` | `NONE` | How to export propagation paths: `NONE` or `TO_RAYS_TABLE` |
+| `raysTable` | `"RAYS"` | Output table name for propagation path data |
+| `exportAttenuationMatrix` | `false` | Export per-source per-receiver attenuation matrix |
+| `keepAbsorption` | `false` | Retain detailed per-path absorption data in exported rays |
+| `maximumRaysOutputCount` | `0` | Maximum number of exported rays (0 = unlimited) |
+| `computeLAEQOnly` | `false` | When `true`, compute only L_Aeq (faster; skips per-source levels) |
+| `noSourceNoiseLevel` | `-99` dB | Noise level assigned to receivers when no source is present |
+| `outputMaximumQueue` | `50000` | Maximum size of the database write queue |
+| `dropResultsTable` | `true` | Drop the output table before writing results |
+| `exportReceiverPosition` | `false` | Include receiver coordinates in the output table |
+| `CSVProfilerOutputPath` | `null` | Directory for profiler CSV output (`null` = disabled) |
+| `CSVProfilerWriteInterval` | `60` s | Interval between profiler CSV writes |
+
+---
 
 ## Receiver Generation Algorithms
 
@@ -276,7 +376,7 @@ cellCtx --> create
 
 ### DefaultTableLoader Initialization Behavior
 
-`DefaultTableLoader.initialize(...)` now takes a snapshot copy of `SceneDatabaseInputSettingsView` into a mutable `SceneDatabaseInputSettings` instance. This has two important consequences:
+`DefaultTableLoader.initialize(...)` now takes a snapshot copy of `EmissionInputSettingsView` into a mutable `EmissionInputSettings` instance. This has two important consequences:
 
 1. **Input mode guessing is persistent**: when mode is `INPUT_MODE_GUESS`, the guessed mode is stored in the loader snapshot and reused later by `createScene(...)`.
 2. **Per-cell behavior remains consistent**: every scene built by the same loader instance uses the same resolved input mode and associated settings.

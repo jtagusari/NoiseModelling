@@ -72,7 +72,7 @@ inputs = [
                 min        : 0, max: 1,
                 type       : Geometry.class
         ],
-        sourcesTableName   : [
+        sourceTableName   : [
                 name       : 'Sources table name',
                 title      : 'Sources table name',
                 description: 'Name of the Road table.</br><br>' +
@@ -198,8 +198,8 @@ def exec(Connection connection, input) {
     receivers_table_name = receivers_table_name.toUpperCase()
 
     String sources_table_name = "SOURCES"
-    if (input['sourcesTableName']) {
-        sources_table_name = input['sourcesTableName']
+    if (input['sourceTableName']) {
+        sources_table_name = input['sourceTableName']
     } else {
         return "Source table must be specified"
     }

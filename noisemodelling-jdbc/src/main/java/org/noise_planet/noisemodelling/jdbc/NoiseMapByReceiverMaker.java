@@ -21,8 +21,8 @@ import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.io.WKTWriter;
 import org.noise_planet.noisemodelling.jdbc.input.CellSceneContext;
 import org.noise_planet.noisemodelling.jdbc.input.LoaderInitContext;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettingsView;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettingsView;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.TableLoader;
@@ -62,12 +62,12 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
     private final IComputeRaysOutFactory computeRaysOutFactory;
     private final int threadCount;
     private ProfilerThread profilerThread;
-    private final SceneDatabaseInputSettings sceneDatabaseInputSettings;
+    private final EmissionInputSettings emissionInputSettings;
 
-    public NoiseMapByReceiverMaker(TableInputSettings tableInputSettings, SceneDatabaseInputSettings sceneDatabaseInputSettings, PropagationSettings propagationSettings, CalculationIOSettings calculationIOSettings, IComputeRaysOutFactory computeRaysOutFactory, int threadCount, TableLoader tableLoader) {
-        super(tableInputSettings, propagationSettings);
+    public NoiseMapByReceiverMaker(TableInputSettings tableInputSettings, EmissionInputSettings emissionInputSettings, PropagationSettings propagationSettings, ComputationSettings computationSettings, CalculationIOSettings calculationIOSettings, IComputeRaysOutFactory computeRaysOutFactory, int threadCount, TableLoader tableLoader) {
+        super(tableInputSettings, propagationSettings, computationSettings);
         
-        this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
+        this.emissionInputSettings = emissionInputSettings;
 
         this.calculationIOSettings = calculationIOSettings;
         this.computeRaysOutFactory = computeRaysOutFactory;
@@ -81,8 +81,9 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
      */
     public static class Builder{
         private TableInputSettings tableInputSettings;
-        private SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings();
+        private EmissionInputSettings emissionInputSettings = new EmissionInputSettings();
         private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
+        private ComputationSettings computationSettings = new ComputationSettings.Builder().build();
         private CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
         private int threadCount = 0;
         private IComputeRaysOutFactory computeRaysOutFactory;
@@ -102,9 +103,14 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
             return this;
         }
 
+        public Builder setComputationSettings(ComputationSettings computationSettings) {
+            this.computationSettings = computationSettings;
+            return this;
+        }
 
-        public Builder setSceneDatabaseInputSettings(SceneDatabaseInputSettings sceneDatabaseInputSettings) {
-            this.sceneDatabaseInputSettings = sceneDatabaseInputSettings;
+
+        public Builder setEmissionInputSettings(EmissionInputSettings emissionInputSettings) {
+            this.emissionInputSettings = emissionInputSettings;
             return this;
         }
 
@@ -144,7 +150,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
             if(tableLoader == null) {
                 tableLoader = new DefaultTableLoader();
             }
-            return new NoiseMapByReceiverMaker(tableInputSettings, sceneDatabaseInputSettings, propagationSettings, calculationIOSettings, computeRaysOutFactory, threadCount, tableLoader);
+            return new NoiseMapByReceiverMaker(tableInputSettings, emissionInputSettings, propagationSettings, computationSettings, calculationIOSettings, computeRaysOutFactory, threadCount, tableLoader);
         }
     }
 
@@ -163,26 +169,26 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
      * @return Source emission table name*
      */
     public String getSourcesEmissionTableName() {
-        return sceneDatabaseInputSettings.getSourcesEmissionTableName();
+        return emissionInputSettings.getSourcesEmissionTableName();
     }
 
 
-    public SceneDatabaseInputSettings.INPUT_MODE getInputMode() {
-        return sceneDatabaseInputSettings.getInputMode();
+    public EmissionInputSettings.INPUT_MODE getInputMode() {
+        return emissionInputSettings.getInputMode();
     }
 
     public String getSourceEmissionPrimaryKeyField() {
-        return sceneDatabaseInputSettings.getSourceEmissionPrimaryKeyField();
+        return emissionInputSettings.getSourceEmissionPrimaryKeyField();
     }
 
 
     public String getFrequencyFieldPrepend() {
-        return sceneDatabaseInputSettings.getFrequencyFieldPrepend();
+        return emissionInputSettings.getFrequencyFieldPrepend();
     }
 
 
-    public SceneDatabaseInputSettingsView getSceneInputSettings() {
-        return sceneDatabaseInputSettings.copy();
+    public EmissionInputSettingsView getEmissionInputSettings() {
+        return emissionInputSettings.copy();
     }
 
 
@@ -456,5 +462,8 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         CutPlaneVisitorFactory createCutPlaneVisitorFactory(SceneWithEmission cellData);
     }
 
+    public PropagationSettings getPropagationSettings() {
+        return propagationSettings;
+    }
 
 }

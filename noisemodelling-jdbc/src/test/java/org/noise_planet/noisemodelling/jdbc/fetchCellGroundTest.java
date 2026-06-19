@@ -20,17 +20,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test for ground/soil areas table loading and envelope-based filtering.
- * Mirrors FetchCellBuildingsTest and FetchCellDemTest styles.
+ * Mirrors fetchCellBuildingTest and fetchCellTerrainTest styles.
  */
-public class FetchCellSoilAreasTest {
+public class fetchCellGroundTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FetchCellSoilAreasTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(fetchCellGroundTest.class);
     private Connection connection;
 
     @BeforeEach
     public void setUp() throws Exception {
         connection = JDBCUtilities.wrapConnection(H2GISDBFactory.createSpatialDataBase(
-                FetchCellSoilAreasTest.class.getSimpleName(), true, ""));
+                fetchCellGroundTest.class.getSimpleName(), true, ""));
     }
 
     @AfterEach
@@ -65,11 +65,11 @@ public class FetchCellSoilAreasTest {
     }
 
     @Test
-    public void testFetchCellSoilAreasBasic() throws Exception {
+    public void testfetchCellGroundBasic() throws Exception {
         loadTestSoilAreas();
 
         LOGGER.info("========================================");
-        LOGGER.info("testFetchCellSoilAreasBasic: Soil Areas Loading Test");
+        LOGGER.info("testfetchCellGroundBasic: Soil Areas Loading Test");
         LOGGER.info("========================================");
 
         try (Statement st = connection.createStatement()) {

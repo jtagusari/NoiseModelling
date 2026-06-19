@@ -9,39 +9,29 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.h2gis.utilities.SpatialResultSet;
-import org.h2gis.utilities.dbtypes.DBTypes;
-import org.h2gis.utilities.dbtypes.DBUtils;
-import org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
 import org.noise_planet.noisemodelling.pathfinder.ReceiverPointInfo;
 import org.noise_planet.noisemodelling.pathfinder.SourceCollector;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
+import org.noise_planet.noisemodelling.jdbc.input.CellProfileLoader;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
-import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
-import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -407,8 +397,8 @@ public class SourceIdentificationTest {
                 .setTerrainTableName("DEM")
                 .setBridgePointsTableName("BRIDGE_POINTS")
                 .build();
-        SceneDatabaseInputSettings sceneInputSettings = new SceneDatabaseInputSettings.Builder()
-                .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN)
+        EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN)
                 .build();
         
         PropagationSettings propagationSettings = new PropagationSettings.Builder()
@@ -418,7 +408,7 @@ public class SourceIdentificationTest {
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                 .setTableInputSettings(tableInputSettings)
-                .setSceneDatabaseInputSettings(sceneInputSettings)
+                .setEmissionInputSettings(emissionInputSettings)
                 .setPropagationSettings(propagationSettings)
                 .build();
 
@@ -452,7 +442,7 @@ public class SourceIdentificationTest {
         // Creates ProfileBuilder and SceneWithEmission before loading geometry
         // (see source_algorithms.md Step 2: "ProfileBuilder is initialized before any geometry data loading")
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneWithEmission scene = new SceneWithEmission(profileBuilder, noiseMapByReceiverMaker.getSceneInputSettings());
+        SceneWithEmission scene = new SceneWithEmission(profileBuilder, noiseMapByReceiverMaker.getEmissionInputSettings());
         LOGGER.info("Step 2b: ProfileBuilder and Scene initialized");
 
         // Step 2c: Geometry Data Loading
@@ -461,16 +451,20 @@ public class SourceIdentificationTest {
         LOGGER.info("Step 2c: Loading geometry context into ProfileBuilder...");
         LOGGER.info("  (NOTE: No buildings scene used - 'NO_BUILDINGS' parameter passed to NoiseMapByReceiverMaker)");
         
-        // Note: Buildings would be loaded here with fetchCellBuildings() if available
-        // Skipped in this test: tableLoader.fetchCellBuildings(connection, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
+        // Note: Buildings would be loaded here with fetchCellBuilding() if available
+        // Skipped in this test: tableLoader.fetchCellBuilding(connection, expandedCellEnvelop, scene.profileBuilder, geometryFactory);
         
-        // Note: Soil areas would be loaded here with fetchCellSoilAreas() if available
-        // Skipped in this test: tableLoader.fetchCellSoilAreas(connection, expandedCellEnvelop, scene.profileBuilder);
+        // Note: Soil areas would be loaded here with fetchCellGround() if available
+        // Skipped in this test: tableLoader.fetchCellGround(connection, expandedCellEnvelop, scene.profileBuilder);
+        CellProfileLoader cellProfileLoader = new CellProfileLoader.Builder()
+                .setConnection(connection)
+                .setCellSceneContext(noiseMapByReceiverMaker.getCellSceneContext())
+                .build();
         
-        tableLoader.fetchCellDem(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder);
+        cellProfileLoader.fetchCellTerrain(expandedCellEnvelop, scene.profileBuilder);
         LOGGER.info("  ✓ DEM (topographic points) loaded");
-        
-        tableLoader.fetchCellBridge(connection, noiseMapByReceiverMaker.getCellSceneContext(), expandedCellEnvelop, scene.profileBuilder);
+
+        cellProfileLoader.fetchCellBridge(expandedCellEnvelop, scene.profileBuilder);
         LOGGER.info("  ✓ Bridge geometry (BRIDGE_POINTS table) loaded");
 
         // Step 2d: ProfileBuilder Finalization (Critical step - MUST be done BEFORE Step 3)

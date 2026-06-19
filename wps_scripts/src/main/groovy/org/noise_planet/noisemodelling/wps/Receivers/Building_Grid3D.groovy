@@ -74,7 +74,7 @@ inputs = [
                 min        : 0, max: 1,
                 type       : String.class
         ],
-        sourcesTableName: [
+        sourceTableName: [
                 name       : 'Sources table name',
                 title      : 'Sources table name',
                 description: 'Keep only receivers that are at least 1 meter from the provided source geometries.</br></br>' +
@@ -174,8 +174,8 @@ def exec(Connection connection, input) {
 
 
     String sources_table_name = "SOURCES"
-    if (input['sourcesTableName']) {
-        sources_table_name = input['sourcesTableName']
+    if (input['sourceTableName']) {
+        sources_table_name = input['sourceTableName']
     }
     sources_table_name = sources_table_name.toUpperCase()
 
@@ -198,7 +198,7 @@ def exec(Connection connection, input) {
 
     // Reproject fence
     int targetSrid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(building_table_name))
-    if (targetSrid == 0 && input['sourcesTableName']) {
+    if (targetSrid == 0 && input['sourceTableName']) {
         targetSrid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(sources_table_name))
     }
 
@@ -287,7 +287,7 @@ def exec(Connection connection, input) {
                         "SELECT ST_SetSRID(the_geom," + targetSrid.toInteger() + "), level, pk_building FROM TMP_SCREENS;")
         sql.execute("CREATE SPATIAL INDEX ON " + receivers_table_name + "(the_geom);")
 
-        if (input['sourcesTableName']) {
+        if (input['sourceTableName']) {
             // Delete receivers near sources
             logger.info('Delete receivers near sources...')
             sql.execute("CREATE SPATIAL INDEX ON " + sources_table_name + "(the_geom);")
@@ -313,7 +313,7 @@ def exec(Connection connection, input) {
         sql.execute("INSERT INTO tmp_receivers(the_geom, build_pk, level, pk_building) " +
                         "SELECT ST_SetSRID(the_geom," + targetSrid.toInteger() + "), pk, level, pk_building FROM TMP_SCREENS;")
 
-        if (input['sourcesTableName']) {
+        if (input['sourceTableName']) {
             // Delete receivers near sources
             logger.info('Delete receivers near sources...')
             sql.execute("CREATE SPATIAL INDEX ON " + sources_table_name + "(the_geom);")

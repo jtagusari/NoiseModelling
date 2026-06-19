@@ -9,8 +9,8 @@
 package org.noise_planet.noisemodelling.jdbc.input;
 
 /**
- * Assumptions under which sound propagation is computed: which physical phenomena to include
- * (reflection, diffraction, ground absorption) and the spatial extent of the calculation domain.
+ * Physical assumptions under which sound propagation is computed: phenomena to include
+ * (reflection, diffraction, ground absorption), spatial extent, and calculation standard.
  * Use {@link Builder} to construct instances.
  */
 public class PropagationSettings {
@@ -21,43 +21,38 @@ public class PropagationSettings {
     private final double maximumReflectionDistance;
     /** Default ground absorption coefficient (Gs): 0 = acoustically hard, 1 = fully absorptive. */
     private final double gs;
-    /** Ground surface polygons larger than this side length are subdivided to reduce per-cell memory usage, in metres. */
-    private final double groundSurfaceSplitSideLength;
     /** Number of successive specular reflections to compute. 0 disables reflection entirely. */
     private final int soundReflectionOrder;
     /** Enable multiple reflections between a train body and a trackside screen (required for railway scenarios). */
     private final boolean bodyBarrier;
+    /** Compute diffraction around vertical edges of obstacles (horizontal plan). */
     private final boolean computeHorizontalDiffraction;
+    /** Compute diffraction over the tops of obstacles (vertical plan). */
     private final boolean computeVerticalDiffraction;
-    /** Number of grid cells per side used to split the computation domain. 0 means no splitting. */
-    private final int gridDim;
+    /** CNOSSOS-EU coefficient version: 1 = 2015 standard, 2 = 2020 standard. */
+    private final int coefficientVersion;
 
-
-    public PropagationSettings(double maximumPropagationDistance, double maximumReflectionDistance, double gs, double groundSurfaceSplitSideLength, int soundReflectionOrder, boolean bodyBarrier, boolean verbose, boolean computeHorizontalDiffraction, boolean computeVerticalDiffraction, int gridDim) {
+    public PropagationSettings(double maximumPropagationDistance, double maximumReflectionDistance, double gs, int soundReflectionOrder, boolean bodyBarrier, boolean verbose, boolean computeHorizontalDiffraction, boolean computeVerticalDiffraction, int coefficientVersion) {
         this.maximumPropagationDistance = maximumPropagationDistance;
         this.maximumReflectionDistance = maximumReflectionDistance;
         this.gs = gs;
-        this.groundSurfaceSplitSideLength = groundSurfaceSplitSideLength;
         this.soundReflectionOrder = soundReflectionOrder;
         this.bodyBarrier = bodyBarrier;
         this.computeHorizontalDiffraction = computeHorizontalDiffraction;
         this.computeVerticalDiffraction = computeVerticalDiffraction;
-        this.gridDim = gridDim;
+        this.coefficientVersion = coefficientVersion;
     }
 
     public static class Builder {
         private double maximumPropagationDistance = 750;
         private double maximumReflectionDistance = 100;
         private double gs = 0;
-        // Soil areas are split by the provided size in order to reduce the propagation time
-        private double groundSurfaceSplitSideLength = 200;
         private int soundReflectionOrder = 2;
-
-        private boolean bodyBarrier = false; // it needs to be true if train propagation is computed (multiple reflection between the train and a screen)
+        private boolean bodyBarrier = false;
         public boolean verbose = true;
         private boolean computeHorizontalDiffraction = true;
         private boolean computeVerticalDiffraction = true;
-        private int gridDim = 0;
+        private int coefficientVersion = 2;
 
         public Builder setMaximumPropagationDistance(double maximumPropagationDistance) {
             this.maximumPropagationDistance = maximumPropagationDistance;
@@ -71,11 +66,6 @@ public class PropagationSettings {
 
         public Builder setGs(double gs) {
             this.gs = gs;
-            return this;
-        }
-
-        public Builder setGroundSurfaceSplitSideLength(double groundSurfaceSplitSideLength) {
-            this.groundSurfaceSplitSideLength = groundSurfaceSplitSideLength;
             return this;
         }
 
@@ -104,13 +94,13 @@ public class PropagationSettings {
             return this;
         }
 
-        public Builder setGridDim(int gridDim) {
-            this.gridDim = gridDim;
+        public Builder setCoefficientVersion(int coefficientVersion) {
+            this.coefficientVersion = coefficientVersion;
             return this;
         }
 
         public PropagationSettings build() {
-            return new PropagationSettings(maximumPropagationDistance, maximumReflectionDistance, gs, groundSurfaceSplitSideLength, soundReflectionOrder, bodyBarrier, verbose, computeHorizontalDiffraction, computeVerticalDiffraction, gridDim);
+            return new PropagationSettings(maximumPropagationDistance, maximumReflectionDistance, gs, soundReflectionOrder, bodyBarrier, verbose, computeHorizontalDiffraction, computeVerticalDiffraction, coefficientVersion);
         }
     }
 
@@ -124,10 +114,6 @@ public class PropagationSettings {
 
     public double getGs() {
         return gs;
-    }
-
-    public double getGroundSurfaceSplitSideLength() {
-        return groundSurfaceSplitSideLength;
     }
 
     public int getSoundReflectionOrder() {
@@ -146,8 +132,7 @@ public class PropagationSettings {
         return computeVerticalDiffraction;
     }
 
-    public int getGridDim() {
-        return gridDim;
+    public int getCoefficientVersion() {
+        return coefficientVersion;
     }
-
 }

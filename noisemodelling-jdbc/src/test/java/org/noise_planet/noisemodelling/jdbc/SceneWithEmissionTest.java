@@ -18,7 +18,7 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.output.AttenuationOutputMultiThread;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
@@ -53,7 +53,7 @@ public class SceneWithEmissionTest {
     }
 
     private List<Long> testIgnoreNonSignificantSourcesParam(
-            Connection connection, double maxError, String buildingsTableName, String sourcesTableName,
+            Connection connection, double maxError, String buildingsTableName, String sourceTableName,
             String receiverTableName, String sourcesEmissionTableName) throws SQLException, IOException {
 
         // Init NoiseModelling
@@ -62,10 +62,13 @@ public class SceneWithEmissionTest {
                 .setSoundReflectionOrder(1)
                 .setComputeHorizontalDiffraction(true)
                 .setComputeVerticalDiffraction(true)
+                .build();
+        
+        ComputationSettings computationSettings = new ComputationSettings.Builder()
                 .setGridDim(1)
                 .build();
         
-        SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+        EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                 .setSourcesEmissionTableName(sourcesEmissionTableName)
                 .build();
 
@@ -77,13 +80,14 @@ public class SceneWithEmissionTest {
         TableInputSettings tableInputSettings = new TableInputSettings.Builder()
                 .setBuildingTableName(buildingsTableName)
                 .setBuildingHeightFieldName("HEIGHT")
-                .setSourceTableName(sourcesTableName)
+                .setSourceTableName(sourceTableName)
                 .setReceiverTableName(receiverTableName)
                 .build();
 
         NoiseMapByReceiverMaker noiseMap = new NoiseMapByReceiverMaker.Builder()
                 .setPropagationSettings(propagationSettings)
-                .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                .setComputationSettings(computationSettings)
+                .setEmissionInputSettings(emissionInputSettings)
                 .setTableInputSettings(tableInputSettings)
                 .setCalculationIOSettings(calculationIOSettings)
                 .setThreadCount(1)

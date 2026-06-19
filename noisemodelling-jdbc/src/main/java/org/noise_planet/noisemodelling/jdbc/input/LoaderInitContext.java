@@ -8,12 +8,14 @@
  */
 package org.noise_planet.noisemodelling.jdbc.input;
 
+import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
+
 /**
  * Read-only context required once at loader initialization.
  */
 public interface LoaderInitContext {
     /** @return Input-mode and emission/directivity settings used to initialize the loader. */
-    SceneDatabaseInputSettingsView getSceneInputSettings();
+    EmissionInputSettingsView getEmissionInputSettings();
     /** @return Emission table name used when emissions are stored separately from geometry. */
     String getSourcesEmissionTableName();
     /** @return Prefix of frequency columns (for example HZ in HZ1000). */
@@ -22,4 +24,6 @@ public interface LoaderInitContext {
     String getSourceTableName();
     /** @return Whether verbose logs are enabled. */
     boolean isVerbose();
+    /** @return Table name settings including atmospheric settings table reference. */
+    TableInputSettings getTableInputSettings();
 }

@@ -12,8 +12,6 @@ import org.h2gis.utilities.*;
 import org.h2gis.utilities.dbtypes.DBTypes;
 import org.h2gis.utilities.dbtypes.DBUtils;
 import org.locationtech.jts.geom.*;
-import org.locationtech.jts.geom.prep.PreparedPolygon;
-import org.locationtech.jts.io.WKTWriter;
 import org.noise_planet.noisemodelling.emission.LineSource;
 import org.noise_planet.noisemodelling.emission.directivity.DirectivityRecord;
 import org.noise_planet.noisemodelling.emission.directivity.DirectivitySphere;
@@ -21,21 +19,15 @@ import org.noise_planet.noisemodelling.emission.directivity.DiscreteDirectivityS
 import org.noise_planet.noisemodelling.emission.directivity.OmnidirectionalDirection;
 import org.noise_planet.noisemodelling.emission.directivity.cnossos.RailwayCnossosDirectivitySphere;
 import org.noise_planet.noisemodelling.emission.railway.cnossos.RailWayCnossosParameters;
-import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Bridge;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.BridgePoint;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Building;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
-import org.noise_planet.noisemodelling.pathfinder.profilebuilder.Wall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.flatbuffers.Table;
 
 import java.sql.*;
 import java.util.*;
@@ -49,13 +41,13 @@ public class DefaultTableLoader implements TableLoader {
     protected static final Logger LOGGER = LoggerFactory.getLogger(DefaultTableLoader.class);
     // Snapshot of context values captured at initialize time.
     // Keeping plain values here avoids retaining a hard reference to the context object.
-    private SceneDatabaseInputSettings sceneInputSettings;
-    private String sourcesTableName;
+    private EmissionInputSettings emissionInputSettings;
+    private String sourceTableName;
     private String sourcesEmissionTableName;
     private String frequencyFieldPrepend;
+    private String periodAtmosphericSettingsTableName = "";
     private boolean verbose;
-    // Soil areas are split by the provided size in order to reduce the propagation time
-    protected double groundSurfaceSplitSideLength = 200;
+    /** Side length used to subdivide large soil polygons; passed to {@link CellProfileLoader}. */
     private FrequencyConfig frequencyConfig = new FrequencyConfig(FrequencyBand.OCTAVE);
     
     //  Attenuation settings to apply for each period
@@ -94,28 +86,29 @@ public class DefaultTableLoader implements TableLoader {
     public void initialize(Connection connection, LoaderInitContext context) throws SQLException {
         // Capture everything needed for createScene/fetch* calls.
         // After this point, processing does not depend on a live context reference.
-        this.sceneInputSettings = new SceneDatabaseInputSettings(context.getSceneInputSettings());
-        this.sourcesTableName = context.getSourceTableName();
+        this.emissionInputSettings = new EmissionInputSettings(context.getEmissionInputSettings());
+        this.sourceTableName = context.getSourceTableName();
         this.sourcesEmissionTableName = context.getSourcesEmissionTableName();
         this.frequencyFieldPrepend = context.getFrequencyFieldPrepend();
+        this.periodAtmosphericSettingsTableName = context.getTableInputSettings().getPeriodAtmosphericSettingsTableName();
         this.verbose = context.isVerbose();
 
-        if(sceneInputSettings.getInputMode() == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_GUESS) {
-            guessInputMode(connection, sceneInputSettings);
+        if(emissionInputSettings.getInputMode() == EmissionInputSettings.INPUT_MODE.INPUT_MODE_GUESS) {
+            guessInputMode(connection, emissionInputSettings);
         }
 
-        if(sceneInputSettings.getInputMode() == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW) {
+        if(emissionInputSettings.getInputMode() == EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW) {
             // Load expected frequencies used for computation
             // Fetch source fields
             List<String> sourceField = JDBCUtilities.getColumnNames(connection, sourcesEmissionTableName);
             List<Integer> frequencyValues = readFrequenciesFromLwTable(frequencyFieldPrepend, sourceField);
             if(frequencyValues.isEmpty()) {
-                throw new SQLException("Source emission table "+ sourcesTableName+" does not contains any frequency bands");
+                throw new SQLException("Source emission table "+ sourceTableName+" does not contains any frequency bands");
             }
             frequencyConfig.setFrequencyArray(frequencyValues);
 
-        } else if (sceneInputSettings.getInputMode() == SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN) {
-            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourcesTableName);
+        } else if (emissionInputSettings.getInputMode() == EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN) {
+            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourceTableName);
             Set<Integer> frequencySet = new HashSet<>();
 
             for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
@@ -126,18 +119,18 @@ public class DefaultTableLoader implements TableLoader {
         }
         defaultParameters.setFrequencies(frequencyConfig.getFrequencyArray());
         // Load atmospheric data from database
-        if(!sceneInputSettings.getPeriodAtmosphericSettingsTableName().isEmpty()) {
-            loadAtmosphericTableSettings(connection, sceneInputSettings.getPeriodAtmosphericSettingsTableName());
+        if(!periodAtmosphericSettingsTableName.isEmpty()) {
+            loadPeriodAtmosphericSettings(connection, periodAtmosphericSettingsTableName);
         }
         // apply expected frequency to each atmospheric data
         for(AttenuationParameters parameters : cnossosParametersPerPeriod.values()) {
             parameters.setFrequencies(frequencyConfig.getFrequencyArray());
         }
         // Load source directivity
-        if(sceneInputSettings.isUseTrainDirectivity()) {
+        if(emissionInputSettings.isUseTrainDirectivity()) {
             insertTrainDirectivity();
-        } else if (!sceneInputSettings.getDirectivityTableName().isEmpty()) {
-            directionAttributes = fetchDirectivity(connection, sceneInputSettings.getDirectivityTableName(), 1, frequencyFieldPrepend);
+        } else if (!emissionInputSettings.getDirectivityTableName().isEmpty()) {
+            directionAttributes = fetchDirectivity(connection, emissionInputSettings.getDirectivityTableName(), 1, frequencyFieldPrepend);
             if(verbose) {
                 LOGGER.info("Loaded {} directivities from the database", directionAttributes.size());
             }
@@ -147,19 +140,19 @@ public class DefaultTableLoader implements TableLoader {
     /**
      * Infers the input mode by inspecting available columns in source/emission tables.
      */
-    private void guessInputMode(Connection connection, SceneDatabaseInputSettings inputSettings) throws SQLException {
-        
+    private void guessInputMode(Connection connection, EmissionInputSettings inputSettings) throws SQLException {
+
         // Check fields to find appropriate expected data
-        inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION;
+        inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION;
         if(!inputSettings.sourcesEmissionTableName.isEmpty()) {
             List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourcesEmissionTableName);
             if(sourceFields.contains("LV_SPD")) {
-                inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW;
+                inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW;
             } else {
-                inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW;
+                inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW;
             }
         } else {
-            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourcesTableName);
+            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourceTableName);
 
             for (SourceEmission.StandardPeriod period : SourceEmission.StandardPeriod.values()) {
                 String periodFieldName = SourceEmission.STANDARD_PERIOD_VALUE[period.ordinal()];
@@ -167,11 +160,11 @@ public class DefaultTableLoader implements TableLoader {
                         frequencyFieldPrepend +
                                 periodFieldName, sourceFields);
                 if(!frequencyValues.isEmpty()) {
-                    inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN;
+                    inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN;
                     break;
                 } else {
                     if(sourceFields.contains("LV_SPD_" + periodFieldName)) {
-                        inputSettings.inputMode = SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN;
+                        inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN;
                         break;
                     }
                 }
@@ -182,8 +175,8 @@ public class DefaultTableLoader implements TableLoader {
     /**
      * Loads period-specific atmospheric attenuation settings from a database table.
      */
-    private void loadAtmosphericTableSettings(Connection connection, String atmosphericSettingsTableName) throws SQLException {
-        String query = "SELECT * FROM " + atmosphericSettingsTableName;
+    private void loadPeriodAtmosphericSettings(Connection connection, String periodAtmosphericSettingsTableName) throws SQLException {
+        String query = "SELECT * FROM " + periodAtmosphericSettingsTableName;
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(query)) {
             while (resultSet.next()) {
@@ -281,15 +274,20 @@ public class DefaultTableLoader implements TableLoader {
         expandedCellEnvelop.expandBy(maximumPropagationDistance + 2 * maximumReflectionDistance);
 
         ProfileBuilder profileBuilder = new ProfileBuilder(frequencyConfig);
+
+        CellProfileLoader cellProfileLoader = new CellProfileLoader.Builder()
+                .setConnection(connection)
+                .setCellSceneContext(cellContext)
+                .build();
         
-        fetchCellBuildings(connection, cellContext, expandedCellEnvelop, profileBuilder);
-        fetchCellDem(connection, cellContext, expandedCellEnvelop, profileBuilder);
-        fetchCellSoilAreas(connection, cellContext, expandedCellEnvelop, profileBuilder);
-        fetchCellBridge(connection, cellContext, expandedCellEnvelop, profileBuilder);
+        cellProfileLoader.fetchCellBuilding(expandedCellEnvelop, profileBuilder);
+        cellProfileLoader.fetchCellTerrain(expandedCellEnvelop, profileBuilder);
+        cellProfileLoader.fetchCellGround(expandedCellEnvelop, profileBuilder);
+        cellProfileLoader.fetchCellBridge(expandedCellEnvelop, profileBuilder);
         
         profileBuilder.finishFeeding();
         
-        SceneWithEmission scene = new SceneWithEmission(profileBuilder, sceneInputSettings);
+        SceneWithEmission scene = new SceneWithEmission(profileBuilder, emissionInputSettings);
         scene.setDirectionAttributes(directionAttributes);
         scene.setAttenuationParameters(defaultParameters);
         scene.setCnossosParametersPerPeriod(cnossosParametersPerPeriod);
@@ -392,299 +390,6 @@ public class DefaultTableLoader implements TableLoader {
 
 
     /**
-     * Fetches buildings data for the specified cell envelope and adds them to the profile builder.
-     * @param connection     the database connection to use for querying the buildings data.
-     * @param cellContext    the cell context containing database settings for the building table
-     * @param fetchEnvelope  the envelope representing the cell to fetch buildings data for.
-     * @param builder        the profile builder to which the buildings data will be added.
-     * @param geometryFactory geometry factory instance with SRID set.
-     * @throws SQLException  if an SQL exception occurs while fetching the buildings data.
-     */
-    public static void fetchCellBuildings(Connection connection, CellSceneContext cellContext, 
-                                          Envelope fetchEnvelope, ProfileBuilder builder) throws SQLException {
-        List<Building> buildings = new LinkedList<>();
-        List<Wall> walls = new LinkedList<>();
-        GeometryFactory geometryFactory = cellContext.getGeometryFactory();
-        fetchCellBuildings(connection,cellContext.getTableInputSettings(), fetchEnvelope, buildings, walls, geometryFactory);
-        for(Building building : buildings) {
-            builder.addBuilding(building);
-        }
-        for (Wall wall : walls) {
-            builder.addWall(wall);
-        }
-    }
-
-    /**
-     * Fetches building data for the specified cell envelope and adds them to the provided list of buildings.
-     * @param connection      the database connection to use for querying the building data.
-     * @param tableInputSettings Database settings for the table
-     * @param fetchEnvelope   the envelope representing the cell to fetch building data for.
-     * @param buildings       the list to which the fetched buildings will be added.
-     * @param walls Wall list to feed
-     * @param geometryFactory geometry factory instance with SRID set.
-     * @throws SQLException   if an SQL exception occurs while fetching the building data.
-     */
-    public static void fetchCellBuildings(Connection connection,
-                                          TableInputSettings tableInputSettings,
-                                          Envelope fetchEnvelope,
-                                          List<Building> buildings,
-                                          List<Wall> walls,
-                                          GeometryFactory geometryFactory) throws SQLException {
-        Geometry envGeo = geometryFactory.toGeometry(fetchEnvelope);
-        String buildingTableName = tableInputSettings.getBuildingTableName();
-        String buldingAlphaFieldName = tableInputSettings.getBuildingAlphaField();
-        double buildingDefaultAlpha = tableInputSettings.getBuildingDefaultAlpha();
-        String buildingHeightFieldName = tableInputSettings.getBuildingHeightFieldName();
-        boolean buildingGeometryZ = tableInputSettings.useBuildingGeometryZ();
-
-
-        boolean fetchAlpha = JDBCUtilities.hasField(connection, buildingTableName, buldingAlphaFieldName);
-        String additionalQuery = "";
-        DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-        if(!buildingHeightFieldName.isEmpty()) {
-            additionalQuery += ", " + TableLocation.quoteIdentifier(buildingHeightFieldName, dbType);
-        }
-        if(fetchAlpha) {
-            additionalQuery += ", " + buldingAlphaFieldName;
-        }
-        String pkBuilding = "";
-        final int indexPk = JDBCUtilities.getIntegerPrimaryKey(connection.unwrap(Connection.class),
-                new TableLocation(buildingTableName, dbType));
-        if(indexPk > 0) {
-            pkBuilding = JDBCUtilities.getColumnName(connection, buildingTableName, indexPk);
-            additionalQuery += ", " + pkBuilding;
-        }
-        String buildingGeomName = getGeometryColumnNames(connection,
-                TableLocation.parse(buildingTableName, dbType)).get(0);
-        try (PreparedStatement st = connection.prepareStatement(
-                "SELECT " + TableLocation.quoteIdentifier(buildingGeomName) + additionalQuery + " FROM " +
-                        buildingTableName + " WHERE " +
-                        TableLocation.quoteIdentifier(buildingGeomName, dbType) + " && ?::geometry")) {
-            st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
-            try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
-                int columnIndex = 0;
-                if(!pkBuilding.isEmpty()) {
-                    columnIndex = JDBCUtilities.getFieldIndex(rs.getMetaData(), pkBuilding);
-                }
-                double oldAlpha = buildingDefaultAlpha;
-                while (rs.next()) {
-                    // Clip each building geometry to the fetched envelope to keep per-cell consistency.
-                    Geometry building = rs.getGeometry();
-                    if(building != null) {
-                        Geometry intersectedGeometry = null;
-                        try {
-                            intersectedGeometry = building.intersection(envGeo);
-                        } catch (TopologyException ex) {
-                            WKTWriter wktWriter = new WKTWriter(3);
-                            LOGGER.error(String.format("Error with input buildings geometry\n%s\n%s",wktWriter.write(building),wktWriter.write(envGeo)), ex);
-                        }
-                        if(intersectedGeometry instanceof Polygon || intersectedGeometry instanceof MultiPolygon || intersectedGeometry instanceof LineString) {
-                            if(fetchAlpha) {
-                                oldAlpha = rs.getDouble(buldingAlphaFieldName);
-                            }
-
-                            long pk = -1;
-                            if(columnIndex != 0) {
-                                pk = rs.getLong(columnIndex);
-                            }
-                            for(int i=0; i<intersectedGeometry.getNumGeometries(); i++) {
-                                Geometry geometry = intersectedGeometry.getGeometryN(i);
-                                if(geometry instanceof Polygon && !geometry.isEmpty()) {
-                                    Building poly = new Building((Polygon) geometry,
-                                            buildingHeightFieldName.isEmpty() ?
-                                                    Double.MAX_VALUE :
-                                                    rs.getDouble(buildingHeightFieldName),
-                                            oldAlpha, pk, buildingGeometryZ);
-                                    buildings.add(poly);
-                                } else if (geometry instanceof LineString) {
-                                    // Convert border lines into individual wall segments.
-                                    LineString lineString = (LineString) geometry;
-                                    Coordinate[] coordinates = lineString.getCoordinates();
-                                    for(int vertex=0; vertex < coordinates.length - 1; vertex++) {
-                                        Wall wall = new Wall(new LineSegment(coordinates[vertex], coordinates[vertex+1]),
-                                                -1, ProfileBuilder.IntersectionType.WALL);
-                                        wall.setG(oldAlpha);
-                                        wall.setPrimaryKey(pk);
-                                        wall.setHeight(buildingHeightFieldName.isEmpty() ?
-                                                Double.MAX_VALUE : rs.getDouble(buildingHeightFieldName));
-                                        walls.add(wall);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Fetches digital elevation model (DEM) data for the specified cell envelope and adds it to the mesh.
-     * @param connection the database connection to use for querying the DEM data.
-     * @param fetchEnvelope  the envelope representing the cell to fetch DEM data for.
-     * @param profileBuilder the profile builder mesh to which the DEM data will be added.
-     * @throws SQLException if an SQL exception occurs while fetching the DEM data.
-     */
-    public void fetchCellDem(Connection connection, CellSceneContext cellContext, Envelope fetchEnvelope, ProfileBuilder profileBuilder) throws SQLException {
-        String demTable = cellContext.getTerrainTableName();
-        if(!demTable.isEmpty()) {
-            GeometryFactory geometryFactory = cellContext.getGeometryFactory();
-            DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-            List<String> geomFields = getGeometryColumnNames(connection,
-                    TableLocation.parse(demTable, dbType));
-            if(geomFields.isEmpty()) {
-                throw new SQLException("Digital elevation model table \""+ demTable +"\" must exist and contain a POINT field");
-            }
-            String topoGeomName = geomFields.get(0);
-            double sumZ = 0;
-            int topoCount = 0;
-            try (PreparedStatement st = connection.prepareStatement(
-                    "SELECT " + TableLocation.quoteIdentifier(topoGeomName, dbType) + " FROM " +
-                            demTable + " WHERE " +
-                            TableLocation.quoteIdentifier(topoGeomName, dbType) + " && ?::geometry")) {
-                st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
-                try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
-                    while (rs.next()) {
-                        Geometry pt = rs.getGeometry();
-                        if(pt != null) {
-                            Coordinate ptCoordinate = pt.getCoordinate();
-                            profileBuilder.addTopographicPoint(ptCoordinate);
-                            if(!Double.isNaN(ptCoordinate.z)) {
-                                sumZ+=ptCoordinate.z;
-                                topoCount+=1;
-                            }
-                        }
-                    }
-                }
-                double averageZ = 0;
-                if(topoCount > 0) {
-                    averageZ = sumZ / topoCount;
-                }
-                // Add envelope corners to ensure topography continuity between neighboring cells.
-                Envelope extentedEnvelope = new Envelope(fetchEnvelope);
-                extentedEnvelope.expandBy(fetchEnvelope.getDiameter());
-                Coordinate[] coordinates = geometryFactory.toGeometry(extentedEnvelope).getCoordinates();
-                for (int i = 0; i < coordinates.length - 1; i++) {
-                    Coordinate coordinate = coordinates[i];
-                    profileBuilder.addTopographicPoint(new Coordinate(coordinate.x, coordinate.y, averageZ));
-                }
-            }
-        }
-    }
-
-
-    /**
-     * Fetches soil areas data for the specified cell envelope and adds them to the profile builder.
-     * @param connection         the database connection to use for querying the soil areas data.
-     * @param fetchEnvelope      the envelope representing the cell to fetch soil areas data for.
-     * @param builder            the profile builder to which the soil areas data will be added.
-     * @throws SQLException      if an SQL exception occurs while fetching the soil areas data.
-     */
-    protected void fetchCellSoilAreas(Connection connection, CellSceneContext cellContext, Envelope fetchEnvelope, ProfileBuilder builder)
-            throws SQLException {
-        String soilTableName = cellContext.getGroundTableName();
-        if(!soilTableName.isEmpty()){
-            GeometryFactory geometryFactory = cellContext.getGeometryFactory();
-            DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-            double startX = Math.floor(fetchEnvelope.getMinX() / groundSurfaceSplitSideLength) * groundSurfaceSplitSideLength;
-            double startY = Math.floor(fetchEnvelope.getMinY() / groundSurfaceSplitSideLength) * groundSurfaceSplitSideLength;
-            String soilGeomName = getGeometryColumnNames(connection,
-                    TableLocation.parse(soilTableName, dbType)).get(0);
-            try (PreparedStatement st = connection.prepareStatement(
-                    "SELECT " + TableLocation.quoteIdentifier(soilGeomName, dbType) + ", G FROM " +
-                            soilTableName + " WHERE " +
-                            TableLocation.quoteIdentifier(soilGeomName, dbType) + " && ?::geometry")) {
-                st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
-                try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
-                    while (rs.next()) {
-                        Geometry mainPolygon = rs.getGeometry();
-                        if(mainPolygon != null) {
-                            for (int idPoly = 0; idPoly < mainPolygon.getNumGeometries(); idPoly++) {
-                                Geometry poly = mainPolygon.getGeometryN(idPoly);
-                                if (poly instanceof Polygon) {
-                                    PreparedPolygon preparedPolygon = new PreparedPolygon((Polygon) poly);
-                                    // Split large soil polygons into regular tiles to reduce intersection cost.
-                                    Envelope geoEnv = poly.getEnvelopeInternal();
-                                    double startXGeo = Math.max(startX, Math.floor(geoEnv.getMinX() / groundSurfaceSplitSideLength) * groundSurfaceSplitSideLength);
-                                    double startYGeo = Math.max(startY, Math.floor(geoEnv.getMinY() / groundSurfaceSplitSideLength) * groundSurfaceSplitSideLength);
-                                    double xCursor = startXGeo;
-                                    double g = rs.getDouble("G");
-                                    double maxX = Math.min(fetchEnvelope.getMaxX(), geoEnv.getMaxX());
-                                    double maxY = Math.min(fetchEnvelope.getMaxY(), geoEnv.getMaxY());
-                                    while (xCursor < maxX) {
-                                        double yCursor = startYGeo;
-                                        while (yCursor < maxY) {
-                                            Envelope cellEnv = new Envelope(xCursor, xCursor + groundSurfaceSplitSideLength, yCursor, yCursor + groundSurfaceSplitSideLength);
-                                            Geometry envGeom = geometryFactory.toGeometry(cellEnv);
-                                            if(preparedPolygon.intersects(envGeom)) {
-                                                try {
-                                                    Geometry inters = poly.intersection(envGeom);
-                                                    if (!inters.isEmpty() && (inters instanceof Polygon || inters instanceof MultiPolygon)) {
-                                                        builder.addGroundEffect(inters, g);
-                                                    }
-                                                } catch (TopologyException | IllegalArgumentException ex) {
-                                                    // Ignore
-                                                }
-                                            }
-                                            yCursor += groundSurfaceSplitSideLength;
-                                        }
-                                        xCursor += groundSurfaceSplitSideLength;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Fetches bridge data for the specified cell envelope and adds them to the profile builder.
-     * Reads BRIDGE_POINTS table, groups points by BRIDGE_PK, and creates Bridge objects
-     * using Bridge.Builder pattern.
-     * @param connection      the database connection to use for querying the bridge points data.
-     * @param fetchEnvelope   the envelope representing the cell to fetch bridge data for.
-     * @param builder         the profile builder to which the bridges will be added.
-     * @param geometryFactory geometry factory instance with SRID set.
-     * @throws SQLException   if an SQL exception occurs while fetching the bridge data.
-     */
-    public void fetchCellBridge(Connection connection, CellSceneContext cellContext, Envelope fetchEnvelope, ProfileBuilder builder) throws SQLException {
-        
-        GeometryFactory geometryFactory = cellContext.getGeometryFactory();
-        String bridgePointsTableName = cellContext.getBridgePointTableName();
-        if(!bridgePointsTableName.isEmpty()) {
-            DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-            List<String> geomFields = getGeometryColumnNames(connection,
-                    TableLocation.parse(bridgePointsTableName, dbType));
-            if(geomFields.isEmpty()) {
-                throw new SQLException("Bridge points table \"" + bridgePointsTableName + "\" must exist and contain a POINT field");
-            }
-            String bridgeGeomName = geomFields.get(0);
-            
-            // Load all bridge points within the envelope
-            List<BridgePoint> bridgePointsList = new ArrayList<>();
-            try (PreparedStatement st = connection.prepareStatement(
-                    "SELECT * FROM " + bridgePointsTableName + " WHERE " +
-                            TableLocation.quoteIdentifier(bridgeGeomName, dbType) + " && ?::geometry ORDER BY PK")) {
-                st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
-                try (ResultSet rs = st.executeQuery()) {
-                    while (rs.next()) {
-                        bridgePointsList.add(new BridgePoint(rs));
-                    }
-                }
-            }
-
-            List<Bridge> bridges = Bridge.createBridgesFromPoints(bridgePointsList);
-
-            for (Bridge bridge : bridges) {
-                builder.addBridge(bridge);
-            }
-            
-        }
-    }
-
-    /**
      * Fetches receivers data for the specified cell envelope and adds them to the profile builder.
      * @param connection         the database connection to use for querying the receivers data.
      * @param cellEnvelope       the envelope representing the cell to fetch receivers data for.
@@ -780,10 +485,10 @@ public class DefaultTableLoader implements TableLoader {
      */
     public void fetchCellSource(Connection connection, CellSceneContext cellContext, Envelope fetchEnvelope, SceneWithEmission scene, boolean doIntersection)
             throws SQLException {
-        String sourcesTableName = cellContext.getSourceTableName();
+        String sourceTableName = cellContext.getSourceTableName();
         GeometryFactory geometryFactory = cellContext.getGeometryFactory();
         DBTypes dbType = DBUtils.getDBType(connection.unwrap(Connection.class));
-        TableLocation sourceTableIdentifier = TableLocation.parse(sourcesTableName, dbType);
+        TableLocation sourceTableIdentifier = TableLocation.parse(sourceTableName, dbType);
         List<String> geomFields = getGeometryColumnNames(connection, sourceTableIdentifier);
         if (geomFields.isEmpty()) {
             throw new SQLException(String.format("The table %s does not exists or does not contain a geometry field", sourceTableIdentifier));
@@ -791,12 +496,12 @@ public class DefaultTableLoader implements TableLoader {
         String sourceGeomName = geomFields.get(0);
         Geometry domainConstraint = geometryFactory.toGeometry(fetchEnvelope);
         Tuple<String, Integer> primaryKey = JDBCUtilities.getIntegerPrimaryKeyNameAndIndex(
-                connection.unwrap(Connection.class), new TableLocation(sourcesTableName, dbType));
+                connection.unwrap(Connection.class), new TableLocation(sourceTableName, dbType));
         if (primaryKey == null) {
             throw new IllegalArgumentException(String.format("Source table %s does not contain a primary key", sourceTableIdentifier));
         }
         int pkIndex = primaryKey.second();
-        try (PreparedStatement st = connection.prepareStatement("SELECT * FROM " + sourcesTableName + " WHERE "
+        try (PreparedStatement st = connection.prepareStatement("SELECT * FROM " + sourceTableName + " WHERE "
                 + TableLocation.quoteIdentifier(sourceGeomName) + " && ?::geometry")) {
             st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
             st.setFetchSize(fetchSize);
@@ -817,7 +522,7 @@ public class DefaultTableLoader implements TableLoader {
                             for (Coordinate coordinate : coordinates) {
                                 // check z value
                                 if (coordinate.getZ() == Coordinate.NULL_ORDINATE) {
-                                    throw new IllegalArgumentException("The table " + sourcesTableName +
+                                    throw new IllegalArgumentException("The table " + sourceTableName +
                                             " contain at least one source without Z ordinate." +
                                             " You must specify X,Y,Z for each source");
                                 }
@@ -833,11 +538,11 @@ public class DefaultTableLoader implements TableLoader {
             }
         }
         // Fetch emission records for sources falling in the same envelope.
-        String emissionTableName = scene.getSceneDatabaseInputSettings().getSourcesEmissionTableName();
+        String emissionTableName = scene.getEmissionInputSettings().getSourcesEmissionTableName();
         if (!emissionTableName.isEmpty()) {
-            try (PreparedStatement st = connection.prepareStatement("SELECT E.* FROM " + sourcesTableName +
+            try (PreparedStatement st = connection.prepareStatement("SELECT E.* FROM " + sourceTableName +
                     " S INNER JOIN "+emissionTableName+" E ON S."+primaryKey.first()+" = E." +
-                scene.getSceneDatabaseInputSettings().getSourceEmissionPrimaryKeyField()+" WHERE S."
+                scene.getEmissionInputSettings().getSourceEmissionPrimaryKeyField()+" WHERE S."
                     + TableLocation.quoteIdentifier(sourceGeomName) + " && ?::geometry")) {
                 st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
                 st.setFetchSize(fetchSize);
@@ -848,7 +553,7 @@ public class DefaultTableLoader implements TableLoader {
                 st.setFetchDirection(ResultSet.FETCH_FORWARD);
                 try (ResultSet rs = st.executeQuery()) {
                     while (rs.next()) {
-                        scene.registerSourceEmissionFromDb(rs.getLong(scene.getSceneDatabaseInputSettings().getSourceEmissionPrimaryKeyField()), rs);
+                        scene.registerSourceEmissionFromDb(rs.getLong(scene.getEmissionInputSettings().getSourceEmissionPrimaryKeyField()), rs);
                     }
                 } finally {
                     if (autoCommit) {

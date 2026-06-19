@@ -108,14 +108,14 @@ public class Main {
                     .setTerrainTableName("DEM")
                     .build();
             
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                     .setMaximumError(0.1d)
                     .build();
             
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setThreadCount(1)
                     .setGridDim(2)
                     .setComputeRaysOutFactory(tableWriter)

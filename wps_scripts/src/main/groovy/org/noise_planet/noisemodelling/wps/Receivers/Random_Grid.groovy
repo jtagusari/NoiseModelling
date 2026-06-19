@@ -51,7 +51,7 @@ inputs = [
                              '<li> <b>HEIGHT</b>: the height of the building (FLOAT)</li></ul>',
                 type       : String.class
         ],
-        sourcesTableName : [
+        sourceTableName : [
                 name       : 'Sources table name',
                 title      : 'Sources table name',
                 description: 'Keep only receivers at least at 1 meters of provided sources geometries </br> </br>' +
@@ -156,8 +156,8 @@ def exec(Connection connection, input) {
     }
 
     String sources_table_name = "SOURCES"
-    if (input['sourcesTableName']) {
-        sources_table_name = input['sourcesTableName']
+    if (input['sourceTableName']) {
+        sources_table_name = input['sourceTableName']
     }
     sources_table_name = sources_table_name.toUpperCase()
 
@@ -169,7 +169,7 @@ def exec(Connection connection, input) {
 
     // Reproject fence
     int targetSrid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(building_table_name))
-    if (targetSrid == 0 && input['sourcesTableName']) {
+    if (targetSrid == 0 && input['sourceTableName']) {
         targetSrid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(sources_table_name))
     }
 
@@ -220,7 +220,7 @@ def exec(Connection connection, input) {
     }
 
     logger.info('Delete receivers where sound sources...')
-    if (input['sourcesTableName']) {
+    if (input['sourceTableName']) {
         //Delete receivers near sources
         sql.execute("delete from " + receivers_table_name + " g where exists (select 1 from " + sources_table_name + " r where st_expand(g.the_geom, 1) && r.the_geom and st_distance(g.the_geom, r.the_geom) < 1 limit 1);")
     }

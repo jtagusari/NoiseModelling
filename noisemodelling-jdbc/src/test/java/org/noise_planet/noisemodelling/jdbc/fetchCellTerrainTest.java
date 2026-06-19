@@ -21,18 +21,18 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Test for DEM (terrain) point loading and envelope-based filtering.
  *
- * This mirrors the style of FetchCellBuildingsTest but focuses on DEM points
+ * This mirrors the style of fetchCellBuildingTest but focuses on DEM points
  * that represent ground elevation samples used to seed the ProfileBuilder.
  */
-public class FetchCellDemTest {
+public class fetchCellTerrainTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FetchCellDemTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(fetchCellTerrainTest.class);
     private Connection connection;
 
     @BeforeEach
     public void setUp() throws Exception {
         connection = JDBCUtilities.wrapConnection(H2GISDBFactory.createSpatialDataBase(
-                FetchCellDemTest.class.getSimpleName(), true, ""));
+                fetchCellTerrainTest.class.getSimpleName(), true, ""));
     }
 
     @AfterEach
@@ -67,11 +67,11 @@ public class FetchCellDemTest {
     }
 
     @Test
-    public void testFetchCellDemBasic() throws Exception {
+    public void testfetchCellTerrainBasic() throws Exception {
         loadTestDemPoints();
 
         LOGGER.info("========================================");
-        LOGGER.info("testFetchCellDemBasic: DEM Points Loading Test");
+        LOGGER.info("testfetchCellTerrainBasic: DEM Points Loading Test");
         LOGGER.info("========================================");
 
         try (Statement st = connection.createStatement()) {

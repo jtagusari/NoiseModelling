@@ -26,7 +26,7 @@ title = 'Compute Road Emission'
 description = '&#10145;&#65039; Compute Road Emission Noise Map from Estimated Annual average daily flows (TMJA) estimates. '
 
 inputs = [databaseName    : [name: 'Name of the database', title: 'Name of the database', description: 'Name of the database (default : first found db)', min: 0, max: 1, type: String.class],
-          sourcesTableName: [name: 'Sources table name', title: 'Sources table name', type: String.class]]
+          sourceTableName: [name: 'Sources table name', title: 'Sources table name', type: String.class]]
 
 outputs = [result: [name: 'result', title: 'Result', type: String.class]]
 
@@ -48,8 +48,8 @@ def run(input) {
     // Get inputs
     // -------------------
     String sources_table_name = "SOURCES"
-    if (input['sourcesTableName']) {
-        sources_table_name = input['sourcesTableName']
+    if (input['sourceTableName']) {
+        sources_table_name = input['sourceTableName']
     }
     sources_table_name = sources_table_name.toUpperCase()
 

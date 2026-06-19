@@ -12,7 +12,7 @@ package org.noise_planet.noisemodelling.jdbc.output;
 import org.h2gis.api.ProgressVisitor;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
@@ -464,13 +464,13 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
     }
 
     private boolean isComputeLden() {
-        SceneDatabaseInputSettings.INPUT_MODE inputMode =
-                multiThread.sceneWithEmission.getSceneDatabaseInputSettings().getInputMode();
+        EmissionInputSettings.INPUT_MODE inputMode =
+                multiThread.sceneWithEmission.getEmissionInputSettings().getInputMode();
 
         // Some input use convention source Day Evening and Night, and the expected result must also include
         // DEN which is a special mix of the three periods
-        return inputMode.equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN) ||
-                inputMode.equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
+        return inputMode.equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN) ||
+                inputMode.equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
     }
 
 

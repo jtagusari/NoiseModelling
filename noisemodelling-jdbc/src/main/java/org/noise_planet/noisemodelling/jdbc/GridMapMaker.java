@@ -19,13 +19,10 @@ import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.flatbuffers.Table;
-
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 
 import java.sql.*;
 
-import static org.h2gis.utilities.GeometryTableUtilities.getGeometryColumnNames;
 import static org.h2gis.utilities.GeometryTableUtilities.getSRID;
 /**
  * Shared grid and input-table configuration for map makers.
@@ -41,6 +38,7 @@ public abstract class GridMapMaker {
 
     protected final TableInputSettings tableInputSettings;
     protected final PropagationSettings propagationSettings;
+    protected final ComputationSettings computationSettings;
 
     protected GeometryFactory geometryFactory;
 
@@ -51,10 +49,11 @@ public abstract class GridMapMaker {
     protected Envelope mainEnvelope = new Envelope();
     protected int gridDim;
 
-    public GridMapMaker(TableInputSettings tableInputSettings, PropagationSettings propagationSettings) {
+    public GridMapMaker(TableInputSettings tableInputSettings, PropagationSettings propagationSettings, ComputationSettings computationSettings) {
         this.tableInputSettings = tableInputSettings;
         this.propagationSettings = propagationSettings;
-        this.gridDim = propagationSettings.getGridDim();
+        this.computationSettings = computationSettings;
+        this.gridDim = computationSettings.getGridDim();
     }
 
 
@@ -98,7 +97,11 @@ public abstract class GridMapMaker {
     }
 
     public double getGroundSurfaceSplitSideLength() {
-        return propagationSettings.getGroundSurfaceSplitSideLength();
+        return computationSettings.getGroundSurfaceSplitSideLength();
+    }
+
+    public ComputationSettings getComputationSettings() {
+        return computationSettings;
     }
 
     public double getCellWidth() {
@@ -235,7 +238,7 @@ public abstract class GridMapMaker {
     }
 
     /**
-     * Field name of the {@link #sourcesTableName}HERTZ. Where HERTZ is a number [100-5000].
+     * Field name of the {@link #sourceTableName}HERTZ. Where HERTZ is a number [100-5000].
      * Without the hertz value.
      * @return Hertz field prefix
      */

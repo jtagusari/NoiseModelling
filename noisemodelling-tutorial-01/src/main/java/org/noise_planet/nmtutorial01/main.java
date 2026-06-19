@@ -11,9 +11,10 @@ import org.h2gis.utilities.dbtypes.DBUtils;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
+import org.noise_planet.noisemodelling.jdbc.ComputationSettings;
 import org.noise_planet.noisemodelling.jdbc.ReceiverGenerationSettings;
 import org.noise_planet.noisemodelling.jdbc.DelaunayReceiversMaker;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
@@ -94,30 +95,36 @@ class Main {
                 .setMaximumPropagationDistance(100.0)
                 .setMaximumReflectionDistance(100.0)
                 .setGs(0)
-                .setGroundSurfaceSplitSideLength(200)
                 .setSoundReflectionOrder(0)
                 .setBodyBarrier(false)
                 .setComputeHorizontalDiffraction(false)
                 .setComputeVerticalDiffraction(true)
+                .build();
+
+        ComputationSettings computationSettings = new ComputationSettings.Builder()
                 .setGridDim(1)
+                .setGroundSurfaceSplitSideLength(200)
                 .build();
 
         DelaunayReceiversMaker noiseMap = new DelaunayReceiversMaker.Builder()
                 .setTableInputSettings(tableInputSettingsForReceiver)
                 .setReceiverGenerationSettings(receiverGenerationSettings)
                 .setPropagationSettings(propagationSettings)
+                .setComputationSettings(computationSettings)
                 .build();
 
         sql.execute("DROP TABLE IF EXISTS RECEIVERS;");
         sql.execute("DROP TABLE IF EXISTS TRIANGLES;");
 
         noiseMap.run(connection, "RECEIVERS", "TRIANGLES");
+        String periodAtmosphericSettingsTableName = "ATMOSPHERIC_SETTINGS";
 
         // Import MNT
         TableInputSettings tableInputSettingsForLevel = new TableInputSettings.Builder()
                 .inheritTableInputSettings(tableInputSettingsForReceiver)
                 .setReceiverTableName("RECEIVERS")                
                 .setTerrainTableName(tableDemLorient.toString())
+                .setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName)
                 .build();
 
 
@@ -131,17 +138,16 @@ class Main {
 
         RootProgressVisitor progressLogger = new RootProgressVisitor(1, true, 1);
 
-        String atmosphericSettingsTableName = "ATMOSPHERIC_SETTINGS";
 
-        sql.execute("DROP TABLE IF EXISTS " + atmosphericSettingsTableName + ";");
+        sql.execute("DROP TABLE IF EXISTS " + periodAtmosphericSettingsTableName + ";");
 
         AttenuationParameters defaultParameters = new AttenuationParameters();
         defaultParameters.setTemperature(20);
-        defaultParameters.writeToDatabase(connection, atmosphericSettingsTableName, "D");
+        defaultParameters.writeToDatabase(connection, periodAtmosphericSettingsTableName, "D");
         defaultParameters.setTemperature(16);
-        defaultParameters.writeToDatabase(connection, atmosphericSettingsTableName, "E");
+        defaultParameters.writeToDatabase(connection, periodAtmosphericSettingsTableName, "E");
         defaultParameters.setTemperature(10);
-        defaultParameters.writeToDatabase(connection, atmosphericSettingsTableName, "N");
+        defaultParameters.writeToDatabase(connection, periodAtmosphericSettingsTableName, "N");
 
         
         CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
@@ -149,15 +155,14 @@ class Main {
                 .setExportReceiverPosition(true)
                 .build();
         
-        SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+        EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                 .setFrequencyFieldPrepend("LW")
-                .setPeriodAtmosphericSettingsTableName(atmosphericSettingsTableName)
                 .build();
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                 .setTableInputSettings(tableInputSettingsForLevel)
                 .setPropagationSettings(propagationSettings)
-                .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                .setEmissionInputSettings(emissionInputSettings)
                 .setCalculationIOSettings(calculationIOSettings)
                 .build();
 

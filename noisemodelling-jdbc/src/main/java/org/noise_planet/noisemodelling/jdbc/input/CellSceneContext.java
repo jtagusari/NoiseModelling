@@ -11,6 +11,7 @@ package org.noise_planet.noisemodelling.jdbc.input;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
+import org.noise_planet.noisemodelling.jdbc.ComputationSettings;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
 
 /**
@@ -27,6 +28,7 @@ public interface CellSceneContext {
     double getMaximumReflectionDistance();
     /** @return Building table and associated field settings. */
     TableInputSettings getTableInputSettings();
+    ComputationSettings getComputationSettings();
     /** @return Maximum reflection order to compute. */
     int getSoundReflectionOrder();
     /** @return Whether body-barrier mode is enabled. */
@@ -46,5 +48,5 @@ public interface CellSceneContext {
     /** @return Source geometry table name. */
     String getSourceTableName();
     /** @return Input-mode and emission/directivity settings used to build scenes. */
-    SceneDatabaseInputSettingsView getSceneInputSettings();
+    EmissionInputSettingsView getEmissionInputSettings();
 }

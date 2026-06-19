@@ -9,8 +9,13 @@
 package org.noise_planet.noisemodelling.jdbc.input;
 
 /**
- * @deprecated Use {@link EmissionInputSettingsView} instead.
+ * Read-only view of emission input settings.
  */
-@Deprecated
-public interface SceneDatabaseInputSettingsView extends EmissionInputSettingsView {
+public interface EmissionInputSettingsView {
+    EmissionInputSettings.INPUT_MODE getInputMode();
+    String getSourcesEmissionTableName();
+    String getSourceEmissionPrimaryKeyField();
+    String getDirectivityTableName();
+    boolean isUseTrainDirectivity();
+    String getFrequencyFieldPrepend();
 }

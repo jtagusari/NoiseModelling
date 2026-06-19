@@ -35,7 +35,7 @@ import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings.ExportRaysMeth
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader
 import org.noise_planet.noisemodelling.jdbc.TableInputSettings
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.RootProgressVisitor
 import org.noise_planet.noisemodelling.propagation.AttenuationParameters
@@ -63,13 +63,15 @@ inputs = [
         tableBuilding           : [
                 name       : 'Buildings table name',
                 title      : 'Buildings table name',
-                description: '&#127968; Name of the Buildings table</br> </br>' +
+                description: '&#127968; Name of the Buildings table (optional). When omitted, propagation is computed without building obstacles.</br> </br>' +
                         'The table must contain: </br><ul>' +
                         '<li><b> THE_GEOM </b>: the 2D geometry of the building (POLYGON or MULTIPOLYGON)</li>' +
                         '<li><b> HEIGHT </b>: the height of the building (FLOAT)</li>' +
                         '<li><b> G </b>: Optional, Wall absorption value if g is [0, 1] or wall surface impedance' +
                         ' ([N.s.m-4] static air flow resistivity of material) if G is [20, 20000]' +
                         ' (default is 0.1 if the column G does not exists) (FLOAT)</li></ul>',
+                min        : 0,
+                max        : 1,
                 type       : String.class
         ],
         tableSources            : [
@@ -373,14 +375,15 @@ def exec(Connection connection, Map input) {
         throw new IllegalArgumentException(String.format("Source table %s does not contain a primary key", receiverTableIdentifier))
     }
 
-    String building_table_name = input['tableBuilding']
-    // do it case-insensitive
-    building_table_name = building_table_name.toUpperCase()
-    // Check if srid are in metric projection and are all the same.
-    int sridBuildings = GeometryTableUtilities.getSRID(connection, TableLocation.parse(building_table_name))
-    if (sridBuildings == 3785 || sridReceivers == 4326) throw new IllegalArgumentException("Error : Please use a metric projection for "+building_table_name+".")
-    if (sridBuildings == 0) throw new IllegalArgumentException("Error : The table "+building_table_name+" does not have an associated SRID.")
-    if (sridReceivers != sridBuildings) throw new IllegalArgumentException("Error : The SRID of table "+building_table_name+" and "+receivers_table_name+" are not the same.")
+    String building_table_name = ""
+    if (input['tableBuilding']) {
+        building_table_name = (input['tableBuilding'] as String).toUpperCase()
+        // Check if srid are in metric projection and are all the same.
+        int sridBuildings = GeometryTableUtilities.getSRID(connection, TableLocation.parse(building_table_name))
+        if (sridBuildings == 3785 || sridReceivers == 4326) throw new IllegalArgumentException("Error : Please use a metric projection for "+building_table_name+".")
+        if (sridBuildings == 0) throw new IllegalArgumentException("Error : The table "+building_table_name+" does not have an associated SRID.")
+        if (sridReceivers != sridBuildings) throw new IllegalArgumentException("Error : The SRID of table "+building_table_name+" and "+receivers_table_name+" are not the same.")
+    }
 
     String dem_table_name = ""
     if (input['tableDEM']) {
@@ -521,10 +524,9 @@ def exec(Connection connection, Map input) {
         periodAtmosphericSettingsTableName = input.get("tablePeriodAtmosphericSettings") as String
     }
 
-    SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+    EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
         .setUseTrainDirectivity(useTrainDirectivity)
         .setDirectivityTableName(tableSourceDirectivity)
-        .setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName)
         .setSourcesEmissionTableName(tableSourcesEmission)
         .setFrequencyFieldPrepend(frequencyFieldPrepend)
         .build()
@@ -563,6 +565,7 @@ def exec(Connection connection, Map input) {
         .setReceiverTableName(receivers_table_name)
         .setTerrainTableName(dem_table_name)
         .setGroundTableName(ground_table_name)
+        .setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName)
         .build()
     
 
@@ -589,7 +592,7 @@ def exec(Connection connection, Map input) {
 
     NoiseMapByReceiverMaker pointNoiseMap = new NoiseMapByReceiverMaker.Builder()
         .setTableInputSettings(tableInputSettings)
-        .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+        .setEmissionInputSettings(emissionInputSettings)
         .setCalculationIOSettings(calculationIOSettings)
         .setPropagationSettings(propagationSettings)
         .setTableLoader(tableLoader)

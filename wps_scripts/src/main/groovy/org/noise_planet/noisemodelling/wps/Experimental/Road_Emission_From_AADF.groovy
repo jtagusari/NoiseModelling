@@ -30,7 +30,7 @@ description = '&#10145;&#65039; Compute Road Emission Noise Map from Estimated A
               'The average traffic is first converted to hourly traffic before the calculation of Lday, Levening and Lnight using distribution in Berengier et al., 2019 : "DEUFRABASE: A Simple Tool for the Evaluation of the Noise Impact of Pavements in Typical Road Geometries".'
 
 inputs = [databaseName      : [name: 'Name of the database', title: 'Name of the database', description: 'Name of the database (default : first found db)', min: 0, max: 1, type: String.class],
-          sourcesTableName  : [name: 'Sources table name', title: 'Sources table name', type: String.class]]
+          sourceTableName  : [name: 'Sources table name', title: 'Sources table name', type: String.class]]
 
 outputs = [result: [name: 'result', title: 'Result', type: String.class]]
 
@@ -68,8 +68,8 @@ def exec(connection, input) {
     // Get inputs
     // -------------------
     String sources_table_name = "SOURCES"
-    if (input['sourcesTableName']) {
-        sources_table_name = input['sourcesTableName']
+    if (input['sourceTableName']) {
+        sources_table_name = input['sourceTableName']
     }
     sources_table_name = sources_table_name.toUpperCase()
 

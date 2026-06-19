@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.pathfinder.utils.profiler.DefaultProgressVisitor;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
@@ -232,8 +232,8 @@ public class ReceiverIdentificationTest {
 
             // initialize DefaultTableLoader
             DefaultTableLoader tableLoader = new DefaultTableLoader();
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION)
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                    .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION)
                     .build();
             
             TableInputSettings tableInputSettings = new TableInputSettings.Builder()
@@ -244,7 +244,7 @@ public class ReceiverIdentificationTest {
 
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setThreadCount(1)
                     .build();
 

@@ -135,7 +135,7 @@ class TestReceivers extends JdbcTestCase {
         new Building_Grid().exec(connection,  ["tableBuilding" : "BUILDINGS",
                                                "delta" : 5,
                                                 "height" : 6,
-                                               "sourcesTableName" : "ROADS",
+                                               "sourceTableName" : "ROADS",
                                                "fenceTableName" : "BUILDINGS"])
 
 
@@ -167,7 +167,7 @@ class TestReceivers extends JdbcTestCase {
         new Building_Grid().exec(connection,  ["tableBuilding" : "BUILDINGS",
                                                "delta" : 5,
                                                "height" : 6,
-                                               "sourcesTableName" : "ROADS",
+                                               "sourceTableName" : "ROADS",
                                                "fenceTableName" : "BUILDINGS"])
 
         def receivers_pop = sql.firstRow("SELECT sum(pop) from receivers")[0] as Double
@@ -216,7 +216,7 @@ class TestReceivers extends JdbcTestCase {
         sql.execute("CREATE SPATIAL INDEX ON ROADS(THE_GEOM)")
 
         new Delaunay_Grid().exec(connection, ["buildingTableName": "BUILDINGS",
-                                              "sourcesTableName" : "ROADS",
+                                              "sourceTableName" : "ROADS",
                                               "fenceNegativeBuffer": 500]);
 
 
@@ -234,7 +234,7 @@ class TestReceivers extends JdbcTestCase {
         sql.execute("CREATE SPATIAL INDEX ON ROADS(THE_GEOM)")
 
         new Delaunay_Grid().exec(connection, ["buildingTableName" : "BUILDINGS",
-        "sourcesTableName" : "ROADS"]);
+        "sourceTableName" : "ROADS"]);
 
 
         assertEquals(2154, GeometryTableUtilities.getSRID(connection, TableLocation.parse("RECEIVERS")))
@@ -265,7 +265,7 @@ class TestReceivers extends JdbcTestCase {
         new Clean_Buildings_Table().exec(connection, ["tableName": "buildings"])
 
         new Delaunay_Grid().exec(connection, ["buildingTableName" : "BUILDINGS",
-                                              "sourcesTableName" : "ROADS"]);
+                                              "sourceTableName" : "ROADS"]);
 
         assertEquals(2154, GeometryTableUtilities.getSRID(connection, TableLocation.parse("RECEIVERS")))
 
@@ -291,7 +291,7 @@ class TestReceivers extends JdbcTestCase {
         SHPRead.importTable(connection, TestReceivers.getResource("roads.shp").getPath())
 
         new Random_Grid().exec(connection,  ["buildingTableName" : "BUILDINGS",
-                                             "sourcesTableName" : "ROADS",
+                                             "sourceTableName" : "ROADS",
                                              "nReceivers" : 200])
 
         assertTrue(200 >= (sql.firstRow("SELECT COUNT(*) CPT FROM RECEIVERS")[0] as Integer))
@@ -306,7 +306,7 @@ class TestReceivers extends JdbcTestCase {
         SHPRead.importTable(connection, TestReceivers.getResource("roads.shp").getPath())
 
         new Random_Grid().exec(connection,  ["buildingTableName" : "BUILDINGS",
-                                             "sourcesTableName" : "ROADS",
+                                             "sourceTableName" : "ROADS",
                                              "nReceivers" : 200,
                                             "fenceTableName" : "BUILDINGS"])
 
@@ -329,7 +329,7 @@ class TestReceivers extends JdbcTestCase {
         def gFence = ST_Transform.ST_Transform(connection, g, 4326)
 
         new Random_Grid().exec(connection,  ["buildingTableName" : "BUILDINGS",
-                                             "sourcesTableName" : "ROADS",
+                                             "sourceTableName" : "ROADS",
                                              "nReceivers" : 200,
                                              "fence" : gFence.toString()])
 
@@ -355,7 +355,7 @@ class TestReceivers extends JdbcTestCase {
         def gFence = ST_Transform.ST_Transform(connection, ST_SetSRID.setSRID(g, 2154), 4326)
 
         new Regular_Grid().exec(connection,  ["buildingTableName": "BUILDINGS",
-                                              "sourcesTableName" : "ROADS",
+                                              "sourceTableName" : "ROADS",
                                               "delta" : 50,
                                               "fence" : gFence.toString()])
 
@@ -370,7 +370,7 @@ class TestReceivers extends JdbcTestCase {
         SHPRead.importTable(connection, TestReceivers.getResource("roads.shp").getPath())
 
         new Regular_Grid().exec(connection,  ["buildingTableName": "BUILDINGS",
-                                              "sourcesTableName" : "ROADS",
+                                              "sourceTableName" : "ROADS",
                                               "delta" : 50,
                                               "fenceTableName" : "BUILDINGS"])
 
@@ -393,7 +393,7 @@ class TestReceivers extends JdbcTestCase {
         def gFence = ST_Transform.ST_Transform(connection, g, 4326)
 
         new Regular_Grid().exec(connection,  ["buildingTableName" : "BUILDINGS",
-                                             "sourcesTableName" : "ROADS",
+                                             "sourceTableName" : "ROADS",
                                              "delta" : 1,
                                              "fence" : gFence.toString()])
 

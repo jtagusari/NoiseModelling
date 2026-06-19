@@ -20,7 +20,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.WKTWriter;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.output.NoiseMapWriter;
@@ -74,13 +74,13 @@ public class NoiseMapByReceiverMakerTest {
                     .setReceiverTableName("RECEIVERS")
                     .setGroundTableName("LAND_G")
                     .build();
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_GUESS)
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                    .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_GUESS)
                     .setFrequencyFieldPrepend("DB_M")
                     .build();
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .build();
 
             noiseMapByReceiverMaker.initialize(connection, new EmptyProgressVisitor());
@@ -157,21 +157,20 @@ public class NoiseMapByReceiverMakerTest {
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(1000)
                     .setBodyBarrier(true)
-                    .build();
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
-                    .setFrequencyFieldPrepend("HZ")
                     .setCoefficientVersion(1)
+                    .build();
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                    .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("HZ")
                     .setUseTrainDirectivity(true)
                     .build();
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
-                    .setCoefficientVersion(1)
                     .build();
 
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
 
@@ -209,11 +208,11 @@ public class NoiseMapByReceiverMakerTest {
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(1000)
                     .setBodyBarrier(true)
-                    .build();
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
-                    .setFrequencyFieldPrepend("HZ")
                     .setCoefficientVersion(1)
+                    .build();
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                    .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("HZ")
                     .setUseTrainDirectivity(true)
                     .build();
             TableInputSettings tableInputSettings = new TableInputSettings.Builder()
@@ -223,7 +222,6 @@ public class NoiseMapByReceiverMakerTest {
                     .setReceiverTableName("RECEIVERS")
                     .build();
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
-                    .setCoefficientVersion(1)
                     .setExportRaysMethod(CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE)
                     .setExportAttenuationMatrix(true)
                     .setExportCnossosPathWithAttenuation(true)
@@ -232,7 +230,7 @@ public class NoiseMapByReceiverMakerTest {
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
 
@@ -306,11 +304,11 @@ public class NoiseMapByReceiverMakerTest {
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(1000)
                     .setBodyBarrier(true)
-                    .build();
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
-                    .setFrequencyFieldPrepend("HZ")
                     .setCoefficientVersion(1)
+                    .build();
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                    .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+                    .setFrequencyFieldPrepend("HZ")
                     .setUseTrainDirectivity(true)
                     .build();
             TableInputSettings tableInputSettings = new TableInputSettings.Builder()
@@ -320,7 +318,6 @@ public class NoiseMapByReceiverMakerTest {
                     .setReceiverTableName("RECEIVERS")
                     .build();
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
-                    .setCoefficientVersion(1)
                     .setExportRaysMethod(CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE)
                     .setExportAttenuationMatrix(true)
                     .setExportCnossosPathWithAttenuation(true)
@@ -329,7 +326,7 @@ public class NoiseMapByReceiverMakerTest {
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
 
@@ -414,6 +411,9 @@ public class NoiseMapByReceiverMakerTest {
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(100)
                     .setBodyBarrier(false)
+                    .build();
+
+            ComputationSettings computationSettings = new ComputationSettings.Builder()
                     .setGridDim(1)
                     .build();
 
@@ -421,6 +421,7 @@ public class NoiseMapByReceiverMakerTest {
                     .setTableInputSettings(tableInputSettingsForReceiver)
                     .setReceiverGenerationSettings(receiverGeneratorSettings)
                     .setPropagationSettings(propagationSettings)
+                    .setComputationSettings(computationSettings)
                     .build();
                     
             delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
@@ -437,14 +438,16 @@ public class NoiseMapByReceiverMakerTest {
                     .setExportReceiverPosition(true)
                     .build();
             
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                     .setSourcesEmissionTableName("SOURCES_EMISSION")
                     .build();
             
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setComputationSettings(computationSettings)
+                    .setCalculationIOSettings(calculationIOSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
 
@@ -496,6 +499,9 @@ public class NoiseMapByReceiverMakerTest {
                     .setSoundReflectionOrder(0)
                     .setMaximumPropagationDistance(100)
                     .setBodyBarrier(false)
+                    .build();
+
+            ComputationSettings computationSettings = new ComputationSettings.Builder()
                     .setGridDim(1)
                     .build();
 
@@ -503,6 +509,7 @@ public class NoiseMapByReceiverMakerTest {
                     .setTableInputSettings(tableInputSettingsForReceiver)
                     .setReceiverGenerationSettings(receiverGeneratorSettings)
                     .setPropagationSettings(propagationSettings)
+                    .setComputationSettings(computationSettings)
                     .build();
 
             delaunayReceiversMaker.run(connection, "RECEIVERS", isoSurface.getTriangleTable());
@@ -513,7 +520,7 @@ public class NoiseMapByReceiverMakerTest {
                     .setReceiverTableName("RECEIVERS")
                     .build();
 
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                     .setSourcesEmissionTableName("SOURCES_EMISSION")
                     .setFrequencyFieldPrepend("LW")
                     .build();
@@ -527,7 +534,8 @@ public class NoiseMapByReceiverMakerTest {
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettingsForLevel)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setComputationSettings(computationSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
 

@@ -466,7 +466,7 @@ For this tutorial, you can fill with this information:
 
 * Buildings table name (``buildingTableName``): ``BUILDINGS``
 * Table bounding box name (``fenceTableName``): ``BUILDINGS``
-* Source table name (``sourcesTableName``): ``ROADS``
+* Source table name (``sourceTableName``): ``ROADS``
 * Offset (``delta``): ``200`` (1 receiver every 200m)
 
 If you are using the Groovy script
@@ -476,7 +476,7 @@ If you are using the Groovy script
     new Regular_Grid().exec(connection,[
                   "buildingTableName": "BUILDINGS",
                   "fenceTableName": "BUILDINGS",
-                  "sourcesTableName":"ROADS",
+                  "sourceTableName":"ROADS",
                   "delta": 200
     ])
 

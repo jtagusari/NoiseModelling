@@ -7,7 +7,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -54,8 +54,8 @@ public class RegressionTest {
                     .setComputeVerticalDiffraction(true)
                     .build();
             
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                    .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                    .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
                     .setFrequencyFieldPrepend("LW")
                     .build();
             
@@ -66,7 +66,7 @@ public class RegressionTest {
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettings)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .setThreadCount(1)
                     .build();

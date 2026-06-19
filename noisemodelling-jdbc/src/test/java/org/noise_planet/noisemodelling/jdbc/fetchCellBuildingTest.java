@@ -24,15 +24,15 @@ import static org.junit.jupiter.api.Assertions.*;
  * Validates building geometry storage and spatial envelope filtering
  * using H2GIS spatial functions.
  */
-public class FetchCellBuildingsTest {
+public class fetchCellBuildingTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FetchCellBuildingsTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(fetchCellBuildingTest.class);
     private Connection connection;
     
     @BeforeEach
     public void setUp() throws Exception {
         connection = JDBCUtilities.wrapConnection(H2GISDBFactory.createSpatialDataBase(
-                FetchCellBuildingsTest.class.getSimpleName(), true, ""));
+                fetchCellBuildingTest.class.getSimpleName(), true, ""));
     }
     
     @AfterEach
@@ -88,13 +88,13 @@ public class FetchCellBuildingsTest {
     }
 
     @Test
-    public void testFetchCellBuildingsBasic() throws Exception {
+    public void testfetchCellBuildingBasic() throws Exception {
         
         // Load test data
         loadTestBuildings();
 
         LOGGER.info("========================================");
-        LOGGER.info("testFetchCellBuildingsBasic: Building Table Loading Test");
+        LOGGER.info("testfetchCellBuildingBasic: Building Table Loading Test");
         LOGGER.info("========================================");
 
         // Verify BUILDINGS table structure

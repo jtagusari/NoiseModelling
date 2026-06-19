@@ -71,7 +71,7 @@ inputs = [
                              '<li> <b>THE_GEOM</b> : any geometry type with the appropriate SRID </li></ul>',
                 type       : String.class
         ],
-        sourcesTableName  : [
+        sourceTableName  : [
                 name       : 'Sources table name',
                 title      : 'Sources table name',
                 description: 'Keep only receivers at least at 1 meters of provided sources geometries </br> </br>' +
@@ -192,8 +192,8 @@ def exec(connection, Map input) {
     }
 
     String sources_table_name = ""
-    if (input['sourcesTableName']) {
-        sources_table_name = input['sourcesTableName']
+    if (input['sourceTableName']) {
+        sources_table_name = input['sourceTableName']
     }
     sources_table_name = sources_table_name.toUpperCase()
 
@@ -211,7 +211,7 @@ def exec(connection, Map input) {
     if(srid == 0 && input['buildingTableName']) {
         srid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(building_table_name) as String)
     }
-    if (srid == 0 && input['sourcesTableName']) {
+    if (srid == 0 && input['sourceTableName']) {
         srid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(sources_table_name) as String)
     }
 
@@ -247,7 +247,7 @@ def exec(connection, Map input) {
         logger.info("Delete receivers inside buildings")
         sql.execute("delete from " + receivers_table_name + " g where exists (select 1 from " + building_table_name + " b where ST_Z(g.the_geom) < b.HEIGHT and g.the_geom && b.the_geom and ST_INTERSECTS(g.the_geom, b.the_geom) and ST_distance(b.the_geom, g.the_geom) < 1 limit 1);")
     }
-    if (input['sourcesTableName']) {
+    if (input['sourceTableName']) {
         logger.info("Delete receivers near sources")
         sql.execute("delete from " + receivers_table_name + " g where exists (select 1 from " + sources_table_name + " r where st_expand(g.the_geom, 1) && r.the_geom and st_distance(g.the_geom, r.the_geom) < 1 limit 1);")
     }

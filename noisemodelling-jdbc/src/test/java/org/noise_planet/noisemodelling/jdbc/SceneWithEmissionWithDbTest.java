@@ -11,7 +11,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
@@ -97,8 +97,8 @@ public class SceneWithEmissionWithDbTest {
 
         // Setup SceneWithEmission with OCTAVE frequency configuration
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings.Builder()
-                .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+        EmissionInputSettings settings = new EmissionInputSettings.Builder()
+                .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
                 .build();
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
         // Note: frequencyFieldPrepend is public, but already defaults to "HZ"
@@ -180,7 +180,7 @@ public class SceneWithEmissionWithDbTest {
         }
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+        EmissionInputSettings settings = new EmissionInputSettings();
         settings.setInputMode("INPUT_MODE_LW_DEN");
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
@@ -245,7 +245,7 @@ public class SceneWithEmissionWithDbTest {
         }
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+        EmissionInputSettings settings = new EmissionInputSettings();
         settings.setInputMode("INPUT_MODE_LW_DEN");
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 

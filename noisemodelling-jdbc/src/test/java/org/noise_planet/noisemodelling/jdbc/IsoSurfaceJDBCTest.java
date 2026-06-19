@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SourceEmission;
 import org.noise_planet.noisemodelling.jdbc.utils.IsoSurface;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.LayerDelaunayError;
@@ -236,6 +236,9 @@ public class IsoSurfaceJDBCTest {
                     .setSoundReflectionOrder(0)
                     .setComputeHorizontalDiffraction(false)
                     .setBodyBarrier(false)
+                    .build();
+            
+            ComputationSettings computationSettings = new ComputationSettings.Builder()
                     .setGridDim(1)
                     .build();
 
@@ -243,6 +246,7 @@ public class IsoSurfaceJDBCTest {
                     .setTableInputSettings(tableInputSettingsForReceiver)
                     .setReceiverGenerationSettings(receiverGenerationSettings)
                     .setPropagationSettings(propagationSettings)
+                    .setComputationSettings(computationSettings)
                     .build();
 
             delaunayReceiversMaker.run(connection, "RECEIVERS" , isoSurface.getTriangleTable());
@@ -253,7 +257,7 @@ public class IsoSurfaceJDBCTest {
                     .setReceiverTableName("RECEIVERS")
                     .build();
             
-            SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+            EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                     .build();
             
             CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
@@ -264,7 +268,8 @@ public class IsoSurfaceJDBCTest {
             NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                     .setTableInputSettings(tableInputSettingsForLevelCalculation)
                     .setPropagationSettings(propagationSettings)
-                    .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                    .setComputationSettings(computationSettings)
+                    .setEmissionInputSettings(emissionInputSettings)
                     .setCalculationIOSettings(calculationIOSettings)
                     .build();
 

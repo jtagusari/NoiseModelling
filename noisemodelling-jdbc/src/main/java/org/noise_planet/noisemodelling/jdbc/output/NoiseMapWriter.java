@@ -16,7 +16,7 @@ import org.locationtech.jts.geom.*;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapByReceiverMaker;
 import org.noise_planet.noisemodelling.jdbc.CalculationIOSettings;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.utils.StringPreparedStatements;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig;
@@ -109,8 +109,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
      * @throws SQLException if an SQL exception occurs while executing the INSERT query
      */
     void processRaysStack(ConcurrentLinkedDeque<CnossosPathExt> stack) throws SQLException {
-        boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
-                equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
+        boolean exportPeriod = !noiseMapByReceiverMaker.getEmissionInputSettings().getInputMode().
+                equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
         StringBuilder query = new StringBuilder("INSERT INTO " + databaseParameters.getRaysTable() +
                 "(the_geom , IDRECEIVER , IDSOURCE");
         if(databaseParameters.isExportCnossosPathWithAttenuation()) {
@@ -192,8 +192,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
             return;
         }
         // If we compute attenuation only there is no period field
-        boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
-                        equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
+        boolean exportPeriod = !noiseMapByReceiverMaker.getEmissionInputSettings().getInputMode().
+                        equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
         StringBuilder query = new StringBuilder("INSERT INTO ");
         query.append(tableName);
         query.append(" VALUES (? "); // ID_RECEIVER
@@ -283,8 +283,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
      */
     private String forgeCreateTable(String tableName) {
         // If we compute attenuation only there is no period field
-        boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
-                equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
+        boolean exportPeriod = !noiseMapByReceiverMaker.getEmissionInputSettings().getInputMode().
+                equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
         StringBuilder sb = new StringBuilder("create table ");
         sb.append(tableName);
         if(!databaseParameters.isMergeSources()) {
@@ -321,8 +321,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
      * @param tableName
      * @return the SQL statement for creating the primary key or index     */
     private String forgePkTable(String tableName) {
-        boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
-                equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
+        boolean exportPeriod = !noiseMapByReceiverMaker.getEmissionInputSettings().getInputMode().
+                equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
         if (databaseParameters.isMergeSources()) {
             if(!exportPeriod) {
                 return "ALTER TABLE " + tableName + " ADD PRIMARY KEY(IDRECEIVER);";
@@ -361,8 +361,8 @@ public class NoiseMapWriter implements Callable<Boolean> {
      */
     public void init() throws SQLException, IOException {
         if(databaseParameters.getExportRaysMethod() == CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE) {
-            boolean exportPeriod = !noiseMapByReceiverMaker.getSceneInputSettings().getInputMode().
-                    equals(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
+            boolean exportPeriod = !noiseMapByReceiverMaker.getEmissionInputSettings().getInputMode().
+                    equals(EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION);
             if(databaseParameters.isDropResultsTable()) {
                 String q = String.format("DROP TABLE IF EXISTS %s;", databaseParameters.getRaysTable());
                 processQuery(q);

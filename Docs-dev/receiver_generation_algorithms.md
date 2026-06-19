@@ -72,7 +72,7 @@ Until unification is completed:
 @startuml
 class GridMapMaker {
   + String buildingsTableName
-  + String sourcesTableName
+  + String sourceTableName
   + double maximumPropagationDistance
 }
 
@@ -752,7 +752,7 @@ The **Regular Grid** algorithm creates a uniform grid of receiver points with co
 - **buildingTableName**: Buildings table (receivers inside buildings removed if provided)
 - **fence**: Optional polygon geometry defining grid extent (WGS84 coordinates, auto-transformed to target SRID)
 - **fenceTableName**: Alternative extent definition using bounding box of specified table
-- **sourcesTableName**: Optional sources table (removes receivers within 1m of sources)
+- **sourceTableName**: Optional sources table (removes receivers within 1m of sources)
 - **delta**: Receiver spacing in meters (default: 10m)
 - **height**: Receiver height above ground in meters (default: 4m)
 - **receiverstablename**: Output table name (default: "RECEIVERS")
@@ -791,7 +791,7 @@ if (buildingTableName provided?) then (yes)
   (if receiver height < building height);
 endif
 
-if (sourcesTableName provided?) then (yes)
+if (sourceTableName provided?) then (yes)
   :Delete receivers within 1m of sources;
 endif
 
@@ -874,7 +874,7 @@ The **Building Grid** algorithm generates receivers around building facades at a
 - **tableBuilding**: Buildings table (required fields: THE_GEOM, HEIGHT; optional: POP)
 - **fence**: Optional polygon geometry defining processing extent
 - **fenceTableName**: Alternative extent definition using bounding box of specified table
-- **sourcesTableName**: Optional sources table (removes receivers within 1m of sources)
+- **sourceTableName**: Optional sources table (removes receivers within 1m of sources)
 - **delta**: Spacing between receivers along facade in meters (default: 10m)
 - **height**: Receiver height above ground in meters (default: 4m)
 - **distance**: Distance from building wall in meters (default: 2m)
@@ -948,7 +948,7 @@ partition "Create Final Receiver Table" {
   and height above ground;
 }
 
-if (sourcesTableName provided?) then (yes)
+if (sourceTableName provided?) then (yes)
   :Delete receivers within 1m of sources;
 endif
 

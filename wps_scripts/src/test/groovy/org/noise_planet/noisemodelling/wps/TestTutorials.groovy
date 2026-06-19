@@ -215,7 +215,7 @@ class TestTutorials extends JdbcTestCase {
 
         // generate a grid of receivers using the buildings as envelope
         new Delaunay_Grid().exec(connection, [maxArea: 600, tableBuilding: "BUILDINGS",
-                                                          sourcesTableName : "SOURCES" , height: 1.6])
+                                                          sourceTableName : "SOURCES" , height: 1.6])
 
 
         // Check database
@@ -297,7 +297,7 @@ class TestTutorials extends JdbcTestCase {
 
         // generate a grid of receivers using the buildings as envelope
         logger.info(new Delaunay_Grid().exec(connection, [maxArea: 60, tableBuilding: "BUILDINGS",
-                                                          sourcesTableName : "POINT_SOURCE" , height: 1.6]));
+                                                          sourceTableName : "POINT_SOURCE" , height: 1.6]));
 
 
         new Export_Table().exec(connection, [exportPath:"build/tmp/receivers.shp", tableToExport: "RECEIVERS"])

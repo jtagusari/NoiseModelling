@@ -20,7 +20,7 @@ import org.locationtech.jts.geom.LineString;
 import org.noise_planet.noisemodelling.emission.LineSource;
 import org.noise_planet.noisemodelling.emission.railway.RailWayParameters;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
-import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
 import org.noise_planet.noisemodelling.jdbc.railway.RailWayLWGeom;
 import org.noise_planet.noisemodelling.jdbc.railway.RailWayLWIterator;
 import org.noise_planet.noisemodelling.jdbc.utils.CellIndex;
@@ -323,14 +323,14 @@ public class TableLoaderTest {
                 .setReceiverTableName("RECEPTEURS")
                 .build();
         
-        SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
-                .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+        EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
+                .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
                 .setUseTrainDirectivity(true)
                 .build();
 
         NoiseMapByReceiverMaker noiseMapByReceiverMaker = new NoiseMapByReceiverMaker.Builder()
                 .setTableInputSettings(tableInputSettings)
-                .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                .setEmissionInputSettings(emissionInputSettings)
                 .setThreadCount(1)
                 .build();
 
@@ -399,12 +399,12 @@ public class TableLoaderTest {
                 .setReceiverTableName("RECEIVERS")
                 .build();
 
-        SceneDatabaseInputSettings sceneDatabaseInputSettings = new SceneDatabaseInputSettings.Builder()
+        EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                 .setFrequencyFieldPrepend("LW")
                 .build();
 
         NoiseMapByReceiverMaker noiseMap = new NoiseMapByReceiverMaker.Builder()
-                .setSceneDatabaseInputSettings(sceneDatabaseInputSettings)
+                .setEmissionInputSettings(emissionInputSettings)
                 .setTableInputSettings(tableInputSettings)
                 .build();
 

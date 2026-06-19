@@ -20,6 +20,7 @@ import org.locationtech.jts.io.WKTWriter;
 import org.locationtech.jts.operation.buffer.BufferOp;
 import org.locationtech.jts.operation.buffer.BufferParameters;
 import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
+import org.noise_planet.noisemodelling.jdbc.input.CellProfileLoader;
 import org.noise_planet.noisemodelling.jdbc.input.DefaultTableLoader;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.pathfinder.delaunay.Triangle;
@@ -53,8 +54,8 @@ public class DelaunayReceiversMaker extends GridMapMaker {
     private final ReceiverGenerationSettings receiverGenerationSettings;
     private final AtomicInteger constraintId = new AtomicInteger(1);
 
-    public DelaunayReceiversMaker(TableInputSettings tableInputSettings, PropagationSettings propagationSettings, ReceiverGenerationSettings receiverGenerationSettings) {
-        super(tableInputSettings, propagationSettings);
+    public DelaunayReceiversMaker(TableInputSettings tableInputSettings, PropagationSettings propagationSettings, ComputationSettings computationSettings, ReceiverGenerationSettings receiverGenerationSettings) {
+        super(tableInputSettings, propagationSettings, computationSettings);
         this.receiverGenerationSettings = receiverGenerationSettings;
     }
 
@@ -62,6 +63,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
     public static class Builder{
         private TableInputSettings tableInputSettings = new TableInputSettings.Builder().build();
         private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
+        private ComputationSettings computationSettings = new ComputationSettings.Builder().build();
         private ReceiverGenerationSettings receiverGenerationSettings = new ReceiverGenerationSettings.Builder().build();
 
         public Builder setTableInputSettings(TableInputSettings tableInputSettings) {
@@ -72,6 +74,10 @@ public class DelaunayReceiversMaker extends GridMapMaker {
             this.propagationSettings = propagationSettings;
             return this;
         }
+        public Builder setComputationSettings(ComputationSettings computationSettings) {
+            this.computationSettings = computationSettings;
+            return this;
+        }
 
 
         public Builder setReceiverGenerationSettings(ReceiverGenerationSettings receiverGenerationSettings) {
@@ -80,7 +86,7 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         }
 
         public DelaunayReceiversMaker build() {
-            return new DelaunayReceiversMaker(tableInputSettings, propagationSettings, receiverGenerationSettings);
+            return new DelaunayReceiversMaker(tableInputSettings, propagationSettings, computationSettings, receiverGenerationSettings);
         }
     }
 
@@ -477,8 +483,14 @@ public class DelaunayReceiversMaker extends GridMapMaker {
         List<Wall> walls = new LinkedList<>();
         Envelope expandedCell = new Envelope(cellEnvelope);
         expandedCell.expandBy(buildingBuffer);
-        DefaultTableLoader.fetchCellBuildings(connection, tableInputSettings, cellEnvelope, buildings, walls,
-                geometryFactory);
+
+        CellProfileLoader cellProfileLoader = new CellProfileLoader.Builder()
+                .setConnection(connection)
+                .setTableInputSettings(tableInputSettings)
+                .setGeometryFactory(geometryFactory)
+                .build();
+
+        cellProfileLoader.fetchCellBuilding(cellEnvelope, buildings, walls);
 
         LayerTinfour cellMesh = new LayerTinfour();
         cellMesh.setEpsilon(epsilon);

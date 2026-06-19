@@ -59,11 +59,11 @@ The detailed loader logic and per-format examples are documented in `source_algo
 - Absorption coefficients determine energy loss at reflections
 
 **Java Mapping**:
-- Building polygons are fetched by `DefaultTableLoader.fetchCellBuildings(...)`, which creates `Building(Polygon, height, alpha, pk, zBuildings)` and adds them to `ProfileBuilder`.
+- Building polygons are fetched by `DefaultTableLoader.fetchCellBuilding(...)`, which creates `Building(Polygon, height, alpha, pk, zBuildings)` and adds them to `ProfileBuilder`.
 - A `Building(ResultSet)` constructor exists for direct row mapping, but the default loader path uses the polygon-based constructor shown above.
 
 **Test**:
-- Test file:`FetchCellBuildingsTest`
+- Test file:`fetchCellBuildingTest`
 - Creates an in-memory H2GIS database, inserts four polygon building footprints with heights, and expands a receiver envelope by propagation and reflection distances.
 - Fetches buildings intersecting the expanded envelope using H2GIS spatial predicates and asserts expected primary keys are returned.
 - Verifies that all geometries are POLYGON and that height statistics (maximum = 15.0 m) match expectations.
@@ -160,11 +160,11 @@ To keep test coverage clear and non-overlapping, bridge-related tests in this re
 - User to model ground-level sound propagation and diffraction
 
 **Java Mapping**:
-- DEM points are fetched by `DefaultTableLoader.fetchCellDem(...)` and passed into `ProfileBuilder.addTopographicPoint(...)`.
+- DEM points are fetched by `DefaultTableLoader.fetchCellTerrain(...)` and passed into `ProfileBuilder.addTopographicPoint(...)`.
 - When DEM is present, the loader also seeds envelope corners with average Z for continuity.
 
 **Test**:
-- Test file: `FetchCellDemTest`
+- Test file: `fetchCellTerrainTest`
 - Creates an in-memory H2GIS database, inserts DEM sample points (`DEM_POINTS` table) and expands a receiver envelope by propagation and reflection distances.
 - Fetches DEM points intersecting the expanded envelope using H2GIS spatial predicates and logs each point's centroid and height.
 - Verifies expected PKs are returned and basic statistics (min/max/avg heights) match inserted sample values.
@@ -202,10 +202,10 @@ To keep test coverage clear and non-overlapping, bridge-related tests in this re
 - Ground effects are major contributor to sound propagation behavior
 
 **Java Mapping**:
-- Ground polygons are fetched by `DefaultTableLoader.fetchCellSoilAreas(...)`, split into tiles, and applied with `ProfileBuilder.addGroundEffect(geometry, g)`.
+- Ground polygons are fetched by `DefaultTableLoader.fetchCellGround(...)`, split into tiles, and applied with `ProfileBuilder.addGroundEffect(geometry, g)`.
 
 **Test**:
-- Test file: `FetchCellSoilAreasTest`
+- Test file: `fetchCellGroundTest`
 - Creates an in-memory H2GIS database, inserts several soil-area polygons into `SOIL_AREAS` (with `ALPHA_OVERALL`, `GROUND_TYPE`, `ROUGHNESS`), and expands a receiver envelope.
 - Fetches soil areas intersecting the expanded envelope and logs centroid, alpha and ground type for each area.
 - Validates alpha values are within the expected [0.0, 1.0] range and that the expected primary keys are returned by the spatial filter.
@@ -261,9 +261,9 @@ To keep test coverage clear and non-overlapping, bridge-related tests in this re
 - Stored as configuration parameters rather than database columns
 
 **Java Mapping**:
-- Per-period atmospheric parameters are loaded by `DefaultTableLoader.loadAtmosphericTableSettings(...)` using `AttenuationParameters.readFromDatabase(ResultSet, map)`.
+- Per-period atmospheric parameters are loaded by `DefaultTableLoader.loadPeriodAtmosphericSettings(...)` using `AttenuationParameters.readFromDatabase(ResultSet, map)`.
 - Global propagation and input settings are exposed by `NoiseMapByReceiverMaker` through read-only loader contexts and injected into `SceneWithEmission` when `DefaultTableLoader.createScene(...)` builds each cell scene.
-- `DefaultTableLoader.initialize(...)` first snapshots `SceneDatabaseInputSettingsView` into mutable internal settings, resolves `INPUT_MODE_GUESS` if needed, then reuses that resolved mode consistently for per-cell source/emission loading.
+- `DefaultTableLoader.initialize(...)` first snapshots `EmissionInputSettingsView` into mutable internal settings, resolves `INPUT_MODE_GUESS` if needed, then reuses that resolved mode consistently for per-cell source/emission loading.
 
 ## Data Validation Checklist
 

@@ -100,8 +100,8 @@ public class FetchAtmosphericSettingsTest {
 
         DefaultTableLoader loader = new DefaultTableLoader();
 
-        // Call private method loadAtmosphericTableSettings via reflection
-        Method m = DefaultTableLoader.class.getDeclaredMethod("loadAtmosphericTableSettings", Connection.class, String.class);
+        // Call private method loadPeriodAtmosphericSettings via reflection
+        Method m = DefaultTableLoader.class.getDeclaredMethod("loadPeriodAtmosphericSettings", Connection.class, String.class);
         m.setAccessible(true);
         m.invoke(loader, connection, "ATMOSPHERIC_SETTINGS");
 

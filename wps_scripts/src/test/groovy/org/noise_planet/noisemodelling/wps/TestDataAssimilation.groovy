@@ -90,7 +90,7 @@ class TestDataAssimilation extends JdbcTestCase {
         new Regular_Grid().exec(connection,[
               "fenceTableName": "BUILDINGS",
               "buildingTableName": "BUILDINGS",
-              "sourcesTableName":"ROADS",
+              "sourceTableName":"ROADS",
               "delta": 20
         ])
 
