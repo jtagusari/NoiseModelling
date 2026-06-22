@@ -47,9 +47,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class PathFinderBridgeTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PathFinderTest.class);
+        private static final Logger LOGGER = LoggerFactory.getLogger(PathFinderBridgeTest.class);
 
-    public boolean overwriteTestCase = true;
+    public boolean overwriteTestCase = false;
 
     public boolean outputCurrentCutProfile = true;
 
@@ -65,14 +65,7 @@ public class PathFinderBridgeTest {
         if(outputCurrentCutProfile){
             writeCutProfileJson("tmp_" + utName, cutProfile);
         }
-        try {
-                assertCutProfile(PathFinder.class.getResourceAsStream("test_cases/"+testCaseFileName),cutProfile);
-        } catch (IOException e) {
-            LOGGER.error("Error while asserting cut profile for {}", testCaseFileName, e);
-        } catch (IllegalArgumentException e) {
-            LOGGER.error("Invalid argument while asserting cut profile for {}", testCaseFileName, e);
-            LOGGER.error("Maybe JSON file does not exist");
-        }
+                assertCutProfile(PathFinder.class.getResourceAsStream("test_cases/" + testCaseFileName), cutProfile);
     }
 
     private void writeCutProfileJson(String utName, CutProfile cutProfile) throws IOException {

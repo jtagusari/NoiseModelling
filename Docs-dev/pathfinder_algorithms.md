@@ -309,22 +309,65 @@ This section maps the major pathfinder algorithms/components to their primary te
 
 Several integration tests assert algorithm identity by comparing computed `CutProfile` objects against JSON reference files. This is the most important regression net for geometry-sensitive behavior.
 
-- Main non-bridge references
-  - Test class: `PathFinderTest`
+- Main references
+  - Test class: `PathFinderTest`, `PathFinderBridgeTest`
   - Loader/comparator: `assertCutProfile(String utName, CutProfile cutProfile)` → `assertCutProfile(InputStream expected, CutProfile got)`
-  - Resource lookup: `PathFinder.class.getResourceAsStream("test_cases/" + testCaseFileName)`
   - Reference files: `noisemodelling-pathfinder/src/main/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/*.json` (e.g. `TC01_Direct.json`, `TC08_Left.json`, `TC16_Reflection.json`, ...)
 
-- Bridge references
-  - Test class: `PathFinderBridgeTest`
-  - Resource lookup/comparison is the same JSON mechanism as `PathFinderTest`
-  - Reference names used by tests: `TBC01`..`TBC10`, `TBC20`, `TBC21`
-  - Important behavior: `PathFinderBridgeTest` currently has `overwriteTestCase = true`, so it can rewrite JSON files in the runtime classpath `test_cases` directory during test execution.
+  Example content of a more realistic reference `CutProfile` JSON (reflection + topography; `TC27_Reflection.json`):
 
-- Local profile regression fixture in `CutProfileTest`
-  - Test class: `CutProfileTest` (`TBCCoordinates2D`)
-  - Loader: `loadCutProfile(String utName)` with explicit null guard (`Objects.requireNonNull`) before JSON deserialization
-  - Reference file: `noisemodelling-pathfinder/src/test/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/TBC06.json`
-  - Rationale: keeping `TBC06.json` under `src/test/resources` makes this test independent from execution order and from side-effects of bridge integration tests.
+  ```json
+  {
+    "cutPoints" : [ {
+      "type" : "Source",
+      "coordinate" : { "x" : 105.0, "y" : 35.0, "z" : -0.45 },
+      "zGround" : -0.5,
+      "groundCoefficient" : 0.0,
+      "sourcePk" : -1,
+      "li" : 1.0,
+      "orientation" : { "yaw" : 0.0, "pitch" : 0.0, "roll" : 0.0 }
+    }, {
+      "type" : "GroundEffect",
+      "coordinate" : { "x" : 110.0, "y" : 37.362637362637365, "z" : -0.5 },
+      "zGround" : -0.5,
+      "groundCoefficient" : 1.0
+    }, {
+      "type" : "Topography",
+      "coordinate" : { "x" : 110.0, "y" : 37.362637362637365, "z" : -0.5 },
+      "zGround" : -0.5,
+      "groundCoefficient" : 1.0
+    }, {
+      "type" : "Topography",
+      "coordinate" : { "x" : 111.0, "y" : 37.83516483516484, "z" : 0.0 },
+      "zGround" : 0.0,
+      "groundCoefficient" : 1.0
+    }, {
+      "type" : "Reflection",
+      "coordinate" : { "x" : 152.66576252461314, "y" : 57.523382291850176, "z" : 1.880952380952381 },
+      "zGround" : 0.0,
+      "groundCoefficient" : 1.0,
+      "wall" : {
+        "p0" : { "x" : 114.0, "y" : 52.0, "z" : 2.5 },
+        "p1" : { "x" : 170.0, "y" : 60.0, "z" : 4.5 }
+      },
+      "wallAlpha" : [ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.5 ]
+    }, {
+      "type" : "Receiver",
+      "coordinate" : { "x" : 200.0, "y" : 50.0, "z" : 4.0 },
+      "zGround" : 0.0,
+      "groundCoefficient" : 1.0,
+      "receiverPk" : -1
+    } ],
+    "hasBuildingIntersection" : false,
+    "hasTopographyIntersection" : false
+  }
+  ```
 
-In all file-based comparisons above, assertions validate not only point count and point class but also key geometric/acoustic fields (coordinate tolerance, `zGround`, ground coefficient, and reflection/wall attributes where relevant).
+  This example includes `GroundEffect` and `Topography` cut points as well as a `Reflection` cut point with associated wall geometry and per-band absorption (`wallAlpha`). Use such richer reference files when documenting non-trivial behavior (reflection, ground effects, topography) to illustrate the fields tests validate.
+
+  In all file-based comparisons above, assertions validate not only point count and point class but also key geometric/acoustic fields (coordinate tolerance, `zGround`, ground coefficient, and reflection/wall attributes where relevant).
+  
+- Unit test for `CutProfile`
+  - Test class: `CutProfileTest`
+  - Loader/comparator: `loadCutProfile()`
+  - Reference files: `noisemodelling-pathfinder/src/main/resources/org/noise_planet/noisemodelling/pathfinder/test_cases/TC01_Direct.json`

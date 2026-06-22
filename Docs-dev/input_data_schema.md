@@ -100,31 +100,6 @@ The detailed loader logic and per-format examples are documented in `source_algo
 - Bridge points describe the bridge deck profile (height, thickness, widths, barriers) used to build 3D geometry for pathfinding.
 - Material types are used to characterize bridge components; acoustic absorption coefficients are not read from this table.
 
-**Java Mapping**:
-- Bridge point rows are loaded by `DefaultTableLoader.(...)` using `new BridgePoint(ResultSet)`.
-- Points are grouped into `Bridge` instances via `Bridge.createBridgesFromPoints(...)` and added to `ProfileBuilder` for pathfinding.
-
-**Bridge creation from points**:
-- BridgePoint rows are first converted into `BridgePoint` objects (one per DB row). These points are grouped by their `BRIDGE_PK` value.
-- For each group, `Bridge.createBridgesFromPoints(...)` uses a `Builder` that:
-  - constructs a `BridgePointManager` to manage and sort points,
-  - creates a `BridgeGeometryBuilder` to build the 3D deck polygon and edge geometry,
-  - initializes `BridgeTriangulation` to interpolate deck height, thickness and barrier heights over the deck,
-  - sets up a `BridgeQueryHelper` to support spatial queries (isPointAboveBridge, isPointOnBridge, footprint queries).
-- The builder validates consistent metadata (girder/slab types), applies default absorption (`alphas`) if provided, then calls `createDeckGeometry(...)` which generates deck geometry, triangulation and edge, and updates the query helper for runtime spatial operations.
-- Resulting `Bridge` instances provide APIs used by the propagation code: deck height/thickness interpolation, diffraction edge geometry, and virtual/mirror source generation on or under the bridge.
-
-**Tests and responsibilities**
-
-To keep test coverage clear and non-overlapping, bridge-related tests in this repository follow these responsibilities:
-
-
-- `BridgeFactoryTest` (unit): Verifies `Bridge.createBridgesFromPoints(...)` factory behavior — grouping `BridgePoint` rows by `BRIDGE_PK`, handling null/empty inputs, applying `alphas`, and validating metadata consistency (e.g., girder type). This test focuses on point-to-bridge aggregation logic only and does not exercise database I/O or deck geometry generation.
-
-- `BridgeBehaviorTest` (behavior/integration): Exercises `Bridge` instances produced by builders — `createDeckGeometry()`, triangulation/interpolation of deck height and thickness, spatial helpers (isPointAboveBridge, isPointWithinBridgeFootprint, etc.), add/remove point operations, and equality/hashcode semantics. Use pre-built `BridgePoint` lists or test fixtures; verify numeric and geometric results.
-
-- `BridgePointMappingTest` (DB loader): Validates database → `BridgePoint` mapping (`BridgePoint(ResultSet)`) and spatial filtering performed by the loader. Confirm that attributes such as `ABSOLUTE_DECK_HEIGHT`, `RELATIVE_DECK_HEIGHT`, `DECK_THICKNESS`, `RIGHT_WIDTH`, `LEFT_WIDTH`, `RIGHT_BARRIER_HEIGHT`, `LEFT_BARRIER_HEIGHT`, `POSITION`, `GIRDER_TYPE`, and `SLAB_TYPE` are parsed and typed correctly and that spatial queries return expected rows.
-
 ## Terrain (DEM) Data
 
 **Purpose**: Provides digital elevation model for ground elevation queries during path finding.
