@@ -40,7 +40,13 @@ import java.sql.SQLException
 title = 'Compute road emission noise map from road table.'
 description = '&#10145;&#65039; Compute Road Emission Noise Map from Day Evening Night traffic flow rate and speed estimates (specific format, see input details). </br>' +
               '<hr>' +
-              '&#x2705; The output table is called: <b>LW_ROADS </b> '
+              'This script computes <b>road surface emission only</b> (CNOSSOS-EU model). ' +
+              'When the ROADS table contains a <b>BRIDGE_PK</b> column, roads on bridges are identified; ' +
+              'however, bridge structural noise (virtual source at bridge bottom) is not computed here ' +
+              'because its geometry depends on terrain data available only during propagation. ' +
+              'Use <i>Noise_level_from_traffic</i> for the integrated traffic-flow + bridge propagation workflow. </br>' +
+              '<hr>' +
+              '&#x2705; The output table is called: <b>LW_ROADS</b>'
 
 inputs = [
         tableRoads: [
@@ -66,16 +72,18 @@ inputs = [
                         "<li><b> JUNC_TYPE </b> : Type of junction (k=0 none, k = 1 for a crossing with traffic lights ; k = 2 for a roundabout) (INTEGER)</li>" +
                         "<li><b> SLOPE </b> : Slope (in %) of the road section. If the field is not filled in, the LINESTRING z-values will be used to calculate the slope and the traffic direction (way field) will be force to 3 (bidirectional). (DOUBLE)</li>" +
                         "<li><b> WAY </b> : Define the way of the road section. 1 = one way road section and the traffic goes in the same way that the slope definition you have used, 2 = one way road section and the traffic goes in the inverse way that the slope definition you have used, 3 = bi-directional traffic flow, the flow is split into two components and correct half for uphill and half for downhill (INTEGER)</li>" +
+                        "<li><b> BRIDGE_PK </b> : (optional) Primary key of the bridge the road is on. When present and non-null, the source is classified as on-bridge during propagation (see Noise_level_from_traffic). (INTEGER)</li>" +
                         "</ul></br><b> This table can be generated from the WPS Block 'Import_OSM'. </b>.",
-                type       : String.class,
-                coefficientVersion            : [
-                        name       : 'Coefficient version',
-                        title      : 'Coefficient version',
-                        description: '&#127783; Cnossos coefficient version  (1 = 2015, 2 = 2020) </br> </br>' +
-                                '&#128736; Default value: <b>2</b>',
-                        min        : 0, max: 1,
-                        type       : Double.class
-                ],
+                type       : String.class
+        ],
+        coefficientVersion: [
+                name       : 'Coefficient version',
+                title      : 'Coefficient version',
+                description: '&#127783; CNOSSOS coefficient version (1 = 2015 standard, 2 = 2020 standard). </br> </br>' +
+                        '&#128736; Default value: <b>2</b>',
+                min        : 0,
+                max        : 1,
+                type       : Integer.class
         ]
 ]
 
@@ -117,7 +125,7 @@ def exec(Connection connection, input) {
 
     int coefficientVersion = 2
     if (input.containsKey('coefficientVersion')) {
-        coefficientVersion = Integer.parseInt(input['confHumidity'] as String)
+        coefficientVersion = Integer.parseInt(input['coefficientVersion'] as String)
     }
 
     //Need to change the ConnectionWrapper to WpsConnectionWrapper to work under postGIS database
@@ -154,11 +162,16 @@ def exec(Connection connection, input) {
     }
 
     //Get the primary key field of the source table
-    int pkIndex = JDBCUtilities.getIntegerPrimaryKey(connection, TableLocation.parse( sources_table_name))
+    int pkIndex = JDBCUtilities.getIntegerPrimaryKey(connection, TableLocation.parse(sources_table_name))
     if (pkIndex < 1) {
         throw new IllegalArgumentException(String.format("Source table %s does not contain a primary key", sourceTableIdentifier))
     }
 
+    // Log whether BRIDGE_PK is present (informational: used during propagation, not here)
+    boolean hasBridgePkColumn = JDBCUtilities.hasField(connection, sources_table_name, "BRIDGE_PK")
+    if (hasBridgePkColumn) {
+        logger.info("BRIDGE_PK column detected in {}. Roads on bridges will be classified during propagation.", sources_table_name)
+    }
 
     // -------------------
     // Init table LW_ROADS
@@ -203,12 +216,16 @@ def exec(Connection connection, input) {
         List<String> periods = Arrays.asList("D", "E", "N");
         while (rs.next()) {
             k++
-            //logger.info(rs)
             Geometry geo = rs.getGeometry()
 
-            // Compute emission sound level for each road segment
+            // Compute road surface emission (CNOSSOS-EU model).
+            // BRIDGE_PK field in the ResultSet is intentionally ignored here:
+            // bridge structural noise (IMAGINARY_SOURCE_UNDER_BRIDGE) requires bridge
+            // deck geometry that can only be resolved with terrain data at propagation time.
+            // Use Noise_level_from_traffic for the integrated bridge propagation workflow.
             List<SourceEmission> emissions = new RoadEmissionBuilder(rs)
                 .withPeriods(periods)
+                .withCoefficientVersion(coefficientVersion)
                 .build();
             def lday = AcousticIndicatorsFunctions.wToDb(emissions.get(0).getEmissionInWatts())
             def levening = AcousticIndicatorsFunctions.wToDb(emissions.get(1).getEmissionInWatts())

@@ -90,6 +90,7 @@ inputs = [
                         '<li><b> JUNC_TYPE </b> : Type of junction (k=0 none, k = 1 for a crossing with traffic lights ; k = 2 for a roundabout) (INTEGER)</li>' +
                         '<li><b> SLOPE </b> : Slope (in %) of the road section. If the field is not filled in, the LINESTRING z-values will be used to calculate the slope and the traffic direction (way field) will be force to 3 (bidirectional). (DOUBLE)</li>' +
                         '<li><b> WAY </b> : Define the way of the road section. 1 = one way road section and the traffic goes in the same way that the slope definition you have used, 2 = one way road section and the traffic goes in the inverse way that the slope definition you have used, 3 = bi-directional traffic flow, the flow is split into two components and correct half for uphill and half for downhill (INTEGER)</li>' +
+                        '<li><b> BRIDGE_PK </b> : (optional) Primary key of the bridge the road is on. When non-null and <b>tableBridgePoints</b> is also provided, bridge structural noise (ASJ model) is automatically computed in addition to road surface emission (INTEGER)</li>' +
                         '</ul></br>'+
                         '&#128161; This table can be generated from the WPS Block "Import_OSM"',
                 type       : String.class
@@ -118,6 +119,7 @@ inputs = [
                         '<li><b> JUNC_TYPE </b> : Type of junction (k=0 none, k = 1 for a crossing with traffic lights ; k = 2 for a roundabout) (INTEGER)</li>' +
                         '<li><b> SLOPE </b> : Slope (in %) of the road section. If the field is not filled in, the LINESTRING z-values will be used to calculate the slope and the traffic direction (way field) will be force to 3 (bidirectional). (DOUBLE)</li>' +
                         '<li><b> WAY </b> : Define the way of the road section. 1 = one way road section and the traffic goes in the same way that the slope definition you have used, 2 = one way road section and the traffic goes in the inverse way that the slope definition you have used, 3 = bi-directional traffic flow, the flow is split into two components and correct half for uphill and half for downhill (INTEGER)</li>' +
+                        '<li><b> BRIDGE_PK </b> : (optional) Primary key of the bridge the road is on. When non-null and <b>tableBridgePoints</b> is also provided, bridge structural noise (ASJ model) is automatically computed in addition to road surface emission (INTEGER)</li>' +
                         '</ul></br>',
                 min        : 0, max: 1, type: String.class
         ],
@@ -175,6 +177,29 @@ inputs = [
                         'The table must contain: </br> <ul>' +
                         '<li> <b> THE_GEOM </b>: the 2D geometry of the sources (POLYGON or MULTIPOLYGON)</li>' +
                         '<li> <b> G </b>: the acoustic absorption of a ground (FLOAT between 0 : very hard and 1 : very soft)</li> </ul>',
+                min        : 0, max: 1,
+                type       : String.class
+        ],
+        tableBridgePoints       : [
+                name       : 'Bridge points table name',
+                title      : 'Bridge points table name',
+                description: 'Name of the bridge points table (optional). When provided together with a ROADS table that has a <b>BRIDGE_PK</b> column, ' +
+                        'bridge structural noise sources (virtual source at bridge bottom, ASJ model) are automatically computed during propagation. </br> </br>' +
+                        'The table must contain: </br> <ul>' +
+                        '<li> <b> PK </b>: primary key (INTEGER, PRIMARY KEY) </li>' +
+                        '<li> <b> BRIDGE_PK </b>: identifier linking to the bridge (INTEGER) </li>' +
+                        '<li> <b> THE_GEOM </b>: 3D point geometry on the bridge deck (POINT) </li>' +
+                        '<li> <b> POSITION </b>: normalised position along the bridge axis [0-1] (DOUBLE) </li>' +
+                        '<li> <b> GIRDER_TYPE </b>: girder type code (INTEGER) </li>' +
+                        '<li> <b> SLAB_TYPE </b>: slab type code (INTEGER) </li>' +
+                        '<li> <b> DECK_THICKNESS </b>: deck thickness in metres (DOUBLE) </li>' +
+                        '<li> <b> LEFT_WIDTH </b>: width of the left lane area in metres (DOUBLE) </li>' +
+                        '<li> <b> RIGHT_WIDTH </b>: width of the right lane area in metres (DOUBLE) </li>' +
+                        '<li> <b> LEFT_BARRIER_HEIGHT </b>: height of the left noise barrier in metres (DOUBLE) </li>' +
+                        '<li> <b> RIGHT_BARRIER_HEIGHT </b>: height of the right noise barrier in metres (DOUBLE) </li>' +
+                        '<li> <b> ABSOLUTE_DECK_HEIGHT </b>: absolute Z coordinate of the deck top (DOUBLE) </li>' +
+                        '<li> <b> RELATIVE_DECK_HEIGHT </b>: deck height above ground in metres (DOUBLE) </li>' +
+                        '</ul>',
                 min        : 0, max: 1,
                 type       : String.class
         ],
@@ -436,6 +461,23 @@ def exec(Connection connection, Map input) {
         if (sridGROUND != sridSources) throw new IllegalArgumentException("Error : The SRID of table "+ground_table_name+" and "+sources_table_name+" are not the same.")
     }
 
+    String bridge_points_table_name = ""
+    if (input['tableBridgePoints']) {
+        bridge_points_table_name = (input['tableBridgePoints'] as String).toUpperCase()
+        int sridBridgePoints = GeometryTableUtilities.getSRID(connection, TableLocation.parse(bridge_points_table_name))
+        if (sridBridgePoints == 3785 || sridBridgePoints == 4326) throw new IllegalArgumentException("Error : Please use a metric projection for "+bridge_points_table_name+".")
+        if (sridBridgePoints == 0) throw new IllegalArgumentException("Error : The table "+bridge_points_table_name+" does not have an associated SRID.")
+        if (sridSources != sridBridgePoints) throw new IllegalArgumentException("Error : The SRID of table "+sources_table_name+" and "+bridge_points_table_name+" are not the same.")
+    } else if (JDBCUtilities.hasField(connection, sources_table_name, "BRIDGE_PK")) {
+        sql.firstRow("SELECT COUNT(*) AS cnt FROM " + sources_table_name + " WHERE BRIDGE_PK IS NOT NULL").with { row ->
+            if ((row.cnt as int) > 0) {
+                logger.warn("Table {} contains {} road(s) with non-null BRIDGE_PK, but tableBridgePoints is not specified." +
+                        " Bridge structural noise will NOT be computed. Provide tableBridgePoints to enable it.",
+                        sources_table_name, row.cnt)
+            }
+        }
+    }
+
     String tableSourceDirectivity = ""
     if (input['tableSourceDirectivity']) {
         tableSourceDirectivity = input['tableSourceDirectivity']
@@ -558,18 +600,18 @@ def exec(Connection connection, Map input) {
 
 
     CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder()
-                .setMergeSources(!confExportSourceId)
-                .setExportReceiverPosition(true)
-                .setRaysTable(confRaysName)
-                .setExportRaysMethod(exportRaysMethod)
-                .setExportAttenuationMatrix(exportAttenuationMatrix)
-                .setExportCnossosPathWithAttenuation(exportCnossosPathWithAttenuation)
-                .setKeepAbsorption(keepAbsorption)
-                .setMaximumRaysOutputCount(maximumRaysOutputCount)
-                .setCSVProfilerOutputPath(csvProfilerOutputPath)
-                .setCSVProfilerWriteInterval(csvProfilerWriteInterval)
-                .setMaximumError(confMaxError)
-                .build()
+        .setMergeSources(!confExportSourceId)
+        .setExportReceiverPosition(true)
+        .setRaysTable(confRaysName)
+        .setExportRaysMethod(exportRaysMethod)
+        .setExportAttenuationMatrix(exportAttenuationMatrix)
+        .setExportCnossosPathWithAttenuation(exportCnossosPathWithAttenuation)
+        .setKeepAbsorption(keepAbsorption)
+        .setMaximumRaysOutputCount(maximumRaysOutputCount)
+        .setCSVProfilerOutputPath(csvProfilerOutputPath)
+        .setCSVProfilerWriteInterval(csvProfilerWriteInterval)
+        .setMaximumError(confMaxError)
+        .build()
 
     sql.execute("drop table if exists " + TableLocation.parse(calculationIOSettings.getReceiversLevelTable()))
 
@@ -590,6 +632,7 @@ def exec(Connection connection, Map input) {
         .setReceiverTableName(receivers_table_name)
         .setTerrainTableName(dem_table_name)
         .setGroundTableName(ground_table_name)
+        .setBridgePointTableName(bridge_points_table_name)
         .setPeriodAtmosphericSettingsTableName(periodAtmosphericSettingsTableName)
         .build()
 

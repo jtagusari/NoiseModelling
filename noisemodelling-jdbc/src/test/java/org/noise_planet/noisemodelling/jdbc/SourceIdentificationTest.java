@@ -395,7 +395,7 @@ public class SourceIdentificationTest {
                 .setSourceTableName("ROADS")
                 .setReceiverTableName("RECEIVERS")
                 .setTerrainTableName("DEM")
-                .setBridgePointsTableName("BRIDGE_POINTS")
+                .setBridgePointTableName("BRIDGE_POINTS")
                 .build();
         EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder()
                 .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN)

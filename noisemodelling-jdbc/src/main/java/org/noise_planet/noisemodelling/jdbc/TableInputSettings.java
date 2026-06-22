@@ -155,7 +155,7 @@ public class TableInputSettings {
             return this;
         }
 
-        public Builder setBridgePointsTableName(String bridgePointsTableName) {
+        public Builder setBridgePointTableName(String bridgePointsTableName) {
             this.bridgePointsTableName = bridgePointsTableName;
             return this;
         }
