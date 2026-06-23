@@ -34,6 +34,7 @@ import static org.h2gis.utilities.GeometryTableUtilities.getSRID;
 public abstract class GridMapMaker {
     public boolean verbose = true;
     private static final Logger LOGGER = LoggerFactory.getLogger(GridMapMaker.class);
+    /** Minimum ratio of propagation distance to cell size; drives grid subdivision until buffer zone ≥ 30% of cell width. */
     protected static final double MINIMAL_BUFFER_RATIO = 0.3;
 
     protected final TableInputSettings tableInputSettings;
@@ -197,20 +198,6 @@ public abstract class GridMapMaker {
         return tableInputSettings.getGroundTableName();
     }
 
-    /**
-     * @return True if provided Z value are sea level (false for relative to ground level)
-     */
-    public boolean isReceiverHasAbsoluteZCoordinates() {
-        return tableInputSettings.isReceiverHasAbsoluteZCoordinates();
-    }
-
-
-    /**
-     * @return True if provided Z value are sea level (false for relative to ground level)
-     */
-    public boolean isSourceHasAbsoluteZCoordinates() {
-        return tableInputSettings.isSourceHasAbsoluteZCoordinates();
-    }
 
     public boolean iszBuildings() {
         return tableInputSettings.useBuildingGeometryZ();
@@ -260,7 +247,7 @@ public abstract class GridMapMaker {
     }
 
     /**
-     * @return Reflection and diffraction maximum search distance, default to 400m.
+     * @return Reflection and diffraction maximum search distance, default to 100m.
     */
     public double getMaximumReflectionDistance() {
         return propagationSettings.getMaximumReflectionDistance();

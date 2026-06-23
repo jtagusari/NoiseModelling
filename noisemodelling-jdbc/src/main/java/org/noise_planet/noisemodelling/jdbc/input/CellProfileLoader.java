@@ -36,13 +36,13 @@ import static org.h2gis.utilities.GeometryTableUtilities.getGeometryColumnNames;
 public class CellProfileLoader {
     private static final Logger LOGGER = LoggerFactory.getLogger(CellProfileLoader.class);
 
-    /** Side length used to subdivide large soil polygons before intersection, in metres. */
     private final Connection connection;
     private final String buildingTableName;
     private final String buildingAlphaFieldName;
     private final double buildingDefaultAlpha;
     private final String buildingHeightFieldName;
     private final boolean buildingGeometryZ;
+    /** Side length used to subdivide large soil polygons before intersection, in metres. */
     private final double groundSurfaceSplitSideLength;
     private final String terrainTableName;
     private final String groundTableName;

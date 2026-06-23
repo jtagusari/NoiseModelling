@@ -94,7 +94,6 @@ class PathFinder {
   + CutPlaneVisitor.PathSearchStrategy directPath(...)
   + CutProfile computeVEdgeDiffraction(...)
   + List<Coordinate> computeSideHull(...)
-  + void makeSourceRelativeZToAbsolute()
   + void ensureAbsoluteReceiverHeights()
   + double splitLineStringIntoPoints(...)
 }

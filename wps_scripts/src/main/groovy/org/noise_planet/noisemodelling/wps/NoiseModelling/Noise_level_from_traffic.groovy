@@ -91,6 +91,9 @@ inputs = [
                         '<li><b> SLOPE </b> : Slope (in %) of the road section. If the field is not filled in, the LINESTRING z-values will be used to calculate the slope and the traffic direction (way field) will be force to 3 (bidirectional). (DOUBLE)</li>' +
                         '<li><b> WAY </b> : Define the way of the road section. 1 = one way road section and the traffic goes in the same way that the slope definition you have used, 2 = one way road section and the traffic goes in the inverse way that the slope definition you have used, 3 = bi-directional traffic flow, the flow is split into two components and correct half for uphill and half for downhill (INTEGER)</li>' +
                         '<li><b> BRIDGE_PK </b> : (optional) Primary key of the bridge the road is on. When non-null and <b>tableBridgePoints</b> is also provided, bridge structural noise (ASJ model) is automatically computed in addition to road surface emission (INTEGER)</li>' +
+                        '<li><b> HEIGHT_TYPE </b> : (optional) Controls how the Z coordinate of the road geometry is interpreted (VARCHAR). ' +
+                        '<b>RELATIVE</b> (default): Z is height above ground level (DEM). ' +
+                        '<b>ABSOLUTE</b>: Z is absolute elevation in the same coordinate system as the DEM. </li>' +
                         '</ul></br>'+
                         '&#128161; This table can be generated from the WPS Block "Import_OSM"',
                 type       : String.class
@@ -156,7 +159,11 @@ inputs = [
                 description: 'Name of the Receivers table </br> </br>' +
                         'The table must contain: </br> <ul>' +
                         '<li><b> PK </b> : an identifier. It shall be a primary key (INTEGER, PRIMARY KEY) </li> ' +
-                        '<li><b> THE_GEOM </b> : the 3D geometry of the sources (POINT, MULTIPOINT) </li> </ul>' +
+                        '<li><b> THE_GEOM </b> : the 3D geometry of the receivers (POINT, MULTIPOINT). The Z coordinate is mandatory. </li> </ul>' +
+                        'The table may optionally contain: </br> <ul>' +
+                        '<li><b> HEIGHT_TYPE </b>(optional) : controls how the Z coordinate is interpreted (VARCHAR). ' +
+                        '<b>RELATIVE</b> (default): Z is height above ground level (DEM). ' +
+                        '<b>ABSOLUTE</b>: Z is absolute elevation in the same coordinate system as the DEM. </li> </ul>' +
                         '&#128161; This table can be generated from the WPS Blocks in the "Receivers" folder',
                 type       : String.class
         ],

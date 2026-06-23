@@ -107,7 +107,11 @@ inputs = [
                 description: 'Name of the Receivers table </br> </br>' +
                         'The table must contain: </br> <ul>' +
                         '<li> <b> PK </b> : an identifier. It shall be a primary key (INTEGER, PRIMARY KEY) </li> ' +
-                        '<li> <b> THE_GEOM </b> : the 3D geometry of the sources (POINT, MULTIPOINT) </li> </ul>' +
+                        '<li> <b> THE_GEOM </b> : the 3D geometry of the receivers (POINT, MULTIPOINT). The Z coordinate is mandatory. </li> </ul>' +
+                        'The table may optionally contain: </br> <ul>' +
+                        '<li> <b> HEIGHT_TYPE </b> : controls how the Z coordinate is interpreted (VARCHAR). ' +
+                        '<b>RELATIVE</b> (default): Z is height above ground level (DEM). ' +
+                        '<b>ABSOLUTE</b>: Z is absolute elevation in the same coordinate system as the DEM. </li> </ul>' +
                         '&#128161; This table can be generated from the WPS Blocks in the "Receivers" folder',
                 type       : String.class
         ],

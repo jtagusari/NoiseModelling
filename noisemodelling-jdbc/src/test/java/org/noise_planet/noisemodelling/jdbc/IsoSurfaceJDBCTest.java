@@ -193,8 +193,6 @@ public class IsoSurfaceJDBCTest {
             TableInputSettings tableInputSettings = new TableInputSettings.Builder()
                 .setBuildingTableName("BUILDINGS")
                 .setSourceTableName("ROADS_GEOM")
-                .setSourceHasAbsoluteZCoordinates(false)
-                .setReceiverHasAbsoluteZCoordinates(false)
                 .build();
             
             DelaunayReceiversMaker noisemap = new DelaunayReceiversMaker.Builder()

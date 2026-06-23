@@ -232,16 +232,6 @@ public class PathFinder {
         return LineStringSplitter.splitLineStringIntoPoints(geom, segmentSizeConstraint, pts);
     }
 
-    // Elevation conversion methods
-    
-    /**
-     * Convert source Z coordinates from relative to absolute elevation.
-     */
-    public void makeSourceRelativeZToAbsolute() {
-        ElevationConverter converter = new ElevationConverter(data);
-        converter.changeGeometries(data.getSourceGeometries());
-    }
-
     /**
      * Convert receiver Z coordinates from relative to absolute elevation.
      */

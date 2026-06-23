@@ -29,12 +29,8 @@ public class TableInputSettings {
     private final String sourceTableName;
     /** Column name prefix for source power level (e.g. {@code DB_M} → columns {@code DB_M63}, …). */
     private final String sourceLevelFieldName;
-    /** When {@code true}, source Z is absolute altitude; otherwise relative to the ground surface. */
-    private final boolean sourceHasAbsoluteZCoordinates;
     /** Receiver point table name. */
     private final String receiverTableName;
-    /** When {@code true}, receiver Z is absolute altitude; otherwise relative to the ground surface. */
-    private final boolean receiverHasAbsoluteZCoordinates;
     /** Ground-absorption polygon table name. Empty string disables ground loading. */
     private final String groundTableName;
     /** Digital elevation model point table name. Empty string disables terrain loading. */
@@ -44,7 +40,7 @@ public class TableInputSettings {
     /** Table containing period-specific atmospheric parameters. Empty string disables atmospheric loading. */
     private final String periodAtmosphericSettingsTableName;
 
-    public TableInputSettings(String buildingTableName, String buildingHeightField, String buildingAlphaField, double buildingDefaultAlpha, boolean buildingGeometryZ, String sourceTableName, String sourceLevelFieldName, boolean sourceHasAbsoluteZCoordinates, String receiverTableName, boolean receiverHasAbsoluteZCoordinates, String groundTableName, String terrainTableName, String bridgePointsTableName, String periodAtmosphericSettingsTableName) {
+    public TableInputSettings(String buildingTableName, String buildingHeightField, String buildingAlphaField, double buildingDefaultAlpha, boolean buildingGeometryZ, String sourceTableName, String sourceLevelFieldName, String receiverTableName, String groundTableName, String terrainTableName, String bridgePointsTableName, String periodAtmosphericSettingsTableName) {
         this.buildingTableName = buildingTableName;
         this.buildingHeightField = buildingHeightField;
         this.buildingAlphaField = buildingAlphaField;
@@ -52,9 +48,7 @@ public class TableInputSettings {
         this.buildingGeometryZ = buildingGeometryZ;
         this.sourceTableName = sourceTableName;
         this.sourceLevelFieldName = sourceLevelFieldName;
-        this.sourceHasAbsoluteZCoordinates = sourceHasAbsoluteZCoordinates;
         this.receiverTableName = receiverTableName;
-        this.receiverHasAbsoluteZCoordinates = receiverHasAbsoluteZCoordinates;
         this.groundTableName = groundTableName;
         this.terrainTableName = terrainTableName;
         this.bridgePointsTableName = bridgePointsTableName;
@@ -69,9 +63,9 @@ public class TableInputSettings {
         private boolean buildingGeometryZ = false;
         private String sourceTableName;
         private String sourceLevelFieldName = "DB_M";
-        private boolean sourceHasAbsoluteZCoordinates = false;
+        // private boolean sourceHasAbsoluteZCoordinates = false;
         private String receiverTableName;
-        private boolean receiverHasAbsoluteZCoordinates = false;
+        // private boolean receiverHasAbsoluteZCoordinates = false;
         private String groundTableName = "";
         private String terrainTableName = "";
         private String bridgePointsTableName = "";
@@ -85,9 +79,7 @@ public class TableInputSettings {
             this.buildingGeometryZ = tableInputSettings.useBuildingGeometryZ();
             this.sourceTableName = tableInputSettings.getSourceTableName();
             this.sourceLevelFieldName = tableInputSettings.getSourceLevelFieldName();
-            this.sourceHasAbsoluteZCoordinates = tableInputSettings.isSourceHasAbsoluteZCoordinates();
             this.receiverTableName = tableInputSettings.getReceiverTableName();
-            this.receiverHasAbsoluteZCoordinates = tableInputSettings.isReceiverHasAbsoluteZCoordinates();
             this.groundTableName = tableInputSettings.getGroundTableName();
             this.terrainTableName = tableInputSettings.getTerrainTableName();
             this.bridgePointsTableName = tableInputSettings.getBridgePointTableName();
@@ -130,18 +122,8 @@ public class TableInputSettings {
             return this;
         }
 
-        public Builder setSourceHasAbsoluteZCoordinates(boolean sourceHasAbsoluteZCoordinates) {
-            this.sourceHasAbsoluteZCoordinates = sourceHasAbsoluteZCoordinates;
-            return this;
-        }
-
         public Builder setReceiverTableName(String receiverTableName) {
             this.receiverTableName = receiverTableName;
-            return this;
-        }
-
-        public Builder setReceiverHasAbsoluteZCoordinates(boolean receiverHasAbsoluteZCoordinates) {
-            this.receiverHasAbsoluteZCoordinates = receiverHasAbsoluteZCoordinates;
             return this;
         }
 
@@ -166,7 +148,7 @@ public class TableInputSettings {
         }
 
         public TableInputSettings build() {
-            TableInputSettings settings = new TableInputSettings(buildingTableName, buildingHeightField, buildingAlphaField, buildingDefaultAlpha, buildingGeometryZ, sourceTableName, sourceLevelFieldName, sourceHasAbsoluteZCoordinates, receiverTableName, receiverHasAbsoluteZCoordinates, groundTableName, terrainTableName, bridgePointsTableName, periodAtmosphericSettingsTableName);
+            TableInputSettings settings = new TableInputSettings(buildingTableName, buildingHeightField, buildingAlphaField, buildingDefaultAlpha, buildingGeometryZ, sourceTableName, sourceLevelFieldName, receiverTableName, groundTableName, terrainTableName, bridgePointsTableName, periodAtmosphericSettingsTableName);
             return settings;
         }
     }
@@ -208,16 +190,8 @@ public class TableInputSettings {
         return sourceLevelFieldName;
     }
 
-    public boolean isSourceHasAbsoluteZCoordinates() {
-        return sourceHasAbsoluteZCoordinates;
-    }
-
     public String getReceiverTableName() {
         return receiverTableName;
-    }
-
-    public boolean isReceiverHasAbsoluteZCoordinates() {
-        return receiverHasAbsoluteZCoordinates;
     }
 
     public String getGroundTableName() {

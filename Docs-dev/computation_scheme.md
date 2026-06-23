@@ -21,6 +21,7 @@
 NoiseModelling implements a comprehensive noise mapping computation scheme that transforms acoustic source data, building geometries, and terrain information into spatially-distributed noise level predictions at specified receiver points. The computation is orchestrated by the `NoiseMapByReceiverMaker` class, which coordinates multiple specialized components working together in a structured pipeline.
 
 **Key Characteristics**:
+
 - **Cell-Based Spatial Decomposition**: Divides the computation domain into manageable cells to optimize memory usage and enable parallel processing
 - **Database-Driven**: All input geometries and output results are managed through spatial database integration (typically PostGIS)
 - **Multi-Phase Architecture**: Separates data preparation, receiver generation, scene setup, and acoustic computation into distinct phases
@@ -100,6 +101,7 @@ stop
 **Data Preparation Approaches**:
 
 *Approach 1: File-Based Loading to H2GIS*
+
 - Geometries initially provided as single files (GeoJSON, Shapefile, GML, etc.)
 - Groovy scripts provided in WPS framework to load geometry files into H2GIS database
 - These preparation scripts read file-based geometries and populate H2GIS tables
@@ -107,12 +109,14 @@ stop
 - Useful for lightweight deployments or development scenarios
 
 *Approach 2: Direct PostGIS Database*
+
 - All geometries stored in spatial database (e.g., PostGIS) with proper spatial indexing
 - Coordinate reference system consistent across all tables
 - Projected coordinates (not geographic/lat-lon) required for accurate distance calculations
 - Direct SQL queries used to load data during computation
 
 *Approach 3: Direct Value Input for Testing*
+
 - Geometry and parameter values specified directly in computation code or configuration files
 - Suitable for testing, validation, and proof-of-concept demonstrations
 - Eliminates database dependency for small-scale computations
@@ -130,7 +134,7 @@ All three approaches produce equivalent database schemas and computational resul
 1. **DelaunayReceiversMaker**: Constrained Delaunay triangulation for adaptive mesh generation
    - Respects building and source boundaries
    - Produces spatially-optimized receiver distribution
-   - Class-based implementation in `noisemodelling-pathfinder`
+   - Class-based implementation in `noisemodelling-jdbc`
 
 2. **Regular Grid**: Uniform grid with constant spacing
    - Simple, predictable receiver distribution
@@ -143,6 +147,7 @@ All three approaches produce equivalent database schemas and computational resul
    - WPS script-based implementation (`Building_Grid.groovy`)
 
 **Output**:
+
 - **RECEIVERS Table**: Standardized schema with columns:
   - `PK` (primary key)
   - `THE_GEOM` (Point with Z coordinate)

@@ -161,41 +161,6 @@ public class ElevationConverter {
         }
     }
 
-    /**
-     * Convert a list of geometries from relative to absolute coordinates.
-     *
-     * <p>Because geometry topologies may need to change when Z values are
-     * applied (for example, LineStrings may need to be split and interpolated
-     * along the DEM), this method constructs new geometry instances and returns
-     * them as a replacement list. The original list passed in is not modified in
-     * content; instead a new list with converted geometries is created and
-     * assigned locally.
-     *
-     * <p>Supported geometry types: LineString and MultiLineString. Other
-     * geometry types are copied without modification.
-     *
-     * @param geometries list of input geometries to convert; method produces a
-     *        replacement list and assigns it locally (callers should replace the
-     *        original if needed)
-     */
-    public void changeGeometries(List<Geometry> geometries) {        
-        List<Geometry> convertedGeometries = new ArrayList<>(geometries.size());
-        for (Geometry geom : geometries) {
-            Geometry convertedGeom;            
-            if (geom instanceof LineString) {
-                convertedGeom = projectLineStringOntoDEM((LineString) geom, MIN_INTERPOLATION_DISTANCE);
-            } else if (geom instanceof MultiLineString) {
-                convertedGeom = convertMultiLineStringToAbsolute((MultiLineString) geom);
-            } else {
-                convertedGeom = geom.copy();
-            }
-            convertedGeometries.add(convertedGeom);
-        }
-        
-        geometries.clear();
-        geometries.addAll(convertedGeometries);
-    }
-
 
     /**
      * Converts MultiLineString from relative to absolute coordinates.

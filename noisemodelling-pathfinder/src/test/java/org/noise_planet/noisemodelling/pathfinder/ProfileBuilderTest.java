@@ -25,8 +25,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.noise_planet.noisemodelling.pathfinder.PathFinderTest.assertZProfil;
+
 
 /**
  * Test class dedicated to {@link ProfileBuilder}.
@@ -294,17 +295,19 @@ public class ProfileBuilderTest {
         WKTReader wktReader = new WKTReader();
         Geometry geometry = wktReader.read("MultiLineStringZ ((10 10 1, 200 50 1))");
         scene.addSource(1L, geometry);
-        PathFinder pathFinder = new PathFinder(scene);
+
+        // Source geometry must remain unchanged — Z conversion is handled per sampled point by SourceCollector
         assertEquals(2, scene.getSourceGeometryByIndex(0).getNumPoints());
-        pathFinder.makeSourceRelativeZToAbsolute();
-        // The source line should now be made of 4 points (2 points being created by the elevated DEM)
-        assertEquals(4, scene.getSourceGeometryByIndex(0).getNumPoints());
-        List<Coordinate> expectedProfile = Arrays.asList(
-                new Coordinate(10.0, 10.0, 1.0),
-                new Coordinate(120.0, 33.16, 1.0),
-                new Coordinate(185.0, 46.84, 11.0),
-                new Coordinate(200.0, 50.0, 11.0));
-        assertZProfil(expectedProfile, Arrays.asList(scene.getSourceGeometryByIndex(0).getCoordinates()));
+
+        // SourceCollector must convert each sampled point's relative Z=1 to absolute (groundZ + 1)
+        ReceiverPointInfo receiver = new ReceiverPointInfo(new Coordinate(100, 30, 4.0));
+        List<SourcePointInfo> sourcePoints = SourceCollector.collectSourcePoints(receiver, scene);
+        assertFalse(sourcePoints.isEmpty());
+        for (SourcePointInfo sp : sourcePoints) {
+            double groundZ = profileBuilder.getZGround(sp.getCoordinate());
+            assertEquals(groundZ + 1.0, sp.getCoordinate().z, 0.1,
+                    "Source point Z should equal groundZ + relative Z (1.0)");
+        }
     }
 
 

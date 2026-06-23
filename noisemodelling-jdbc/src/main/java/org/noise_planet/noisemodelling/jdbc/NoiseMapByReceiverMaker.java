@@ -368,10 +368,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
         // Receivers are normalized to absolute heights for consistent propagation geometry.
         computeRays.ensureAbsoluteReceiverHeights();
 
-        if(!tableInputSettings.isSourceHasAbsoluteZCoordinates()) {
-            // Convert relative source heights to absolute heights only when required by inputs.
-            computeRays.makeSourceRelativeZToAbsolute();
-        }
+        // Source Z conversion is handled per-source by SourceCollector using the HEIGHT_TYPE field.
 
         computeRays.run(computeRaysOut);
 
