@@ -24,7 +24,7 @@ The process involves several key steps:
 2. Compute diffraction candidate pivot points (`DiffractionPointCalculator`).
 3. Validate and possibly adjust reflection points (`ReflectionPointValidator`).
 4. Update the configuration with validated diffraction/reflection points.
-5. Build geometry segments and points with `AcousticPathBuilder`.
+5. Build geometry segments and points with `AcousticPath`.
 6. Convert and post-process into a `CnossosPath` via `CnossosPathProcessor`.
 
 ## AcousticPathConfiguration
@@ -486,12 +486,12 @@ The class provides methods for setting ground parameters (`setGpath`, `setGw`, `
 
 ### Create Path
 
-The `Path` instance is build using `AcousticPathBuilder.createPath()` method, which takes a fully prepared `AcousticPathConfiguration` as input and produces a `Path` object with the following steps:
+The `Path` instance is built by the `AcousticPath` constructor, which takes a list of pivot points and a fully prepared `AcousticPathConfiguration` as input and produces a `Path` object with the following steps:
 
 1. The pivot list length is checked. If fewer than two points are provided it throws an `IllegalArgumentException`.
-2. For a simple two-point (source+receiver) path it creates an `AcousticPathProcessor`, calls `updateWithSegmentIndex(1)` once, and returns the resulting `Path`.
-3. For N pivot points (N>=3) the builder creates an `AcousticPathProcessor` and iterates segmentIndex from 1 to N-1, calling `updateWithSegmentIndex(segmentIndex)` for each horizontal segment between consecutive pivot coordinates.
-4. After processing all segments it returns the assembled `Path` instance built incrementally by the processor.
+2. For a simple two-point (source+receiver) path it calls `updateWithSegmentIndex(1)` once and returns the resulting `Path`.
+3. For N pivot points (N>=3) it iterates segmentIndex from 1 to N-1, calling `updateWithSegmentIndex(segmentIndex)` for each horizontal segment between consecutive pivot coordinates.
+4. After processing all segments it returns the assembled `Path` instance built incrementally.
 
 ```plantuml
 @startuml
@@ -507,15 +507,10 @@ title Acoustic Path Creation Process
 
 start
 
-:AcousticPathBuilder.createPath();
+:new AcousticPath(horizontalEdgePivotPoints, configuration);
 note right
-  Entry point: takes fully prepared
+  Constructor: takes pivot points and
   AcousticPathConfiguration as input
-end note
-
-:Create AcousticPathProcessor;
-note right
-  new AcousticPathProcessor(configuration)
 end note
 
 :Check pivot list length;
@@ -527,18 +522,18 @@ endif
 
 if (horizontalEdgePivotPoints.size() == 2?) then (yes)
   :Simple two-point path;
-  :acousticPathProcessor.updateWithSegmentIndex(1);
-  :return acousticPathProcessor.getPath();
+  :acousticPath.updateWithSegmentIndex(1);
+  :return acousticPath.getPath();
   stop
 else (no)
   :N pivot points (N≥3);
 endif
 
 partition "For each segment (segmentIndex: 1 to N-1)" {
-  :acousticPathProcessor.updateWithSegmentIndex(segmentIndex);
+  :acousticPath.updateWithSegmentIndex(segmentIndex);
 }
 
-:return acousticPathProcessor.getPath();
+:return acousticPath.getPath();
 note right
   Complete Path with:
   - Ordered point list
@@ -554,7 +549,7 @@ stop
 
 ### Segment Processing Details
 
-The `AcousticPathProcessor.updateWithSegmentIndex(segmentIndex)` method is initialized with the segment index (`setSegmentIndex`), which resolves the start/end indices in the 2D cut-point array that correspond to the current horizontal pivot endpoints, maps to expanded cut-point indices used for ground sampling, and caches `CutPoint` references for start/end. Then it performs the following:
+The `AcousticPath.updateWithSegmentIndex(segmentIndex)` method is initialized with the segment index (`setSegmentIndex`), which resolves the start/end indices in the 2D cut-point array that correspond to the current horizontal pivot endpoints, maps to expanded cut-point indices used for ground sampling, and caches `CutPoint` references for start/end. Then it performs the following:
 
 1. If the segment is the very first processed one, the processor creates and appends a `PointPath` for the source. It computes an emission orientation by locating the first elevated reflection/diffraction target (if any) or the segment end.
 2. The processor scans intermediate cut-points between start and end to
@@ -575,7 +570,7 @@ skinparam activityEndColor #lightcoral
 skinparam activityBackgroundColor #lightyellow
 skinparam activityBorderColor #black
 
-title AcousticPathProcessor.updateWithSegmentIndex() Detailed Process
+title AcousticPath.updateWithSegmentIndex() Detailed Process
 
 start
 

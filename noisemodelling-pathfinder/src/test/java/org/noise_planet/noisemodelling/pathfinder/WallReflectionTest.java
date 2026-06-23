@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TestWallReflection {
+public class WallReflectionTest {
 
     @Test
     public void testWideWall() {
@@ -59,7 +59,7 @@ public class TestWallReflection {
         Csv csv = new Csv();
         WKTReader wktReader = new WKTReader();
         try(ResultSet rs = csv.read(new FileReader(
-                TestWallReflection.class.getResource("testNReflexionBuildings.csv").getFile()),
+                WallReflectionTest.class.getResource("testNReflexionBuildings.csv").getFile()),
                 new String[]{"geom", "id"})) {
             assertTrue(rs.next()); //skip column name
             while(rs.next()) {
@@ -142,7 +142,7 @@ public class TestWallReflection {
         Csv csv = new Csv();
         WKTReader wktReader = new WKTReader();
         try(ResultSet rs = csv.read(new FileReader(
-                        TestWallReflection.class.getResource("testNReflexionBuildings.csv").getFile()),
+                        WallReflectionTest.class.getResource("testNReflexionBuildings.csv").getFile()),
                 new String[]{"geom", "id"})) {
             assertTrue(rs.next()); //skip column name
             while(rs.next()) {

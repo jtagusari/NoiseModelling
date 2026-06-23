@@ -16,9 +16,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * Debug test for TC11 with detailed logging
  */
-public class TC11DebugTest {
+public class TC11PerformanceTest {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger(TC11DebugTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TC11PerformanceTest.class);
 
     @Test
     @Timeout(value = 30, unit = TimeUnit.SECONDS) // 30秒のタイムアウト

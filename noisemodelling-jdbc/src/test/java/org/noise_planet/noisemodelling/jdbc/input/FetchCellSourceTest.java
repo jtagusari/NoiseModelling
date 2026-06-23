@@ -73,7 +73,7 @@ public class FetchCellSourceTest {
         tableLoader.fetchCellBridge(connection, expandedCellEnvelop, profileBuilder, noiseMapByReceiverMaker.getGeometryFactory());
         profileBuilder.finishFeeding();
 
-        tableLoader.fetchCellSource(connection, mainEnvelope, scene, true);
+        tableLoader.loadCellSourcesAndEmissions(connection, mainEnvelope, scene, true);
 
         int sourceCount = scene.countSources();
         assertTrue(sourceCount >= 1, "At least one source should be registered by fetchCellSource");

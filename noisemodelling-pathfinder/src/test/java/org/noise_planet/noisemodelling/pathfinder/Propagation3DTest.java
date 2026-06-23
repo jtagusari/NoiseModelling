@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * @author SU Qi
  */
-public class Test3DPropagation {
+public class Propagation3DTest {
 
     @Test
     public void testChangePlan() {

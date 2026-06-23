@@ -11,7 +11,7 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TestJTSUtility {
+public class JTSUtilityTest {
 
     /**
      *  Error for coordinates. Its high because cnossos is rounding all its coordinates to 0.01

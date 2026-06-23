@@ -97,9 +97,8 @@ public class SceneWithEmissionWithDbTest {
 
         // Setup SceneWithEmission with OCTAVE frequency configuration
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings.Builder()
-                .setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
-                .build();
+        SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
+        settings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
         // Note: frequencyFieldPrepend is public, but already defaults to "HZ"
 
@@ -181,7 +180,7 @@ public class SceneWithEmissionWithDbTest {
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
         SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
-        settings.setInputMode("INPUT_MODE_LW_DEN");
+        settings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
         try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM LW_DEN_SOURCES ORDER BY PK");
@@ -246,7 +245,7 @@ public class SceneWithEmissionWithDbTest {
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
         SceneDatabaseInputSettings settings = new SceneDatabaseInputSettings();
-        settings.setInputMode("INPUT_MODE_LW_DEN");
+        settings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN);
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
         try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM LW_DEN_SOURCES WHERE PK=1");

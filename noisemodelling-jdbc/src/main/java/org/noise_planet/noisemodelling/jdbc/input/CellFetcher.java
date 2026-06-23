@@ -98,7 +98,7 @@ public class CellFetcher{
         }
         try (PreparedStatement st = connection.prepareStatement(sqlStatement)) {
             st.setObject(1, geometryFactory.toGeometry(fetchEnvelope));
-            try (SpatialResultSet rs = st.executeQuery().unwrap(SpatialResultSet.class)) {
+            try (ResultSet rs = st.executeQuery()) {
                 while (rs.next()) {
                     RowMappable row = RowFactory.create(objectType.name(), rs);
                     if(row != null) {
