@@ -380,8 +380,7 @@ public class SourceIdentificationTest {
     }
 
     @Test
-    public void testCellFetch() throws Exception{
-        
+    public void testCellFetch() throws Exception{        
         // Load test data from GeoJSON files
         loadTestDataFromGeoJson();
 
