@@ -22,7 +22,6 @@ import org.locationtech.jts.io.WKTWriter;
 import org.noise_planet.noisemodelling.jdbc.input.CellSceneContext;
 import org.noise_planet.noisemodelling.jdbc.input.LoaderInitContext;
 import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettings;
-import org.noise_planet.noisemodelling.jdbc.input.EmissionInputSettingsView;
 import org.noise_planet.noisemodelling.jdbc.input.PropagationSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.jdbc.input.TableLoader;
@@ -81,7 +80,7 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
      */
     public static class Builder{
         private TableInputSettings tableInputSettings;
-        private EmissionInputSettings emissionInputSettings = new EmissionInputSettings();
+        private EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder().build();
         private PropagationSettings propagationSettings = new PropagationSettings.Builder().build();
         private ComputationSettings computationSettings = new ComputationSettings.Builder().build();
         private CalculationIOSettings calculationIOSettings = new CalculationIOSettings.Builder().build();
@@ -187,8 +186,8 @@ public class NoiseMapByReceiverMaker extends GridMapMaker implements LoaderInitC
     }
 
 
-    public EmissionInputSettingsView getEmissionInputSettings() {
-        return emissionInputSettings.copy();
+    public EmissionInputSettings getEmissionInputSettings() {
+        return emissionInputSettings;
     }
 
 

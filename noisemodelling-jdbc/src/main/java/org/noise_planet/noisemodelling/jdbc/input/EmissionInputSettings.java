@@ -13,7 +13,7 @@ package org.noise_planet.noisemodelling.jdbc.input;
  * input mode, emission/directivity table references, and frequency field naming.
  * Use {@link Builder} to construct instances.
  */
-public class EmissionInputSettings implements EmissionInputSettingsView {
+public class EmissionInputSettings {
     public enum INPUT_MODE {
         /** Auto-detect the input mode from available source/emission columns. */
         INPUT_MODE_GUESS,
@@ -29,24 +29,25 @@ public class EmissionInputSettings implements EmissionInputSettingsView {
         INPUT_MODE_ATTENUATION }
 
     /** How emission data is located in the database; resolved from {@code INPUT_MODE_GUESS} at initialization. */
-    INPUT_MODE inputMode = INPUT_MODE.INPUT_MODE_GUESS;
+    private final INPUT_MODE inputMode;
     /** Separate emission table name. Empty string means emission data is in the source geometry table. */
-    String sourcesEmissionTableName = "";
+    private final String sourcesEmissionTableName;
     /** Primary-key column in the emission table used to join with the source geometry table. */
-    String sourceEmissionPrimaryKeyField = "IDSOURCE";
+    private final String sourceEmissionPrimaryKeyField;
     /** Source directivity table name. Empty string means omnidirectional sources. */
-    String directivityTableName = "";
+    private final String directivityTableName;
     /** When {@code true}, use built-in CNOSSOS railway directivity spheres instead of a custom table. */
-    boolean useTrainDirectivity = false;
+    private final boolean useTrainDirectivity;
     /** Prefix used to identify frequency band columns (e.g. {@code HZ} → columns {@code HZ63}, {@code HZ125}, …). */
-    public String frequencyFieldPrepend = "HZ";
+    private final String frequencyFieldPrepend;
 
-    public EmissionInputSettings() {
-    }
-
-    public EmissionInputSettings(INPUT_MODE inputMode, String sourcesEmissionTableName) {
+    public EmissionInputSettings(INPUT_MODE inputMode, String sourcesEmissionTableName, String sourceEmissionPrimaryKeyField, String directivityTableName, boolean useTrainDirectivity, String frequencyFieldPrepend) {
         this.inputMode = inputMode;
         this.sourcesEmissionTableName = sourcesEmissionTableName;
+        this.sourceEmissionPrimaryKeyField = sourceEmissionPrimaryKeyField;
+        this.directivityTableName = directivityTableName;
+        this.useTrainDirectivity = useTrainDirectivity;
+        this.frequencyFieldPrepend = frequencyFieldPrepend;
     }
 
     public EmissionInputSettings(EmissionInputSettings other) {
@@ -58,15 +59,6 @@ public class EmissionInputSettings implements EmissionInputSettingsView {
         this.frequencyFieldPrepend = other.frequencyFieldPrepend;
     }
 
-    public EmissionInputSettings(EmissionInputSettingsView other) {
-        this.inputMode = other.getInputMode();
-        this.sourcesEmissionTableName = other.getSourcesEmissionTableName();
-        this.sourceEmissionPrimaryKeyField = other.getSourceEmissionPrimaryKeyField();
-        this.directivityTableName = other.getDirectivityTableName();
-        this.useTrainDirectivity = other.isUseTrainDirectivity();
-        this.frequencyFieldPrepend = other.getFrequencyFieldPrepend();
-    }
-
     public static class Builder {
         private INPUT_MODE inputMode = INPUT_MODE.INPUT_MODE_GUESS;
         private String sourcesEmissionTableName = "";
@@ -74,6 +66,16 @@ public class EmissionInputSettings implements EmissionInputSettingsView {
         private String directivityTableName = "";
         private boolean useTrainDirectivity = false;
         private String frequencyFieldPrepend = "HZ";
+
+        public Builder inheritFrom(EmissionInputSettings other) {
+            this.inputMode = other.inputMode;
+            this.sourcesEmissionTableName = other.sourcesEmissionTableName;
+            this.sourceEmissionPrimaryKeyField = other.sourceEmissionPrimaryKeyField;
+            this.directivityTableName = other.directivityTableName;
+            this.useTrainDirectivity = other.useTrainDirectivity;
+            this.frequencyFieldPrepend = other.frequencyFieldPrepend;
+            return this;
+        }
 
         public Builder setInputMode(INPUT_MODE inputMode) {
             this.inputMode = inputMode;
@@ -106,70 +108,41 @@ public class EmissionInputSettings implements EmissionInputSettingsView {
         }
 
         public EmissionInputSettings build() {
-            EmissionInputSettings settings = new EmissionInputSettings();
-            settings.inputMode = this.inputMode;
-            settings.sourcesEmissionTableName = this.sourcesEmissionTableName;
-            settings.sourceEmissionPrimaryKeyField = this.sourceEmissionPrimaryKeyField;
-            settings.directivityTableName = this.directivityTableName;
-            settings.useTrainDirectivity = this.useTrainDirectivity;
-            settings.frequencyFieldPrepend = this.frequencyFieldPrepend;
+            EmissionInputSettings settings = new EmissionInputSettings(
+                this.inputMode,
+                this.sourcesEmissionTableName,
+                this.sourceEmissionPrimaryKeyField,
+                this.directivityTableName,
+                this.useTrainDirectivity,
+                this.frequencyFieldPrepend
+            );
             return settings;
         }
-    }
-
-    public EmissionInputSettings copy() {
-        return new EmissionInputSettings(this);
     }
 
     public INPUT_MODE getInputMode() {
         return inputMode;
     }
 
-    public void setInputMode(INPUT_MODE inputMode) {
-        this.inputMode = inputMode;
-    }
-
-    public void setInputMode(String inputMode) {
-        this.inputMode = INPUT_MODE.valueOf(inputMode);
-    }
 
     public String getSourcesEmissionTableName() {
         return sourcesEmissionTableName;
-    }
-
-    public void setSourcesEmissionTableName(String sourcesEmissionTableName) {
-        this.sourcesEmissionTableName = sourcesEmissionTableName;
     }
 
     public String getSourceEmissionPrimaryKeyField() {
         return sourceEmissionPrimaryKeyField;
     }
 
-    public void setSourceEmissionPrimaryKeyField(String sourceEmissionPrimaryKeyField) {
-        this.sourceEmissionPrimaryKeyField = sourceEmissionPrimaryKeyField;
-    }
 
     public String getDirectivityTableName() {
         return directivityTableName;
-    }
-
-    public void setDirectivityTableName(String directivityTableName) {
-        this.directivityTableName = directivityTableName;
     }
 
     public boolean isUseTrainDirectivity() {
         return useTrainDirectivity;
     }
 
-    public void setUseTrainDirectivity(boolean useTrainDirectivity) {
-        this.useTrainDirectivity = useTrainDirectivity;
-    }
-
     public String getFrequencyFieldPrepend() {
         return frequencyFieldPrepend;
-    }
-
-    public void setFrequencyFieldPrepend(String frequencyFieldPrepend) {
-        this.frequencyFieldPrepend = frequencyFieldPrepend;
     }
 }

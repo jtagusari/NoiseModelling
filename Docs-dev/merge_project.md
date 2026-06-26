@@ -61,7 +61,6 @@
 - `noisemodelling-jdbc/ComputationSettings.java` — 計算設定の独立クラス
 - `noisemodelling-jdbc/ReceiverGenerationSettings.java` — 受信点生成設定の独立クラス
 - `noisemodelling-jdbc/input/EmissionInputSettings.java` — 排出設定の独立クラス
-- `noisemodelling-jdbc/input/EmissionInputSettingsView.java`
 - `noisemodelling-jdbc/input/CellProfileLoader.java` — 新規追加
 
 ### E. ブリッジ処理の改修

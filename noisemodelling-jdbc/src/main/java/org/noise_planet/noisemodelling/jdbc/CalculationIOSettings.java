@@ -97,7 +97,7 @@ public class CalculationIOSettings {
         private Boolean sqlOutputFileCompression = true;
         private Boolean dropResultsTable = true;
         private boolean computeLAEQOnly = false;
-        private boolean exportReceiverPosition = false;
+        private boolean exportReceiverPosition = true;
 
         public Builder setExportAttenuationMatrix(boolean exportAttenuationMatrix) {
             this.exportAttenuationMatrix = exportAttenuationMatrix;

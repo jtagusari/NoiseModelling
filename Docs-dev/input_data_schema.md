@@ -238,7 +238,7 @@ The detailed loader logic and per-format examples are documented in `source_algo
 **Java Mapping**:
 - Per-period atmospheric parameters are loaded by `DefaultTableLoader.loadPeriodAtmosphericSettings(...)` using `AttenuationParameters.readFromDatabase(ResultSet, map)`.
 - Global propagation and input settings are exposed by `NoiseMapByReceiverMaker` through read-only loader contexts and injected into `SceneWithEmission` when `DefaultTableLoader.createScene(...)` builds each cell scene.
-- `DefaultTableLoader.initialize(...)` first snapshots `EmissionInputSettingsView` into mutable internal settings, resolves `INPUT_MODE_GUESS` if needed, then reuses that resolved mode consistently for per-cell source/emission loading.
+- `DefaultTableLoader.initialize(...)` first snapshots `EmissionInputSettings` into mutable internal settings, resolves `INPUT_MODE_GUESS` if needed, then reuses that resolved mode consistently for per-cell source/emission loading.
 
 ## Data Validation Checklist
 

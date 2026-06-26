@@ -143,13 +143,13 @@ public class DefaultTableLoader implements TableLoader {
     private void guessInputMode(Connection connection, EmissionInputSettings inputSettings) throws SQLException {
 
         // Check fields to find appropriate expected data
-        inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION;
-        if(!inputSettings.sourcesEmissionTableName.isEmpty()) {
-            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourcesEmissionTableName);
+        EmissionInputSettings.INPUT_MODE inputMode= EmissionInputSettings.INPUT_MODE.INPUT_MODE_ATTENUATION;
+        if(!inputSettings.getSourcesEmissionTableName().isEmpty()) {
+            List<String> sourceFields = JDBCUtilities.getColumnNames(connection, this.sourcesEmissionTableName);
             if(sourceFields.contains("LV_SPD")) {
-                inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW;
+                inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW;
             } else {
-                inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW;
+                inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW;
             }
         } else {
             List<String> sourceFields = JDBCUtilities.getColumnNames(connection, sourceTableName);
@@ -160,16 +160,23 @@ public class DefaultTableLoader implements TableLoader {
                         frequencyFieldPrepend +
                                 periodFieldName, sourceFields);
                 if(!frequencyValues.isEmpty()) {
-                    inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN;
+                    inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN;
                     break;
                 } else {
                     if(sourceFields.contains("LV_SPD_" + periodFieldName)) {
-                        inputSettings.inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN;
+                        inputMode = EmissionInputSettings.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW_DEN;
                         break;
                     }
                 }
             }
         }
+
+        EmissionInputSettings newSettings = new EmissionInputSettings.Builder()
+                .inheritFrom(inputSettings)
+                .setInputMode(inputMode)
+                .build();
+        this.emissionInputSettings = newSettings;
+        
     }
 
     /**

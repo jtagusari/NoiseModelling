@@ -1069,7 +1069,7 @@ public class ProfileBuilder {
                     case BRIDGE:{
                         CutPointBridgeWall newCutPoint = bridgeService.createBridgeCutPoint(rayWallIntersection, profile);
                         newCutPoints.add(newCutPoint);
-                        profile.hasBridgeIntersection(true);
+                        profile.hasBridgeIntersection(profile.hasBuildingIntersection() || newCutPoint.isObstructingAcousticRay());
                         if (profile.hasBridgeIntersection() && stopAtObstacleOverSourceReceiver) {
                             continueCalculation = false;
                         }

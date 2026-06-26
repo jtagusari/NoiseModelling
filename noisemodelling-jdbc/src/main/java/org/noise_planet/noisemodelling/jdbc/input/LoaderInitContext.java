@@ -15,7 +15,7 @@ import org.noise_planet.noisemodelling.jdbc.TableInputSettings;
  */
 public interface LoaderInitContext {
     /** @return Input-mode and emission/directivity settings used to initialize the loader. */
-    EmissionInputSettingsView getEmissionInputSettings();
+    EmissionInputSettings getEmissionInputSettings();
     /** @return Emission table name used when emissions are stored separately from geometry. */
     String getSourcesEmissionTableName();
     /** @return Prefix of frequency columns (for example HZ in HZ1000). */

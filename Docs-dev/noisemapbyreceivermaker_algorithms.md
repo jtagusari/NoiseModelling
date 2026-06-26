@@ -78,7 +78,7 @@ class NoiseMapByReceiverMaker extends GridMapMaker {
   + requestCellScene(Connection, CellIndex, Set<Long>): SceneWithEmission
   + getLoaderInitContext(): LoaderInitContext
   + getCellSceneContext(): CellSceneContext
-  + getEmissionInputSettings(): EmissionInputSettingsView
+  + getEmissionInputSettings(): EmissionInputSettings
   + searchPopulatedCells(Connection): Map<CellIndex, Integer>
 }
 
@@ -376,8 +376,7 @@ cellCtx --> create
 
 ### DefaultTableLoader Initialization Behavior
 
-`DefaultTableLoader.initialize(...)` now takes a snapshot copy of `EmissionInputSettingsView` into a mutable `EmissionInputSettings` instance. This has two important consequences:
-
+`DefaultTableLoader.initialize(...)` now takes a `EmissionInputSettings` instance. This has two important consequences:
 1. **Input mode guessing is persistent**: when mode is `INPUT_MODE_GUESS`, the guessed mode is stored in the loader snapshot and reused later by `createScene(...)`.
 2. **Per-cell behavior remains consistent**: every scene built by the same loader instance uses the same resolved input mode and associated settings.
 

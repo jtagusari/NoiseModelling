@@ -48,5 +48,5 @@ public interface CellSceneContext {
     /** @return Source geometry table name. */
     String getSourceTableName();
     /** @return Input-mode and emission/directivity settings used to build scenes. */
-    EmissionInputSettingsView getEmissionInputSettings();
+    EmissionInputSettings getEmissionInputSettings();
 }

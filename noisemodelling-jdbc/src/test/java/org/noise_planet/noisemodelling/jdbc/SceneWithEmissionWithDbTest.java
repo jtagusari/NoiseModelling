@@ -180,8 +180,9 @@ public class SceneWithEmissionWithDbTest {
         }
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        EmissionInputSettings settings = new EmissionInputSettings();
-        settings.setInputMode("INPUT_MODE_LW_DEN");
+        EmissionInputSettings settings = new EmissionInputSettings.Builder()
+            .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+            .build();
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
         try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM LW_DEN_SOURCES ORDER BY PK");
@@ -245,8 +246,9 @@ public class SceneWithEmissionWithDbTest {
         }
 
         ProfileBuilder profileBuilder = new ProfileBuilder(new FrequencyConfig(FrequencyBand.OCTAVE));
-        EmissionInputSettings settings = new EmissionInputSettings();
-        settings.setInputMode("INPUT_MODE_LW_DEN");
+        EmissionInputSettings settings = new EmissionInputSettings.Builder()
+            .setInputMode(EmissionInputSettings.INPUT_MODE.INPUT_MODE_LW_DEN)
+            .build();
         SceneWithEmission scene = new SceneWithEmission(profileBuilder, settings);
 
         try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM LW_DEN_SOURCES WHERE PK=1");

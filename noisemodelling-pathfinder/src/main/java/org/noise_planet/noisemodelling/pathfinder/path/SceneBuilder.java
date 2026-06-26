@@ -18,10 +18,10 @@ import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 public class SceneBuilder {
     private static final GeometryFactory FACTORY = new GeometryFactory();
 
-    private final Scene data;
+    private final Scene scene;
 
     public SceneBuilder(ProfileBuilder profileBuilder) {
-        data = new Scene(profileBuilder);
+        scene = new Scene(profileBuilder);
     }
 
     /**
@@ -32,7 +32,7 @@ public class SceneBuilder {
      * @return
      */
     public SceneBuilder addSource(double x, double y, double z) {
-        data.addSource(0L, FACTORY.createPoint(new Coordinate(x, y, z)));
+        scene.addSource(0L, FACTORY.createPoint(new Coordinate(x, y, z)));
         return this;
     }
 
@@ -43,7 +43,7 @@ public class SceneBuilder {
      * @return Builder instance for method chaining
      */
     public SceneBuilder addSource(Geometry geom) {
-        data.addSource(0L, geom);
+        scene.addSource(0L, geom);
         return this;
     }
 
@@ -59,7 +59,7 @@ public class SceneBuilder {
      */
     public SceneBuilder addSource(long pk, Geometry geom, Scene.HeightType heightType, 
                                    Orientation orientation, BridgeRelationship bridgeRelationship) {
-        data.addSource(pk, geom, heightType, orientation, bridgeRelationship);
+        scene.addSource(pk, geom, heightType, orientation, bridgeRelationship);
         return this;
     }
 
@@ -74,10 +74,10 @@ public class SceneBuilder {
      * @return Builder instance for method chaining
      */
     public SceneBuilder addReceiver(double x, double y, double z) {
-        if (data.countReceivers() > 0){
+        if (scene.countReceivers() > 0){
             throw new IllegalStateException("addReceiver(double x, double y, double z) can only be used when no receivers have been added yet.");
         }
-        data.addReceiver(0L, new Coordinate(x, y, z), Scene.HeightType.ABSOLUTE);
+        scene.addReceiver(0L, new Coordinate(x, y, z), Scene.HeightType.ABSOLUTE);
         return this;
     }
 
@@ -92,7 +92,7 @@ public class SceneBuilder {
      * @return Builder instance for method chaining
      */
     public SceneBuilder addReceiver(long pk, double x, double y, double z, Scene.HeightType heightType) {
-        data.addReceiver(pk, new Coordinate(x, y, z), heightType);
+        scene.addReceiver(pk, new Coordinate(x, y, z), heightType);
         return this;
     }
 
@@ -102,7 +102,7 @@ public class SceneBuilder {
      * @return
      */
     public SceneBuilder vEdgeDiff(boolean hDiff) {
-        data.setComputeHorizontalDiffraction(hDiff);
+        scene.setComputeHorizontalDiffraction(hDiff);
         return this;
     }
 
@@ -112,7 +112,7 @@ public class SceneBuilder {
      * @return
      */
     public SceneBuilder hEdgeDiff(boolean vDiff) {
-        data.setComputeVerticalDiffraction(vDiff);
+        scene.setComputeVerticalDiffraction(vDiff);
         return this;
     }
 
@@ -122,7 +122,7 @@ public class SceneBuilder {
      * @return
      */
     public SceneBuilder setGs(double gs) {
-        data.setDefaultGroundAttenuation(gs);
+        scene.setDefaultGroundAttenuation(gs);
         return this;
     }
 
@@ -132,20 +132,20 @@ public class SceneBuilder {
      * @return
      */
     public SceneBuilder setMaximumPropagationDistance(double maximumPropagationDistance) {
-        data.maxSrcDist = maximumPropagationDistance;
+        scene.maxSrcDist = maximumPropagationDistance;
         return this;
     }
 
     
     public SceneBuilder setMaximumReflectionDistance(double maximumReflectionDistance) {
-        data.maxRefDist = maximumReflectionDistance;
+        scene.maxRefDist = maximumReflectionDistance;
         return this;
     }
 
     
     
     public SceneBuilder setMaximumReflectionOrder(int maximumReflectionOrder) {
-        data.reflexionOrder = maximumReflectionOrder;
+        scene.reflexionOrder = maximumReflectionOrder;
         return this;
     }
 
@@ -154,6 +154,6 @@ public class SceneBuilder {
      * @return
      */
     public Scene build() {
-        return data;
+        return scene;
     }
 }

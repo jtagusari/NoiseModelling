@@ -81,6 +81,8 @@ public class CnossosPathProcessor {
         }
 
         if (hasDifB && hasDifT) {
+            // BT case: triggers recursive calls to CnossosPathBuilder.buildCnossosPath
+            // inside setDiffractionPathParametersBT (depth limited to 1 extra level).
             setDiffractionPathParametersBT(cnossosPath, configuration);
         } else if (hasDifB) {
             setDiffractionPathParametersB(cnossosPath, configuration);
@@ -160,10 +162,33 @@ public class CnossosPathProcessor {
     }
 
     
-    private static void setDiffractionPathParametersBT(CnossosPathExt cnossosPath, AcousticPathConfiguration configuration){ 
+    /**
+     * Compute delta parameters for a path that contains both a bottom edge (DIFB)
+     * and a top edge (DIFH) — the bridge BT-diffraction case.
+     *
+     * <p><b>Recursive calls:</b> this method calls
+     * {@link CnossosPathBuilder#buildCnossosPath} on sub-profiles derived from
+     * the original cut profile. Each sub-profile contains at most one diffraction
+     * type (B-only or T-only), so those recursive calls will NOT re-enter this
+     * method and the recursion terminates after one additional level.
+     *
+     * <p>Algorithm:
+     * <ol>
+     *   <li>Compute deltaB (path-length difference via the bottom edge B).</li>
+     *   <li>[Recursive call 1] Build a sub-path with the bottom-edge cut point
+     *       removed to obtain deltaH (reference top-edge delta).</li>
+     *   <li>If deltaB &ge; deltaH (bottom edge dominates):<br>
+     *       [Recursive call 2] Build the S→B sub-path (bottom route).<br>
+     *       [Recursive call 3] Build the B→R sub-path (top route after the bottom edge).</li>
+     *   <li>If deltaB &lt; deltaH (top edge dominates):<br>
+     *       [Recursive call 2] Build the S→T sub-path (bottom route before the top edge).<br>
+     *       Top route reuses the sub-path already built in step 2.</li>
+     * </ol>
+     */
+    private static void setDiffractionPathParametersBT(CnossosPathExt cnossosPath, AcousticPathConfiguration configuration){
         Coordinate sourceCoordinate = configuration.getSourceCoordinate2D();
         Coordinate receiverCoordinate = configuration.getReceiverCoordinate2D();
-        
+
         // Find the diffraction point of U
         PointPath diffractionPointB = cnossosPath.getPointList().stream()
         .filter(p -> p.type.equals(DIFB)).findFirst().orElse(null);
@@ -172,56 +197,62 @@ public class CnossosPathProcessor {
         }
 
         double deltaB = -1 * DistanceDifferenceCalculator.computeDeltaH(
-            sourceCoordinate, 
-            diffractionPointB.coordinate, 
+            sourceCoordinate,
+            diffractionPointB.coordinate,
             receiverCoordinate
         );
 
         CutProfile cutProfileWithoutBottomEdge = newCutProfileWithoutBottomEdge(configuration.getCutProfile());
 
+        // Recursive call 1: build a T-only sub-path (bottom-edge removed) to obtain deltaH.
         CnossosPathExt cnossosPathWithoutBottomEdge = CnossosPathBuilder.buildCnossosPath(
-            cutProfileWithoutBottomEdge, 
-            configuration.getExactFrequencyArray(), 
-            configuration.getGroundAttenuationCoefficient(), 
+            cutProfileWithoutBottomEdge,
+            configuration.getExactFrequencyArray(),
+            configuration.getGroundAttenuationCoefficient(),
             configuration.isBodyBarrier()
         );
         double deltaH = cnossosPathWithoutBottomEdge.deltaH;
-        
+
         if (deltaB >= deltaH) {
+            // Bottom edge (B) dominates: split into S→B and B→R sub-paths.
             CutProfile cutProfileOnlyWithBottomEdge = newCutProfileOnlyWithBottomEdge(configuration.getCutProfile());
-            
+
+            // Recursive call 2: S→B sub-path (bottom route, B-only diffraction).
             CnossosPathExt cnossosPathOnlyWithBottomEdge = CnossosPathBuilder.buildCnossosPath(
-                cutProfileOnlyWithBottomEdge, 
-                configuration.getExactFrequencyArray(), 
-                configuration.getGroundAttenuationCoefficient(), 
+                cutProfileOnlyWithBottomEdge,
+                configuration.getExactFrequencyArray(),
+                configuration.getGroundAttenuationCoefficient(),
                 configuration.isBodyBarrier()
             );
             cnossosPath.setCnossosPathBottomRoute(cnossosPathOnlyWithBottomEdge);
-            
+
             CutProfile cutProfileAfterBottomEdge = newCutProfileAfterBottomEdge(configuration.getCutProfile());
-            
+
+            // Recursive call 3: B→R sub-path (top route after the bottom edge, T-only diffraction).
             CnossosPathExt cnossosPathAfterBottomEdge = CnossosPathBuilder.buildCnossosPath(
-                cutProfileAfterBottomEdge, 
-                configuration.getExactFrequencyArray(), 
-                configuration.getGroundAttenuationCoefficient(), 
+                cutProfileAfterBottomEdge,
+                configuration.getExactFrequencyArray(),
+                configuration.getGroundAttenuationCoefficient(),
                 configuration.isBodyBarrier()
             );
             cnossosPath.setCnossosPathTopRoute(cnossosPathAfterBottomEdge);
         } else {
-            
+            // Top edge (T) dominates: split into S→T and reuse the without-bottom-edge path.
             PointPath diffractionPointT = cnossosPath.getPointList().stream()
             .filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
 
             CutProfile cutProfileOnlyBeforeTopEdge = newCutProfileBeforeTopEdge(configuration.getCutProfile(), configuration.getCutPointCoordinates2D(), diffractionPointT.coordinate);
 
+            // Recursive call 2: S→T sub-path (bottom route before the top edge, B-only diffraction).
             CnossosPathExt cnossosPathOnlyBeforeTopEdge = CnossosPathBuilder.buildCnossosPath(
-                cutProfileOnlyBeforeTopEdge, 
-                configuration.getExactFrequencyArray(), 
-                configuration.getGroundAttenuationCoefficient(), 
+                cutProfileOnlyBeforeTopEdge,
+                configuration.getExactFrequencyArray(),
+                configuration.getGroundAttenuationCoefficient(),
                 configuration.isBodyBarrier()
             );
-            
+
             cnossosPath.setCnossosPathBottomRoute(cnossosPathOnlyBeforeTopEdge);
+            // Top route reuses the sub-path already built in recursive call 1.
             cnossosPath.setCnossosPathTopRoute(cnossosPathWithoutBottomEdge);
         }
     }
@@ -266,7 +297,8 @@ public class CnossosPathProcessor {
         ArrayList<CutPoint> newCutPoints = new ArrayList<>();
         boolean beforeBottomEdge = true;
         
-        for (CutPoint cp: existCutPoints) {
+        for (int i = 1; i < existCutPoints.size(); i++) {
+            CutPoint cp = existCutPoints.get(i);
             if (beforeBottomEdge) {
                 if (cp instanceof CutPointBridgeWall && ((CutPointBridgeWall) cp).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
                     
@@ -280,6 +312,10 @@ public class CnossosPathProcessor {
             }
         }
         newCutProfile.setCutPoints(newCutPoints);
+        
+        if(newCutPoints.size() >= existCutPoints.size()) {
+            throw new IllegalArgumentException("Failed to create a cut profile after the bottom edge: no bottom-edge point found in the original cut profile");
+        }
         return newCutProfile;
     }
 
@@ -294,7 +330,7 @@ public class CnossosPathProcessor {
             CutPoint cp = existCutPoints.get(i);
             Coordinate cpCoordinate2D = cutPointCoordinates2D.get(i);
             if (beforeTopEdge) {
-                if (cpCoordinate2D != topEdgeCoordinate) {
+                if (!cpCoordinate2D.equals2D(topEdgeCoordinate, 1e-3)) {
                     newCutPoints.add(cp);
                 } else {
                     CutPointReceiver newReceiver = new CutPointReceiver(cutProfile.getReceiver());
@@ -305,6 +341,10 @@ public class CnossosPathProcessor {
             }
         }
         newCutProfile.setCutPoints(newCutPoints);
+
+        if(newCutPoints.size() >= existCutPoints.size()) {
+            throw new IllegalArgumentException("Failed to create a cut profile before the top edge: no top-edge point found in the original cut profile");
+        }
         return newCutProfile;
     }
 

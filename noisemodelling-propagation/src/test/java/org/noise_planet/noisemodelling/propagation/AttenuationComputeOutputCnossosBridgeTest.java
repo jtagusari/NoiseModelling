@@ -281,140 +281,175 @@ public class AttenuationComputeOutputCnossosBridgeTest {
     }
 
 
-    // =========================================================================
-    // TBC01 — ACTUAL source on bridge, far receiver
-    // Source at z=10.5 (deck surface), ACTUAL_SOURCE_ON_BRIDGE (pk=100).
-    // Receiver at (200, 50, 4): outside bridge footprint, free-field path.
-    // =========================================================================
+    /**
+     * TBC01 — ACTUAL source on bridge, far receiver.
+     * Source: z=10.5 (deck surface), ACTUAL_SOURCE_ON_BRIDGE (pk=100).
+     * Receiver at (200, 50, 4): outside bridge footprint, free-field path.
+     * Expected: IMAGINARY + ACTUAL profiles,
+     * asserted against TBC01_imaginary.json / TBC01_actual.json.
+     */
     @Test
     public void TBC01() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC01_imaginary", "TBC01_actual");
         verifyResults("TBC01", result);
     }
 
-    // =========================================================================
-    // TBC02 — ACTUAL source on bridge, receiver below deck inside footprint
-    // Receiver at (12, 10, 4): under the bridge deck (z=10), same y-range.
-    // Expected: ACTUAL_SOURCE_TO_LOWER_RECEIVER path with BridgeWall (DOWNWARD).
-    // =========================================================================
+    /**
+     * TBC02 — ACTUAL source on bridge, receiver below deck inside footprint.
+     * Receiver at (12, 10, 4): under the bridge deck (z=10), same y-range.
+     * Expected: ACTUAL_SOURCE_TO_LOWER_RECEIVER path with BridgeWall (DOWNWARD),
+     * asserted against TBC02_imaginary.json / TBC02_actual.json.
+     */
     @Test
     public void TBC02() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC02_imaginary", "TBC02_actual");
         verifyResults("TBC02", result);
     }
 
-    // =========================================================================
-    // TBC03 — ACTUAL source on bridge, receiver above deck inside footprint
-    // Receiver at (12, 10, 14): above the bridge deck, inside the footprint.
-    // Expected: IMAGINARY_SOURCE_TO_UPPER_RECEIVER path with BridgeWall (DOWNWARD).
-    // =========================================================================
+    /**
+     * TBC03 — ACTUAL source on bridge, receiver above deck inside footprint.
+     * Receiver at (12, 10, 14): above the bridge deck, inside the footprint.
+     * Expected: IMAGINARY_SOURCE_TO_UPPER_RECEIVER path with BridgeWall (DOWNWARD),
+     * asserted against TBC03_actual.json / TBC03_imaginary.json.
+     */
     @Test
     public void TBC03() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC03_actual", "TBC03_imaginary");
         verifyResults("TBC03", result);
     }
 
-    // =========================================================================
-    // TBC04 — MIRROR source above deck, far receiver
-    // Mirror source at z=15 (above deck), MIRROR_SOURCE referencing bridge pk=100.
-    // Receiver at (200, 50, 4): outside footprint.
-    // =========================================================================
+    /**
+     * TBC04 — MIRROR source above deck, far receiver.
+     * Mirror source at z=15 (above deck), MIRROR_SOURCE referencing bridge pk=100.
+     * Receiver at (200, 50, 4): outside footprint.
+     * Expected: MIRROR profile, asserted against TBC04_mirror.json.
+     */
     @Test
     public void TBC04() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC04_mirror");
         verifyResults("TBC04", result);
     }
 
-    // =========================================================================
-    // TBC05 — MIRROR source, receiver below deck inside footprint
-    // =========================================================================
+    /**
+     * TBC05 — MIRROR source, receiver below deck inside footprint.
+     * Expected: MIRROR profile, asserted against TBC05_mirror.json.
+     */
     @Test
     public void TBC05() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC05_mirror");
         verifyResults("TBC05", result);
     }
 
-    // =========================================================================
-    // TBC06 — MIRROR source, receiver above deck inside footprint
-    // =========================================================================
+    /**
+     * TBC06 — MIRROR source, receiver above deck inside footprint.
+     * Expected: MIRROR profile, asserted against TBC06_mirror.json.
+     */
     @Test
     public void TBC06() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC06_mirror");
         verifyResults("TBC06", result);
     }
 
-    // =========================================================================
-    // TBC07 — IMAGINARY source under bridge, far receiver
-    // Imaginary source at z=9.5 (below deck z=10), IMAGINARY_SOURCE_UNDER_BRIDGE.
-    // Receiver at (200, 50, 4): outside footprint.
-    // =========================================================================
+    /**
+     * TBC07 — IMAGINARY source under bridge, far receiver.
+     * Imaginary source at z=9.5 (below deck z=10), IMAGINARY_SOURCE_UNDER_BRIDGE.
+     * Receiver at (200, 50, 4): outside footprint.
+     * Expected: IMAGINARY profile, asserted against TBC07_imaginary.json.
+     */
     @Test
     public void TBC07() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC07_imaginary");
         verifyResults("TBC07", result);
     }
 
-    // =========================================================================
-    // TBC08 — Unrelated source far from bridge, far receiver
-    // Source at x=0 (bridge is at x=10), no bridge relationship.
-    // Receiver at (200, 50, 4): bridge lies between source and receiver in x.
-    // =========================================================================
+    /**
+     * TBC08 — Unrelated source far from bridge, far receiver.
+     * Source at x=0 (bridge is at x=10), no bridge relationship.
+     * Receiver at (200, 50, 4): bridge lies between source and receiver in x.
+     * Expected: NOT_RELATED profile, asserted against TBC08_not_related.json.
+     */
     @Test
     public void TBC08() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC08_not_related");
         verifyResults("TBC08", result);
     }
 
-    // =========================================================================
-    // TBC09 — Unrelated source under bridge footprint, far receiver
-    // Source at x=9 (inside bridge footprint x=[5,15]), z=0.05.
-    // Tests bridge shielding effect for an unrelated low source.
-    // =========================================================================
+    /**
+     * TBC09 — Unrelated source under bridge footprint, far receiver.
+     * Source at x=9 (inside bridge footprint x=[5,15]), z=0.05.
+     * Tests bridge shielding effect for an unrelated low source.
+     * Expected: NOT_RELATED + MIRROR profiles,
+     * asserted against TBC09_not_related.json / TBC09_mirror.json.
+     */
     @Test
     public void TBC09() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC09_not_related", "TBC09_mirror");
         verifyResults("TBC09", result);
     }
 
-    // =========================================================================
-    // TBC10 — Unrelated source under bridge footprint, elevated receiver
-    // Same source as TBC09. Receiver at (50, 50, 20): elevated, still outside footprint.
-    // Tests whether the bridge produces diffraction over the deck for this geometry.
-    // =========================================================================
+    /**
+     * TBC10 — Unrelated source under bridge footprint, elevated receiver.
+     * Same source as TBC09. Receiver at (50, 50, 20): elevated, still outside footprint.
+     * Tests whether the bridge produces diffraction over the deck for this geometry.
+     * Expected: MIRROR + NOT_RELATED profiles,
+     * asserted against TBC10_mirror.json / TBC10_not_related.json.
+     */
     @Test
     public void TBC10() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC10_mirror", "TBC10_not_related");
         verifyResults("TBC10", result);
     }
 
-    // =========================================================================
-    // TBC20 — ACTUAL source on bridge1, two bridges in scene, far receiver
-    // Source just above deck (z=10.05). Bridge2 (pk=101) is at x=12.
-    // Tests that only bridge1 is used for the source relationship.
-    // =========================================================================
+    
+    /**
+     * TBC11 — Same geometry as TBC01, both diffraction modes disabled
+     * ({@code vEdgeDiff=false, hEdgeDiff=false}).
+     * Source: Bridge1 (pk=100), line x=10, y=5..15, z=10.5 (absolute). ACTUAL_SOURCE_ON_BRIDGE.
+     * Receiver at (200, 50, 4): outside bridge footprint.
+     * With vertical diffraction OFF, the ACTUAL profile is suppressed because
+     * {@code hasBridgeIntersection=true} → {@code isFreeField()=false} → neither branch of
+     * {@code (verticalDiffraction || isFreeField())} passes.
+     * Expected: only IMAGINARY_SOURCE_UNDER_BRIDGE profile (mirrors PathFinderBridgeTest.TBC11),
+     * asserted against TBC11_imaginary.json.
+     */
+    @Test
+    public void TBC11() throws Exception {
+        AttenuationComputeOutput result = computeCnossosPath("TBC11_imaginary");
+        verifyResults("TBC11", result);
+    }
+
+    /**
+     * TBC20 — ACTUAL source on bridge1, two bridges in scene, far receiver.
+     * Source just above deck (z=10.05). Bridge2 (pk=101) is at x=12.
+     * Tests that only bridge1 is used for the source relationship.
+     * Expected: IMAGINARY + ACTUAL profiles,
+     * asserted against TBC20_imaginary.json / TBC20_actual.json.
+     */
     @Test
     public void TBC20() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC20_imaginary", "TBC20_actual");
         verifyResults("TBC20", result);
     }
 
-    // =========================================================================
-    // TBC21 — MIRROR source on bridge1, two bridges in scene, far receiver
-    // Mirror source at z=15 referencing bridge1 (pk=100). Bridge2 also present.
-    // =========================================================================
+    /**
+     * TBC21 — MIRROR source on bridge1, two bridges in scene, far receiver.
+     * Mirror source at z=15 referencing bridge1 (pk=100). Bridge2 also present.
+     * Expected: MIRROR profile, asserted against TBC21_mirror.json.
+     */
     @Test
     public void TBC21() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC21_mirror");
         verifyResults("TBC21", result);
     }
 
-    // =========================================================================
-    // TBC30 — ACTUAL source on bridge with real TutoBridge DEM (SRID 6676)
-    // Bridge points and DEM loaded from /TutoBridge/*.geojson (Seishin Bypass, Shizuoka).
-    // Source: ACTUAL on bridge pk=1, short segment z=0.05 (RELATIVE to DEM).
-    // Receiver at (−13911.6, −113565.2, 1.5), RELATIVE to DEM.
-    // Expected: IMAGINARY + ACTUAL profiles (mirrors PathFinderBridgeTest.TBC30).
-    // =========================================================================
+    /**
+     * TBC30 — ACTUAL source on bridge with real TutoBridge DEM (SRID 6676).
+     * Bridge points and DEM loaded from {@code /TutoBridge/*.geojson} (Seishin Bypass, Shizuoka).
+     * Source: ACTUAL on bridge pk=1, short segment z=0.05 (RELATIVE to DEM).
+     * Receiver at (−13911.6, −113565.2, 1.5), RELATIVE to DEM.
+     * Expected: IMAGINARY + ACTUAL profiles (mirrors PathFinderBridgeTest.TBC30),
+     * asserted against TBC30_imaginary.json / TBC30_actual.json.
+     */
     @Test
     public void TBC30() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC30_imaginary", "TBC30_actual");
@@ -422,7 +457,18 @@ public class AttenuationComputeOutputCnossosBridgeTest {
         verifyResults("TBC30", result);
     }
 
-    
+    /**
+     * TBC31 — Two sources with wall, real TutoBridge DEM (SRID 6676).
+     * Bridge points and DEM from {@code /TutoBridge/*.geojson} (Seishin Bypass, Shizuoka).
+     * Source 1: ACTUAL_SOURCE_ON_BRIDGE (pk=1), line z=0.05 (RELATIVE).
+     * Source 2: SOURCE_NOT_RELATED_TO_BRIDGE, same line geometry.
+     * Wall: 4 m height near bridge axis — generates MIRROR_SOURCE for source 1.
+     * Receiver at (−13911.6, −113565.2, 1.5), RELATIVE to DEM.
+     * Expected: IMAGINARY + ACTUAL + MIRROR + NOT_RELATED profiles
+     * (mirrors PathFinderBridgeTest.TBC31),
+     * asserted against TBC31_imaginary.json / TBC31_actual.json /
+     * TBC31_mirror.json / TBC31_not_related.json.
+     */
     @Test
     public void TBC31() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC31_imaginary", "TBC31_actual", "TBC31_mirror", "TBC31_not_related");

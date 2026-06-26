@@ -34,6 +34,16 @@ public class CnossosPathBuilder {
      * full path computation (diffraction candidate selection, reflection
      * validation and path assembly).
      *
+     * <p><b>Recursion note:</b> this method is the recursive entry point for
+     * bridge bottom+top (BT) diffraction paths. When the assembled path
+     * contains both a DIFB point and a DIFH point,
+     * {@link CnossosPathProcessor#createCnossosPath} delegates to
+     * {@code setDiffractionPathParametersBT}, which calls this method again on
+     * three sub-profiles (without-bottom-edge, only-bottom-edge or
+     * before-top-edge, and after-bottom-edge). Each sub-profile contains at
+     * most one diffraction type (B or T, never both), so the recursion is
+     * bounded to exactly one additional level and will not recurse further.
+     *
      * @param cutProfile vertical cut profile used to derive path geometry
      * @param exactFrequencyArray list of frequency bands used in calculations
      * @param groundAttenuationCoefficient default ground attenuation coefficient

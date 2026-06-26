@@ -51,7 +51,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
     // Settings that control how input is parsed (which fields, input mode,
     // coefficient versions, frequency field prefix, etc.). Populated from the
     // caller that prepares the scene.
-    private EmissionInputSettings emissionInputSettings = new EmissionInputSettings();
+    private EmissionInputSettings emissionInputSettings = new EmissionInputSettings.Builder().build();
 
     /**
     * Construct a scene with a configured {@link ProfileBuilder} and explicit
@@ -62,7 +62,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
     * @param emissionInputSettings controls how database fields are
     *                                  interpreted when reading emissions
      */
-    public SceneWithEmission(ProfileBuilder profileBuilder, EmissionInputSettingsView emissionInputSettings) {
+    public SceneWithEmission(ProfileBuilder profileBuilder, EmissionInputSettings emissionInputSettings) {
         super(profileBuilder);
         this.emissionInputSettings = new EmissionInputSettings(emissionInputSettings);
     }
@@ -114,7 +114,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
         List<String> periods = Arrays.asList("D", "E", "N");
         
         List<SourceEmission> emissions;
-        switch (Objects.requireNonNull(emissionInputSettings.inputMode)) {
+        switch (Objects.requireNonNull(emissionInputSettings.getInputMode())) {
             case INPUT_MODE_TRAFFIC_FLOW_DEN:
                 emissions = new RoadEmissionBuilder(rs)
                     .withPeriods(periods)
@@ -123,7 +123,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
             case INPUT_MODE_LW_DEN:
                 emissions = new SourceEmissionBuilder(rs, profileBuilder.getFrequencyArray())
                     .withPeriods(periods)
-                    .setFrequencyFieldPrepend(emissionInputSettings.frequencyFieldPrepend)
+                    .setFrequencyFieldPrepend(emissionInputSettings.getFrequencyFieldPrepend())
                     .build();
                 break;
             default:
@@ -154,7 +154,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
     public void registerSourceEmissionFromDb(Long pk, ResultSet rs) throws SQLException {
 
         List<SourceEmission> emissions;
-        switch (emissionInputSettings.inputMode) {
+        switch (emissionInputSettings.getInputMode()) {
             case INPUT_MODE_TRAFFIC_FLOW:
                 emissions = new RoadEmissionBuilder(rs)
                     .periodFromDb()
@@ -163,7 +163,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
             case INPUT_MODE_LW:
                 emissions = new SourceEmissionBuilder(rs, profileBuilder.getFrequencyArray())
                     .periodFromDb()
-                    .setFrequencyFieldPrepend(emissionInputSettings.frequencyFieldPrepend)
+                    .setFrequencyFieldPrepend(emissionInputSettings.getFrequencyFieldPrepend())
                     .build();
                 break;
             default:
@@ -224,15 +224,8 @@ public class SceneWithEmission extends SceneWithAttenuation {
      *
      * @return the current scene database input settings
      */
-    public EmissionInputSettingsView getEmissionInputSettings() {
-        return this.emissionInputSettings.copy();
+    public EmissionInputSettings getEmissionInputSettings() {
+        return this.emissionInputSettings;
     }
 
-    public void setInputMode(EmissionInputSettings.INPUT_MODE inputMode) {
-        this.emissionInputSettings.setInputMode(inputMode);
-    }
-
-    public void setInputMode(String inputMode) {
-        this.emissionInputSettings.setInputMode(inputMode);
-    }
 }

@@ -69,6 +69,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p><b>TBC30:</b> uses the real TutoBridge DEM (SRID 6676) and bridge geometry from GeoJSON
  * instead of the synthetic flat bridge used in TBC01–TBC21.
+ *
+ * <p><b>TBC31:</b> extends TBC30 with a second source (SOURCE_NOT_RELATED_TO_BRIDGE) and a
+ * wall near the bridge, verifying that all four relation types (ACTUAL, IMAGINARY, MIRROR,
+ * NOT_RELATED) are produced simultaneously.
  */
 public class PathFinderBridgeTest {
 
@@ -85,7 +89,7 @@ public class PathFinderBridgeTest {
      * When {@code true}, always write a {@code tmp_<name>.json} alongside the reference file
      * for quick visual inspection of the current profile, independent of {@link #overwriteTestCase}.
      */
-    public boolean outputCurrentCutProfile = false;
+    public boolean outputCurrentCutProfile = true;
 
     /** Coordinate comparison tolerance (metres). */
     public static final double DELTA_COORDS = 0.1;
@@ -785,6 +789,58 @@ public class PathFinderBridgeTest {
 
     
     /**
+     * TBC11 — Same geometry as TBC01, but with both diffraction modes disabled
+     * ({@code vEdgeDiff=false, hEdgeDiff=false}).
+     * Source: Bridge1 (pk=100), line x=10, y=5..15, z=10.5 (absolute). ACTUAL_SOURCE_ON_BRIDGE.
+     * Receiver: (200, 50, 4) — outside bridge footprint.
+     * With vertical diffraction OFF, the ACTUAL profile is suppressed
+     * (bridge geometry intersects the ray → {@code hasBridgeIntersection=true} →
+     * {@code isFreeField()=false} → neither condition of {@code verticalDiffraction||isFreeField()} passes).
+     * The IMAGINARY profile is retained because the ray from the imaginary source
+     * to the distant receiver clears the bridge geometry ({@code isFreeField()=true}).
+     * Expected: 1 profile — IMAGINARY_SOURCE_UNDER_BRIDGE, asserted against TBC11_imaginary.json.
+     */
+    @Test
+    public void TBC11() throws Exception {
+        //Profile building
+        ProfileBuilder profileBuilder = new ProfileBuilder()
+                .addBridge(createBridge1())
+                .finishFeeding();
+
+        GeometryFactory geometryFactory = new GeometryFactory();
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(10, 5, 10.5),
+                new Coordinate(10, 15, 10.5)
+        });
+
+        //Propagation data building
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(1L, source, Scene.HeightType.ABSOLUTE, new Orientation(0,0,0), new BridgeRelationship(RelationType.ACTUAL_SOURCE_ON_BRIDGE, 100, -1))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(false)
+                .build();
+
+        //Out and computation settings
+        DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
+        PathFinder computeRays = new PathFinder(scene);
+        computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
+
+        //Run computation
+        computeRays.run(propDataOut);
+
+        // ACTUAL_SOURCE_ON_BRIDGE produces 1 profiles: the IMAGINARY profile
+        List<CutProfile> profiles = new ArrayList<>(propDataOut.cutProfiles);
+        assertEquals(1, profiles.size(), "Expected 1 IMAGINARY profile");
+        assertEquals(RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+                profiles.get(0).getSource().getBridgeRelationship().getRelationType(),
+                "profile[0] should be IMAGINARY (sorts closer to receiver)");
+        assertCutProfile("TBC11_imaginary", profiles.get(0));
+    }
+
+    
+    /**
      * TBC20 — ACTUAL_SOURCE_ON_BRIDGE with two bridges in the scene, distant receiver.
      * Source: ACTUAL on Bridge1 (pk=100), line x=10, y=5..15, z=10.05.
      * Bridge2 (pk=101, x=12, z=5) is also present in the scene.
@@ -1128,7 +1184,21 @@ public class PathFinderBridgeTest {
         assertCutProfile("TBC30_actual", actualProfile);
     }
 
-    
+    /**
+     * TBC31 — Two sources (ACTUAL_SOURCE_ON_BRIDGE + SOURCE_NOT_RELATED_TO_BRIDGE) with a wall,
+     * using real TutoBridge DEM geometry (SRID 6676).
+     * Loads bridge points from {@code /TutoBridge/bridgepoints.geojson} and DEM from
+     * {@code /TutoBridge/dem.geojson}; coordinates are in the local system (roughly −13917, −113557).
+     * Source 1: ACTUAL on bridge pk=1, line segment z=0.05 (RELATIVE) — generates ACTUAL, IMAGINARY and MIRROR profiles.
+     * Source 2: SOURCE_NOT_RELATED_TO_BRIDGE, same segment — generates plain diffraction profiles.
+     * Wall: 4 m height, (−13909, −113551)→(−13918, −113575), parallel to bridge axis.
+     * Receiver at (−13911.6, −113565.2, 1.5) (RELATIVE to DEM).
+     * Both sources produce 2 sample points → 8 profiles total:
+     * 2×IMAGINARY_SOURCE_UNDER_BRIDGE, 2×ACTUAL_SOURCE_ON_BRIDGE,
+     * 2×SOURCE_NOT_RELATED_TO_BRIDGE, 2×MIRROR_SOURCE.
+     * Asserted against TBC31_imaginary.json / TBC31_actual.json /
+     * TBC31_not_related.json / TBC31_mirror.json.
+     */
     @Test
     public void TBC31() throws Exception {
         GeometryFactory geometryFactory = new GeometryFactory();

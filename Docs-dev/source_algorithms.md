@@ -263,7 +263,7 @@ Geometry loading and emission calculation occur together while sources are added
 - `INPUT_MODE_GUESS`: auto-detected from available columns during `DefaultTableLoader.initialize(...)`
 
 **Lifecycle note (current implementation):**
-- `NoiseMapByReceiverMaker` exposes `EmissionInputSettingsView` through read-only contexts.
+- `NoiseMapByReceiverMaker` exposes `EmissionInputSettings` through read-only contexts.
 - `DefaultTableLoader.initialize(...)` copies that view into an internal mutable `EmissionInputSettings` snapshot.
 - If the mode is `INPUT_MODE_GUESS`, the guessed mode is resolved once and stored in that snapshot.
 - `createScene(...)` and `fetchCellSource(...)` then use the resolved snapshot, not the original unresolved view.

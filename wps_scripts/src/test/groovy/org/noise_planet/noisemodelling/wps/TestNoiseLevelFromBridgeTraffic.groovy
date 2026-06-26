@@ -71,6 +71,7 @@ class TestNoiseLevelFromBridgeTraffic extends JdbcTestCase {
                  "tableDEM"          : "DEM",
                  "tableBridgePoints" : "BRIDGE_POINTS",
                  "confMaxSrcDist"    : 500.0,
+                 "confDiffHorizontal" : true,
                  "confReflOrder"     : 0,
                  "confMaxError"      : 0.0,
                  "confRaysName"      : "RAYS"])
@@ -92,7 +93,7 @@ class TestNoiseLevelFromBridgeTraffic extends JdbcTestCase {
 
         new File("build/tmp").mkdirs()
         new Export_Table().exec(connection,
-                ["exportPath"   : "build/tmp/receivers_level.geojson",
+                ["exportPath"   : "build/tmp/TutoBridge_receivers_level.geojson",
                  "tableToExport": CalculationIOSettings.DEFAULT_RECEIVERS_LEVEL_TABLE_NAME])
         new Export_Table().exec(connection,
                 ["exportPath"   : "build/tmp/TutoBridge_rays.geojson",
