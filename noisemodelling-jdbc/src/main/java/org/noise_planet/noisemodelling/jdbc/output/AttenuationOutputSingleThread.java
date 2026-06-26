@@ -209,9 +209,18 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                                     cnossosPath, period));
                         } else {
                             if(defaultAttenuation.length == 0) {
-                                // None ? ok fallback to default settings from scene
+                                // No period-specific atmospheric settings — fallback to default, tag with actual period
                                 defaultAttenuation = dBToW(processAndStoreAttenuation(scene.getAttenuationParameters(),
-                                        cnossosPath, ""));
+                                        cnossosPath, period));
+                            } else {
+                                // Reuse cached attenuation; still store a ray copy tagged with this period
+                                if(multiThread.getCalculationIOSettings().getExportRaysMethod() ==
+                                        CalculationIOSettings.ExportRaysMethods.TO_RAYS_TABLE &&
+                                        multiThread.getCalculationIOSettings().isExportAttenuationMatrix()) {
+                                    CnossosPathExt periodCopy = new CnossosPathExt(cnossosPath);
+                                    periodCopy.setTimePeriod(period);
+                                    cnossosPaths.add(periodCopy);
+                                }
                             }
                             attenuation = defaultAttenuation;
                         }

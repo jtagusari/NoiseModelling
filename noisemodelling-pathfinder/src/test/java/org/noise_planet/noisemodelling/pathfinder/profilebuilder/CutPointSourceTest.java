@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -200,6 +201,21 @@ public class CutPointSourceTest {
         
         assertEquals(0.8, source.getGroundCoefficient(), 1e-9);
         assertEquals(12.5, source.getzGround(), 1e-9);
+    }
+
+    @Test
+    public void testSourcePointInfoConstructorCopiesBridgeRelationship() {
+        Coordinate sourceCoord = new Coordinate(10.0, 20.0, 5.0);
+        BridgeRelationship rel = new BridgeRelationship(
+                BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE, 5L, -1L);
+        SourcePointInfo info = new SourcePointInfo(0, 42L, sourceCoord, 1.0, new Orientation(), rel);
+
+        CutPointSource cutSource = new CutPointSource(info);
+
+        assertEquals(BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE,
+                cutSource.getBridgeRelationship().getRelationType());
+        assertEquals(5L, cutSource.getBridgeRelationship().getBridgePkOn());
+        assertEquals(-1L, cutSource.getBridgeRelationship().getBridgePkAbove());
     }
 
     @Test

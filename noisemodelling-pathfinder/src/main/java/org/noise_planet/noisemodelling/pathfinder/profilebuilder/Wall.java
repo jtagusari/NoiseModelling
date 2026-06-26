@@ -3,6 +3,9 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+
 import java.util.Objects;
 
 

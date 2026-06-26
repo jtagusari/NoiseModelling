@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "roads",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::6676" } },
+"features": [
+{ "type": "Feature", "properties": { "PK": 1, "HISTORY": "fetchroadosm (H-RISK with noisemodelling v 0.6.3) at 2026-06-03 15:47:31; initroad (H-RISK with noisemodelling v 0.6.3) at 2026-06-24 16:24:09", "LV_d": 300.0, "LV_e": 0.0, "LV_n": 0.0, "MV_d": 30.0, "MV_e": 0.0, "MV_n": 0.0, "HGV_d": 0.0, "HGV_e": 0.0, "HGV_n": 0.0, "WAV_d": 0.0, "WAV_e": 0.0, "WAV_n": 0.0, "WBV_d": 0.0, "WBV_e": 0.0, "WBV_n": 0.0, "LV_spd_d": 60.0, "LV_spd_e": 60.0, "LV_spd_n": 60.0, "MV_spd_d": 60.0, "MV_spd_e": 60.0, "MV_spd_n": 60.0, "HGV_spd_d": 60.0, "HGV_spd_e": 60.0, "HGV_spd_n": 60.0, "WAV_spd_d": 60.0, "WAV_spd_e": 60.0, "WAV_spd_n": 60.0, "WBV_spd_d": 60.0, "WBV_spd_e": 60.0, "WBV_spd_n": 60.0, "pvmt": "DEF", "temp_d": 20.0, "temp_e": 20.0, "temp_n": 20.0, "ts_stud": 0.0, "pm_stud": null, "junc_dist": 999.0, "junc_type": 0, "slope": 0.0, "way": 3 }, "geometry": { "type": "LineString", "coordinates": [ [ -13812.618584945570547, -113306.100054240130703, 0.05 ], [ -13868.073384826246183, -113442.481377087766305, 0.05 ], [ -13919.817495517043426, -113563.404439809775795, 0.05 ], [ -13953.324522232247546, -113645.585260557752918, 0.05 ], [ -13971.30128699902707, -113686.357600685281795, 0.05 ], [ -13998.232773858755536, -113743.234217506324057, 0.05 ], [ -14015.787818266606337, -113776.696864667392219, 0.05 ] ] } }
+]
+}

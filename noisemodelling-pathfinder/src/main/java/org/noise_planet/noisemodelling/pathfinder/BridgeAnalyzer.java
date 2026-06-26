@@ -48,6 +48,11 @@ public final class BridgeAnalyzer {
         if (sourceProperty.getRelationType() == BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE) {
             return null;
         }
+
+        // Do not create MIRROR_SOURCE for another MIRROR_SOURCE
+        if (sourceProperty.getRelationType() == BridgeRelationship.RelationType.MIRROR_SOURCE) {
+            return null;
+        }
         
         // Find bridge with minimum bridge bottom above the source
         Bridge selectedBridge = null;

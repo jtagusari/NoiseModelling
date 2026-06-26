@@ -1,0 +1,100 @@
+{
+  "cutPoints" : [ {
+    "type" : "Source",
+    "coordinate" : {
+      "x" : 10.0,
+      "y" : 10.0,
+      "z" : 10.05
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "sourcePk" : 1,
+    "orientation" : {
+      "yaw" : 0.0,
+      "pitch" : 0.0,
+      "roll" : 0.0
+    },
+    "bridgeHeight" : 10.0,
+    "li" : 10.0,
+    "bridgePkOn" : 100,
+    "bridgePkAbove" : -1,
+    "bridgeRelationType" : "ACTUAL_SOURCE_ON_BRIDGE"
+  }, {
+    "type" : "BridgeWall",
+    "coordinate" : {
+      "x" : 15.0,
+      "y" : 11.052631578947368,
+      "z" : 11.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : true,
+    "groundCoefficient" : 0.0,
+    "wall" : {
+      "p0" : {
+        "x" : 15.0,
+        "y" : 20.0,
+        "z" : 11.0
+      },
+      "p1" : {
+        "x" : 15.0,
+        "y" : 10.0,
+        "z" : 11.0
+      }
+    },
+    "wallDirection" : "UPWARD",
+    "mirrorRelax" : false,
+    "bridgeHeight" : 10.0,
+    "intersectionType" : "BUILDING_EXIT",
+    "wallAlpha" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "wallPk" : 100,
+    "nextBridgePk" : 101,
+    "nextBridgeHeight" : 5.0,
+    "bridgePk" : 100
+  }, {
+    "type" : "BridgeWall",
+    "coordinate" : {
+      "x" : 22.0,
+      "y" : 12.526315789473685,
+      "z" : 6.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "wall" : {
+      "p0" : {
+        "x" : 22.0,
+        "y" : 20.0,
+        "z" : 6.0
+      },
+      "p1" : {
+        "x" : 22.0,
+        "y" : 10.0,
+        "z" : 6.0
+      }
+    },
+    "wallDirection" : "UPWARD",
+    "mirrorRelax" : false,
+    "bridgeHeight" : 5.0,
+    "intersectionType" : "BUILDING_EXIT",
+    "wallAlpha" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "wallPk" : 101,
+    "nextBridgePk" : -1,
+    "nextBridgeHeight" : "NaN",
+    "bridgePk" : 101
+  }, {
+    "type" : "Receiver",
+    "coordinate" : {
+      "x" : 200.0,
+      "y" : 50.0,
+      "z" : 4.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "receiverPk" : 1
+  } ],
+  "hasBuildingIntersection" : false,
+  "hasBridgeIntersection" : true,
+  "hasTopographyIntersection" : false
+}

@@ -1,0 +1,69 @@
+{
+  "cutPoints" : [ {
+    "type" : "Source",
+    "coordinate" : {
+      "x" : 9.0,
+      "y" : 10.0,
+      "z" : 18.95
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "sourcePk" : 100,
+    "orientation" : {
+      "yaw" : 0.0,
+      "pitch" : 0.0,
+      "roll" : 0.0
+    },
+    "bridgeHeight" : "NaN",
+    "li" : 10.0,
+    "bridgePkOn" : -1,
+    "bridgePkAbove" : 100,
+    "bridgeRelationType" : "MIRROR_SOURCE"
+  }, {
+    "type" : "BridgeWall",
+    "coordinate" : {
+      "x" : 15.0,
+      "y" : 11.256544502617801,
+      "z" : 9.5
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : true,
+    "groundCoefficient" : 0.0,
+    "wall" : {
+      "p0" : {
+        "x" : 15.0,
+        "y" : 20.0,
+        "z" : 9.5
+      },
+      "p1" : {
+        "x" : 15.0,
+        "y" : 10.0,
+        "z" : 9.5
+      }
+    },
+    "wallDirection" : "DOWNWARD",
+    "mirrorRelax" : true,
+    "bridgeHeight" : 10.0,
+    "intersectionType" : "BUILDING_EXIT",
+    "wallAlpha" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "wallPk" : 100,
+    "nextBridgePk" : -1,
+    "nextBridgeHeight" : "NaN",
+    "bridgePk" : 100
+  }, {
+    "type" : "Receiver",
+    "coordinate" : {
+      "x" : 200.0,
+      "y" : 50.0,
+      "z" : 4.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "receiverPk" : 1
+  } ],
+  "hasBuildingIntersection" : false,
+  "hasBridgeIntersection" : true,
+  "hasTopographyIntersection" : false
+}

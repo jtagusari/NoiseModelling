@@ -310,7 +310,8 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
 
         CutPointBridgeWall bridgeCutPoint = new CutPointBridgeWall(bridgeId, intersection3D, minDistanceDp.getSegment(), new ArrayList<>(bridge.getAlphas()), wallDirection, bridgePkTarget);
 
-        if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER) {
+        if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER
+                || propagationType == PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER) {
             bridgeCutPoint.setMirrorRelax(true);
         }
         bridgeCutPoint.modifyIntersectionHeight(bridge);
@@ -564,7 +565,14 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
         Bridge bridge = this.getBridge(wall.getOriginId());
         double bridgeHeightAtIntersection = 0.0;
         if (wallDirection == WallDirection.UPWARD) {
-            bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) + bridge.getBarrierHeightAtPoint(intersection);
+            // intersection.z is interpolated from the edge polygon's Z (= deck + barrier),
+            // which is more reliable than getDeckHeightAtPoint + getBarrierHeightAtPoint
+            // because getBarrierHeightAtPoint returns 0 for points not on a triangle outer edge.
+            if (!Double.isNaN(intersection.z)) {
+                bridgeHeightAtIntersection = intersection.z;
+            } else {
+                bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) + bridge.getBarrierHeightAtPoint(intersection);
+            }
         } else {
             bridgeHeightAtIntersection = bridge.getDeckHeightAtPoint(intersection) - bridge.getDeckThicknessAtPoint(intersection);
         }
@@ -687,7 +695,7 @@ public class BridgeService implements FrequencyInitializable, ElevationComputabl
                 nextBridges.add(bridgePoint);
                 
             } else if (bridgePoint.getIntersectionType() == CutPointBridgeWall.INTERSECTION_TYPE.BUILDING_EXIT) {
-                if (Double.isNaN(bridgeHeightOn)) continue;
+                if (Double.isNaN(bridgeHeightOn)) { continue; }
                 if (!isPointUnderPath(currentCoordinate2D, referenceLineSegment)) {
                     referenceLineSegment.setCoordinates(currentCoordinate2D, referenceLineSegment.p1);
                 }

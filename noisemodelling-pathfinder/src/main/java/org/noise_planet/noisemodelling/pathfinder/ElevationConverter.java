@@ -93,10 +93,12 @@ public class ElevationConverter {
         
         switch (relationType) {
             case SOURCE_NOT_RELATED_TO_BRIDGE:
+                // the input Z is relative to the ground
                 // Ground elevation + original relative Z
                 return profileBuilder.getZGround(coord) + coord.z;
                 
             case ACTUAL_SOURCE_ON_BRIDGE:
+                // the input Z is relative to the ground
                 long bridgePkOn = bridgeRelationship.getBridgePkOn();
                 Bridge bridgeOn = profileBuilder.getBridgeByPk(bridgePkOn);
                 if (bridgeOn == null) {
@@ -110,6 +112,7 @@ public class ElevationConverter {
                 return deckHeightOn + coord.z;
                 
             case IMAGINARY_SOURCE_UNDER_BRIDGE:
+                // the input Z is relative to the ground
                 long bridgePkUnder = bridgeRelationship.getBridgePkAbove();
                 Bridge bridgeUnder = profileBuilder.getBridgeByPk(bridgePkUnder);
                 if (bridgeUnder == null) {
@@ -124,6 +127,7 @@ public class ElevationConverter {
                 return (deckHeightUnder - deckThicknessUnder) + coord.z;
                 
             case MIRROR_SOURCE:
+                // the input Z is absolute value (NOT relative to the ground)
                 // MIRROR_SOURCE elevation calculated using reflection formula
                 long bridgePkAbove = bridgeRelationship.getBridgePkAbove();
                 Bridge bridgeAbove = profileBuilder.getBridgeByPk(bridgePkAbove);
@@ -136,25 +140,11 @@ public class ElevationConverter {
                     throw new IllegalStateException("Cannot get bridge above properties at coordinate: " + coord);
                 }
                 
-                // Get original source elevation (before reflection)
-                long bridgePkOnForMirror = bridgeRelationship.getBridgePkOn();
-                double originalSourceZ;
-                if (bridgePkOnForMirror >= 0) {
-                    // Original source was on a bridge
-                    Bridge bridgeOnForMirror = profileBuilder.getBridgeByPk(bridgePkOnForMirror);
-                    if (bridgeOnForMirror == null) {
-                        throw new IllegalStateException("Bridge on not found: " + bridgePkOnForMirror);
-                    }
-                    originalSourceZ = bridgeOnForMirror.getDeckHeightAtPoint(coord) + coord.z;
-                    
-                } else {
-                    // Original source was on ground
-                    originalSourceZ = profileBuilder.getZGround(coord) + coord.z;
-                }
-                
-                // Mirror formula: originalZ + 2 * (bridgeBottom - originalZ)
                 double bridgeBottom = deckHeightAbove - deckThicknessAbove;
-                return originalSourceZ + 2.0 * (bridgeBottom - originalSourceZ);
+                if (bridgeBottom < coord.z) {
+                    throw new IllegalStateException("Bridge bottom is below the source coordinate: " + coord);
+                }
+                return coord.z + 2.0 * (bridgeBottom - coord.z);
                 
             default:
                 throw new IllegalArgumentException("Unknown source type: " + relationType);

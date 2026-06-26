@@ -212,7 +212,7 @@ public class CnossosPathProcessor {
             PointPath diffractionPointT = cnossosPath.getPointList().stream()
             .filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
 
-            CutProfile cutProfileOnlyBeforeTopEdge = newCutProfileBeforeTopEdge(configuration.getCutProfile(), diffractionPointT.coordinate);
+            CutProfile cutProfileOnlyBeforeTopEdge = newCutProfileBeforeTopEdge(configuration.getCutProfile(), configuration.getCutPointCoordinates2D(), diffractionPointT.coordinate);
 
             CnossosPathExt cnossosPathOnlyBeforeTopEdge = CnossosPathBuilder.buildCnossosPath(
                 cutProfileOnlyBeforeTopEdge, 
@@ -284,15 +284,17 @@ public class CnossosPathProcessor {
     }
 
     
-    private static CutProfile newCutProfileBeforeTopEdge(CutProfile cutProfile, Coordinate topEdgeCoordinate){
+    private static CutProfile newCutProfileBeforeTopEdge(CutProfile cutProfile, List<Coordinate> cutPointCoordinates2D, Coordinate topEdgeCoordinate){
         CutProfile newCutProfile = new CutProfile(cutProfile);
         ArrayList<CutPoint> existCutPoints = cutProfile.getCutPoints();
         ArrayList<CutPoint> newCutPoints = new ArrayList<>();
         boolean beforeTopEdge = true;
         
-        for (CutPoint cp: existCutPoints) {
+        for (int i = 0; i < existCutPoints.size(); i++) {
+            CutPoint cp = existCutPoints.get(i);
+            Coordinate cpCoordinate2D = cutPointCoordinates2D.get(i);
             if (beforeTopEdge) {
-                if (cp.getCoordinate() != topEdgeCoordinate) {
+                if (cpCoordinate2D != topEdgeCoordinate) {
                     newCutPoints.add(cp);
                 } else {
                     CutPointReceiver newReceiver = new CutPointReceiver(cutProfile.getReceiver());

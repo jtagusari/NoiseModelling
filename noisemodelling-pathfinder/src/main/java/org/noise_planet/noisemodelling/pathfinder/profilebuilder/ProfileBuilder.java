@@ -1013,11 +1013,13 @@ public class ProfileBuilder {
         // Check if the profile has bridge-type cut point
         LOGGER.debug("  Checking for bridge-type cut points...");
         PropagationType propagationType = bridgeService.checkPropagationType(profile);
+        LOGGER.debug("  Propagation type: {}", propagationType);
 
         if (propagationType == PropagationType.ACTUAL_SOURCE_TO_LOWER_RECEIVER || propagationType == PropagationType.IMAGINARY_SOURCE_TO_UPPER_RECEIVER) {
             LOGGER.debug("  Bridge-type cut point detected - calculating first bridge cut point...");
             CutPointBridgeWall bridgeCutPoint = bridgeService.calculateFirstBridgeCutpoint(profile, propagationType);
             newCutPoints.add(bridgeCutPoint);
+            profile.hasBridgeIntersection(true);
             sortCutPoints = false;
             segments = ProfileUtils.splitToSegments(bridgeCutPoint.getCoordinate(), fullLine.p1, maxLineLength);
             visitedWallIndices.add(bridgeCutPoint.getProcessedWallIndex());

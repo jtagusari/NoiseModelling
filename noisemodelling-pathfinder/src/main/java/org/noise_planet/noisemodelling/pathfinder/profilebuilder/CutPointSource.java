@@ -10,9 +10,9 @@ package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 
 import org.locationtech.jts.geom.Coordinate;
-import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.SourcePointInfo;
 import org.noise_planet.noisemodelling.pathfinder.utils.geometry.Orientation;
 import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
@@ -94,6 +94,7 @@ public class CutPointSource  extends CutPoint {
         this.orientation = sourcePointInfo.getOrientation();
         this.id = sourcePointInfo.getSourceIndex();
         this.groundCoefficient = 0.0;
+        this.bridgeRelationship = sourcePointInfo.getBridgeRelationship();
     }
 
     /**
@@ -167,6 +168,54 @@ public class CutPointSource  extends CutPoint {
 
     public void setBridgeRelationship(BridgeRelationship bridgeRelationship) {
         this.bridgeRelationship = bridgeRelationship;
+    }
+
+    @JsonProperty("bridgeRelationType")
+    public BridgeRelationship.RelationType getBridgeRelationType() {
+        return bridgeRelationship != null ? bridgeRelationship.getRelationType() : null;
+    }
+
+    /**
+     * Restores {@code relationType} during JSON deserialization.
+     * An explicit setter is required here because the backing {@code bridgeRelationship} field
+     * is {@code @JsonIgnore}, so Jackson cannot reach it directly. Additionally,
+     * {@link BridgeRelationship} is immutable, so we reconstruct the object while preserving
+     * the values of the other two fields already set by their own setters.
+     */
+    @JsonSetter("bridgeRelationType")
+    public void setBridgeRelationType(BridgeRelationship.RelationType type) {
+        this.bridgeRelationship = new BridgeRelationship(
+                type,
+                bridgeRelationship.getBridgePkOn(),
+                bridgeRelationship.getBridgePkAbove());
+    }
+
+    @JsonProperty("bridgePkOn")
+    public long getBridgePkOn() {
+        return bridgeRelationship != null ? bridgeRelationship.getBridgePkOn() : -1L;
+    }
+
+    /** @see #setBridgeRelationType for why an explicit setter is needed. */
+    @JsonSetter("bridgePkOn")
+    public void setBridgePkOnJson(long pkOn) {
+        this.bridgeRelationship = new BridgeRelationship(
+                bridgeRelationship.getRelationType(),
+                pkOn,
+                bridgeRelationship.getBridgePkAbove());
+    }
+
+    @JsonProperty("bridgePkAbove")
+    public long getBridgePkAbove() {
+        return bridgeRelationship != null ? bridgeRelationship.getBridgePkAbove() : -1L;
+    }
+
+    /** @see #setBridgeRelationType for why an explicit setter is needed. */
+    @JsonSetter("bridgePkAbove")
+    public void setBridgePkAboveJson(long pkAbove) {
+        this.bridgeRelationship = new BridgeRelationship(
+                bridgeRelationship.getRelationType(),
+                bridgeRelationship.getBridgePkOn(),
+                pkAbove);
     }
 
     /**

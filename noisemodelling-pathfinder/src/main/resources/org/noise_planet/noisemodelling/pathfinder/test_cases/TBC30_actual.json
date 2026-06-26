@@ -1,0 +1,79 @@
+{
+  "cutPoints" : [ {
+    "type" : "Source",
+    "coordinate" : {
+      "x" : -13915.75,
+      "y" : -113556.0,
+      "z" : 37.46762451189175
+    },
+    "zGround" : 29.608831686820064,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "sourcePk" : 1,
+    "orientation" : {
+      "yaw" : 204.6235647861636,
+      "pitch" : 0.0,
+      "roll" : 0.0
+    },
+    "bridgeHeight" : 37.41762451189175,
+    "li" : 13.200378782444085,
+    "bridgePkOn" : 1,
+    "bridgePkAbove" : -1,
+    "bridgeRelationType" : "ACTUAL_SOURCE_ON_BRIDGE"
+  }, {
+    "type" : "BridgeWall",
+    "coordinate" : {
+      "x" : -13915.165793219254,
+      "y" : -113557.28123420182,
+      "z" : 39.920081199452696
+    },
+    "zGround" : 29.601919201935626,
+    "obstructingAcousticRay" : true,
+    "groundCoefficient" : 0.0,
+    "wall" : {
+      "p0" : {
+        "x" : -13914.58216676156,
+        "y" : -113555.87922651015,
+        "z" : 39.920081199452696
+      },
+      "p1" : {
+        "x" : -13918.425271423921,
+        "y" : -113565.1112656432,
+        "z" : 39.920081199452696
+      }
+    },
+    "wallDirection" : "UPWARD",
+    "mirrorRelax" : false,
+    "bridgeHeight" : 37.420081199452696,
+    "intersectionType" : "BUILDING_EXIT",
+    "wallAlpha" : [ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8 ],
+    "wallPk" : 1,
+    "nextBridgePk" : -1,
+    "nextBridgeHeight" : "NaN",
+    "bridgePk" : 1
+  }, {
+    "type" : "Topography",
+    "coordinate" : {
+      "x" : -13912.718192477038,
+      "y" : -113562.64911058854,
+      "z" : 29.572958560444672
+    },
+    "zGround" : 29.572958560444672,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0
+  }, {
+    "type" : "Receiver",
+    "coordinate" : {
+      "x" : -13911.572978820766,
+      "y" : -113565.16069887056,
+      "z" : 31.062477102939965
+    },
+    "zGround" : 29.562477102939965,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "receiverPk" : 1
+  } ],
+  "hasBuildingIntersection" : false,
+  "hasBridgeIntersection" : true,
+  "hasTopographyIntersection" : false
+}

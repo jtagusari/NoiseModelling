@@ -189,10 +189,14 @@ public class WallService implements FrequencyInitializable, ElevationComputable,
     public void computeElevations(ProfileBuilder profileBuilder) {
         for (Wall w : walls) {
             if (Double.isNaN(w.getP0().z) || w.getP0().z == 0.0) {
-                w.getP0().z = w.height + profileBuilder.getZGround(w.getP0());
+                w.getP0().z = w.getHeight() + profileBuilder.getZGround(w.getP0());
+            } else if(w.getHeight() > 0) {
+                LOGGER.warn(String.format("WallService.computeElevations: wall (pk=%d) z value of %.1f is used instead of using height of %.1f", w.getPrimaryKey(), w.getP0().z, w.getHeight()));
             }
             if (Double.isNaN(w.getP1().z) || w.getP1().z == 0.0) {
-                w.getP1().z = w.height + profileBuilder.getZGround(w.getP1());
+                w.getP1().z = w.getHeight() + profileBuilder.getZGround(w.getP1());
+            } else if(w.getHeight() > 0) {
+                LOGGER.warn(String.format("WallService.computeElevations: wall (pk=%d) has non-zero height=%.1f but p1.z=%.1f is not NaN or zero", w.getPrimaryKey(), w.getHeight(), w.getP1().z));
             }
         }
     }

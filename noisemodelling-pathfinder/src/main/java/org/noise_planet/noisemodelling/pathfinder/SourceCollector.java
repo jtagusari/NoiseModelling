@@ -246,7 +246,7 @@ public final class SourceCollector {
             originalProperty, 
             scene.getProfileBuilder()
         );
-        
+
         // Create MIRROR_SOURCE if qualifying bridge found
         if (selectedBridge != null) {
             long bridgePkOn = (originalProperty.getRelationType() == BridgeRelationship.RelationType.ACTUAL_SOURCE_ON_BRIDGE)

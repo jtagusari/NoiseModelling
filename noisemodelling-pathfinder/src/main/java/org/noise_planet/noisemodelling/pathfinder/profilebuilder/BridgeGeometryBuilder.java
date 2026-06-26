@@ -77,6 +77,7 @@ public class BridgeGeometryBuilder {
             Coordinate coord = calculateOffsetCoordinate(centerCoord, width, direction, i, bridgeCenterPoints);
             coord.z = effectiveHeight + barrierHeight;
             point.setCoordinate(coord);
+            point.setAbsoluteDeckHeight(effectiveHeight);
             point.setPosition(direction);
             bridgeEdgePoints.add(point);
         }

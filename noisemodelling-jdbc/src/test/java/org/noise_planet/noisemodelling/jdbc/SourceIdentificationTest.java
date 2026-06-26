@@ -655,8 +655,13 @@ public class SourceIdentificationTest {
                 
                 AtomicInteger triangleHint = new AtomicInteger(-1);
                 double profileZ = profileBuilder.getZGround(sourcePointInfo.getCoordinate(), triangleHint);
+                LOGGER.info(String.format("z: %.1f", z));
+                LOGGER.info(String.format("deckHeight: %.1f", deckHeight));
+                LOGGER.info(String.format("deckThickness: %.1f", deckThickness));
+                LOGGER.info(String.format("profileZ: %.1f", profileZ));
 
-                assertEquals(0.05, z - 2 * (deckHeight - deckThickness - profileZ - 0.05), 0.001, 
+
+                assertEquals(z, profileZ + 0.05 + 2 * (deckHeight - deckThickness - profileZ - 0.05), 0.001, 
                     String.format("Mirror Source: Z=%.3f should reflect correctly", z));
             }
         }
