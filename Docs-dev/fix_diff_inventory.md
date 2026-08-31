@@ -284,6 +284,6 @@
   への hook が F1/F2/F4 前提なので、Track A では hook を upstream 構造向けに**書き直す**必要がある。
 - **F1・F2・F3・F7 はファイル移植不可**（upstream が同じ領域を別設計で改修済み）。これらを upstream に入れるには
   B0 Discussion での合意 → 再実装（＝トラック B）が必要。Track A では**持ち込まない**。
-- **単独先行 PR にできる正しさ修正**は #956 の最小版のみ（F4 の HeightType の考え方を、upstream の `ZIsAltitude`
-  フラグに沿った surgical fix として）。
-- 次アクション: `fix/issue-956` で #956 最小修正 → Bridge+ASJ 設計 issue 起票 → F5 の最小実装。
+- **単独先行 PR にできるものは無い**。#956 は調査済み（コード修正不要 = `confSourcesZIsAltitude` で解決済、
+  `Noise_level_from_traffic` は deprecated）。docs のみの差だが本質的でなく PR 見送り。
+- 次アクション: Bridge+ASJ 設計 issue 起票 → F5 の最小実装。

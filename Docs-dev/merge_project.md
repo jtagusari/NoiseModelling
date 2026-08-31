@@ -203,23 +203,24 @@ upstream は `ProfileBuilder` / `PathFinder` / `Scene` の構造を**意図的�
 `DEFAULT_SOURCE_HEIGHT_BELOW_BRIDGE` 等）であり、既存アルゴリズムへのピンポイントなバグ修正は見当たらない。
 加えて `fix` のコミットは巨大混在で cherry-pick 不能 —— 抽出はどのみち手作業の再実装になる。
 
-**したがって Bridge に先行して出せるのは実質:**
+**したがって Bridge に先行して出せる単独 PR は無い。**
 
-1. **#956 の最小修正**（唯一の未解決の正しさギャップ）。
-   `fix` の*知見*（`Noise_level_from_traffic` 経由だと音源 Z が DEM+0.05 に固定されず二重加算されうる。
-   `Road_Emission_from_Traffic` は固定している）は有効。ただし *解決策* は `fix` のコード（per-row
-   `HEIGHT_TYPE` + `Scene` 作り直し）ではなく、upstream の `ZIsAltitude` フラグに沿った surgical fix
-   （traffic 経路も同じ扱いに揃える）として出す。→ ブランチ `fix/issue-956`。
-2. （任意）F1/F3 の**振る舞い不変の局所リファクタ**（`SourcePointInfo` / `ReceiverPointInfo` の値オブジェクト化、
-   `SourceCollector` 抽出など）。ただし upstream の「構造維持 + perf パッチ」方針では *それ自体が改善* とは
-   見なされにくく、B0 Discussion の合意が前提。単発では出さない。
+- **#956**: 調査した（2026-08-31）。upstream では `Noise_level_from_traffic` は既に **deprecated**、
+  維持経路（`Road_Emission_from_Traffic` → `Noise_level_from_source`）には `confSourcesZIsAltitude` /
+  `confReceiversZIsAltitude` フラグが既にあり、正しく設定すれば二重加算は起きない。残る差は
+  「`Docs/Input_*.rst` が `Zobject = Zdem + Zsource` を無条件に書いていて、Z が相対前提であることに
+  触れていない」だけ。**docs 3 行の PR は本質的でなく、出すメリットが薄いので見送り**（2026-08-31 判断）。
+  必要になったら Bridge の doc 更新に混ぜる。
+- （任意）F1/F3 の**振る舞い不変の局所リファクタ**（`SourcePointInfo` / `ReceiverPointInfo` の値オブジェクト化、
+  `SourceCollector` 抽出など）も、upstream の「構造維持 + perf パッチ」方針では *それ自体が改善* とは
+  見なされにくく、B0 Discussion の合意が前提。単発では出さない。
 
 ### 3.6 直近の進め方
 
 1. F6 ASJ（`feat/road-asj`、実施済み）— push は Bridge 設計 issue と同時（「呼び出し側は Bridge」）。
-2. **#956 の最小修正**を `fix/issue-956` で実装 → 単独 PR（`fix` 由来と明記せず、通常のバグ修正として）。
-3. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行構造の上に薄く載せる」方針を提示）。
-4. issue の反応を見て Bridge 本体（F5）の最小実装に着手。F7/F8（JDBC 配線・scripts）はその後。
+2. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
+   の上に薄く載せる」方針を提示。関連 #909）。
+3. issue の反応を見て Bridge 本体（F5）の最小実装に着手。F7/F8（JDBC 配線・scripts）はその後。
 
 ### 3.7 upstream に出さないもの
 
@@ -258,14 +259,14 @@ push・PR は Discussion 後。
 5. ~~F1〜F4 の先行単独 PR 候補を調査~~ → ✅ 強い候補なし（3.5。正しさ系は upstream が既に別 PR で修正済み）
 6. ~~インベントリの「要確認」項目を精査~~ → ✅ 単独 PR 級なし（[fix_diff_inventory.md](fix_diff_inventory.md) の X 表。
    最も近いのは CI.yml の deploy ガードだが価値小・upstream CI と乖離）
+7. ~~#956 を調査~~ → ✅ コード修正不要（`confSourcesZIsAltitude` で解決済、`Noise_level_from_traffic` は deprecated）。
+   docs のみの差だが本質的でなく **PR は見送り**（3.5）。着手した `issue-956-traffic-source-z` ブランチは破棄。
 
 ### これから（トラック A。3.6 参照）
 
-1. **#956 の最小修正**を `fix/issue-956` で実装（`Scene` 作り直しを伴わない surgical fix。
-   upstream の `ZIsAltitude` フラグに沿って traffic 経路も揃える）→ 単独 PR。
-2. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
+1. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
    の上に薄く載せる」方針を提示。関連 #909）。
-3. issue の反応を見て Bridge 本体（F5）の最小実装 → その後 F7（JDBC 配線）→ F8（scripts）。
+2. issue の反応を見て Bridge 本体（F5）の最小実装 → その後 F7（JDBC 配線）→ F8（scripts）。
 
 ### 作業ツリーの注意
 
