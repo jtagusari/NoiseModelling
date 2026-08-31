@@ -272,45 +272,50 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 込みで初めてコンパイルが通る。fork の `Bridge` 実装自体も重い（`BridgePoint` 補間・`BridgeTriangulation`・
 girder/slab type・edge 回折・背面ミラー反射・底面 virtual source）。
 
-#### 方針転換（2026-08-31）: replay をやめ、最小実装を新規に書く
+#### 方針（2026-08-31 確定）: Bridge クラス群は fork をそのまま持ち込み、hook だけ手書き
 
-> **fork の Bridge コードは reference（仕様書）扱い。** 現行 `main` の上に、
-> **最小限の Bridge 機能を最小差分で新規実装**し、それを PR（+ 短い説明）として出す。
-> 抽象的な設計 Discussion（[bridge_upstream_proposal.md](bridge_upstream_proposal.md)）より、
-> 動くものの方が説得力がある。Discussion 文面は PR の背景説明に流用する。
+抽象 Discussion 単発（[bridge_upstream_proposal.md](bridge_upstream_proposal.md)）ではなく、
+**動く Bridge を現行 `main` に載せた PR** を出す。ただし `BridgePoint` / `Bridge` とその周辺ヘルパー
+（`BridgePointManager` `BridgeGeometryBuilder` `BridgeTriangulation` `BridgeQueryHelper` `BridgeService`
+`CutPointBridgeWall` `BridgeAnalyzer` `ElevationConverter` `LineStringSplitter` `BridgeRelationship`）は
+**fork の実装をそのまま replay**する（作り直しは無駄が多すぎる）。**「最小」= 既存 pathfinder クラスへの
+変更を最小に**、の意。
 
-**Bridge v0 の最小スコープ（案）:**
+持ち込む範囲:
 
-- 入力: `BRIDGES` テーブル — フットプリント polygon、デッキ上面高さ（`HEIGHT` 列、セグメントごとに一定）、
-  デッキ厚（or 下面高さ）。girder/slab type・per-point 補間・alpha は v0 では持たない（v1 送り）。
-- `ProfileBuilder`: `List<Bridge>` 保持 + フットプリント索引 + `IntersectionType.BRIDGE`。
-- `CutProfile` の cut: 2D カットがフットプリントを跨ぐ区間に、デッキ下面/上面の水平障害物を挿入。
-  スラブ（下面〜上面 Z）を貫く直達線は遮蔽 → 上端/下端で回折。スラブより下 or 上を通る線は非遮蔽。
-- 排出: デッキ上の音源は**通常の CNOSSOS**（音源ジオメトリ Z をデッキ上に置く）。ASJ 構造物音源は v0 に含めない。
-- テスト: `TBC` 形式の回帰 1 本（デッキ上音源 × 脇/下の受音点で、bridge 無し baseline に対し遮蔽が出る）。
+- **A-1** Bridge 新規 13 ファイル（置換済み `bccfa91a`）
+- **A-2** 随伴 F1 インフラ 9 ファイル（~520 行、自己完結。§上記）
+- **B** 既存クラスへの hook（§上記の表）。ここだけ手書き。方針:
+  - `ProfileBuilder` / `Scene`：アクセサ追加（`getBridge*` / `getProfileBuilder`）+ `bridges` 保持 + `IntersectionType.BRIDGE`
+  - `CutProfile`：fork の `generateCutPointCoordinates2D()` / `setCutPoints(...)` を upstream の `CutProfile` に
+    **薄いラッパとして追加**（本体ロジックは upstream のまま）。bridge 交差の挿入点だけ足す
+  - `Scene.HeightType`：fork の enum を**最小形でそのまま追加**（`BridgePoint` が使うため。~20 行）
+  - `CutPointSource` / `CutPointWall` / `CutPoint`：`getBridgeRelationship` 等のアクセサを追加
+- **含めない**: F1 の他サービス分解、F2 の `CutProfile` 全面書き換え、F3、propagation 側の ASJ 減衰拡張（下記 C）
 
-→ 新規クラスは実質 `Bridge` 1 個。hook は `ProfileBuilder`/`CutProfile` の cut ロジック、`IntersectionType`、
-ローダ 1 箇所のみ。`HeightType`・F1 サービス・F2 API・ASJ には触れない。差分 ~300–500 行の見込み。
+v0 で削るもの（fork にはあるが後回し）: デッキ底面の反射（v1）、ASJ 構造物音源（v1、`feat/road-asj`）。
+v0 のデッキ音源は通常の CNOSSOS。テストは fork の `profilebuilder/Bridge*Test`（8）+ `PathFinderBridgeTest`
+がそのまま通ることを目標。
 
-**C. propagation 側（要調査。replay 不可の可能性）**
+**C. propagation 側（v1。ただし v0 の前に要確認）**
 
-- `cnossos/AttenuationCnossosExt.java`（1108）: import は upstream クラスのみだが内部で `fix` 改修メソッドを
-  呼ぶ見込み。
-- `cnossos/CnossosPathExt.java`: `fix` の `CutProfile` API 依存 → 書き直し。
-- テスト `propagation/AttenuationComputeOutputCnossosBridgeTest` + `test_cases/TBC*_attenuation_output.json`（15）+ `bridge_test_cases.json`。
+- `cnossos/AttenuationCnossosExt.java`（1108）/ `cnossos/CnossosPathExt.java`: `fix` の `CutProfile` API 依存 → v1 で書き直し。
+- **v0 リスク**: bridge の cut point（回折点）を upstream の `CnossosPathBuilder` がそのまま扱えるか要確認。
+  扱えれば v0 は propagation 無改修で「マップに遮蔽が出る」ところまで到達可能。扱えないなら v0 でも
+  `CnossosPathBuilder` に最小の分岐が要る（`CnossosPathExt` 全体ではなく）。
+- テスト `propagation/AttenuationComputeOutputCnossosBridgeTest` + `test_cases/TBC*_attenuation_output.json`（15）は v1。
 
 **D. F7/F8（B の後）**: `jdbc/BridgePointMappingTest` `BridgeTrafficTest` + `TutoBridge/*.geojson`、
 `noisemodelling-scripts` の Bridge チュートリアル / `Noise_level_from_bridge_traffic`。
 
 ### 3.7 直近の進め方
 
-1. `feat/bridge` をリセット（WIP `bccfa91a` の replay 全部入りは破棄）し、`upstream/main` 起点で
-   **Bridge v0（§3.6「方針転換」の最小スコープ）を新規実装**。`mvn -pl noisemodelling-pathfinder test` green まで。
-2. `noisemodelling-scripts` に最小の WPS ブロック or ローダ + `TutoBridge` の縮小データセットを付け、
-   before/after マップを 1〜2 枚生成。
-3. これを **draft PR** として upstream に出す（説明に [bridge_upstream_proposal.md](bridge_upstream_proposal.md) の
-   論点 = pathfinder コアの拡張性・`perf_*` との順序・v1 で足すもの を要約）。抽象 Discussion 単発は出さない。
-4. F6 ASJ（`feat/road-asj`）は v1 送り（構造物音源）。PR で「follow-up で ASJ 構造物音を足す」と言及。
+1. `feat/bridge`（`bccfa91a` = A-1 済み）を継続。**A-2**（F1 インフラ 9 ファイル）を replay。
+2. **B**（hook 手書き）。コンパイルエラーを潰しながら `mvn -pl noisemodelling-pathfinder test` green まで。
+   fork の `Bridge*Test`（8）+ `PathFinderBridgeTest` を通す。
+3. `noisemodelling-scripts` に最小ローダ/WPS + `TutoBridge` 縮小データ、before/after マップ 1〜2 枚。
+4. **draft PR** を upstream に。説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定を要約。
+   F6 ASJ（`feat/road-asj`）は「follow-up で構造物音源を足す」と言及。
 5. レビューを見て v1（per-point 高さ・底面反射・ASJ 構造物音・JDBC 配線・チュートリアル拡充）。
 
 ### 3.8 upstream に出さないもの
