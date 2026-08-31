@@ -2,11 +2,13 @@
 
 > これは upstream（Universite-Gustave-Eiffel/NoiseModelling）に投稿するための**下書き**。
 > 種別は **Discussion（Ideas カテゴリ）** を想定（Issue ではなく）。投稿は本人が行う。
-> 目的 = Bridge（高架道路）ノイズモデリング機能を mainline に入れたい旨を伝え、`ProfileBuilder` への
-> 組み込み方（薄い hook か、サービス分解か）と、進行中の `perf_*` PR との順序について合意を得る。
+> 目的 = ① Bridge（高架道路）ノイズモデリング機能を mainline に入れたい旨、②その前提として
+> **`ProfileBuilder` が障害物タイプ拡張に対して閉じている**という設計問題を提起し、focused な
+> behaviour-preserving 抽出（route B）を許容するか、薄い hook（route A）で通すかの合意を得る。
+> 進行中の `perf_*` PR との順序も相談。
 > **主眼は Bridge 機能。** 高架構造では**構造物音（デッキ・桁の放射音）が支配的**になり得るので、
 > ASJ RTN-Model 2023 の橋梁形式別係数（`emission.road.asj`）を構造物音源の係数表として同梱する。
-> 車両走行音は既存 CNOSSOS のまま。同梱の可否は Q5 で相談。一人称は "I"。投稿本文は英語。
+> 車両走行音は既存 CNOSSOS のまま。同梱の可否は Q6 で相談。一人称は "I"。投稿本文は英語。
 
 ---
 
@@ -20,9 +22,9 @@ Hi maintainers,
 
 I've been developing a **bridge / elevated-road noise modelling** capability on
 a fork (`github.com/jtagusari/NoiseModelling`) and would like to contribute it
-back. Before opening a PR I'd like your view on scope and on how to integrate
-the pathfinder part, since `ProfileBuilder` is being actively worked on right
-now.
+back. Two things to discuss before I open a PR: whether the feature is wanted,
+and — because adding it cleanly is hard against the current `ProfileBuilder` —
+whether a small structural change to `ProfileBuilder` would be welcome.
 
 ## 1. The feature
 
@@ -60,43 +62,60 @@ does not provide. The contribution ships these as a small package
 tests, additive), taken from the Acoustical Society of Japan RTN-Model 2023.
 The vehicles' own tyre/powertrain noise on the deck can still use the existing
 CNOSSOS model. Whether bundling the ASJ structural coefficients is acceptable
-is a design point (question 5).
+is a design point (question 6).
 
-## 2. The integration question
+## 2. The `ProfileBuilder` problem
 
-The fork's bridge code was written on top of a **decomposed `ProfileBuilder`**
-— building / wall / ground / topography / processed-wall / bridge each pulled
-into their own service object. `BridgeService` is one peer among those.
+`ProfileBuilder` (~1650 lines) currently holds the loading, spatial indexing
+and cut-profile handling for every obstacle type — buildings, walls, ground,
+topography — interleaved in one class, with `IntersectionType` switch points
+scattered through it and through `CutProfile`. There is no seam for adding a
+new obstacle type.
 
-To land the feature on current `main` I see two routes:
+A bridge deck is a new obstacle type: it occludes and reflects like a building
+but sits above the ground with open space under it, and sources are placed on
+its surface. Adding it means threading bridge-specific code through
+`ProfileBuilder` and `CutProfile` the same way every existing type is threaded
+— which makes an already hard-to-follow class harder.
 
-- **(A) Thin integration.** Keep `ProfileBuilder` as it is today and add the
-  bridge feature with the smallest possible set of hooks (a `bridgeService`
-  field, an `IntersectionType.BRIDGE`, bridge-intersection handling in
-  `CutProfile`). Smaller, more reviewable.
-- **(B) Decompose first.** Upstream a behaviour-preserving `ProfileBuilder`
-  service split as its own step, then add `BridgeService` alongside the others.
-  Cleaner end state; much larger; and it would collide with the open `perf_*`
-  PRs (`perf_profile_intersections`, `remove_unused_wall_index`,
-  `perf_prepared_ground`, …).
+This isn't only a bridge problem: the open `perf_*` PRs
+(`perf_profile_intersections`, `remove_unused_wall_index`,
+`perf_prepared_ground`, `perf_vedge_hull`, …) are all working around the same
+monolith.
 
-I lean towards **(A)**, but a first experiment showed the bridge classes also
-pull in ~9 small self-contained support classes (frequency-config /
-geometry-factory / rtree helpers) and need a few new accessors on `CutProfile`
-/ `CutPointSource` / `CutPoint`. So even (A) touches the existing pathfinder
-types somewhat.
+On the fork, `ProfileBuilder` was split so each obstacle type
+(building / wall / ground / topography / bridge) is a small service with a
+common lifecycle. `BridgeService` is then just one more service. I'm **not**
+asking you to adopt that whole split, but I'd like to know how much structural
+change you'd accept. Routes I see:
+
+- **(A) No structural change.** Add the bridge feature with the smallest
+  possible set of hooks into today's `ProfileBuilder` / `CutProfile`
+  (a `bridgeService` field, `IntersectionType.BRIDGE`, bridge-intersection
+  handling in `CutProfile`). A first experiment shows this still pulls in ~9
+  small self-contained support classes and needs a few new accessors on
+  `CutProfile` / `CutPointSource` / `CutPoint` — so it is not free either.
+- **(B) A focused extraction first.** Pull the per-obstacle-type handling
+  behind a common interface as its own behaviour-preserving PR (useful on its
+  own merits, and it would give the `perf_*` work a cleaner target), then add
+  `BridgeService` alongside. Larger up front; needs coordinating with the open
+  `perf_*` PRs.
 
 ## 3. What I'd like to hear from you
 
 1. Is **bridge / elevated-road modelling** something you want in mainline at
    all? If yes, roughly what shape (own module? behind a flag? …)?
-2. **(A) vs (B)** for the `ProfileBuilder` integration — and if (A), how much
-   change to the existing pathfinder types are you comfortable with in one PR?
-3. How should this be **sequenced against the open `perf_*` PRs** so we don't
-   step on each other?
-4. Preferred delivery: one feature PR, or a stacked series (support types →
+2. Do you see the `ProfileBuilder` monolith as a problem worth a **focused,
+   behaviour-preserving extraction** (route B) — independently of the bridge
+   work — or would you rather keep it as is and take the bridge feature as
+   thin hooks (route A)?
+3. If A: how much change to `ProfileBuilder` / `CutProfile` / `CutPoint*` are
+   you comfortable with in one feature PR?
+4. How should this be **sequenced against the open `perf_*` PRs** so we don't
+   step on each other? (a B-style extraction would touch the same code they do)
+5. Preferred delivery: one feature PR, or a stacked series (support types →
    bridge core → `CutProfile` hooks → JDBC wiring → WPS script + tutorial)?
-5. The bridge structural source needs radiated-noise coefficients by
+6. The bridge structural source needs radiated-noise coefficients by
    construction type, which CNOSSOS has no equivalent for. Is bundling the ASJ
    RTN-Model 2023 table (`emission.road.asj`) for that acceptable, or would you
    rather the structural source be optional / left to the user?
@@ -109,7 +128,7 @@ make the feature concrete. Thanks for taking a look.
 ## メモ（投稿前に詰めること）
 
 - スクリーンショット/before-after ノイズマップを 1〜2 枚用意すると通りが良い（`TutoBridge` から生成）。
-- ASJ = 橋梁形式別の**構造物音（放射音）係数表**。CNOSSOS に相当なし。車両走行音は CNOSSOS のまま。同梱可否は Q5。
+- ASJ = 橋梁形式別の**構造物音（放射音）係数表**。CNOSSOS に相当なし。車両走行音は CNOSSOS のまま。同梱可否は Q6。
 - `feat/road-asj` は未 push。Discussion 投稿時に push して URL を貼る。
 - `RoadAsj_2023.json` は STEEL_BOX_STEEL / CONCRETE_BOX_CONCRETE など 7 形式 + 構造物音の周波数係数を収録。
 - 投稿相手の主なアクティブ人物: nicolas-f, pierromond, sachabaclet, gpetit, mglesser。
