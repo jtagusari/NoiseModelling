@@ -336,12 +336,28 @@ v0 のデッキ音源は通常の CNOSSOS。
    `tableBridgePoints` 追加（SRID チェックは `tableDEM` と同形、未指定なら no-op）。
    `TestNoiseLevelFromBridge`（WPS ブロック経由の end-to-end: `tableBridgePoints` の有無でデッキが
    受音点の LEQ を下げる）。scripts `TestNoiseModelling`+`TestNoiseLevelFromBridge` 7 pass。
-5. （PR-prep）`TutoBridge` geojson データセット + レンダリング済み before/after マップ 1〜2 枚。
-   現状は数値 before/after（各 end-to-end テストが `withBridge < withoutBridge − 0.5 dB` を assert）。
+5. ~~`TutoBridge` geojson データセット + チュートリアルテスト~~ → ✅ `8a171475`。
+   小さな自己完結データセット（dem/buildings/lw_roads/bridgepoints/receivers, SRID 2154, ~26 KB）+
+   `TestNoiseLevelFromBridge.tutoBridgeDatasetRunsThroughTheWpsBlock`。
+   **ここで判明した v0 の限界（下記）** のため、定量的な「影の grading」assert は外し、
+   「import + 実行が通る／橋ありで背後の受音点が大きくならない」だけを確認。
 6. **コミット整理**（`wip` を squash して 3〜4 個のクリーンなコミットに）→ **draft PR** を upstream に。
-   説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定を要約。ASJ は follow-up と明記。
+   説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定・**下記 v0 限界**を要約。ASJ は follow-up と明記。
 7. レビューを見て v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
    fork の `AttenuationCnossosExt`/`CnossosPathExt` 移植・チュートリアル拡充）。
+
+#### v0 の限界（TutoBridge で判明、2026-08-31）
+
+- **デッキ上音源 → フットプリント外の受音点**（`checkPropagationType` = `BRIDGE_TO_OUTSIDE_RECEIVER`）で、
+  bridge cut point 入りの断面を upstream `CnossosPathBuilder` に渡すと**パスが棄却されて -∞ dB 相当**になる
+  ことがある（デッキ縁を汎用バリアとして凸包に載せる近似が、この幾何では破綻）。
+  → `BridgeNoiseMapTest` / `BridgePropagationTest` の「橋あり < 橋なし」assert は、幾何によっては
+  「遮蔽」ではなく「パス消失」で通っている可能性がある。
+- 正しく機能するのは主に **受音点がデッキ下**（`ACTUAL_SOURCE_TO_LOWER_RECEIVER` /
+  `IMAGINARY_SOURCE_TO_UPPER_RECEIVER` → fork の `calculateFirstBridgeCutpoint` によるミラー/回折構築）のケース。
+- v1 で fork の `AttenuationCnossosExt` / `CnossosPathExt` を移植すれば解消。
+  それまでの選択肢: (a) 限界として明記して PR、(b) `addBridgeCutPts` で `BRIDGE_TO_OUTSIDE_RECEIVER` を
+  スキップ（＝その幾何では橋の効果なしだが -∞ も出ない、安全側）。
 
 **v0 到達点まとめ（`feat/bridge`, 7 コミット）:** pathfinder（幾何＋断面, 249）→ propagation（デッキ縁バリア,
 無改修, 55）→ jdbc（`BRIDGE_POINTS` ローダ, 59）→ scripts（`tableBridgePoints` 入力, 7）。テスト合計 370 全緑、
