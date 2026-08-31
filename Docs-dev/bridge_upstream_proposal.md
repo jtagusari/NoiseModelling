@@ -47,15 +47,17 @@ The ability to model noise from traffic running on an **elevated deck**
 Elevated urban expressways are a major noise source in dense cities and are not
 representable in NoiseModelling today.
 
-### What the change touches
+### Status
 
-Pathfinder / propagation: ~13 new classes
-(`Bridge`, `BridgeService`, `BridgePoint`, `BridgePointManager`,
-`BridgeTriangulation`, `BridgeGeometryBuilder`, `BridgeQueryHelper`,
-`CutPointBridgeWall`, `BridgeAnalyzer`, `ElevationConverter`,
-`LineStringSplitter`, `BridgeRelationship`, …), plus bridge-aware branches in
-`ProfileBuilder` / `CutProfile` / `Scene`, regression test cases (`TBC*`), and a
-`TutoBridge` example dataset.
+The feature is **implemented and working on a fork based on NoiseModelling
+5.0.1** (`jtagusari/NoiseModelling`, `fix` branch). It adds a bridge object and
+its handling in the pathfinder / propagation modules, bridge-aware branches in
+`ProfileBuilder` / `CutProfile` / `Scene`, a set of regression test cases, and
+a `TutoBridge` example dataset with day/night maps.
+
+Current `main` (6.0.2-SNAPSHOT) has since reworked parts of the pathfinder and
+propagation core, so the feature needs porting forward — how to do that
+cleanly is what this discussion is about.
 
 ### Emission for the bridge sources
 
