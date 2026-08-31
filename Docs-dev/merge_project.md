@@ -332,12 +332,20 @@ v0 のデッキ音源は通常の CNOSSOS。
    `Bridge` 1個 → `addBridge`）。`BridgeNoiseMapTest`（end-to-end: 同一シーンを橋あり/なしで実行し、
    デッキが受音点の LEQ を下げる）。jdbc 59 pass / 0 fail。
    → **DB テーブル → ノイズマップ → 橋による遮蔽**の end-to-end が動作。
-4. `noisemodelling-scripts` に **WPS ブロック**（`Noise_level_from_traffic` 相当に `confBridgePointsTable` 追加、
-   または独立ブロック）+ `TutoBridge` データセット + before/after マップ 1〜2 枚。
-5. **コミット整理**（`wip` を squash して 3〜4 個のクリーンなコミットに）→ **draft PR** を upstream に。
+4. ~~`noisemodelling-scripts` に WPS 入力~~ → ✅ `79c07ead`。`Noise_level_from_source` に任意入力
+   `tableBridgePoints` 追加（SRID チェックは `tableDEM` と同形、未指定なら no-op）。
+   `TestNoiseLevelFromBridge`（WPS ブロック経由の end-to-end: `tableBridgePoints` の有無でデッキが
+   受音点の LEQ を下げる）。scripts `TestNoiseModelling`+`TestNoiseLevelFromBridge` 7 pass。
+5. （PR-prep）`TutoBridge` geojson データセット + レンダリング済み before/after マップ 1〜2 枚。
+   現状は数値 before/after（各 end-to-end テストが `withBridge < withoutBridge − 0.5 dB` を assert）。
+6. **コミット整理**（`wip` を squash して 3〜4 個のクリーンなコミットに）→ **draft PR** を upstream に。
    説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定を要約。ASJ は follow-up と明記。
-6. レビューを見て v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
+7. レビューを見て v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
    fork の `AttenuationCnossosExt`/`CnossosPathExt` 移植・チュートリアル拡充）。
+
+**v0 到達点まとめ（`feat/bridge`, 7 コミット）:** pathfinder（幾何＋断面, 249）→ propagation（デッキ縁バリア,
+無改修, 55）→ jdbc（`BRIDGE_POINTS` ローダ, 59）→ scripts（`tableBridgePoints` 入力, 7）。テスト合計 370 全緑、
+既存 upstream テストの回帰ゼロ。**WPS ブロックで「テーブル → ノイズマップ → 橋による遮蔽」が動作。**
 
 ### 3.8 upstream に出さないもの
 
