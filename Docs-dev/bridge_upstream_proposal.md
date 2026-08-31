@@ -1,6 +1,12 @@
-# B0: upstream 設計 Discussion のドラフト
+# Bridge upstream 提案 — 論点メモ（v0 PR の背景説明に流用）
 
-> これは upstream（Universite-Gustave-Eiffel/NoiseModelling）に投稿するための**下書き**。
+> **2026-08-31 方針変更:** 単発の抽象 Discussion としては投稿しない。動く **Bridge v0** を現行 `main` の上に
+> 最小差分で実装し、その **draft PR の説明**に下記の論点（pathfinder コアの拡張性・`perf_*` PR との順序・
+> v1 で足すもの）を要約して載せる。以下は素材として保持。
+>
+> ---
+>
+> （以下、当初の Discussion 下書き。投稿するとしても v0 PR とセットで。）
 > 種別は **Discussion（Ideas カテゴリ）** を想定（Issue ではなく）。投稿は本人が行う。
 > 目的 = Bridge 機能を入れる前提で、**pathfinder コア（`ProfileBuilder` / `CutProfile` / `PathFinder` /
 > `Scene`）が障害物タイプ拡張に対して閉じている**という設計問題を提起し、focused な

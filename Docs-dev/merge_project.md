@@ -268,9 +268,29 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 | `CutPoint` | `getPrimaryKey()` `setObstructingAcousticRay(boolean)` |
 
 **判明した含意:** F5 は F1 インフラ一式（小）＋ F2 の一部 API ＋ F4 の `HeightType` に依存しており、
-「Bridge だけ薄く replay」は成立しない。A-2 の随伴（~520 行）＋ B の hook 群まで込みで初めてコンパイルが通る。
-`feat/bridge` ローカルでは A-2 + B を進めて動かす価値はあるが、**upstream PR にできる形かは B0 Discussion の結果次第**
-（この依存の広さ自体が「Bridge を入れるなら F1 分解も必要か？」という設計論点になる）。
+「fork の Bridge クラス群をそのまま replay」は成立しない。A-2 の随伴（~520 行）＋ B の hook 群まで
+込みで初めてコンパイルが通る。fork の `Bridge` 実装自体も重い（`BridgePoint` 補間・`BridgeTriangulation`・
+girder/slab type・edge 回折・背面ミラー反射・底面 virtual source）。
+
+#### 方針転換（2026-08-31）: replay をやめ、最小実装を新規に書く
+
+> **fork の Bridge コードは reference（仕様書）扱い。** 現行 `main` の上に、
+> **最小限の Bridge 機能を最小差分で新規実装**し、それを PR（+ 短い説明）として出す。
+> 抽象的な設計 Discussion（[bridge_upstream_proposal.md](bridge_upstream_proposal.md)）より、
+> 動くものの方が説得力がある。Discussion 文面は PR の背景説明に流用する。
+
+**Bridge v0 の最小スコープ（案）:**
+
+- 入力: `BRIDGES` テーブル — フットプリント polygon、デッキ上面高さ（`HEIGHT` 列、セグメントごとに一定）、
+  デッキ厚（or 下面高さ）。girder/slab type・per-point 補間・alpha は v0 では持たない（v1 送り）。
+- `ProfileBuilder`: `List<Bridge>` 保持 + フットプリント索引 + `IntersectionType.BRIDGE`。
+- `CutProfile` の cut: 2D カットがフットプリントを跨ぐ区間に、デッキ下面/上面の水平障害物を挿入。
+  スラブ（下面〜上面 Z）を貫く直達線は遮蔽 → 上端/下端で回折。スラブより下 or 上を通る線は非遮蔽。
+- 排出: デッキ上の音源は**通常の CNOSSOS**（音源ジオメトリ Z をデッキ上に置く）。ASJ 構造物音源は v0 に含めない。
+- テスト: `TBC` 形式の回帰 1 本（デッキ上音源 × 脇/下の受音点で、bridge 無し baseline に対し遮蔽が出る）。
+
+→ 新規クラスは実質 `Bridge` 1 個。hook は `ProfileBuilder`/`CutProfile` の cut ロジック、`IntersectionType`、
+ローダ 1 箇所のみ。`HeightType`・F1 サービス・F2 API・ASJ には触れない。差分 ~300–500 行の見込み。
 
 **C. propagation 側（要調査。replay 不可の可能性）**
 
@@ -284,12 +304,14 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 
 ### 3.7 直近の進め方
 
-1. F6 ASJ（`feat/road-asj`、実施済み。Bridge の音源計算に使う排出モデル）— push は Bridge 設計 Discussion と同時。
-2. **Bridge の設計 Discussion** を起票。pathfinder コア（`ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`）が
-   障害物タイプ拡張に閉じている設計問題を提起し route A（薄い hook）/ route B（focused な抽出）を相談、
-   `perf_*` PR との順序も。「機能が必要か」は問わない。トラック A 志向だが Discussion では A/B 両方を問う。関連 #909。
-3. `feat/bridge` を切って **3.6-A の replay** に着手（issue と並行可）。ビルドを通しながら 3.6-B の hook を手書き。
-4. C（propagation 減衰拡張）→ D（F7/F8）。
+1. `feat/bridge` をリセット（WIP `bccfa91a` の replay 全部入りは破棄）し、`upstream/main` 起点で
+   **Bridge v0（§3.6「方針転換」の最小スコープ）を新規実装**。`mvn -pl noisemodelling-pathfinder test` green まで。
+2. `noisemodelling-scripts` に最小の WPS ブロック or ローダ + `TutoBridge` の縮小データセットを付け、
+   before/after マップを 1〜2 枚生成。
+3. これを **draft PR** として upstream に出す（説明に [bridge_upstream_proposal.md](bridge_upstream_proposal.md) の
+   論点 = pathfinder コアの拡張性・`perf_*` との順序・v1 で足すもの を要約）。抽象 Discussion 単発は出さない。
+4. F6 ASJ（`feat/road-asj`）は v1 送り（構造物音源）。PR で「follow-up で ASJ 構造物音を足す」と言及。
+5. レビューを見て v1（per-point 高さ・底面反射・ASJ 構造物音・JDBC 配線・チュートリアル拡充）。
 
 ### 3.8 upstream に出さないもの
 
@@ -309,10 +331,9 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 検証: `JAVA_HOME=jdk-25 mvn -pl noisemodelling-emission test` → **66 passed / 0 failed**。
 
 `RoadAsj_2023.json` は ASJ RTN-Model 2023 の**橋梁形式別 構造物音（デッキ・桁の放射音）係数表**
-（STEEL_BOX_STEEL 等 7 形式）。CNOSSOS に相当が無いため同梱する。車両走行音は CNOSSOS のまま。
-高架構造では構造物音が支配的になり得るのが Bridge 機能の要点の一つ。同梱可否は B0 Q5。
-JDBC 配線（F7）は含めない。
-push・PR は Discussion 後。
+（STEEL_BOX_STEEL 等 7 形式）。CNOSSOS に相当が無い。**Bridge v0 には含めず v1 送り**
+（v0 のデッキ音源は通常の CNOSSOS）。v0 PR で「follow-up で ASJ 構造物音を足す」と言及する。
+`feat/road-asj` はそのまま保持、push は v1 着手時。
 
 ---
 
@@ -332,19 +353,18 @@ push・PR は Discussion 後。
    最も近いのは CI.yml の deploy ガードだが価値小・upstream CI と乖離）
 7. ~~#956 を調査~~ → ✅ コード修正不要（`confSourcesZIsAltitude` で解決済、`Noise_level_from_traffic` は deprecated）。
    docs のみの差だが本質的でなく **PR は見送り**（3.5）。着手した `issue-956-traffic-source-z` ブランチは破棄。
-8. ~~`feat/bridge` で 3.6-A の replay を試行~~ → ✅ WIP `bccfa91a`。116 エラー。依存閉包を実測し §3.6 を修正。
-   **F5 の絡み具合を踏まえ、先に B0 Discussion を書いてから続行判断**（2026-08-31）。
-9. ~~B0 Discussion のドラフト作成~~ → ✅ [bridge_upstream_proposal.md](bridge_upstream_proposal.md)
+8. ~~`feat/bridge` で fork の Bridge 全 replay を試行~~ → ✅ WIP `bccfa91a`。116 エラー。依存閉包を実測（§3.6）。
+   **replay 全部入りは断念。fork コードは reference 扱いに**（2026-08-31）。
+9. ~~抽象 Discussion のドラフト作成~~ → ✅ [bridge_upstream_proposal.md](bridge_upstream_proposal.md)。
+   ただし**単発の抽象 Discussion は出さず、動く v0 PR の背景説明に流用**する方針に変更（2026-08-31）。
 
-### これから（トラック A。3.6 の手法 / 3.7 の順）
+### これから（§3.7 の順）
 
-1. Discussion を本人が投稿（投稿前メモは [bridge_upstream_proposal.md](bridge_upstream_proposal.md) 末尾。
-   `TutoBridge` の before/after マップを 1〜2 枚、`feat/road-asj` を push して URL を貼る）。
-2. 反応で分岐（§3.5「推奨: まず D」）:
-   - 「Bridge 歓迎 + (A) 薄い hook で OK」→ `feat/bridge` で 3.6-A2（F1 インフラ ~520 行 replay）→ 3.6-B（hook 手書き）→ C → D
-   - 「まず ProfileBuilder 分解を」→ トラック B（B0→B1→…）
-   - 「emission から段階的に」→ `feat/road-asj` を Bridge シリーズの最初のスライスとして先行 PR
-   - 反応薄 → トラック C（フォーク運用）
+1. `feat/bridge` をリセット（`bccfa91a` 破棄）→ `upstream/main` 起点で **Bridge v0 を新規実装**
+   （§3.6「方針転換」の最小スコープ）。`mvn -pl noisemodelling-pathfinder test` green まで。
+2. `noisemodelling-scripts` に最小ローダ/WPS + `TutoBridge` 縮小データ、before/after マップ 1〜2 枚。
+3. **draft PR** を upstream に。説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定を要約。
+4. レビュー反応で v1（per-point 高さ・底面反射・ASJ 構造物音・JDBC 配線）。
 
 ### 作業ツリーの注意
 
