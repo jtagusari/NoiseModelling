@@ -284,9 +284,9 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 
 ### 3.7 直近の進め方
 
-1. F6 ASJ（`feat/road-asj`、実施済み）— push は Bridge 設計 issue と同時（「呼び出し側は Bridge」）。
-2. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
-   の上に薄く載せる」方針を提示。関連 #909）。
+1. F6 ASJ（`feat/road-asj`、実施済み。Bridge の音源計算に使う排出モデル）— push は Bridge 設計 Discussion と同時。
+2. **Bridge の設計 Discussion** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
+   の上に薄く載せる」方針を提示。ASJ は Bridge の構成要素として言及。関連 #909）。
 3. `feat/bridge` を切って **3.6-A の replay** に着手（issue と並行可）。ビルドを通しながら 3.6-B の hook を手書き。
 4. C（propagation 減衰拡張）→ D（F7/F8）。
 
@@ -307,8 +307,10 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 
 検証: `JAVA_HOME=jdk-25 mvn -pl noisemodelling-emission test` → **66 passed / 0 failed**。
 
-`RoadAsj` の javadoc は "bridge virtual source emission" と明記。実体は F5（Bridge）の音源側であり、
-**単独 PR にするか B5 に束ねるかは B0 Discussion の結果で決める**。JDBC 配線（F7）は含めない。
+`RoadAsj` の javadoc は "bridge virtual source emission" と明記。ASJ は **Bridge 機能の一部**（Bridge の
+音源計算に使う排出モデル）であり、独立した道路音源モデルの提案ではない。Bridge シリーズの最初の
+スライスとして先行 PR にするか、Bridge 本体に束ねるかは B0 Discussion の結果で決める（提案本文 Q4/Q5）。
+JDBC 配線（F7）は含めない。
 push・PR は Discussion 後。
 
 ---
@@ -340,7 +342,7 @@ push・PR は Discussion 後。
 2. 反応で分岐（§3.5「推奨: まず D」）:
    - 「Bridge 歓迎 + (A) 薄い hook で OK」→ `feat/bridge` で 3.6-A2（F1 インフラ ~520 行 replay）→ 3.6-B（hook 手書き）→ C → D
    - 「まず ProfileBuilder 分解を」→ トラック B（B0→B1→…）
-   - 「ASJ だけ先に」→ `feat/road-asj` を単独 PR
+   - 「emission から段階的に」→ `feat/road-asj` を Bridge シリーズの最初のスライスとして先行 PR
    - 反応薄 → トラック C（フォーク運用）
 
 ### 作業ツリーの注意
