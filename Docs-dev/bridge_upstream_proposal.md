@@ -4,9 +4,9 @@
 > 種別は **Discussion（Ideas カテゴリ）** を想定（Issue ではなく）。投稿は本人が行う。
 > 目的 = Bridge（高架道路）ノイズモデリング機能を mainline に入れたい旨を伝え、`ProfileBuilder` への
 > 組み込み方（薄い hook か、サービス分解か）と、進行中の `perf_*` PR との順序について合意を得る。
-> **追加したいのは Bridge 機能のみ。** ASJ 排出モデルは fork の Bridge 実装がたまたま使っているだけの
-> オマケで、可能なら CNOSSOS 排出で置き換えて追加を避けたい。
-> 一人称は "I"。投稿本文は英語。以下そのまま貼れる形。
+> **主眼は Bridge 機能。** ASJ 排出パッケージも contribution に含める（デッキ音源のデフォルト）が、
+> Bridge のデッキ音源処理は排出モデル非依存なので、そこは強調しすぎない。CNOSSOS をデフォルトに
+> するかは Q5 で相談。一人称は "I"。投稿本文は英語。以下そのまま貼れる形。
 
 ---
 
@@ -49,13 +49,14 @@ Pathfinder / propagation: ~13 new classes
 `ProfileBuilder` / `CutProfile` / `Scene`, regression test cases (`TBC*`), and a
 `TutoBridge` example dataset.
 
-### Note on emission (not part of the proposal)
+### Emission for the bridge sources
 
-The bridge sources need *some* road emission method. My fork happens to compute
-them with a small helper based on the Acoustical Society of Japan RTN-Model 2023
-coefficients (`emission.road.asj`). I'm **not proposing to add a new emission
-model** — if the bridge sources can be driven by the existing CNOSSOS road
-model, I'd rather do that and drop the helper. See question 5.
+The deck sources are computed with an Acoustical Society of Japan RTN-Model 2023
+emission package (`emission.road.asj`: `RoadAsj`, `RoadAsjParameters`,
+`RoadAsj_2023.json`, 38 tests, additive). The bridge source handling itself is
+not tied to it — any road emission model can drive the deck sources — but this
+package is the default the contribution ships with. Whether you'd rather the
+default be CNOSSOS is a design point (question 5).
 
 ## 2. The integration question
 
@@ -91,8 +92,9 @@ types somewhat.
    step on each other?
 4. Preferred delivery: one feature PR, or a stacked series (support types →
    bridge core → `CutProfile` hooks → JDBC wiring → WPS script + tutorial)?
-5. Can the bridge deck sources reasonably be driven by the **existing CNOSSOS
-   road model**? If so I'll do that and drop the ASJ helper entirely.
+5. The contribution ships an ASJ RTN-Model 2023 emission package for the deck
+   sources (the bridge handling is emission-model-agnostic). Is that OK to
+   include, or would you prefer the default be the existing CNOSSOS road model?
 
 I can provide a draft PR, the `TutoBridge` dataset, and before/after maps to
 make the feature concrete. Thanks for taking a look.
@@ -102,7 +104,8 @@ make the feature concrete. Thanks for taking a look.
 ## メモ（投稿前に詰めること）
 
 - スクリーンショット/before-after ノイズマップを 1〜2 枚用意すると通りが良い（`TutoBridge` から生成）。
-- ASJ は「fork がたまたま使っている排出ヘルパー、提案の対象外」で統一済み。CNOSSOS 化できるかは Q5。
-- `feat/road-asj` は未 push。CNOSSOS 化の見通し次第では push 自体不要になりうる。
+- ASJ は「contribution に含む排出パッケージ（デッキ音源のデフォルト）。Bridge 処理自体は排出非依存」で統一。
+  デフォルトを CNOSSOS にするかは Q5。
+- `feat/road-asj` は未 push。Discussion 投稿時に push して URL を貼る。
 - 投稿相手の主なアクティブ人物: nicolas-f, pierromond, sachabaclet, gpetit, mglesser。
 - 返答パターン別の分岐は [merge_project.md](merge_project.md) §3.5「推奨: まず D」を参照。

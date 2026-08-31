@@ -307,10 +307,9 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 
 検証: `JAVA_HOME=jdk-25 mvn -pl noisemodelling-emission test` → **66 passed / 0 failed**。
 
-`RoadAsj` の javadoc は "bridge virtual source emission" と明記。ASJ は **fork の Bridge 実装がたまたま
-使っている排出ヘルパーにすぎず、upstream への提案対象は Bridge 機能のみ**。Bridge のデッキ音源を
-既存の CNOSSOS road model で駆動できるなら ASJ ヘルパーは丸ごと落とす（提案本文 Q5）。
-その場合 `feat/road-asj` の push 自体が不要。JDBC 配線（F7）は含めない。
+主眼は Bridge 機能。ASJ 排出パッケージも contribution に含める（デッキ音源のデフォルト）が、
+Bridge のデッキ音源処理は排出モデル非依存なので位置づけは控えめ。デフォルトを CNOSSOS に
+するかは B0 Discussion Q5 で相談。JDBC 配線（F7）は含めない。
 push・PR は Discussion 後。
 
 ---
@@ -338,7 +337,7 @@ push・PR は Discussion 後。
 ### これから（トラック A。3.6 の手法 / 3.7 の順）
 
 1. Discussion を本人が投稿（投稿前メモは [bridge_upstream_proposal.md](bridge_upstream_proposal.md) 末尾。
-   `TutoBridge` の before/after マップを 1〜2 枚。`feat/road-asj` の push は Q5 の回答待ち）。
+   `TutoBridge` の before/after マップを 1〜2 枚、`feat/road-asj` を push して URL を貼る）。
 2. 反応で分岐（§3.5「推奨: まず D」）:
    - 「Bridge 歓迎 + (A) 薄い hook で OK」→ `feat/bridge` で 3.6-A2（F1 インフラ ~520 行 replay）→ 3.6-B（hook 手書き）→ C → D
    - 「まず ProfileBuilder 分解を」→ トラック B（B0→B1→…）
