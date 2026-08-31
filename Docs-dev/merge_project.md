@@ -285,9 +285,9 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 ### 3.7 直近の進め方
 
 1. F6 ASJ（`feat/road-asj`、実施済み。Bridge の音源計算に使う排出モデル）— push は Bridge 設計 Discussion と同時。
-2. **Bridge の設計 Discussion** を起票。①Bridge 機能を入れたいか、②`ProfileBuilder` が障害物タイプ拡張に
-   閉じている設計問題を提起し route A（薄い hook）/ route B（focused な抽出）を相談、③`perf_*` PR との順序。
-   トラック A 志向だが Discussion では A/B 両方を問う。関連 #909。
+2. **Bridge の設計 Discussion** を起票。pathfinder コア（`ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`）が
+   障害物タイプ拡張に閉じている設計問題を提起し route A（薄い hook）/ route B（focused な抽出）を相談、
+   `perf_*` PR との順序も。「機能が必要か」は問わない。トラック A 志向だが Discussion では A/B 両方を問う。関連 #909。
 3. `feat/bridge` を切って **3.6-A の replay** に着手（issue と並行可）。ビルドを通しながら 3.6-B の hook を手書き。
 4. C（propagation 減衰拡張）→ D（F7/F8）。
 
