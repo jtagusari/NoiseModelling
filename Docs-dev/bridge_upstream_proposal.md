@@ -4,9 +4,9 @@
 > 種別は **Discussion（Ideas カテゴリ）** を想定（Issue ではなく）。投稿は本人が行う。
 > 目的 = Bridge（高架道路）ノイズモデリング機能を mainline に入れたい旨を伝え、`ProfileBuilder` への
 > 組み込み方（薄い hook か、サービス分解か）と、進行中の `perf_*` PR との順序について合意を得る。
-> **主眼は Bridge 機能。** ASJ 排出パッケージも contribution に含める（デッキ音源のデフォルト）が、
-> Bridge のデッキ音源処理は排出モデル非依存なので、そこは強調しすぎない。CNOSSOS をデフォルトに
-> するかは Q5 で相談。一人称は "I"。投稿本文は英語。以下そのまま貼れる形。
+> **主眼は Bridge 機能。** 高架構造では**構造物音（デッキ・桁の放射音）が支配的**になり得るので、
+> ASJ RTN-Model 2023 の橋梁形式別係数（`emission.road.asj`）を構造物音源の係数表として同梱する。
+> 車両走行音は既存 CNOSSOS のまま。同梱の可否は Q5 で相談。一人称は "I"。投稿本文は英語。
 
 ---
 
@@ -29,12 +29,14 @@ now.
 The ability to model noise from traffic running on an **elevated deck**
 (viaduct, urban expressway):
 
-- the deck geometry is a first-class object;
-- sources sit on the deck, well above the DEM — CNOSSOS placement at
-  `DEM + height` cannot express a road 10–20 m up on a structure;
-- the deck itself acts as a diffracting / reflecting body, and the space under
-  and beside it is handled;
-- vehicles enter and leave the structure along its length.
+- the bridge deck is an explicit input with its own geometry, modelled as a
+  solid body — not approximated by raising source / receiver Z;
+- the deck sits well above the DEM and acts as a diffracting / reflecting
+  obstacle; the ground under and beside it is handled;
+- for an elevated structure the noise **radiated by the structure itself**
+  (deck and girders vibrating under traffic) can be the dominant component,
+  especially for steel bridges — the feature adds this as a structural source
+  in addition to the vehicles' own noise.
 
 Elevated urban expressways are a major noise source in dense cities and are not
 representable in NoiseModelling today.
@@ -51,12 +53,14 @@ Pathfinder / propagation: ~13 new classes
 
 ### Emission for the bridge sources
 
-The deck sources are computed with an Acoustical Society of Japan RTN-Model 2023
-emission package (`emission.road.asj`: `RoadAsj`, `RoadAsjParameters`,
-`RoadAsj_2023.json`, 38 tests, additive). The bridge source handling itself is
-not tied to it — any road emission model can drive the deck sources — but this
-package is the default the contribution ships with. Whether you'd rather the
-default be CNOSSOS is a design point (question 5).
+The structural source needs radiated-noise coefficients by bridge construction
+type (steel box girder, concrete box girder, plate girder, …), which CNOSSOS
+does not provide. The contribution ships these as a small package
+(`emission.road.asj`: `RoadAsj`, `RoadAsjParameters`, `RoadAsj_2023.json`, 38
+tests, additive), taken from the Acoustical Society of Japan RTN-Model 2023.
+The vehicles' own tyre/powertrain noise on the deck can still use the existing
+CNOSSOS model. Whether bundling the ASJ structural coefficients is acceptable
+is a design point (question 5).
 
 ## 2. The integration question
 
@@ -92,9 +96,10 @@ types somewhat.
    step on each other?
 4. Preferred delivery: one feature PR, or a stacked series (support types →
    bridge core → `CutProfile` hooks → JDBC wiring → WPS script + tutorial)?
-5. The contribution ships an ASJ RTN-Model 2023 emission package for the deck
-   sources (the bridge handling is emission-model-agnostic). Is that OK to
-   include, or would you prefer the default be the existing CNOSSOS road model?
+5. The bridge structural source needs radiated-noise coefficients by
+   construction type, which CNOSSOS has no equivalent for. Is bundling the ASJ
+   RTN-Model 2023 table (`emission.road.asj`) for that acceptable, or would you
+   rather the structural source be optional / left to the user?
 
 I can provide a draft PR, the `TutoBridge` dataset, and before/after maps to
 make the feature concrete. Thanks for taking a look.
@@ -104,8 +109,8 @@ make the feature concrete. Thanks for taking a look.
 ## メモ（投稿前に詰めること）
 
 - スクリーンショット/before-after ノイズマップを 1〜2 枚用意すると通りが良い（`TutoBridge` から生成）。
-- ASJ は「contribution に含む排出パッケージ（デッキ音源のデフォルト）。Bridge 処理自体は排出非依存」で統一。
-  デフォルトを CNOSSOS にするかは Q5。
+- ASJ = 橋梁形式別の**構造物音（放射音）係数表**。CNOSSOS に相当なし。車両走行音は CNOSSOS のまま。同梱可否は Q5。
 - `feat/road-asj` は未 push。Discussion 投稿時に push して URL を貼る。
+- `RoadAsj_2023.json` は STEEL_BOX_STEEL / CONCRETE_BOX_CONCRETE など 7 形式 + 構造物音の周波数係数を収録。
 - 投稿相手の主なアクティブ人物: nicolas-f, pierromond, sachabaclet, gpetit, mglesser。
 - 返答パターン別の分岐は [merge_project.md](merge_project.md) §3.5「推奨: まず D」を参照。

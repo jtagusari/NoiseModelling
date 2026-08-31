@@ -307,9 +307,10 @@ transitively閉じている（`WallService`/`BuildingService` 等へは波及し
 
 検証: `JAVA_HOME=jdk-25 mvn -pl noisemodelling-emission test` → **66 passed / 0 failed**。
 
-主眼は Bridge 機能。ASJ 排出パッケージも contribution に含める（デッキ音源のデフォルト）が、
-Bridge のデッキ音源処理は排出モデル非依存なので位置づけは控えめ。デフォルトを CNOSSOS に
-するかは B0 Discussion Q5 で相談。JDBC 配線（F7）は含めない。
+`RoadAsj_2023.json` は ASJ RTN-Model 2023 の**橋梁形式別 構造物音（デッキ・桁の放射音）係数表**
+（STEEL_BOX_STEEL 等 7 形式）。CNOSSOS に相当が無いため同梱する。車両走行音は CNOSSOS のまま。
+高架構造では構造物音が支配的になり得るのが Bridge 機能の要点の一つ。同梱可否は B0 Q5。
+JDBC 配線（F7）は含めない。
 push・PR は Discussion 後。
 
 ---
