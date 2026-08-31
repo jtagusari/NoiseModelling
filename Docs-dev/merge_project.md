@@ -3,6 +3,7 @@
 > 更新日: 2026-08-31 / 対象: `fix` (= `origin/fix`) → `upstream/main`
 > upstream = `https://github.com/Universite-Gustave-Eiffel/NoiseModelling.git`
 > ファイル単位の仕分け表 → [fix_diff_inventory.md](fix_diff_inventory.md)
+> upstream Discussion のドラフト → [bridge_upstream_proposal.md](bridge_upstream_proposal.md)
 
 ---
 
@@ -328,13 +329,19 @@ push・PR は Discussion 後。
    最も近いのは CI.yml の deploy ガードだが価値小・upstream CI と乖離）
 7. ~~#956 を調査~~ → ✅ コード修正不要（`confSourcesZIsAltitude` で解決済、`Noise_level_from_traffic` は deprecated）。
    docs のみの差だが本質的でなく **PR は見送り**（3.5）。着手した `issue-956-traffic-source-z` ブランチは破棄。
+8. ~~`feat/bridge` で 3.6-A の replay を試行~~ → ✅ WIP `bccfa91a`。116 エラー。依存閉包を実測し §3.6 を修正。
+   **F5 の絡み具合を踏まえ、先に B0 Discussion を書いてから続行判断**（2026-08-31）。
+9. ~~B0 Discussion のドラフト作成~~ → ✅ [bridge_upstream_proposal.md](bridge_upstream_proposal.md)
 
 ### これから（トラック A。3.6 の手法 / 3.7 の順）
 
-1. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
-   の上に薄く載せる」方針を提示。関連 #909）。
-2. `feat/bridge` を切って **3.6-A（Bridge 新規ファイルの replay）** に着手（issue と並行可）。
-3. ビルドを通しながら **3.6-B（hook の手書き）** → **3.6-C（propagation 減衰拡張）** → **3.6-D（F7 JDBC 配線 → F8 scripts）**。
+1. Discussion を本人が投稿（投稿前メモは [bridge_upstream_proposal.md](bridge_upstream_proposal.md) 末尾。
+   `TutoBridge` の before/after マップを 1〜2 枚、`feat/road-asj` を push）。
+2. 反応で分岐（§3.5「推奨: まず D」）:
+   - 「Bridge 歓迎 + (A) 薄い hook で OK」→ `feat/bridge` で 3.6-A2（F1 インフラ ~520 行 replay）→ 3.6-B（hook 手書き）→ C → D
+   - 「まず ProfileBuilder 分解を」→ トラック B（B0→B1→…）
+   - 「ASJ だけ先に」→ `feat/road-asj` を単独 PR
+   - 反応薄 → トラック C（フォーク運用）
 
 ### 作業ツリーの注意
 
