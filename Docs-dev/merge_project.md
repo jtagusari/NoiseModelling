@@ -308,13 +308,17 @@ v0 のデッキ音源は通常の CNOSSOS。
 **当初目標（最小限の実装がエラーなく動く）は達成。** 既存クラスへの変更は accessor / enum 追加中心で最小。
 `ProfileBuilder` の cut フローには `addBridgeCutPts()`（~60 行）と `classifySourceAgainstBridges()`（~25 行）を追加。
 
-**C. propagation 側（v1。ただし v0 の前に要確認）**
+**C. propagation 側 — ✅ v0 は無改修で到達（2026-08-31, `feat/bridge` `287ec1b7`）**
 
-- `cnossos/AttenuationCnossosExt.java`（1108）/ `cnossos/CnossosPathExt.java`: `fix` の `CutProfile` API 依存 → v1 で書き直し。
-- **v0 リスク**: bridge の cut point（回折点）を upstream の `CnossosPathBuilder` がそのまま扱えるか要確認。
-  扱えれば v0 は propagation 無改修で「マップに遮蔽が出る」ところまで到達可能。扱えないなら v0 でも
-  `CnossosPathBuilder` に最小の分岐が要る（`CnossosPathExt` 全体ではなく）。
-- テスト `propagation/AttenuationComputeOutputCnossosBridgeTest` + `test_cases/TBC*_attenuation_output.json`（15）は v1。
+- 実測: bridge cut point を含む `CutProfile` は `CnossosPathBuilder.computeCnossosPathsFromCutProfile()` を
+  **エラーなく通過**。デッキ縁は 2D 断面の凸包頂点になり、汎用の回折メカニズムで**バリアとして減衰を生む**
+  （`CutPointBridgeWall extends CutPointWall` かつ `intersectionType` が BUILDING_ENTER/EXIT なので既存分岐で拾われる）。
+- `BridgePropagationTest`（2 本）: デッキ上音源 → 回折点あり、同一形状でデッキ無し → 直達。
+  propagation フルスイート **55 pass / 0 fail**（TC01–TC28 の回帰 47 本含む、回帰なし）。
+- **propagation の production コード変更ゼロ。** 正しい橋の物理（下部開放・水平面・構造物音）は v1
+  = fork の `AttenuationCnossosExt`（1108）/ `CnossosPathExt` の必要部分の移植。
+
+**D. F7/F8（B の後）**: `jdbc/BridgePointMappingTest` `BridgeTrafficTest` + `TutoBridge/*.geojson`、
 
 **D. F7/F8（B の後）**: `jdbc/BridgePointMappingTest` `BridgeTrafficTest` + `TutoBridge/*.geojson`、
 `noisemodelling-scripts` の Bridge チュートリアル / `Noise_level_from_bridge_traffic`。
@@ -379,11 +383,12 @@ v0 のデッキ音源は通常の CNOSSOS。
 
 ### これから（§3.7 の順）
 
-1. **propagation で減衰まで通す**（§3.6-C）。`CnossosPathBuilder` が bridge cut point を扱えるか確認 →
-   `AttenuationComputeOutputCnossosBridgeTest` 相当で「橋で減衰が出る」まで。
+1. ~~propagation で減衰まで通す~~ → ✅ 無改修で到達（§3.6-C、`287ec1b7`、propagation 55 pass）。
 2. `noisemodelling-scripts` に最小ローダ/WPS + `TutoBridge` 縮小データ、before/after マップ 1〜2 枚。
+   （現状 `getProfile` の内蔵分類でも動くが、DB/WPS 入口には `BridgePoint` を読むローダが要る = F7 の最小版）
 3. **draft PR** を upstream に。説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定を要約。
-4. レビュー反応で v1（音源分類の F7 配線・per-point 高さ・底面反射・ASJ 構造物音・JDBC 配線）。
+4. レビュー反応で v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
+   fork の `AttenuationCnossosExt`/`CnossosPathExt` 移植）。
 
 ### 作業ツリーの注意
 
