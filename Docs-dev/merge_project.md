@@ -346,18 +346,23 @@ v0 のデッキ音源は通常の CNOSSOS。
 7. レビューを見て v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
    fork の `AttenuationCnossosExt`/`CnossosPathExt` 移植・チュートリアル拡充）。
 
-#### v0 の限界（TutoBridge で判明、2026-08-31）
+#### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
-- **デッキ上音源 → フットプリント外の受音点**（`checkPropagationType` = `BRIDGE_TO_OUTSIDE_RECEIVER`）で、
-  bridge cut point 入りの断面を upstream `CnossosPathBuilder` に渡すと**パスが棄却されて -∞ dB 相当**になる
-  ことがある（デッキ縁を汎用バリアとして凸包に載せる近似が、この幾何では破綻）。
-  → `BridgeNoiseMapTest` / `BridgePropagationTest` の「橋あり < 橋なし」assert は、幾何によっては
-  「遮蔽」ではなく「パス消失」で通っている可能性がある。
-- 正しく機能するのは主に **受音点がデッキ下**（`ACTUAL_SOURCE_TO_LOWER_RECEIVER` /
-  `IMAGINARY_SOURCE_TO_UPPER_RECEIVER` → fork の `calculateFirstBridgeCutpoint` によるミラー/回折構築）のケース。
-- v1 で fork の `AttenuationCnossosExt` / `CnossosPathExt` を移植すれば解消。
-  それまでの選択肢: (a) 限界として明記して PR、(b) `addBridgeCutPts` で `BRIDGE_TO_OUTSIDE_RECEIVER` を
-  スキップ（＝その幾何では橋の効果なしだが -∞ も出ない、安全側）。
+- **原因**（診断済み）: CNOSSOS 式のバグではない。`CutProfile.isFreeField()` が building/topography だけを
+  見ていて bridge を見ていなかったため、bridge で遮蔽された断面が「free field」扱いになり、
+  `PathFinder.directPath` が `stopAtObstacleOverSourceReceiver` の early-return で**切り詰められた断面**
+  （地面カット点・Z 補間なし）をそのまま減衰計算に渡していた → 退化した profile → -∞ 相当。
+  直接 `CnossosPropagationModel.computeAttenuation` に**完全な** bridge 断面を渡すと、upstream の
+  `AttenuationCnossos` は**妥当な回折減衰を計算する**（実測: aBoundary +12〜20 dB、aGlobal 約 -55〜-67 dB）。
+- **修正**: `isFreeField()` に `&& !hasBridgeIntersection` を追加（1 行）。これで bridge が building と同じ挙動に:
+  鉛直回折 ON なら デッキ縁を越える回折直達パスが正しく計算される。
+  TutoBridge のデッキ背後の受音点は -∞ ではなく **約 -10〜-15 dB**（バリア + 2 m 遮音壁相当）に。
+- **`AttenuationCnossosExt` / `CnossosPathExt` の移植は不要**（v0 では）。fork のあれらは
+  下部開放・ミラー音源・構造物音などの高度なケースを扱うもので、v1 で必要になったら移植する。
+- 回帰確認: pathfinder 249 / propagation 55（TC01–TC28 の 47 本含む）/ scripts bridge 2 — 全緑。
+- 別件（upstream の既存バグ）: `Noise_level_from_source` が `setComputeHorizontalDiffraction` と
+  `setComputeVerticalDiffraction` の引数を取り違えている（`confDiffHorizontal` が実際には鉛直回折を有効化する）。
+  Bridge PR とは別に報告候補。
 
 **v0 到達点まとめ（`feat/bridge`, 7 コミット）:** pathfinder（幾何＋断面, 249）→ propagation（デッキ縁バリア,
 無改修, 55）→ jdbc（`BRIDGE_POINTS` ローダ, 59）→ scripts（`tableBridgePoints` 入力, 7）。テスト合計 370 全緑、
