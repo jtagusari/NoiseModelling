@@ -286,4 +286,6 @@
   B0 Discussion での合意 → 再実装（＝トラック B）が必要。Track A では**持ち込まない**。
 - **単独先行 PR にできるものは無い**。#956 は調査済み（コード修正不要 = `confSourcesZIsAltitude` で解決済、
   `Noise_level_from_traffic` は deprecated）。docs のみの差だが本質的でなく PR 見送り。
-- 次アクション: Bridge+ASJ 設計 issue 起票 → F5 の最小実装。
+- 次アクション: Bridge+ASJ 設計 issue 起票 → `feat/bridge` で F5 の replay + hook 手書き
+  （手法と replay 対象ファイル一覧は [merge_project.md](merge_project.md) §3.6）。
+  Bridge クラス群が要求する F1 ファイルは `utils/geometry/RTreeUtils.java` の 1 本のみ。

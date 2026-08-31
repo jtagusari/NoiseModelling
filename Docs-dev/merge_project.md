@@ -215,19 +215,82 @@ upstream は `ProfileBuilder` / `PathFinder` / `Scene` の構造を**意図的�
   `SourceCollector` 抽出など）も、upstream の「構造維持 + perf パッチ」方針では *それ自体が改善* とは
   見なされにくく、B0 Discussion の合意が前提。単発では出さない。
 
-### 3.6 直近の進め方
+### 3.6 手法: replay
+
+`fix` の履歴は**書き換えない**。共通祖先（`46c9380a`）ではなく `fix` の **HEAD ツリー**から、必要なファイル群
+だけを `integ/upstream-sync`（= `upstream/main`）の上に置いて、まともなメッセージでコミットし直す。
+
+```bash
+git switch -c feat/<slice> integ/upstream-sync
+git checkout fix -- <replay 対象パス...>          # HEAD ツリーから取り出す
+#   必要なら git restore -p / git checkout -p でハンク単位に絞る
+JAVA_HOME="C:\Program Files\Java\jdk-25.0.4.1" mvn -pl <module> -am test
+git commit -m "feat(...): ..."
+```
+
+- 「差分（コミット）の cherry-pick」ではなく「最終ファイルの再配置」。`fix` の巨大混在コミットは無視できる。
+- **replay できるのは、upstream 側でそのファイルが乖離していない場合だけ**（新規追加 or upstream 未変更）。
+  乖離しているファイル（F1/F2/F3/F7、および F5 の hook）は replay 不可 → 手書きで再実装。
+- F6 ASJ（`feat/road-asj`）はこの手法で完了済み（6 ファイル、既存ファイル変更ゼロ、66 tests green）。
+
+#### F5（Bridge）の replay 対象と手書き対象
+
+**A. そのまま replay（新規ファイル。upstream に存在しない）— `feat/bridge`**
+
+pathfinder / main:
+
+| ファイル | 行 | 依存 |
+|----------|---:|------|
+| `profilebuilder/BridgePoint.java` | 758 | `Scene`(upstream) |
+| `profilebuilder/BridgeService.java` | 741 | `BridgeRelationship`(F5), `CutPointBridgeWall`(F5), `ProfileBuilder.IntersectionType`(upstream ✓), **`utils/geometry/RTreeUtils`(F1 の唯一の随伴)** |
+| `profilebuilder/Bridge.java` | 685 | なし |
+| `profilebuilder/BridgePointManager.java` | 446 | なし |
+| `profilebuilder/BridgeTriangulation.java` | 440 | なし |
+| `profilebuilder/BridgeGeometryBuilder.java` | 334 | `BridgePoint.Position`(F5) |
+| `profilebuilder/BridgeQueryHelper.java` | 296 | なし |
+| `profilebuilder/CutPointBridgeWall.java` | 193 | `extends CutPointWall` ← **親が F1/F2 で改変。upstream の `CutPointWall` API と要整合（下記 B）** |
+| `BridgeAnalyzer.java` | 102 | `Bridge`(F5), `BridgeRelationship`(F5), `ProfileBuilder`(upstream) |
+| `ElevationConverter.java` | 240 | `Bridge`(F5), `BridgeRelationship`(F5), `ProfileBuilder`/`Scene`(upstream)。F4 とも関連 |
+| `LineStringSplitter.java` | 201 | なし（#880 にも関連） |
+| `path/BridgeRelationship.java` | 小 | なし |
+| `utils/geometry/RTreeUtils.java` | 201 | なし（F1 だが Bridge が要求する唯一の F1 ファイル） |
+
+テスト（pathfinder）: `PathFinderBridgeTest` + `profilebuilder/Bridge{Behavior,Factory,GeometryBuilder,PointManager,Point,QueryHelper,Service,Triangulation}Test`（計 8）
+フィクスチャ: `pathfinder/test_cases/TBC*.json`（43）、`pathfinder/src/test/resources/TutoBridge/{bridgepoints,dem}.geojson`
+
+**B. 手書き（upstream 構造向けに書き直し）**
+
+- `ProfileBuilder` に `BridgeService` を注入する hook（コンストラクタ/初期化）。upstream の `ProfileBuilder`
+  はサービス分解されていないので、`bridgeService` フィールド + 生成 + `getProfile` 系での bridge 交差判定呼び出しを最小限で足す。
+- `CutProfile` に bridge 交差（`hasBridgeIntersection` / `CutPointBridgeWall` の挿入・`ascendBridge`/`discendBridge`）
+  を足す。upstream の `CutProfile` API（`getGPath` 等、`fix` とは非互換）に合わせる。
+- `CutPointWall` / `CutPointBridgeWall` の親子 API 整合。
+- `Scene` 側の bridge 関連受け渡し（`BridgeRelationship`）。`HeightType` は持ち込まない（F4 = トラック B）。
+
+**C. propagation 側（要調査。replay 不可の可能性）**
+
+- `cnossos/AttenuationCnossosExt.java`（1108）: import は upstream クラスのみだが内部で `fix` 改修メソッドを
+  呼ぶ見込み。
+- `cnossos/CnossosPathExt.java`: `fix` の `CutProfile` API 依存 → 書き直し。
+- テスト `propagation/AttenuationComputeOutputCnossosBridgeTest` + `test_cases/TBC*_attenuation_output.json`（15）+ `bridge_test_cases.json`。
+
+**D. F7/F8（B の後）**: `jdbc/BridgePointMappingTest` `BridgeTrafficTest` + `TutoBridge/*.geojson`、
+`noisemodelling-scripts` の Bridge チュートリアル / `Noise_level_from_bridge_traffic`。
+
+### 3.7 直近の進め方
 
 1. F6 ASJ（`feat/road-asj`、実施済み）— push は Bridge 設計 issue と同時（「呼び出し側は Bridge」）。
 2. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
    の上に薄く載せる」方針を提示。関連 #909）。
-3. issue の反応を見て Bridge 本体（F5）の最小実装に着手。F7/F8（JDBC 配線・scripts）はその後。
+3. `feat/bridge` を切って **3.6-A の replay** に着手（issue と並行可）。ビルドを通しながら 3.6-B の hook を手書き。
+4. C（propagation 減衰拡張）→ D（F7/F8）。
 
-### 3.7 upstream に出さないもの
+### 3.8 upstream に出さないもの
 
 `Docs-dev/**`, 生成 `test_cases/*.json`（68 個）, `.vscode/`, `.mvn/`, `javadoc-warnings-unique.txt`,
 `nbactions.xml`, `preparation.sh`, `test_coverage_summary.md`, `noisemodelling-tutorial-01`（upstream で削除済み）。
 
-### 3.8 F6（ASJ）の実施状況
+### 3.9 F6（ASJ）の実施状況
 
 **ブランチ:** `feat/road-asj`（`integ/upstream-sync` = `upstream/main` 起点、コミット `5a645a53` 1 本）
 
@@ -255,18 +318,19 @@ push・PR は Discussion 後。
    現行 `upstream/main` は `pom.xml` で `<source>25</source><target>25</target>`。
    ビルド/テスト時は `JAVA_HOME` を jdk-25 に向ける（例: `JAVA_HOME="C:\Program Files\Java\jdk-25.0.4.1" mvn ...`）。
    `.m2` に無い新依存（jackson 2.21 / commons-codec 1.19 / h2gis 2.2.6-SNAPSHOT 等）はオンラインで取得が必要。
-4. ~~F6 ASJ を `feat/road-asj` に移植・テスト~~ → ✅ 66 passed（3.8 参照。push は保留）
+4. ~~F6 ASJ を `feat/road-asj` に移植・テスト~~ → ✅ 66 passed（3.9 参照。push は保留）
 5. ~~F1〜F4 の先行単独 PR 候補を調査~~ → ✅ 強い候補なし（3.5。正しさ系は upstream が既に別 PR で修正済み）
 6. ~~インベントリの「要確認」項目を精査~~ → ✅ 単独 PR 級なし（[fix_diff_inventory.md](fix_diff_inventory.md) の X 表。
    最も近いのは CI.yml の deploy ガードだが価値小・upstream CI と乖離）
 7. ~~#956 を調査~~ → ✅ コード修正不要（`confSourcesZIsAltitude` で解決済、`Noise_level_from_traffic` は deprecated）。
    docs のみの差だが本質的でなく **PR は見送り**（3.5）。着手した `issue-956-traffic-source-z` ブランチは破棄。
 
-### これから（トラック A。3.6 参照）
+### これから（トラック A。3.6 の手法 / 3.7 の順）
 
 1. **Bridge + ASJ の設計 issue** を起票（トラック A 前提。「現行 `ProfileBuilder`/`CutProfile`/`PathFinder`/`Scene`
    の上に薄く載せる」方針を提示。関連 #909）。
-2. issue の反応を見て Bridge 本体（F5）の最小実装 → その後 F7（JDBC 配線）→ F8（scripts）。
+2. `feat/bridge` を切って **3.6-A（Bridge 新規ファイルの replay）** に着手（issue と並行可）。
+3. ビルドを通しながら **3.6-B（hook の手書き）** → **3.6-C（propagation 減衰拡張）** → **3.6-D（F7 JDBC 配線 → F8 scripts）**。
 
 ### 作業ツリーの注意
 
