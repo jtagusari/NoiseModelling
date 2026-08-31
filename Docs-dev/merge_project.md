@@ -235,37 +235,41 @@ git commit -m "feat(...): ..."
 
 #### F5（Bridge）の replay 対象と手書き対象
 
-**A. そのまま replay（新規ファイル。upstream に存在しない）— `feat/bridge`**
+> **2026-08-31 実施メモ（`feat/bridge`, commit `bccfa91a`）:** 下記 A の 13 ファイルを置いて
+> `mvn compile` したところ **116 エラー**。当初の依存見積り（「F1 は `RTreeUtils` の 1 本だけ」）は
+> **誤り** —— import grep が同一パッケージ参照と static クラス利用を拾えていなかった。実際の閉包は下記。
 
-pathfinder / main:
+**A-1. Bridge 新規ファイル（13、置換済み）**
 
-| ファイル | 行 | 依存 |
-|----------|---:|------|
-| `profilebuilder/BridgePoint.java` | 758 | `Scene`(upstream) |
-| `profilebuilder/BridgeService.java` | 741 | `BridgeRelationship`(F5), `CutPointBridgeWall`(F5), `ProfileBuilder.IntersectionType`(upstream ✓), **`utils/geometry/RTreeUtils`(F1 の唯一の随伴)** |
-| `profilebuilder/Bridge.java` | 685 | なし |
-| `profilebuilder/BridgePointManager.java` | 446 | なし |
-| `profilebuilder/BridgeTriangulation.java` | 440 | なし |
-| `profilebuilder/BridgeGeometryBuilder.java` | 334 | `BridgePoint.Position`(F5) |
-| `profilebuilder/BridgeQueryHelper.java` | 296 | なし |
-| `profilebuilder/CutPointBridgeWall.java` | 193 | `extends CutPointWall` ← **親が F1/F2 で改変。upstream の `CutPointWall` API と要整合（下記 B）** |
-| `BridgeAnalyzer.java` | 102 | `Bridge`(F5), `BridgeRelationship`(F5), `ProfileBuilder`(upstream) |
-| `ElevationConverter.java` | 240 | `Bridge`(F5), `BridgeRelationship`(F5), `ProfileBuilder`/`Scene`(upstream)。F4 とも関連 |
-| `LineStringSplitter.java` | 201 | なし（#880 にも関連） |
-| `path/BridgeRelationship.java` | 小 | なし |
-| `utils/geometry/RTreeUtils.java` | 201 | なし（F1 だが Bridge が要求する唯一の F1 ファイル） |
+pathfinder / main: `profilebuilder/{BridgePoint 758, BridgeService 741, Bridge 685, BridgePointManager 446,
+BridgeTriangulation 440, BridgeGeometryBuilder 334, BridgeQueryHelper 296, CutPointBridgeWall 193}`,
+`{BridgeAnalyzer 102, ElevationConverter 240, LineStringSplitter 201}`, `path/BridgeRelationship`,
+`utils/geometry/RTreeUtils`。
 
-テスト（pathfinder）: `PathFinderBridgeTest` + `profilebuilder/Bridge{Behavior,Factory,GeometryBuilder,PointManager,Point,QueryHelper,Service,Triangulation}Test`（計 8）
-フィクスチャ: `pathfinder/test_cases/TBC*.json`（43）、`pathfinder/src/test/resources/TutoBridge/{bridgepoints,dem}.geojson`
+**A-2. さらに随伴が必要な F1 インフラ（追加・upstream に無い・自己完結、~520 行）**
 
-**B. 手書き（upstream 構造向けに書き直し）**
+`profilebuilder/` の `FrequencyInitializable`(16) `ElevationComputable`(11) `ClearableService`(8)
+`ProcessedFacetsExportable`(27) `GeometryFactoryProvider`(17) `LoggingUnmodifiableList`(89)
+`ProfileUtils`(114) `RayWallIntersection`(94) `ProcessedWallService`(160)。
+→ `BridgeService implements FrequencyInitializable, ElevationComputable, ClearableService, ProcessedFacetsExportable`、
+`ProcessedWallService` / `GeometryFactoryProvider` / `LoggingUnmodifiableList` / `ProfileUtils` を利用。
+transitively閉じている（`WallService`/`BuildingService` 等へは波及しない）。
 
-- `ProfileBuilder` に `BridgeService` を注入する hook（コンストラクタ/初期化）。upstream の `ProfileBuilder`
-  はサービス分解されていないので、`bridgeService` フィールド + 生成 + `getProfile` 系での bridge 交差判定呼び出しを最小限で足す。
-- `CutProfile` に bridge 交差（`hasBridgeIntersection` / `CutPointBridgeWall` の挿入・`ascendBridge`/`discendBridge`）
-  を足す。upstream の `CutProfile` API（`getGPath` 等、`fix` とは非互換）に合わせる。
-- `CutPointWall` / `CutPointBridgeWall` の親子 API 整合。
-- `Scene` 側の bridge 関連受け渡し（`BridgeRelationship`）。`HeightType` は持ち込まない（F4 = トラック B）。
+**B. 手書き（upstream の既存クラスに hook を足す）** — コンパイルエラーから確定:
+
+| クラス | 追加するもの |
+|--------|-------------|
+| `ProfileBuilder` | `getBridge(int)` `getBridgeByPk(long)` `getBridgeCount()` + `IntersectionType.BRIDGE` 定数 + `bridges` 保持と `addBridge` |
+| `Scene` | `getProfileBuilder()` getter、**`HeightType` enum**（`BridgePoint` が ~10 箇所で使用 → 最小の enum を持ち込むか、`BridgePoint` から剥がす）|
+| `CutPointSource` | `getBridgeRelationship()` `getBridgeHeight()` + backing field |
+| `CutPointWall` / `CutPointBridgeWall` | `getWallAlpha()` `getIntersectionType()` の親子整合 |
+| `CutProfile` | `generateCutPointCoordinates2D()` `setCutPoints(ArrayList<CutPoint>)` ← **`fix` の F2 API**。upstream の `CutProfile` に薄いラッパを足すか、Bridge 側呼び出しを upstream API に書き換え |
+| `CutPoint` | `getPrimaryKey()` `setObstructingAcousticRay(boolean)` |
+
+**判明した含意:** F5 は F1 インフラ一式（小）＋ F2 の一部 API ＋ F4 の `HeightType` に依存しており、
+「Bridge だけ薄く replay」は成立しない。A-2 の随伴（~520 行）＋ B の hook 群まで込みで初めてコンパイルが通る。
+`feat/bridge` ローカルでは A-2 + B を進めて動かす価値はあるが、**upstream PR にできる形かは B0 Discussion の結果次第**
+（この依存の広さ自体が「Bridge を入れるなら F1 分解も必要か？」という設計論点になる）。
 
 **C. propagation 側（要調査。replay 不可の可能性）**
 
