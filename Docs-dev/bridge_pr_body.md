@@ -30,7 +30,7 @@ production change at all, and the full suite passes unchanged
 scripts 96).
 
 This PR is step 1 only, kept deliberately small. 2 and 3 are the point of the
-work but come later; the design questions below are about making room for them.
+work but come later — the "Follow-up" section maps where they land.
 
 ## What this adds
 
@@ -69,76 +69,43 @@ existing tests. `bridgeDeckShieldsAGroundReceiver` pins the per-octave
 insertion loss to the CNOSSOS single-diffraction term for the path difference
 derived from the geometry.
 
-**Out (follow-up):**
+**Out (follow-up):** structure-radiated noise (goal 2), deck-underside
+reflection and mirror sources (goal 3), per-bridge-point deck height (v0 uses
+one height per deck), tutorial expansion with day/night maps. Detail below.
 
-- **Structure-radiated noise** (goal 2). Needs radiated-noise coefficients by
-  construction type, which CNOSSOS has no equivalent for; I have an ASJ
-  RTN-Model 2023 table for this on a separate branch. v0 models only the
-  vehicles' own noise on the deck (unchanged CNOSSOS).
-- **Deck-underside reflection** and mirror / imaginary sources for the open
-  space under the structure (goal 3).
-- Per-bridge-point deck height (v0 uses one height per deck); tutorial
-  expansion with day/night maps.
+## Follow-up (v1)
 
-## The reason this is a draft
+Not questions — nothing here changes existing results — just a map of where
+the rest of the feature lands, so the shape of this PR makes sense.
 
-Wiring a genuinely new obstacle type in the way every existing type is wired
-means touching `ProfileBuilder` / `CutProfile` / `Scene` and adding accessors
-on `CutPoint*`. Even this minimal version pulls in ~9 small self-contained
-support classes plus those accessors, because the per-obstacle-type handling
-in `ProfileBuilder` (~1650 lines) and `CutProfile` is interleaved in one place
-— dedicated fields and R-trees, a fixed cut-point sequence in `getProfile()`,
-`IntersectionType` branch points, and one `has…Intersection` boolean per type
-in `isFreeField()` — with no extension point for a new type.
+`ProfileBuilder` / `CutProfile` have no extension point for a new obstacle
+type, so even this minimal version adds ~9 small support classes and a few
+accessors on `Scene` / `CutPoint*` / `Wall`. I'm not proposing to restructure
+those classes.
 
-The open `perf_*` PRs in this area (`perf_profile_intersections`,
-`perf_prepared_ground`, `remove_unused_wall_index`) are small surgical
-optimizations — reuse one line-intersector across a profile's obstacle
-candidates, prepare the ground footprints, drop a dead spatial index — and a
-layer seam would rebase cleanly over them. But they do show that allocation in
-`getProfile()`'s inner loop is measured here, so a route-B extraction would
-need to demonstrate that per-layer dispatch adds no measurable cost on a large
-map, not just that the tests stay green.
+The later work is larger but stays behaviour-preserving for any scene with no
+bridge input — every new branch is guarded by a condition that cannot be true
+without a bridge:
 
-Before going further I'd like to agree on:
+- **`CutProfile` elevation** gains ascend/descend handling guarded by
+  `instanceof CutPointBridgeWall` — dead code when the profile carries no
+  bridge cut point.
+- **Bridge diffraction** is a bottom+top composite: sound passing a deck
+  **body** diffracts around its lower and upper edge, and the boundary
+  attenuation of that path is the sum of a bottom-route and a top-route
+  sub-path, each a normal Cnossos path built by a re-entrant call on an
+  edge-filtered profile. This needs two nullable child-path fields on
+  `CnossosPath`, a decomposition step in the path builder entered only when the
+  point list carries a bridge (`DIFB`) point, and a matching branch in
+  `AttenuationCnossos` boundary attenuation. Much smaller than the fork's
+  version, which type-forks the whole attenuation class for unrelated reasons —
+  the actual new physics is ~150 lines.
+- **Structure-radiated source**: an ASJ RTN-Model 2023 coefficient table for
+  deck / girder radiated noise. Additive; existing emission models unchanged.
 
-1. **Route A vs B.** (A) keep those classes as they are and take the feature as
-   thin hooks (this PR), or (B) first do a focused, behaviour-preserving
-   extraction of the per-obstacle-type handling behind a common interface, then
-   add `BridgeService` alongside — larger up front, but it also gives the
-   `perf_*` work a cleaner target. Same question, lighter, for
-   `PathFinder` / `Scene`.
-2. **Sequencing against the open `perf_*` PRs** — the overlap looks small (none
-   of them touch the cut-point sequence or `isFreeField()`), but a route-B
-   extraction should still land in an order the `perf_*` authors are happy with.
-3. **Delivery shape** — one feature PR, or a stacked series (support types →
-   bridge core → `CutProfile` hooks → JDBC → WPS + tutorial); own module / flag
-   / part of the road workflow.
-4. Whether bundling the **ASJ structural-noise table** later is acceptable, or
-   the structural source should stay optional / user-supplied.
-
-## What v1 will need from the core
-
-This PR treats the deck as a single screen and rides the existing diffraction
-path, so the propagation module is untouched. Full bridge diffraction cannot
-stay that light: sound passing a deck **body** diffracts around its bottom
-**and** top edge, and the boundary attenuation of that path is the sum of a
-bottom-route and a top-route sub-path, each a normal Cnossos path built by a
-re-entrant call on an edge-filtered profile. Supporting it means small,
-bridge-guarded additions that do reach into the CNOSSOS core:
-
-- two nullable child-path fields on `CnossosPath` (inert when null);
-- a bottom+top decomposition step in `CnossosPathBuilder` / the path processor,
-  entered only when the point list carries a bridge (`DIFB`) point;
-- a matching branch in `AttenuationCnossos` boundary attenuation that returns
-  `aBoundary(topRoute) + aBoundary(bottomRoute)` for such paths.
-
-Each is guarded by a condition that is never true without a bridge in the
-scene, so existing results are preserved by construction — but the change does
-touch the class the TC01–TC28 cases pin, which is the main thing I'd want
-agreement on before writing it. (This is far smaller than the fork's version,
-which carries a full type-forked copy of the attenuation code for unrelated
-reasons; the actual new physics is on the order of ~150 lines.)
+Each step will land with a parity harness (full per-receiver / per-band
+equality against `main` on non-bridge scenes) and JMH figures showing the
+guarded branches cost nothing when inactive. Feedback on any of it is welcome.
 
 ## Notes
 
