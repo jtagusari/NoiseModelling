@@ -341,10 +341,19 @@ v0 のデッキ音源は通常の CNOSSOS。
    `TestNoiseLevelFromBridge.tutoBridgeDatasetRunsThroughTheWpsBlock`。
    **ここで判明した v0 の限界（下記）** のため、定量的な「影の grading」assert は外し、
    「import + 実行が通る／橋ありで背後の受音点が大きくならない」だけを確認。
-6. **コミット整理**（`wip` を squash して 3〜4 個のクリーンなコミットに）→ **draft PR** を upstream に。
-   説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定・**下記 v0 限界**を要約。ASJ は follow-up と明記。
-7. レビューを見て v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
-   fork の `AttenuationCnossosExt`/`CnossosPathExt` 移植・チュートリアル拡充）。
+6. ~~**コミット整理**（`wip` を squash して 4 個のクリーンなコミットに）~~ → ✅ `feat/bridge` を
+   `04793d59`(= `upstream/main`) の上に 4 コミット（pathfinder / propagation / jdbc / scripts）に
+   再構成。ツリーは squash 前と byte 一致（退避タグ `backup/feat-bridge-presquash`）。
+   `origin/feat/bridge` に push 済。full clean test: pathfinder 249 / propagation 55 / jdbc 59 /
+   scripts 96、失敗 0。**draft PR 本文**は [bridge_pr_body.md](bridge_pr_body.md) に作成
+   （`gh` 未導入＋本人投稿の方針のため未投稿）。
+7. レビューを見て v1。core 改修の要否は別途調査済 → [bridge_v1_core_analysis.md](bridge_v1_core_analysis.md)。
+   要点: **`*Ext` 型フォーク(~3000行)の移植は不要**（`fix` の Path 再設計副産物）。既約の新規物理は
+   ~150 行のガード付き BT 分岐で、`CnossosPath`（子経路フィールド）/ `CnossosPathProcessor`（BT 分解）/
+   **`AttenuationCnossos.aBoundary`（再帰和分岐、CNOSSOS コア内）** に及ぶ。非橋シーンでは全分岐が
+   不活性 → 結果不変は構成上成立するが、`AttenuationCnossos` 本体に届くため
+   **parity harness（全受音点×バンド完全一致）＋ JMH ベンチが必須ゲート**。
+   `fix` の F1（service 分解）/ F2（`CutProfile` 書き換）/ seam(route B) は持ち込まない。
 
 #### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
@@ -364,9 +373,11 @@ v0 のデッキ音源は通常の CNOSSOS。
   `setComputeVerticalDiffraction` の引数を取り違えている（`confDiffHorizontal` が実際には鉛直回折を有効化する）。
   Bridge PR とは別に報告候補。
 
-**v0 到達点まとめ（`feat/bridge`, 7 コミット）:** pathfinder（幾何＋断面, 249）→ propagation（デッキ縁バリア,
-無改修, 55）→ jdbc（`BRIDGE_POINTS` ローダ, 59）→ scripts（`tableBridgePoints` 入力, 7）。テスト合計 370 全緑、
-既存 upstream テストの回帰ゼロ。**WPS ブロックで「テーブル → ノイズマップ → 橋による遮蔽」が動作。**
+**v0 到達点まとめ（`feat/bridge`, squash 後 4 コミット, base `04793d59`）:** pathfinder（幾何＋断面, 249）→
+propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` ローダ, 59）→ scripts（`tableBridgePoints`
+入力 + TutoBridge, 96）。全緑・失敗 0、既存 upstream テストの回帰ゼロ。`bridgeDeckShieldsAGroundReceiver` は
+経路差 δ=0.109 m から CNOSSOS 単一回折式でバンド別挿入損失をブラケット。**WPS ブロックで「テーブル →
+ノイズマップ → 橋による遮蔽」が動作。**
 
 ### 3.8 upstream に出さないもの
 
