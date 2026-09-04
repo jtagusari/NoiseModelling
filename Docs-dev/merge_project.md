@@ -375,13 +375,20 @@ v0 のデッキ音源は通常の CNOSSOS。
      デッキ別・期間別の重車両交通テーブル → `BRIDGE_STRUCT_LW`（デッキ 1 本 × 期間ごとに
      デッキ高さの線音源、ASJ RTN-Model 2023 のバンド別スペクトル、`RoadAsj.evaluateBridgeVirtualSource`
      ＝ MV+HGV 駆動）。それを `Noise_level_from_source` の `tableSources` に流す（車両 CNOSSOS と併用）。
-     `TestStructuralNoiseFromBridge` 3 本（低周波優位・昼>夜・流量スケール・重車両ゼロで silent）
-     — `-Dtest=` 単体で BUILD SUCCESS。
+     `TestStructuralNoiseFromBridge` 3 本（低周波優位・昼>夜・流量スケール・重車両ゼロで silent）。
+   - ✅ `5a3cfdde` — v1 の on-deck 標高に合わせ `bridgeDeckShieldsAGroundReceiver` を再校正
+     （デッキ上音源をデッキ面に載せる → 遮蔽シーンの挿入損失が全バンド ~1.2〜1.5 dB 減。
+     「橋なし」数値は v0 と byte 一致）。
+   - ✅ **クリーンフルスイート BUILD SUCCESS**（2026-09-04）: emission 66 / pathfinder 251 /
+     propagation 55 / jdbc 59 / scripts 99（baseline 96 +3）、回帰ゼロ。
+     （途中の偽 `NoClassDefFoundError` は旧 `nohup mvn &` のゾンビプロセスが `target/` を
+     並行破壊したもの。`taskkill //F //IM java.exe` + `.m2`/`target` purge で解消。以後
+     バックグラウンド実行はツールの `run_in_background` のみ使用。）
    - ⏳ ⑤ TBC golden 移植（`_not_related` と上越え系のみ）。
-   - ⏳ parity harness + JMH。
-   - ⚠️ フルスイート再検証は保留。ローカルビルド環境が不安定（旧 `nohup mvn &` の
-     ゾンビプロセス複数が `target/` を破壊 → 無関係モジュールで偽 `NoClassDefFoundError`）。
-     `taskkill //F //IM java.exe` + `.m2`/`target` purge で pathfinder 単体は 251 緑に復帰。
+   - ⏳ parity harness（全受音点×バンド完全一致）+ JMH。
+     現状の parity 根拠: TC01–TC28（propagation 47 本）+ jdbc `RegressionTest` /
+     `NoiseMapByReceiverMakerTest` が期待値そのままで緑 = upstream 由来 golden との一致。
+     専用の全グリッド harness は v1 PR 提出前に追加。
 
 #### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
