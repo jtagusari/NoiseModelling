@@ -362,6 +362,21 @@ v0 のデッキ音源は通常の CNOSSOS。
    - `fix` の F1（service 分解）/ F2（`CutProfile` 書き換）/ seam(route B) は持ち込まない。
    - 各ステップ parity harness（非橋シーンで全受音点×バンド完全一致）＋ JMH で検証。
 
+   **進捗（`feat/bridge-v1`）:**
+   - ✅ ② デッキ上音源の標高 — `8217815d`。`CutProfile.computePtsGround()` に橋分岐
+     （`lastGroundZ`/`bridgePkOn`、非橋では inert）。デッキ上音源は地面参照＝デッキ面、
+     デッキ縁 exit で地形に戻る。pathfinder 251 / propagation 55、非橋 elevation は byte 不変。
+   - ✅ ③ per-point デッキ高さ — v0 replay で既に対応済（`BridgeTriangulation` が `BridgePoint` 間を
+     三角形補間、`BridgeTriangulationTest` 等でカバー）。傾斜デッキの demo データセットは任意。
+   - ✅ ④a ASJ emission パッケージ — `26a27d40`。`feat/road-asj`（`5a645a53`）から `emission.road.asj`
+     6 ファイルを replay（既存ファイル変更ゼロ、emission 66 テスト）。
+   - ⏳ ④b ASJ 配線 — **要ワークフロー決定**。`RoadAsjParameters` は車種別交通量（lv/mv/hgv/wav/wbv
+     台/h）＋速度＋桁/床版形式を要求。現行の `Noise_level_from_source`（`tableSources` = 計算済 HZD*
+     LW）はこれを持たない。橋構造物音源の入力を (a) `BRIDGE_PK` に紐づく別テーブル / (b) `BRIDGE_POINTS`
+     に交通量列追加 / (c) 専用スクリプト のどれにするか。
+   - ⏳ ⑤ TBC golden 移植（`_not_related` と上越え系のみ）。
+   - ⏳ parity harness + JMH。
+
 #### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
 - **原因**（診断済み）: CNOSSOS 式のバグではない。`CutProfile.isFreeField()` が building/topography だけを
