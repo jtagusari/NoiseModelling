@@ -83,29 +83,29 @@ type, so even this minimal version adds ~9 small support classes and a few
 accessors on `Scene` / `CutPoint*` / `Wall`. I'm not proposing to restructure
 those classes.
 
-The later work is larger but stays behaviour-preserving for any scene with no
-bridge input — every new branch is guarded by a condition that cannot be true
-without a bridge:
+**v1** stays additive and behaviour-preserving for any scene with no bridge
+input — every new branch is guarded by a condition that cannot be true without
+a bridge:
 
 - **`CutProfile` elevation** gains ascend/descend handling guarded by
   `instanceof CutPointBridgeWall` — dead code when the profile carries no
-  bridge cut point.
-- **Bridge diffraction** is a bottom+top composite: sound passing a deck
-  **body** diffracts around its lower and upper edge, and the boundary
-  attenuation of that path is the sum of a bottom-route and a top-route
-  sub-path, each a normal Cnossos path built by a re-entrant call on an
-  edge-filtered profile. This needs two nullable child-path fields on
-  `CnossosPath`, a decomposition step in the path builder entered only when the
-  point list carries a bridge (`DIFB`) point, and a matching branch in
-  `AttenuationCnossos` boundary attenuation. Much smaller than the fork's
-  version, which type-forks the whole attenuation class for unrelated reasons —
-  the actual new physics is ~150 lines.
+  bridge cut point. This lets a source that sits *on* the deck get the right
+  ground/elevation profile.
+- **Per-bridge-point deck height** (v0 uses one height per deck).
 - **Structure-radiated source**: an ASJ RTN-Model 2023 coefficient table for
-  deck / girder radiated noise. Additive; existing emission models unchanged.
+  deck / girder radiated noise, added alongside the vehicles' CNOSSOS noise.
+  Additive; existing emission models unchanged.
 
-Each step will land with a parity harness (full per-receiver / per-band
-equality against `main` on non-bridge scenes) and JMH figures showing the
-guarded branches cost nothing when inactive. Feedback on any of it is welcome.
+**v2** is receivers *below or beside* the structure — deck-underside
+reflection, and diffraction around the deck body (under the lower edge, back
+over the upper edge). `AttenuationCnossos` builds diffraction paths from the
+*upper* convex hull of the profile, so an under-then-over route has no
+representation there today; adding it is a real piece of work rather than a
+guarded branch, so it is kept separate from v1.
+
+Each step lands with a parity harness (full per-receiver / per-band equality
+against `main` on non-bridge scenes) and JMH figures showing the guarded
+branches cost nothing when inactive. Feedback on any of it is welcome.
 
 ## Notes
 

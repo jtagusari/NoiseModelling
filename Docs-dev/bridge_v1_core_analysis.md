@@ -170,8 +170,47 @@ JFR/async-profiler で局所化 → ガード修正 → 再計測。橋ありシ
   構造を維持し、橋分岐だけをガード付きで splice。
 - seam / route B の議論はいったん棚上げ（restructure しないのでディスパッチのベンチ論争が
   不要）。必要になったら別途、実測付きで upstream に提案。
-- 配送: v0 PR（遮蔽・凸包経由・propagation 無改修）→ v1 PR（`CutProfile` 橋標高 splice +
-  `CnossosPath` 子経路 + `CnossosPathProcessor` BT 分解 + `AttenuationCnossos.aBoundary`
-  再帰分岐 + TBC golden）。v1 PR に parity harness と JMH 結果を添付。
-- v0 PR 本文に「v1 で CNOSSOS コアに ~150 行の橋ガード分岐が必要になる」旨を明記済
-  （[bridge_pr_body.md](bridge_pr_body.md) "What v1 will need from the core"）。
+- 配送: v0 PR（遮蔽・凸包経由・propagation 無改修）→ v1 PR（下記 §6）。
+
+## 6. v1 スコープの見直し（2026-09-04）— 方針 C
+
+§3・§5 の「BT 回折 = `aBoundary` に ~150 行の加算」は **甘かった。撤回する。**
+
+### 判明した実態
+
+`feat/bridge-v1` で `fix` の BT 実装に着手して確認:
+
+- `fix` の BT 回折（デッキ下端くぐり上端越え）は `CnossosPathProcessor.setDiffractionPathParametersBT()`
+  にあり、`fix` の **F3 = CNOSSOS パス層全面再設計**の上に乗っている。
+  - upstream `propagation/cnossos/`: 8 ファイル。
+  - `fix` `propagation/cnossos/`: **21 ファイル**（`AcousticPath` / `AcousticPathConfiguration` /
+    `AcousticPathGeometryCalculator` / `CnossosPathProcessor` / `CnossosSegmentComputer` /
+    `DistanceDifferenceCalculator` / `Path` / `PathSegment*` / `PivotPoint*` /
+    `ReflectionPointValidator` / `CnossosPathExt` / `AttenuationCnossosExt` …）。
+- `setDiffractionPathParametersBT` は `CnossosPathBuilder.buildCnossosPath()`（**fix のシグネチャ**、
+  戻り値 `CnossosPathExt`、`AcousticPathConfiguration` を引数に取る）を再入呼び出しし、
+  縁フィルタ済み `CutProfile`（`fix` の `CutProfile.setCutPoints` に依存）を渡す。
+  delta 計算は `DistanceDifferenceCalculator.computeDeltaH` / `computeVpathDeltaH`（upstream に存在しない）。
+- **upstream の `CnossosPathBuilder` は上側凸包ベース**（`hullPointsIndices`）＝「上を越える」回折のみ。
+  「下端をくぐって上端へ」＝直線より下に回る経路は上側凸包からは決して出てこない。
+  → upstream には BT の機構が**そもそも無い**。v0 の遮蔽が動くのはデッキ縁が上側凸包の点になるから。
+
+「upstream に加算」でやるには BT 分解と delta 計算を **upstream の別 API に対しゼロから再実装**する必要。
+~150 行では済まない。
+
+### 方針 C（採用）— v1 は BT なしで出す
+
+| | 内容 |
+|---|---|
+| **v1 に含む** | ① デッキ幾何の拡張（v0 の仕組み）② デッキ上音源の `CutProfile` 標高処理（ascend/descend、`instanceof CutPointBridgeWall` ガード、加算）③ bridge point ごとのデッキ高さ（v0 は 1 デッキ 1 高さ）④ **ASJ 構造物音源**（`feat/road-asj` の `emission.road.asj` を CNOSSOS-EU に加算する追加音源項）⑤ `fix` の該当 TBC golden 移植（`_not_related` と上越え系のみ）|
+| **v2 送り** | デッキ裏面反射 / BT 回折 / ミラー音源 / 虚音源（`_imaginary`・`_mirror`・下部開放）。`fix` の F3 パス層に結合しているため。v2 で **A**（upstream API に対し BT をゼロから再実装）か **B**（F3 パス層を橋プロファイル専用の並行サブシステムとして移植、upstream 既定パスは無改修）を選択 |
+
+goal 1（デッキ幾何）+ goal 2（構造物音）は加算で出荷可能。goal 3（裏面反射）だけが BT を要し、
+かつ最小ユースケース → 切り離して v1 を出荷可能に保つ。
+
+### v1 の検証（据え置き）
+
+- parity harness（非橋シーンで `04793d59` と全受音点×バンド完全一致）
+- JMH（`bridgeCount==0` でガード分岐コストゼロ）
+- `AttenuationCnossos` 本体には触れない（BT を入れないので）→ v1 は propagation 側の改修が
+  `CutProfile` 標高のみ。TC01–TC28 golden は自動的に保全。

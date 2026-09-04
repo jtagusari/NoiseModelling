@@ -347,13 +347,20 @@ v0 のデッキ音源は通常の CNOSSOS。
    `origin/feat/bridge` に push 済。full clean test: pathfinder 249 / propagation 55 / jdbc 59 /
    scripts 96、失敗 0。**draft PR 本文**は [bridge_pr_body.md](bridge_pr_body.md) に作成
    （`gh` 未導入＋本人投稿の方針のため未投稿）。
-7. レビューを見て v1。core 改修の要否は別途調査済 → [bridge_v1_core_analysis.md](bridge_v1_core_analysis.md)。
-   要点: **`*Ext` 型フォーク(~3000行)の移植は不要**（`fix` の Path 再設計副産物）。既約の新規物理は
-   ~150 行のガード付き BT 分岐で、`CnossosPath`（子経路フィールド）/ `CnossosPathProcessor`（BT 分解）/
-   **`AttenuationCnossos.aBoundary`（再帰和分岐、CNOSSOS コア内）** に及ぶ。非橋シーンでは全分岐が
-   不活性 → 結果不変は構成上成立するが、`AttenuationCnossos` 本体に届くため
-   **parity harness（全受音点×バンド完全一致）＋ JMH ベンチが必須ゲート**。
-   `fix` の F1（service 分解）/ F2（`CutProfile` 書き換）/ seam(route B) は持ち込まない。
+7. **v1（方針 C, 2026-09-04 決定）** — ブランチ `feat/bridge-v1`（`feat/bridge` 起点）。
+   詳細 → [bridge_v1_core_analysis.md](bridge_v1_core_analysis.md) §6。
+   - **含む**: デッキ幾何の拡張、デッキ上音源の `CutProfile` 標高処理（ascend/descend、`instanceof
+     CutPointBridgeWall` ガード）、bridge point ごとのデッキ高さ、**ASJ 構造物音源**（`feat/road-asj` の
+     `emission.road.asj` を CNOSSOS-EU に加算する追加音源項）、`fix` の該当 TBC golden 移植。
+   - **v2 送り**: デッキ裏面反射 / BT 回折（下端くぐり上端越え）/ ミラー音源 / 虚音源（`_imaginary`・
+     `_mirror`・下部開放）。理由: これらは `fix` の F3（CNOSSOS パス層全面再設計、`AcousticPath` /
+     `AcousticPathConfiguration` / `CnossosPathProcessor` / `DistanceDifferenceCalculator` /
+     `PivotPointCalculator` / `CnossosPathExt` / `AttenuationCnossosExt` — upstream 8 → fix 21 ファイル）
+     に結合。upstream の `CnossosPathBuilder` は上側凸包ベースで「下をくぐって上へ」の機構が無い。
+     → v2 で A（upstream API に対し BT をゼロから再実装）か B（F3 パス層を橋プロファイル専用の並行
+     サブシステムとして移植）を選択。当初の「~150 行加算」見積もりは撤回。
+   - `fix` の F1（service 分解）/ F2（`CutProfile` 書き換）/ seam(route B) は持ち込まない。
+   - 各ステップ parity harness（非橋シーンで全受音点×バンド完全一致）＋ JMH で検証。
 
 #### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
