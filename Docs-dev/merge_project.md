@@ -370,12 +370,18 @@ v0 のデッキ音源は通常の CNOSSOS。
      三角形補間、`BridgeTriangulationTest` 等でカバー）。傾斜デッキの demo データセットは任意。
    - ✅ ④a ASJ emission パッケージ — `26a27d40`。`feat/road-asj`（`5a645a53`）から `emission.road.asj`
      6 ファイルを replay（既存ファイル変更ゼロ、emission 66 テスト）。
-   - ⏳ ④b ASJ 配線 — **要ワークフロー決定**。`RoadAsjParameters` は車種別交通量（lv/mv/hgv/wav/wbv
-     台/h）＋速度＋桁/床版形式を要求。現行の `Noise_level_from_source`（`tableSources` = 計算済 HZD*
-     LW）はこれを持たない。橋構造物音源の入力を (a) `BRIDGE_PK` に紐づく別テーブル / (b) `BRIDGE_POINTS`
-     に交通量列追加 / (c) 専用スクリプト のどれにするか。
+   - ✅ ④b ASJ 配線 — `af6ff6d2`。方針: **専用スクリプト**（2026-09-04 決定）。
+     `Structural_noise_from_bridge.groovy`: `BRIDGE_POINTS`（デッキ中心線 + 桁/床版形式）＋
+     デッキ別・期間別の重車両交通テーブル → `BRIDGE_STRUCT_LW`（デッキ 1 本 × 期間ごとに
+     デッキ高さの線音源、ASJ RTN-Model 2023 のバンド別スペクトル、`RoadAsj.evaluateBridgeVirtualSource`
+     ＝ MV+HGV 駆動）。それを `Noise_level_from_source` の `tableSources` に流す（車両 CNOSSOS と併用）。
+     `TestStructuralNoiseFromBridge` 3 本（低周波優位・昼>夜・流量スケール・重車両ゼロで silent）
+     — `-Dtest=` 単体で BUILD SUCCESS。
    - ⏳ ⑤ TBC golden 移植（`_not_related` と上越え系のみ）。
    - ⏳ parity harness + JMH。
+   - ⚠️ フルスイート再検証は保留。ローカルビルド環境が不安定（旧 `nohup mvn &` の
+     ゾンビプロセス複数が `target/` を破壊 → 無関係モジュールで偽 `NoClassDefFoundError`）。
+     `taskkill //F //IM java.exe` + `.m2`/`target` purge で pathfinder 単体は 251 緑に復帰。
 
 #### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
