@@ -388,7 +388,13 @@ v0 のデッキ音源は通常の CNOSSOS。
      デッキシーンを車両のみ vs 車両+ASJ構造物音で `Noise_level_from_source` 実行。構造物音の
      追加で全バンド上昇、63 Hz は道路形状スペクトルに対し **+4.6 dB**（4 kHz は ~0）。
      鋼橋構造物音の低周波優位を end-to-end で確認。
-   - ⏳ ⑤ TBC golden 移植（`_not_related` と `_actual`＝上越え系のみ。`_imaginary`/`_mirror` は v2）。
+   - ✅ ⑤ TBC 相当の回帰テスト — `2688023b`。`fix` の TBC JSON fixture は `SceneBuilder` / F2
+     `CutProfile` スキーマ依存で移植不可 → `feat/bridge-v1` ネイティブで同シナリオを固定:
+     `BridgePropagationTest.sourceOnDeckPathGeometryIsStable`（2D パス: 音源デッキ面 h=10.6、
+     受音側高欄上端の単一回折 5 m/h=11、e=0、SR 距離 50.73 — v1 の上越え+on-deck 標高を pin）、
+     `BridgeProfileBuilderTest.sourceOnOneDeckIsRelatedToThatDeckOnly`（2 デッキ、音源はデッキ A に
+     ACTUAL_SOURCE_ON_BRIDGE / bridgePkOn=100、両デッキ横断で bridge cut 点 ≥2）。
+     `_imaginary`/`_mirror` は v2。
    - **非橋シーンの結果不変 — 専用 parity harness は不要**（2026-09-04 判断）:
      (a) v1 の全分岐が `bridgeCount>0` / `instanceof CutPointBridgeWall` / `!isNaN(bridgeHeight)` /
      `hasBridgeIntersection` でガード = 非橋で 1 行も実行されない、
