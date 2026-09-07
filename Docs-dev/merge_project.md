@@ -532,11 +532,17 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | 4 | `propagation/cnossos/CnossosPathBuilder` | `CutPointBridgeWall` DOWNWARD からデッキ**下端**の `DIFB` PointPath を発行（上側凸包には乗らないので専用検出）| ~60〜100 行、**正しさリスク中** | `CutPointBridgeWall` DOWNWARD 不在 → 発行なし |
 | 5 | `propagation/cnossos/` 新規 `BridgeDiffraction.java` | BT 分解（`fix` の `setDiffractionPathParametersBT` + `newCutProfile{WithoutBottomEdge,OnlyWithBottomEdge,AfterBottomEdge,BeforeTopEdge}` を upstream API に適応）。path に DIFH+DIFB 両方あるときだけ発火、`computeCnossosPathFromCutProfile` を再入呼び出し | ~150 行 | 発火条件を満たさない |
 | 6 | `propagation/cnossos/AttenuationCnossos.aBoundary` | BT 再帰分岐: `diffPtsT≥1 && diffPtsB≥1` なら `aBoundary(top) + aBoundary(bottom)` をバンドごと和で返す | 加算 ~20 行、**CNOSSOS コア内** | `diffPtsB` 空 → 分岐に入らない |
-| 7 | pathfinder `BridgeService` / `PathFinder` | ミラー音源（デッキ裏面反射の鏡像）・虚音源（デッキ下）の**音源点生成と音源ループへの配線**。v0 で `RelationType.MIRROR_SOURCE` / `IMAGINARY_SOURCE_UNDER_BRIDGE` と分類ロジックは一部 replay 済 | ~150〜250 行、**正しさリスク中** | `bridgeCount==0` でガード |
+| 7 | pathfinder | **ほぼ v0 replay 済（2026-09-07 プローブ確認）**: `BridgeService` は `calculateFirstBridgeCutpoint` / `checkPropagationType`（6 種）/ mirror-receiver reflection を保持、`ProfileBuilder.addBridgeCutPts` は `IMAGINARY_SOURCE_TO_UPPER_RECEIVER` 配線済。デッキ下音源→デッキ上受音点の `getProfile()` は `IMAGINARY_SOURCE_UNDER_BRIDGE` ＋ `CutPointBridgeWall(DIR=DOWNWARD, z=デッキ下端)` を出力。残: `MIRROR_SOURCE`（裏面反射）分類、必要なら虚音源点生成 | ~50〜120 行 | `bridgeCount==0` でガード |
 | 8 | 検証 | `fix` の `TBC*_attenuation_output.json`（`aGlobal[]` 配列、移植可能）を golden 化 + プログラム的シナリオテスト（`_actual`/`_imaginary`/`_mirror`/`_not_related`）| 新規テスト | — |
 
-**見積もり:** propagation ~450 行 + pathfinder ~200 行 + テスト。数日規模。
-最大の正しさリスクは #4（DIFB 発行）と #5（BT 分解の upstream API 適応）。TBC golden で検証。
+**見積もり（改訂）:** pathfinder 側は v0 replay で大半済 → propagation ~450 行 ＋ pathfinder ~100 行 ＋ テスト。
+最大の正しさリスクは #4（DIFB 発行を upstream の上側凸包ベース `CnossosPathBuilder` に組み込む）と
+#5（BT 分解の upstream API 適応）。TBC golden で検証。
+
+**進捗:**
+- ✅ #1〜#3（`DIFB` enum / `DistanceDifferenceCalculator` verbatim / `CnossosPath` 子経路フィールド）
+  — `feat/bridge-v2` `0b419fa3`。加算のみ、emission 66 / pathfinder 252 / propagation 56 緑。
+- ✅ #7 の実態調査 — v0 replay で `DIFB` 可能な `CutPointBridgeWall(DOWNWARD)` まで出ることを確認。
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#6 は `DIFB` 点／`bottomRoute` 非 null が
 条件、#7 は `bridgeCount>0`）。TC01–TC28 が期待値そのままで緑であることを各ステップで確認。
