@@ -589,18 +589,41 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
   - ⚠️ **`_mirror`（TBC04/09/10/21/31_mirror）: DOWNWARD デッキ壁が `obstructingAcousticRay=true`。
     ここが本来の BT ケース**（デッキ下面で遮蔽 → 回り込み）。MIRROR 音源生成も未配線。**#4/#5/#6 が要る。**
 
-**v2 の到達点（2026-09-07、修正）:** 当初「TBC01/07/11/20 が緑 → BT は大部分不要」と書いたが
-**cherry-pick だった**。正確には:
-- ✅ v2（`feat/bridge-v2`）= pathfinder の imaginary 音源生成（#7）＋ 足場（#1〜#3）＋ golden ハーネス（#8）。
-  **素直な imaginary ケース（他障害物なし・非遮蔽デッキ縁）のみ** upstream 無改修 propagation で再現。
-- ❌ 未対応: 複合 imaginary（TBC31、~12dB）／ mirror（TBC04/09/10/21/31、遮蔽 DOWNWARD 壁＝真の BT）／
-  TBC02（薄壁 ~3dB）／ TBC03。これらは **#4/#5/#6（`CnossosPathBuilder` DIFB splice・`BridgeDiffraction`
-  BT 分解・`aBoundary` 再帰）が必要**。`fix` はこれらを TBC で実テストしている。
-- → v2 = 「デッキ下受音点の単純ケース」まで。「完全な実装」には #4/#5/#6 が依然必要（v2.1）。
+**v2 の到達点（2026-09-08 更新）:** #4/#5/#6（BT 回折）を upstream に実装完了。`*Ext` 型フォークなし。
 
-**非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#3 は `DIFB` 点／`bridgeBottomRoute` 非 null、
-#7 は `hasBridges()`／`bridgeRelationship != null`）。emission 66 / pathfinder 252 / propagation 57 緑、
-TC01–TC28 期待値不変。`AttenuationCnossos` 本体は**未改修**。
+- ✅ **#4 DIFB splice** — `CnossosPathBuilder.spliceBridgeBottomEdge`。音源が
+  `IMAGINARY_SOURCE_UNDER_BRIDGE` / `MIRROR_SOURCE` で、DOWNWARD 橋壁が凸包第 1 セグメントの
+  補間線より下なら、その index を hull に差し込み `DIFB` として mark。ガード外では発火なし。
+- ✅ **#5 BT route 分解** — `CnossosPathBuilder.computeBridgeBottomTopRoutes` ＋ 4 helper
+  （`newCutProfile{WithoutBottomEdge, OnlyWithBottomEdge, AfterBottomEdge, BeforeTopEdge}`、`fix` から適応）。
+  path に DIFB＋DIFH 両方あるとき、`deltaB` vs `deltaH` で split を選び bottom/top サブ経路を
+  `computeCnossosPathFromCutProfile` の再入呼び出しで構築、`CnossosPath.bridge{Bottom,Top}Route` に格納。
+  `newCutProfileOnlyWithBottomEdge` は `fix` に合わせ `instanceof CutPointWall`（橋壁も含む）で全壁 drop
+  → 「bottom edge 優勢」split の S→B レグは ground のみに退化。
+- ✅ **#6 aBoundary 和** — `AttenuationCnossos.aBoundary` に `hasDifB && hasDifT && 両 route 非 null` の分岐、
+  `aBoundary(top) + aBoundary(bottom)` をバンドごと和で返す。`aDif` は `DIFB` を `DIFV` 同様の純ナイフエッジ
+  （地面効果なし）として扱う。
+- ✅ **虚音源の自動生成は撤去（option 2、§4.y）** — `PathFinder.addBridgeVirtualSources` は
+  `MIRROR_SOURCE` 生成のみ残し、`IMAGINARY_SOURCE_UNDER_BRIDGE`（構造物音になるべき）の自動生成は削除。
+  `BridgeNoiseMapTest` 回復。
+- ✅ **合成 BT テスト** — `fix` に `TBC12`（imaginary BT）`abae3180` / `TBC13`（mirror BT）`d90e8cf4` を追加、
+  v2 の `BridgeAttenuationGoldenTest` が `fix` の fixture を投入して検証。
+  - TBC12 homogeneous golden **bit 一致**、favourable 0.04 dB 以内。
+  - TBC13（mirror BT）golden 0.2 dB 以内。
+  - TBC03 は BT 実装で解消 → asserted CASES に昇格。TBC02 は golden path 0（imaginary）のみ assert。
+  - **assert 済: TBC01, TBC02(imaginary), TBC03, TBC07, TBC11, TBC12, TBC13, TBC20。**
+
+**v2.2 に残るギャップ:**
+
+- **TBC02 golden path 1**（ACTUAL、デッキ外縁の薄壁回折）~3 dB。`fix` の `aDif` はデッキ幾何を使うが
+  upstream は cut point を素の薄スクリーンとして扱う。
+- **TBC31**（複合実 DEM: imaginary ~13 dB / mirror ~6 dB / not-related ~3 dB）。DEM の地面プロファイルが
+  BT サブ経路 split と干渉。合成ケースでは踏まない経路。
+- **構造物音の配線**（option 1: `EMISSION_TYPE` 列 ＋ `checkIfEmissionIsAcceptable`）。§4.y 参照。
+
+**非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（`DIFB` 点なし／`bridge{Bottom,Top}Route` 非 null／
+`IMAGINARY`・`MIRROR` 関係／`hasBridges()`）。emission 66 / pathfinder 252 / propagation 60 / jdbc 59 緑、
+TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`aDif` に加算分岐（`DIFB` 条件下のみ）。
 
 ---
 
