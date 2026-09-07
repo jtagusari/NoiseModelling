@@ -19,6 +19,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPath;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathBuilder;
+import org.noise_planet.noisemodelling.propagation.cnossos.PointPath;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -140,6 +141,38 @@ public class BridgePropagationTest {
         assertTrue(foundPathUsingTrueDirectDistance,
                 "at least one path's delta must be computed from the true direct distance dc, "
                         + "not the invalid 2D-unfolded distance d");
+    }
+
+    /**
+     * Golden regression for the source-on-deck path: v1 puts the source on the deck surface and the
+     * ray diffracts over the parapet top. These numbers pin that geometry so a later refactor of the
+     * bridge cut-profile / elevation handling can't silently change it.
+     */
+    @Test
+    public void sourceOnDeckPathGeometryIsStable() {
+        ProfileBuilder withDeck = flatGround();
+        addDeck(withDeck);
+        withDeck.finishFeeding();
+
+        List<CnossosPath> p = paths(withDeck,
+                new Coordinate(50, 20, 10.6), new Coordinate(50, 70, 2.0));
+        assertEquals(2, p.size(), "homogeneous + favourable path");
+
+        CnossosPath hom = p.get(0);
+        List<PointPath> pts = hom.getPointList();
+        // point list is in the 2-D source->receiver plane: coordinate.x = distance along the ray,
+        // coordinate.y = height.
+        assertEquals(3, pts.size(), "source, one diffraction point, receiver");
+        assertEquals(PointPath.POINT_TYPE.SRCE, pts.get(0).type);
+        assertEquals(PointPath.POINT_TYPE.DIFH, pts.get(1).type);
+        assertEquals(PointPath.POINT_TYPE.RECV, pts.get(2).type);
+        // source sits on the deck surface, height 10.6 (v1 on-deck elevation)
+        assertEquals(10.6, pts.get(0).coordinate.y, 0.05, "source height, got " + pts.get(0).coordinate.y);
+        // single diffraction over the receiver-side parapet top: 5 m along the ray, height 11 m (deck 10 + barrier 1)
+        assertEquals(5.0, pts.get(1).coordinate.x, 0.1, "diffraction point distance, got " + pts.get(1).coordinate.x);
+        assertEquals(11.0, pts.get(1).coordinate.y, 0.1, "diffraction over the parapet top, got " + pts.get(1).coordinate.y);
+        assertEquals(0.0, hom.e, 1e-6, "single diffraction edge -> e = 0");
+        assertEquals(50.73, hom.getSRSegment().d, 0.1, "SR distance, got " + hom.getSRSegment().d);
     }
 
     @Test
