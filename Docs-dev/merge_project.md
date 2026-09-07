@@ -360,7 +360,7 @@ v0 のデッキ音源は通常の CNOSSOS。
      → v2 で A（upstream API に対し BT をゼロから再実装）か B（F3 パス層を橋プロファイル専用の並行
      サブシステムとして移植）を選択。当初の「~150 行加算」見積もりは撤回。
    - `fix` の F1（service 分解）/ F2（`CutProfile` 書き換）/ seam(route B) は持ち込まない。
-   - 各ステップ parity harness（非橋シーンで全受音点×バンド完全一致）＋ JMH で検証。
+   - 非橋シーンの結果不変は**既存 golden スイートで担保**（下記）。専用 parity harness は作らない。
 
    **進捗（`feat/bridge-v1`）:**
    - ✅ ② デッキ上音源の標高 — `8217815d`。`CutProfile.computePtsGround()` に橋分岐
@@ -384,11 +384,20 @@ v0 のデッキ音源は通常の CNOSSOS。
      （途中の偽 `NoClassDefFoundError` は旧 `nohup mvn &` のゾンビプロセスが `target/` を
      並行破壊したもの。`taskkill //F //IM java.exe` + `.m2`/`target` purge で解消。以後
      バックグラウンド実行はツールの `run_in_background` のみ使用。）
-   - ⏳ ⑤ TBC golden 移植（`_not_related` と上越え系のみ）。
-   - ⏳ parity harness（全受音点×バンド完全一致）+ JMH。
-     現状の parity 根拠: TC01–TC28（propagation 47 本）+ jdbc `RegressionTest` /
-     `NoiseMapByReceiverMakerTest` が期待値そのままで緑 = upstream 由来 golden との一致。
-     専用の全グリッド harness は v1 PR 提出前に追加。
+   - ✅ ASJ end-to-end テスト — `3f1460b4` / `9a864160`。`structuralNoiseAddsToTheReceiverLevel`:
+     デッキシーンを車両のみ vs 車両+ASJ構造物音で `Noise_level_from_source` 実行。構造物音の
+     追加で全バンド上昇、63 Hz は道路形状スペクトルに対し **+4.6 dB**（4 kHz は ~0）。
+     鋼橋構造物音の低周波優位を end-to-end で確認。
+   - ⏳ ⑤ TBC golden 移植（`_not_related` と `_actual`＝上越え系のみ。`_imaginary`/`_mirror` は v2）。
+   - **非橋シーンの結果不変 — 専用 parity harness は不要**（2026-09-04 判断）:
+     (a) v1 の全分岐が `bridgeCount>0` / `instanceof CutPointBridgeWall` / `!isNaN(bridgeHeight)` /
+     `hasBridgeIntersection` でガード = 非橋で 1 行も実行されない、
+     (b) TC01–TC28（propagation 47 本、受音点×バンド dB のハードコード golden）が期待値そのままで緑、
+     (c) jdbc `RegressionTest` / `NoiseMapByReceiverMakerTest`（実シーン end-to-end golden）緑、
+     (d) `groundProfileUnchangedWithoutAnyBridge`（② の `computePtsGround` 変更が非橋で inert を直接アサート）。
+     v1 PR ではこの 4 点を明記すれば足りる。
+   - ⏳ JMH — ② は `computePtsGround` に局所変数 2 個 + `instanceof` を足すのみ、`AttenuationCnossos`
+     無改修 → 優先度低。v1 PR 前に `getProfile()` の簡易ベンチだけ取る。
 
 #### v0 の「デッキ外受音点で -∞ dB」問題 — ✅ 1 行修正で解消（2026-08-31, `df210025`）
 
