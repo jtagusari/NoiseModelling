@@ -493,8 +493,8 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 |---|---|---|---|
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
-| **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 4 コミット）| デッキ下受音点：虚音源（デッキ下）による「デッキをくぐる」パス | **大部分完了**（2026-09-07）。#1〜#3 足場（`DIFB` enum / `DistanceDifferenceCalculator` / `CnossosPath` 子経路フィールド）＋ #7 imaginary 音源生成 ＋ #8 golden ハーネス。**`fix` の bridge golden 主要ケース（TBC01/07/11/20）を upstream 無改修 `AttenuationCnossos` で 0.2 dB 以内再現**。詳細 → §4.x |
-| **v2.1** | 未着手 | TBC02（デッキ外縁の薄壁回折 ~3dB）／ TBC03（path builder assertion）／ `_mirror`（裏面鏡面反射）| #4/#5/#6（`CnossosPathBuilder` DIFB splice・`BridgeDiffraction` BT 分解・`aBoundary` 再帰）が本当に必要になった場合のみ限定実装。方式は当初の A |
+| **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 6 コミット）| デッキ下受音点：虚音源（デッキ下）による「デッキをくぐる」パス | **部分完了**（2026-09-07）。#1〜#3 足場 ＋ #7 imaginary 音源生成（pathfinder）＋ #8 golden ハーネス。**素直な imaginary ケース（TBC01/07/11/20、他障害物なし・非遮蔽デッキ縁）のみ** upstream 無改修 propagation で golden を 0.2 dB 以内再現。詳細 → §4.x |
+| **v2.1** | 未着手 | 複合 imaginary（TBC31 ~12dB）／ `_mirror`（TBC04/09/10/21/31、遮蔽 DOWNWARD 壁＝真の BT 回折）／ TBC02（薄壁 ~3dB）／ TBC03 | **#4/#5/#6 が必要**（`CnossosPathBuilder` DIFB splice・`BridgeDiffraction` BT 分解・`aBoundary` 再帰、方式 A）。`fix` はこれらを TBC で実テスト済。「完全な実装」にはこの段が要る |
 
 ### 直近のタスク（v1 完了後）
 
@@ -578,19 +578,25 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
   `bridgePkOn`/`bridgePkAbove`/`bridgeRelationType` の flatten アクセサ追加（`fix` と同じ。挙動不変）。
   `fix` の `TBC01/02/03/07/11/20` fixture を copy、`BridgeAttenuationGoldenTest` が upstream の
   **無改修 `AttenuationCnossos`** に通して golden `aGlobalH` と比較。
-  - **✅ TBC01 / TBC07 / TBC11 / TBC20 — imaginary・actual 両パスとも golden を 0.2 dB 以内で再現。**
-    → **#4/#5/#6（DIFB/BT 書き換え）はこれらには不要。** DOWNWARD デッキ壁は非遮蔽 →
-    imaginary パスは「直達 + 地面」で upstream が正しく計算する。
-  - ⚠️ TBC02 actual パス: ~3 dB 乖離（デッキ外縁が薄壁回折縁になる下方受音点。`fix` の `aDif` は
-    デッキ幾何を使い、upstream は素の薄壁扱い）→ **v2.1**。
-  - ⚠️ TBC03: imaginary fixture が path builder の既存 assertion に引っかかる → **v2.1**。
-  - ⚠️ `_mirror`（TBC04/05/06）: MIRROR 音源生成が未配線 → **v2.1**。
+  - **✅ TBC01 / TBC07 / TBC11 / TBC20（imaginary・actual 両パス）— golden を 0.2 dB 以内で再現。**
+    これらは「デッキ上音源 → デッキ真下/斜め下の受音点、他障害物なし」の**素直な imaginary**。
+    `_imaginary` fixture では DOWNWARD デッキ壁が**常に非遮蔽**（全 TBC で確認）→ 幾何的に
+    「直達 + 地面」なので fix も upstream も同じ計算になる。→ このクラスは #4/#5/#6 不要。
+  - ⚠️ **TBC31_imaginary: ~12 dB 乖離**（imaginary 音源 ＋ 建物 Wall ＋ 実地形の複合）。
+    upstream 無改修では**再現できない**。imaginary 音源移植だけでは不十分なケースが存在する。
+  - ⚠️ TBC02 actual: ~3 dB 乖離（デッキ外縁が薄壁回折縁になる下方受音点）。
+  - ⚠️ TBC03: imaginary fixture が path builder の既存 assertion に引っかかる。
+  - ⚠️ **`_mirror`（TBC04/09/10/21/31_mirror）: DOWNWARD デッキ壁が `obstructingAcousticRay=true`。
+    ここが本来の BT ケース**（デッキ下面で遮蔽 → 回り込み）。MIRROR 音源生成も未配線。**#4/#5/#6 が要る。**
 
-**v2 の再評価（2026-09-07）:** 当初の「BT 書き換え数日」は**大部分が不要**と判明。
-`feat/bridge-v2` = #1〜#3（足場）＋ #7（imaginary 音源）＋ #8（golden ハーネス）で、
-`fix` の bridge golden の主要ケース（TBC01/07/11/20）を upstream 無改修 propagation で再現。
-残る TBC02（~3dB）/ TBC03 / `_mirror` は v2.1。#4/#5/#6（`CnossosPathBuilder` splice・`BridgeDiffraction`・
-`aBoundary` 再帰）は v2.1 で TBC02/mirror が本当に必要になったときに限定実装。
+**v2 の到達点（2026-09-07、修正）:** 当初「TBC01/07/11/20 が緑 → BT は大部分不要」と書いたが
+**cherry-pick だった**。正確には:
+- ✅ v2（`feat/bridge-v2`）= pathfinder の imaginary 音源生成（#7）＋ 足場（#1〜#3）＋ golden ハーネス（#8）。
+  **素直な imaginary ケース（他障害物なし・非遮蔽デッキ縁）のみ** upstream 無改修 propagation で再現。
+- ❌ 未対応: 複合 imaginary（TBC31、~12dB）／ mirror（TBC04/09/10/21/31、遮蔽 DOWNWARD 壁＝真の BT）／
+  TBC02（薄壁 ~3dB）／ TBC03。これらは **#4/#5/#6（`CnossosPathBuilder` DIFB splice・`BridgeDiffraction`
+  BT 分解・`aBoundary` 再帰）が必要**。`fix` はこれらを TBC で実テストしている。
+- → v2 = 「デッキ下受音点の単純ケース」まで。「完全な実装」には #4/#5/#6 が依然必要（v2.1）。
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#3 は `DIFB` 点／`bridgeBottomRoute` 非 null、
 #7 は `hasBridges()`／`bridgeRelationship != null`）。emission 66 / pathfinder 252 / propagation 57 緑、
