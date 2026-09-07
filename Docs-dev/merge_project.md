@@ -543,6 +543,25 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 - ✅ #1〜#3（`DIFB` enum / `DistanceDifferenceCalculator` verbatim / `CnossosPath` 子経路フィールド）
   — `feat/bridge-v2` `0b419fa3`。加算のみ、emission 66 / pathfinder 252 / propagation 56 緑。
 - ✅ #7 の実態調査 — v0 replay で `DIFB` 可能な `CutPointBridgeWall(DOWNWARD)` まで出ることを確認。
+- ✅ #4/#5 のメカニズム調査（`fix` を精読）:
+  - **DIFB の発生源** = `fix` `PivotPointCalculator.computeHorizontalEdgePivotPoints`。
+    音源が `ACTUAL_SOURCE_ON_BRIDGE` / `SOURCE_NOT_RELATED_TO_BRIDGE` なら**通常の上側凸包**（DIFB なし、
+    upstream と同じ）。音源が `IMAGINARY_SOURCE_UNDER_BRIDGE` / `MIRROR_SOURCE` のとき:
+    プロファイルから DOWNWARD 橋壁（デッキ下端）を集め、凸包第 1 セグメント P0→P1 に対し
+    その x で線形補間した y と比較 → **下端が補間線より下なら** その点を `BOTTOM_OF_OBSTACLE`（=DIFB）
+    として pivot 列に差し込み、以降を再 hull（`TOP_OF_OBSTACLE` = DIFH）。pivot 列 =
+    `[Source, DIFB(下端), DIFH(上端)…, Receiver]` → 「下をくぐって上へ」。
+  - upstream の `CnossosPathBuilder.computeCnossosPathFromCutProfile` も `getConvexHullIndices` ベース
+    なので、この「DOWNWARD 下端を hull に差し込む」ロジックは移植可能。ただし当該メソッドは
+    hull + point 列 + segment 列 + 減衰入力を一括生成する ~380 行なので splice は要注意。
+  - **TBC golden** = `TBC*_attenuation_output.json`（`aGlobal`/`aGlobalH/F`/`L` 等の 8 バンド配列、
+    `numPaths` 分）。数値配列なので移植可。ただし cut profile fixture（`TBC*_imaginary.json`）は
+    `fix` の `CutProfile` スキーマ → プログラム的にシーン再現し `aGlobal[]` を golden 配列と比較する方が確実。
+    シーン幾何は `fix` `PathFinderBridgeTest` の javadoc に記載（Bridge1 pk=100 中心線 x=10 y=0..20 z=10;
+    Bridge2 pk=101 x=12 y=0..20 z=5 半幅 10m barrier 1m）。
+
+**次の増分:** #4（`CnossosPathBuilder` に DOWNWARD→DIFB splice）+ #8（TBC golden テストハーネス）を
+セットで。~200 行 + テスト、delicate。その後 #5（`BridgeDiffraction` BT 分解）→ #6（`aBoundary` 再帰）。
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#6 は `DIFB` 点／`bottomRoute` 非 null が
 条件、#7 は `bridgeCount>0`）。TC01–TC28 が期待値そのままで緑であることを各ステップで確認。
