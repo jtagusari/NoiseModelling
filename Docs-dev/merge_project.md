@@ -604,6 +604,53 @@ TC01–TC28 期待値不変。`AttenuationCnossos` 本体は**未改修**。
 
 ---
 
+### 4.y `IMAGINARY_SOURCE_UNDER_BRIDGE` の扱い（2026-09-08 決定）
+
+**判明した `fix` の実際の設計:** `IMAGINARY_SOURCE_UNDER_BRIDGE` は
+**「道路音源をデッキ裏面に位置移動したコピー」ではなく、構造物音（デッキ・桁の放射音）の音源**。
+
+`fix` のパイプライン:
+
+| 場所 | 役割 |
+|---|---|
+| `SceneWithAttenuation.doAddSourceDb` | 橋上ソース行の `EMISSION_TYPE` 列で分岐。`'ROAD'` → `ACTUAL_SOURCE_ON_BRIDGE`（交通音）、`'BRIDGE'` → `IMAGINARY_SOURCE_UNDER_BRIDGE`（構造物音）。コメントにも `IMAGINARY_SOURCE_UNDER_BRIDGE (structural noise)` と明記。 |
+| `SourceCollector.addLineSource` | `ACTUAL_SOURCE_ON_BRIDGE` の各サンプル点に対し、デッキ裏面（`(deckHeight − deckThickness) − 0.05`）に `IMAGINARY_SOURCE_UNDER_BRIDGE` の**幾何点**を `sourcePk` コピーで自動生成。 |
+| `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable` | emission-type ゲート。`IMAGINARY_SOURCE_UNDER_BRIDGE` は `EmissionType.ROAD` を**拒否**し `EmissionType.BRIDGE`（構造物スペクトル）**だけ**を受ける。`ACTUAL_SOURCE_ON_BRIDGE` は逆に `BRIDGE` を拒否。同じ `sourcePk` に ROAD/BRIDGE 2 つの `SourceEmission` がぶら下がり、デッキレベル点＝交通音・裏面点＝構造物音、に振り分けられる。BRIDGE スペクトル未定義なら裏面点は**無音**。 |
+
+つまり `fix` の橋上音源モデル ＝ `ACTUAL_SOURCE_ON_BRIDGE`（交通音・デッキレベル）
+＋ `IMAGINARY_SOURCE_UNDER_BRIDGE`（構造物音・デッキ裏面）の **2 音源**。ASJ RTN-Model の
+「橋上音源＝実音源＋構造物音」と一致。`RoadAsj.evaluateBridgeVirtualSource` が構造物スペクトルを算出。
+
+**v2 `8099944b` のバグ:** `SourceCollector` の**幾何点の自動生成だけ**を移植し、
+`SourceEmission.EmissionType`（ROAD/BRIDGE）・`EMISSION_TYPE` 列・`checkIfEmissionIsAcceptable`
+を移植していない。結果、v2 の裏面 `IMAGINARY_SOURCE_UNDER_BRIDGE` 点は `sourcePk` そのまま
+フィルタなしで **道路 LW をそのまま放射** → 道路音の完全なコピーがデッキ裏面に加わる。
+`BridgeNoiseMapTest.bridgeDeckLowersTheLevelAtAShieldedReceiver` が赤（without 74.87 → with 75.67）
+なのはこれが原因。v0/v1 では緑（虚音源の自動生成が無いため）。
+
+**採用方針（option 2、2026-09-08）:** v2 では emission-type 分離を**移植しない**。
+- `PathFinder.addBridgeVirtualSources` の `IMAGINARY_SOURCE_UNDER_BRIDGE` **自動生成を撤去**。
+  `MIRROR_SOURCE` 生成（`6c063e0e`）は残す（`checkIfEmissionIsAcceptable` で MIRROR は ROAD を
+  受けるので、下部道路の鏡像＝道路 LW で正しい）。
+- 構造物音は **v1 の `Structural_noise_from_bridge` → `BRIDGE_STRUCT_LW` の別音源テーブル**として
+  ユーザーが明示的に足す方式で統一（v1 の作りと整合）。
+- BT 伝搬物理（#4/#5/#6, `959a1a67`）は**そのまま残す**。純粋な伝搬幾何なので音源 LW に依存せず、
+  `IMAGINARY_SOURCE_UNDER_BRIDGE` / `MIRROR_SOURCE` 関係を持つ `CutProfile` が来たときだけ発火する。
+  当面は `BridgeAttenuationGoldenTest`（`fix` の TBC fixture を直接投入）で検証を担保。
+- `8099944b` の他の足場（`SourcePointInfo.bridgeRelationship`、`getProfile` 5 引数オーバーロード、
+  `CutPointSource` の flatten アクセサ、`CutPoint`/`CutPointBridgeWall` の JSON 型登録）は BT / golden
+  ハーネスが依存するので**残す**。
+
+**未解明の懸念（後で原因が判明する可能性）:** `fix` はなぜ「別テーブル方式」ではなく
+「emission-type ゲート ＋ `SourceCollector` 自動生成」を採ったのか。推測される理由:
+(a) 構造物音の音源位置をデッキ裏面に厳密に置きたい（別テーブルだと中心線・デッキ高になる）、
+(b) 交通量から構造物スペクトルを内部で self-consistent に導出したい（`Road_Emission_from_Traffic`
+内で ROAD/BRIDGE を同時生成）、(c) `IMAGINARY_SOURCE_TO_UPPER_RECEIVER` 等の場合分けと配線を
+共通化したい。option 2 でこれらのどれかが effectively 損なわれるなら v2.2 で emission-type 分離
+（option 1）に切り替える。その判断材料として本節を残す。
+
+---
+
 ### 作業ツリーの注意
 
 `fix` ↔ `feat/*` のブランチ切替で `wps_scripts/` `tests/` `.gradle/` 等が未追跡ファイルとして残る
