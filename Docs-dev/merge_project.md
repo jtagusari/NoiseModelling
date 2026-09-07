@@ -560,8 +560,21 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
     シーン幾何は `fix` `PathFinderBridgeTest` の javadoc に記載（Bridge1 pk=100 中心線 x=10 y=0..20 z=10;
     Bridge2 pk=101 x=12 y=0..20 z=5 半幅 10m barrier 1m）。
 
-**次の増分:** #4（`CnossosPathBuilder` に DOWNWARD→DIFB splice）+ #8（TBC golden テストハーネス）を
-セットで。~200 行 + テスト、delicate。その後 #5（`BridgeDiffraction` BT 分解）→ #6（`aBoundary` 再帰）。
+- ✅ #7（imaginary 音源生成）— `feat/bridge-v2` `8099944b`。`PathFinder.computeRaysAtPosition` が
+  ソースリスト構築後（`hasBridges()` ガード）、デッキ上ソースごとにデッキ下端の imaginary 音源を
+  `Bridge.generateVirtualSourcesAtBridgeBottom` で生成し、`IMAGINARY_SOURCE_UNDER_BRIDGE` 関係を付与。
+  位置からは分類不能なため `SourcePointInfo.bridgeRelationship`（nullable）＋ `ProfileBuilder.getProfile`
+  の 5 引数オーバーロード（override 適用 or 従来分類）を追加。非橋・null では従来と完全同一。
+  **検証: プローブ出力が `fix` の `TBC01_imaginary.json` と一致**
+  （imaginary 音源 (10,10,9.45) ＋ `CutPointBridgeWall(15,11.05,9.5) DOWNWARD BUILDING_EXIT bridgePk=100`、
+  `obstructingAcousticRay=false`）。emission 66 / pathfinder 252 / propagation 56。
+- 📌 判明: `fix` の `TBC01_attenuation_output.json` path0（imaginary）は `aBoundaryH=[-3,...]`
+  = **回折なし・直達+地面のみ**（DOWNWARD 壁は非遮蔽なので寄与なし）。#4/#5 の DIFB/BT が要るのは
+  壁が遮蔽（`obstructingAcousticRay=true`）になる幾何のみ。`_imaginary` の多くは直達+地面で足りる可能性。
+
+**次の増分:** #8（TBC golden テストハーネス）を先に作り、`TBC01/02/…_imaginary` を upstream の
+`AttenuationCnossos` パイプラインに通して golden 配列と比較 → **どのケースで実際に不一致になるか**を
+特定。不一致が DIFB/BT を要するケースだけなら #4/#5/#6 をそのケースに絞って実装。
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#6 は `DIFB` 点／`bottomRoute` 非 null が
 条件、#7 は `bridgeCount>0`）。TC01–TC28 が期待値そのままで緑であることを各ステップで確認。
