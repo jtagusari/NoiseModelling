@@ -501,20 +501,48 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
    （`311f86f1` pathfinder / `424f471b` propagation test / `1feee706` emission ASJ /
    `c10deb8c` scripts）。ツリーは squash 前と byte 一致（退避タグ `backup/feat-bridge-v1-presquash`）。
 2. ~~**v1 draft PR 本文** を作成~~ → ✅ [bridge_v1_pr_body.md](bridge_v1_pr_body.md)。
-3. **v0 draft PR を投稿**（本人）。`git fetch upstream` で base を確認（現状 `04793d59` から不動）→
-   必要なら rebase。`compare/main...jtagusari:feat/bridge` から Draft。
-4. **`feat/bridge-v1` を `origin` に push**（本人）。
-5. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
-6. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
-7. v0 のレビューを見て **v1 draft PR** を stacked 投稿（base = `feat/bridge`）。
-8. v0+v1 のレビューを見て **v2 の A/B を決定**し着手。
+3. ~~**フルクリーン回帰**~~ → ✅ 2026-09-07 `BUILD SUCCESS`: emission 66 / pathfinder 252 /
+   propagation 56 / jdbc 59 / scripts 100（skip 4）、回帰ゼロ。**v1(C) 検証完了。**
+4. **v0 draft PR を投稿**（本人）。base = `04793d59`（= `upstream/main`、2026-08-14 以降不動、rebase 不要）。
+   `compare/main...jtagusari:feat/bridge` から Draft。本文 = [bridge_pr_body.md](bridge_pr_body.md)。
+5. **`feat/bridge-v1` を `origin` に push**（本人）。
+6. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
+7. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
+8. v0 のレビューを見て **v1 draft PR** を stacked 投稿（base = `feat/bridge`、本文 = [bridge_v1_pr_body.md](bridge_v1_pr_body.md)）。
+9. **v2 に着手**（下記 §4.x）。
 
-> ⚠️ **環境注意（2026-09-07）:** この session 中、`Documents\...\NoiseModelling` の作業ツリーが
-> 繰り返し破壊された（~1294 ファイルの phantom staging、`Docs-dev/` 削除 + upstream ツリー上書き、
-> `git checkout` の "unable to update HEAD"）。同期停止後も再発。OneDrive の既知フォルダ移動
-> （`Documents\` が対象）かバックアップツールが疑わしい。**リポジトリを同期対象外へ移動**するか
-> 原因を特定するまで、フルビルド検証は不安定。squash 済ツリーは検証済み状態と byte 一致
-> （emission 66 / pathfinder 252 / propagation 56 / jdbc 59 は個別クリーン実行で緑確認済）。
+> 環境: この session 中、作業ツリーが繰り返し破壊された（phantom staging・`git checkout` の
+> "unable to update HEAD"）。原因 = **pCloud**（2026-09-07 に本人が修正）。修正後のフルクリーン回帰は
+> BUILD SUCCESS。
+
+### 4.x v2 実装計画（方式 A、2026-09-07 着手）
+
+ブランチ `feat/bridge-v2`（`feat/bridge-v1` 起点）。**方式 A** = upstream の
+`CnossosPathBuilder` / `CnossosPath` / `AttenuationCnossos` にガード付きで splice、`fix` の
+`*Ext` 型フォーク（~3000 行）は持ち込まず、`fix` を物理の参照にする。
+
+**スコープ:** BT 回折（デッキ本体を下端くぐり→上端越え）＋ デッキ裏面反射（鏡像音源）＋
+デッキ下の虚音源（`_imaginary` / `_mirror` / 下部開放）。
+
+| # | ファイル | 変更 | 規模 | 非橋での状態 |
+|---|---|---|---|---|
+| 1 | `propagation/cnossos/PointPath.java` | `POINT_TYPE` に `DIFB` 追加（upstream は `DIFV`/`DIFH`/`DIFH_RCRIT` のみ）| 加算 1 行 | 未使用 |
+| 2 | `propagation/cnossos/DistanceDifferenceCalculator.java` | **`fix` から verbatim 移植**（194 行、CNOSSOS Eq.2.5.24/25、`Coordinate`/`LineSegment` のみ依存、`*Ext` 非依存）| 新規 194 行 | 呼ばれない |
+| 3 | `propagation/cnossos/CnossosPath.java` | nullable フィールド `bottomRoute`/`topRoute` + accessor（サブクラスにしない）| 加算 ~30 行 | null → 不活性 |
+| 4 | `propagation/cnossos/CnossosPathBuilder` | `CutPointBridgeWall` DOWNWARD からデッキ**下端**の `DIFB` PointPath を発行（上側凸包には乗らないので専用検出）| ~60〜100 行、**正しさリスク中** | `CutPointBridgeWall` DOWNWARD 不在 → 発行なし |
+| 5 | `propagation/cnossos/` 新規 `BridgeDiffraction.java` | BT 分解（`fix` の `setDiffractionPathParametersBT` + `newCutProfile{WithoutBottomEdge,OnlyWithBottomEdge,AfterBottomEdge,BeforeTopEdge}` を upstream API に適応）。path に DIFH+DIFB 両方あるときだけ発火、`computeCnossosPathFromCutProfile` を再入呼び出し | ~150 行 | 発火条件を満たさない |
+| 6 | `propagation/cnossos/AttenuationCnossos.aBoundary` | BT 再帰分岐: `diffPtsT≥1 && diffPtsB≥1` なら `aBoundary(top) + aBoundary(bottom)` をバンドごと和で返す | 加算 ~20 行、**CNOSSOS コア内** | `diffPtsB` 空 → 分岐に入らない |
+| 7 | pathfinder `BridgeService` / `PathFinder` | ミラー音源（デッキ裏面反射の鏡像）・虚音源（デッキ下）の**音源点生成と音源ループへの配線**。v0 で `RelationType.MIRROR_SOURCE` / `IMAGINARY_SOURCE_UNDER_BRIDGE` と分類ロジックは一部 replay 済 | ~150〜250 行、**正しさリスク中** | `bridgeCount==0` でガード |
+| 8 | 検証 | `fix` の `TBC*_attenuation_output.json`（`aGlobal[]` 配列、移植可能）を golden 化 + プログラム的シナリオテスト（`_actual`/`_imaginary`/`_mirror`/`_not_related`）| 新規テスト | — |
+
+**見積もり:** propagation ~450 行 + pathfinder ~200 行 + テスト。数日規模。
+最大の正しさリスクは #4（DIFB 発行）と #5（BT 分解の upstream API 適応）。TBC golden で検証。
+
+**非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#6 は `DIFB` 点／`bottomRoute` 非 null が
+条件、#7 は `bridgeCount>0`）。TC01–TC28 が期待値そのままで緑であることを各ステップで確認。
+#6 で `AttenuationCnossos` 本体に届くので、この段は特に TC golden の維持を厳格チェック。
+
+---
 
 ### 作業ツリーの注意
 
