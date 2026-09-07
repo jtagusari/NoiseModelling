@@ -839,7 +839,87 @@ public class PathFinderBridgeTest {
         assertCutProfile("TBC11_imaginary", profiles.get(0));
     }
 
-    
+    /**
+     * TBC12 — IMAGINARY_SOURCE_UNDER_BRIDGE with a downstream free-standing wall,
+     * producing a genuine bottom+top (BT) diffraction path.
+     *
+     * <p>Scene: Bridge2 (pk=101, wide deck z=5, 10 m half-widths → footprint x=2..22,
+     * deck underside z=4.5) plus an 8 m tall wall at x=35. Source line x=12, y=5..15,
+     * z=5.5 (ABSOLUTE), ACTUAL_SOURCE_ON_BRIDGE → SourceCollector also emits the
+     * IMAGINARY companion at z≈4.499 under the deck. Receiver (70, 10, 4) ABSOLUTE,
+     * well beyond the far footprint edge and beyond the wall.
+     *
+     * <p>For the IMAGINARY profile the ray must diffract <em>under</em> the deck's
+     * far downward edge (x≈22, z=4.5) <em>and</em> <em>over</em> the wall crest
+     * (x=35, z=8). The propagation-side companion test asserts that this yields a
+     * point list containing both {@code DIFB} and {@code DIFH}.
+     *
+     * <p>Expected here: 2 profiles — IMAGINARY + ACTUAL — asserted against
+     * TBC12_imaginary.json / TBC12_actual.json.
+     */
+    @Test
+    public void TBC12() throws Exception {
+        //Profile building
+        List<Double> wallAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        GeometryFactory geometryFactory = new GeometryFactory();
+        LineString wall = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(35, 0, 0.0),
+                new Coordinate(35, 20, 0.0)
+        });
+
+        ProfileBuilder profileBuilder = new ProfileBuilder()
+                .addBridge(createBridge2());
+        profileBuilder.addWall(wall, 8.0, wallAlphas, 1);
+        profileBuilder.finishFeeding();
+
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(12, 5, 5.5),
+                new Coordinate(12, 15, 5.5)
+        });
+
+        //Propagation data building
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(1L, source, Scene.HeightType.ABSOLUTE, new Orientation(0,0,0), new BridgeRelationship(RelationType.ACTUAL_SOURCE_ON_BRIDGE, 101, -1))
+                .addReceiver(1L, 70, 10, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
+
+        //Out and computation settings
+        DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
+        PathFinder computeRays = new PathFinder(scene);
+        computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
+
+        //Run computation
+        computeRays.run(propDataOut);
+
+        // ACTUAL_SOURCE_ON_BRIDGE → 1 IMAGINARY + 1 ACTUAL profile
+        List<CutProfile> profiles = new ArrayList<>(propDataOut.cutProfiles);
+        assertEquals(2, profiles.size(), "Expected 1 IMAGINARY + 1 ACTUAL profile");
+        assertEquals(1L, profiles.stream()
+                .filter(p -> p.getSource().getBridgeRelationship().getRelationType()
+                        == RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE)
+                .count(), "Expected 1 IMAGINARY profile");
+        assertEquals(1L, profiles.stream()
+                .filter(p -> p.getSource().getBridgeRelationship().getRelationType()
+                        == RelationType.ACTUAL_SOURCE_ON_BRIDGE)
+                .count(), "Expected 1 ACTUAL profile");
+
+        CutProfile imaginaryProfile = profiles.stream()
+                .filter(p -> p.getSource().getBridgeRelationship().getRelationType()
+                        == RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE)
+                .findFirst().orElseThrow();
+        assertCutProfile("TBC12_imaginary", imaginaryProfile);
+
+        CutProfile actualProfile = profiles.stream()
+                .filter(p -> p.getSource().getBridgeRelationship().getRelationType()
+                        == RelationType.ACTUAL_SOURCE_ON_BRIDGE)
+                .findFirst().orElseThrow();
+        assertCutProfile("TBC12_actual", actualProfile);
+    }
+
+
     /**
      * TBC20 — ACTUAL_SOURCE_ON_BRIDGE with two bridges in the scene, distant receiver.
      * Source: ACTUAL on Bridge1 (pk=100), line x=10, y=5..15, z=10.05.

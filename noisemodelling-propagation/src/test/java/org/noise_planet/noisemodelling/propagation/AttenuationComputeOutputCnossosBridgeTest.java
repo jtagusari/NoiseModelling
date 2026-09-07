@@ -23,6 +23,7 @@ import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.FrequencyConfig.FrequencyBand;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.ProfileBuilder;
 import org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathExt;
+import org.noise_planet.noisemodelling.propagation.cnossos.PointPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.noise_planet.noisemodelling.pathfinder.utils.AcousticIndicatorsFunctions.sumArray;
 
 /**
@@ -416,6 +419,48 @@ public class AttenuationComputeOutputCnossosBridgeTest {
     public void TBC11() throws Exception {
         AttenuationComputeOutput result = computeCnossosPath("TBC11_imaginary");
         verifyResults("TBC11", result);
+    }
+
+    /**
+     * TBC12 — IMAGINARY source under a wide deck with a downstream 8 m wall.
+     * The imaginary ray diffracts <em>under</em> the deck's far downward edge and
+     * <em>over</em> the wall crest, exercising the bottom+top (BT) decomposition
+     * ({@link org.noise_planet.noisemodelling.propagation.cnossos.CnossosPathProcessor}
+     * {@code setDiffractionPathParametersBT}).
+     * Mirrors {@code PathFinderBridgeTest.TBC12}.
+     * Expected: IMAGINARY + ACTUAL profiles, asserted against
+     * TBC12_imaginary.json / TBC12_actual.json; additionally the IMAGINARY path must
+     * carry a bottom and a top sub-route and a {@code [SRCE, DIFB, DIFH, RECV]} point list.
+     */
+    @Test
+    public void TBC12() throws Exception {
+        AttenuationComputeOutput result = computeCnossosPath("TBC12_imaginary", "TBC12_actual");
+        verifyResults("TBC12", result);
+
+        CnossosPathExt btPath = null;
+        for (CnossosPathExt p : result.getPropagationPaths()) {
+            boolean hasB = p.getPointList().stream().anyMatch(pt -> pt.type == PointPath.POINT_TYPE.DIFB);
+            boolean hasT = p.getPointList().stream().anyMatch(pt -> pt.type == PointPath.POINT_TYPE.DIFH);
+            if (hasB && hasT) {
+                btPath = p;
+                break;
+            }
+        }
+        assertNotNull(btPath, "TBC12: expected a path diffracting both under (DIFB) and over (DIFH)");
+        assertNotNull(btPath.getCnossosPathBottomRoute(), "TBC12: BT path must carry a bottom sub-route");
+        assertNotNull(btPath.getCnossosPathTopRoute(), "TBC12: BT path must carry a top sub-route");
+
+        List<PointPath> pts = btPath.getPointList();
+        assertEquals(PointPath.POINT_TYPE.SRCE, pts.get(0).type, "TBC12: first point is the source");
+        assertEquals(PointPath.POINT_TYPE.RECV, pts.get(pts.size() - 1).type, "TBC12: last point is the receiver");
+        int idxB = -1;
+        int idxT = -1;
+        for (int i = 0; i < pts.size(); i++) {
+            if (pts.get(i).type == PointPath.POINT_TYPE.DIFB && idxB < 0) idxB = i;
+            if (pts.get(i).type == PointPath.POINT_TYPE.DIFH) idxT = i;
+        }
+        assertTrue(idxB > 0 && idxT > idxB && idxT < pts.size() - 1,
+                "TBC12: point list should be SRCE .. DIFB .. DIFH .. RECV (idxB=" + idxB + ", idxT=" + idxT + ")");
     }
 
     /**
