@@ -464,6 +464,45 @@ public class AttenuationComputeOutputCnossosBridgeTest {
     }
 
     /**
+     * TBC13 — MIRROR source under a deck with a downstream 20 m wall.
+     * The mirror ray diffracts <em>under</em> the deck's downward edge and <em>over</em> the wall
+     * crest, exercising the bottom+top (BT) decomposition for a MIRROR_SOURCE.
+     * Mirrors {@code PathFinderBridgeTest.TBC13}.
+     * Expected: 1 MIRROR profile, asserted against TBC13_mirror.json; additionally the path must
+     * carry a bottom and a top sub-route and a {@code SRCE .. DIFB .. DIFH .. RECV} point list.
+     */
+    @Test
+    public void TBC13() throws Exception {
+        AttenuationComputeOutput result = computeCnossosPath("TBC13_mirror");
+        verifyResults("TBC13", result);
+
+        CnossosPathExt btPath = null;
+        for (CnossosPathExt p : result.getPropagationPaths()) {
+            boolean hasB = p.getPointList().stream().anyMatch(pt -> pt.type == PointPath.POINT_TYPE.DIFB);
+            boolean hasT = p.getPointList().stream().anyMatch(pt -> pt.type == PointPath.POINT_TYPE.DIFH);
+            if (hasB && hasT) {
+                btPath = p;
+                break;
+            }
+        }
+        assertNotNull(btPath, "TBC13: expected a MIRROR path diffracting both under (DIFB) and over (DIFH)");
+        assertNotNull(btPath.getCnossosPathBottomRoute(), "TBC13: BT path must carry a bottom sub-route");
+        assertNotNull(btPath.getCnossosPathTopRoute(), "TBC13: BT path must carry a top sub-route");
+
+        List<PointPath> pts = btPath.getPointList();
+        assertEquals(PointPath.POINT_TYPE.SRCE, pts.get(0).type, "TBC13: first point is the source");
+        assertEquals(PointPath.POINT_TYPE.RECV, pts.get(pts.size() - 1).type, "TBC13: last point is the receiver");
+        int idxB = -1;
+        int idxT = -1;
+        for (int i = 0; i < pts.size(); i++) {
+            if (pts.get(i).type == PointPath.POINT_TYPE.DIFB && idxB < 0) idxB = i;
+            if (pts.get(i).type == PointPath.POINT_TYPE.DIFH) idxT = i;
+        }
+        assertTrue(idxB > 0 && idxT > idxB && idxT < pts.size() - 1,
+                "TBC13: point list should be SRCE .. DIFB .. DIFH .. RECV (idxB=" + idxB + ", idxT=" + idxT + ")");
+    }
+
+    /**
      * TBC20 — ACTUAL source on bridge1, two bridges in scene, far receiver.
      * Source just above deck (z=10.05). Bridge2 (pk=101) is at x=12.
      * Tests that only bridge1 is used for the source relationship.

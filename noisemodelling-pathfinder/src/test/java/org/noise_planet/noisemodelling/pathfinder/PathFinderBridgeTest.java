@@ -921,6 +921,64 @@ public class PathFinderBridgeTest {
 
 
     /**
+     * TBC13 — MIRROR_SOURCE with a downstream free-standing wall, producing a bottom+top (BT)
+     * diffraction path.
+     *
+     * <p>Same base as TBC04 (MIRROR_SOURCE on Bridge1, line x=10, y=5..15, z=15, distant receiver
+     * (200, 50, 4)) plus a 20 m wall at x=50. The mirror ray must diffract <em>under</em> the
+     * deck's downward edge (x=15, z=9.5) <em>and</em> <em>over</em> the wall crest (x=50, z=20).
+     * The propagation-side companion test asserts a point list containing both {@code DIFB} and
+     * {@code DIFH}.
+     *
+     * <p>Expected here: 1 MIRROR_SOURCE profile, asserted against TBC13_mirror.json.
+     */
+    @Test
+    public void TBC13() throws Exception {
+        //Profile building
+        List<Double> wallAlphas = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        GeometryFactory geometryFactory = new GeometryFactory();
+        LineString wall = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(50, 0, 0.0),
+                new Coordinate(50, 40, 0.0)
+        });
+
+        ProfileBuilder profileBuilder = new ProfileBuilder()
+                .addBridge(createBridge1());
+        profileBuilder.addWall(wall, 20.0, wallAlphas, 1);
+        profileBuilder.finishFeeding();
+
+        LineString source = geometryFactory.createLineString(new Coordinate[]{
+                new Coordinate(10, 5, 15),
+                new Coordinate(10, 15, 15)
+        });
+
+        //Propagation data building
+        Scene scene = new SceneBuilder(profileBuilder)
+                .addSource(100L, source, Scene.HeightType.ABSOLUTE, new Orientation(0,0,0), new BridgeRelationship(RelationType.MIRROR_SOURCE, -1, 100))
+                .addReceiver(1L, 200, 50, 4, Scene.HeightType.ABSOLUTE)
+                .vEdgeDiff(false)
+                .hEdgeDiff(true)
+                .build();
+
+        //Out and computation settings
+        DefaultCutPlaneVisitor propDataOut = new DefaultCutPlaneVisitor(true);
+        PathFinder computeRays = new PathFinder(scene);
+        computeRays.setThreadCount(1);
+        computeRays.ensureAbsoluteReceiverHeights();
+
+        //Run computation
+        computeRays.run(propDataOut);
+
+        // Distant receiver → 1 sample point → 1 MIRROR_SOURCE profile
+        List<CutProfile> profiles = new ArrayList<>(propDataOut.cutProfiles);
+        assertEquals(1, profiles.size(), "Expected 1 MIRROR_SOURCE profile");
+        assertEquals(RelationType.MIRROR_SOURCE,
+                profiles.get(0).getSource().getBridgeRelationship().getRelationType());
+        assertCutProfile("TBC13_mirror", profiles.get(0));
+    }
+
+
+    /**
      * TBC20 — ACTUAL_SOURCE_ON_BRIDGE with two bridges in the scene, distant receiver.
      * Source: ACTUAL on Bridge1 (pk=100), line x=10, y=5..15, z=10.05.
      * Bridge2 (pk=101, x=12, z=5) is also present in the scene.
