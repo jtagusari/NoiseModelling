@@ -1,9 +1,14 @@
 # fix ブランチを upstream/main へ取り込む方策
 
-> 更新日: 2026-08-31 / 対象: `fix` (= `origin/fix`) → `upstream/main`
+> 更新日: 2026-09-04 / 対象: `fix` (= `origin/fix`) → `upstream/main`
 > upstream = `https://github.com/Universite-Gustave-Eiffel/NoiseModelling.git`
 > ファイル単位の仕分け表 → [fix_diff_inventory.md](fix_diff_inventory.md)
-> upstream Discussion のドラフト → [bridge_upstream_proposal.md](bridge_upstream_proposal.md)
+> v0 draft PR 本文 → [bridge_pr_body.md](bridge_pr_body.md) ／ v1 core 分析 → [bridge_v1_core_analysis.md](bridge_v1_core_analysis.md)
+>
+> **現況（2026-09-04）:** Bridge を v0 / v1 / v2 に 3 分割（→ §4 ロードマップ）。
+> v0（デッキ=上越え衝立、propagation 無改修）= `feat/bridge`、squash 済・`origin` push 済・PR 未投稿。
+> v1（on-deck 標高 ＋ ASJ 構造物音）= `feat/bridge-v1`、feature+test 完了。
+> v2（裏面反射 / BT 回折）= 未着手、実装方式 A/B は v0+v1 レビュー後に決定。
 
 ---
 
@@ -447,9 +452,13 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 検証: `JAVA_HOME=jdk-25 mvn -pl noisemodelling-emission test` → **66 passed / 0 failed**。
 
 `RoadAsj_2023.json` は ASJ RTN-Model 2023 の**橋梁形式別 構造物音（デッキ・桁の放射音）係数表**
-（STEEL_BOX_STEEL 等 7 形式）。CNOSSOS に相当が無い。**Bridge v0 には含めず v1 送り**
-（v0 のデッキ音源は通常の CNOSSOS）。v0 PR で「follow-up で ASJ 構造物音を足す」と言及する。
-`feat/road-asj` はそのまま保持、push は v1 着手時。
+（STEEL_BOX_STEEL 等 7 形式）。CNOSSOS に相当が無い。**Bridge v0 には含めず v1 に統合**
+（v0 のデッキ音源は通常の CNOSSOS）。
+
+**2026-09-04:** v1（`feat/bridge-v1`）で `emission.road.asj` 6 ファイルを `feat/road-asj`（`5a645a53`）
+から直接 replay（コミット `26a27d40`、emission 66 テスト緑）。配線は専用スクリプト
+`Structural_noise_from_bridge.groovy`（§3.7 step 7 ④b）。→ `feat/road-asj` ブランチは v1 に取り込まれ、
+単独用途はなくなった（削除可、当面保持）。
 
 ---
 
@@ -476,14 +485,27 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 10. ~~fork ヘルパーはそのまま持ち込み、hook だけ手書き（`feat/bridge`）~~ → ✅ v0 完了（§3.6 の実施結果表、
     最終 `8bfd4a40`、pathfinder **249 pass / 0 fail**）。
 
-### これから（§3.7 の順）
+### ロードマップ（v0 / v1 / v2）
 
-1. ~~propagation で減衰まで通す~~ → ✅ 無改修で到達（§3.6-C、`287ec1b7`、propagation 55 pass）。
-2. `noisemodelling-scripts` に最小ローダ/WPS + `TutoBridge` 縮小データ、before/after マップ 1〜2 枚。
-   （現状 `getProfile` の内蔵分類でも動くが、DB/WPS 入口には `BridgePoint` を読むローダが要る = F7 の最小版）
-3. **draft PR** を upstream に。説明に pathfinder コア拡張性・`perf_*` 順序・v1 予定を要約。
-4. レビュー反応で v1（音源分類の F7 本格配線・per-point 高さ・底面反射・ASJ 構造物音・
-   fork の `AttenuationCnossosExt`/`CnossosPathExt` 移植）。
+3 段階に分割。各段は前段の上に積む。**v0 と v1 は別 PR**（v1 は emission に ASJ を足すため）。
+
+| | ブランチ | スコープ | 状態 |
+|---|---|---|---|
+| **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
+| **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
+| **v2** | 未着手 | デッキ**裏面反射** / **BT 回折**（下端くぐり上端越え）/ ミラー音源 / 虚音源（`_imaginary`・`_mirror`・下部開放）| 未着手。実装方式 **A**（upstream `CnossosPathBuilder`/`AttenuationCnossos` に BT をゼロから再実装）か **B**（`fix` の F3 パス層 ~13 クラスを橋プロファイル専用の並行サブシステムとして移植）を、**v0+v1 のレビュー反応を見て決定** |
+
+### 直近のタスク（v1 完了後）
+
+1. `feat/bridge-v1` を **squash** — ~11 コミット → モジュール単位のクリーンな 4〜5 個（v0 と同手法）。
+2. **v1 draft PR 本文** を作成（`bridge_v1_pr_body.md`）。要点: on-deck 標高は `computePtsGround` の
+   ガード内 / ASJ は追加音源で既存 emission 無改修 / 非橋不変の 4 根拠（§3.7 step 7）。
+3. **v0 draft PR を投稿**（本人）。`git fetch upstream` で base を確認（現状 `04793d59` から不動）→
+   必要なら rebase。`compare/main...jtagusari:feat/bridge` から Draft。
+4. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
+5. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
+6. v0 のレビューを見て **v1 draft PR** を stacked 投稿。
+7. v0+v1 のレビューを見て **v2 の A/B を決定**し着手。
 
 ### 作業ツリーの注意
 
