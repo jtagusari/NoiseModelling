@@ -493,7 +493,8 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 |---|---|---|---|
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
-| **v2** | 未着手 | デッキ**裏面反射** / **BT 回折**（下端くぐり上端越え）/ ミラー音源 / 虚音源（`_imaginary`・`_mirror`・下部開放）| 未着手。実装方式 **A**（upstream `CnossosPathBuilder`/`AttenuationCnossos` に BT をゼロから再実装）か **B**（`fix` の F3 パス層 ~13 クラスを橋プロファイル専用の並行サブシステムとして移植）を、**v0+v1 のレビュー反応を見て決定** |
+| **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 4 コミット）| デッキ下受音点：虚音源（デッキ下）による「デッキをくぐる」パス | **大部分完了**（2026-09-07）。#1〜#3 足場（`DIFB` enum / `DistanceDifferenceCalculator` / `CnossosPath` 子経路フィールド）＋ #7 imaginary 音源生成 ＋ #8 golden ハーネス。**`fix` の bridge golden 主要ケース（TBC01/07/11/20）を upstream 無改修 `AttenuationCnossos` で 0.2 dB 以内再現**。詳細 → §4.x |
+| **v2.1** | 未着手 | TBC02（デッキ外縁の薄壁回折 ~3dB）／ TBC03（path builder assertion）／ `_mirror`（裏面鏡面反射）| #4/#5/#6（`CnossosPathBuilder` DIFB splice・`BridgeDiffraction` BT 分解・`aBoundary` 再帰）が本当に必要になった場合のみ限定実装。方式は当初の A |
 
 ### 直近のタスク（v1 完了後）
 
@@ -572,13 +573,28 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
   = **回折なし・直達+地面のみ**（DOWNWARD 壁は非遮蔽なので寄与なし）。#4/#5 の DIFB/BT が要るのは
   壁が遮蔽（`obstructingAcousticRay=true`）になる幾何のみ。`_imaginary` の多くは直達+地面で足りる可能性。
 
-**次の増分:** #8（TBC golden テストハーネス）を先に作り、`TBC01/02/…_imaginary` を upstream の
-`AttenuationCnossos` パイプラインに通して golden 配列と比較 → **どのケースで実際に不一致になるか**を
-特定。不一致が DIFB/BT を要するケースだけなら #4/#5/#6 をそのケースに絞って実装。
+- ✅ **#8（TBC golden ハーネス）+ 検証結果** — `feat/bridge-v2` `c2a81cd8` / `3083f33f`。
+  `CutPoint` に `CutPointBridgeWall` を `@JsonSubType "BridgeWall"` 登録、`CutPointSource` に
+  `bridgePkOn`/`bridgePkAbove`/`bridgeRelationType` の flatten アクセサ追加（`fix` と同じ。挙動不変）。
+  `fix` の `TBC01/02/03/07/11/20` fixture を copy、`BridgeAttenuationGoldenTest` が upstream の
+  **無改修 `AttenuationCnossos`** に通して golden `aGlobalH` と比較。
+  - **✅ TBC01 / TBC07 / TBC11 / TBC20 — imaginary・actual 両パスとも golden を 0.2 dB 以内で再現。**
+    → **#4/#5/#6（DIFB/BT 書き換え）はこれらには不要。** DOWNWARD デッキ壁は非遮蔽 →
+    imaginary パスは「直達 + 地面」で upstream が正しく計算する。
+  - ⚠️ TBC02 actual パス: ~3 dB 乖離（デッキ外縁が薄壁回折縁になる下方受音点。`fix` の `aDif` は
+    デッキ幾何を使い、upstream は素の薄壁扱い）→ **v2.1**。
+  - ⚠️ TBC03: imaginary fixture が path builder の既存 assertion に引っかかる → **v2.1**。
+  - ⚠️ `_mirror`（TBC04/05/06）: MIRROR 音源生成が未配線 → **v2.1**。
 
-**非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#6 は `DIFB` 点／`bottomRoute` 非 null が
-条件、#7 は `bridgeCount>0`）。TC01–TC28 が期待値そのままで緑であることを各ステップで確認。
-#6 で `AttenuationCnossos` 本体に届くので、この段は特に TC golden の維持を厳格チェック。
+**v2 の再評価（2026-09-07）:** 当初の「BT 書き換え数日」は**大部分が不要**と判明。
+`feat/bridge-v2` = #1〜#3（足場）＋ #7（imaginary 音源）＋ #8（golden ハーネス）で、
+`fix` の bridge golden の主要ケース（TBC01/07/11/20）を upstream 無改修 propagation で再現。
+残る TBC02（~3dB）/ TBC03 / `_mirror` は v2.1。#4/#5/#6（`CnossosPathBuilder` splice・`BridgeDiffraction`・
+`aBoundary` 再帰）は v2.1 で TBC02/mirror が本当に必要になったときに限定実装。
+
+**非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（#1〜#3 は `DIFB` 点／`bridgeBottomRoute` 非 null、
+#7 は `hasBridges()`／`bridgeRelationship != null`）。emission 66 / pathfinder 252 / propagation 57 緑、
+TC01–TC28 期待値不変。`AttenuationCnossos` 本体は**未改修**。
 
 ---
 
