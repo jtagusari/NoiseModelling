@@ -497,15 +497,24 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 
 ### 直近のタスク（v1 完了後）
 
-1. `feat/bridge-v1` を **squash** — ~11 コミット → モジュール単位のクリーンな 4〜5 個（v0 と同手法）。
-2. **v1 draft PR 本文** を作成（`bridge_v1_pr_body.md`）。要点: on-deck 標高は `computePtsGround` の
-   ガード内 / ASJ は追加音源で既存 emission 無改修 / 非橋不変の 4 根拠（§3.7 step 7）。
+1. ~~`feat/bridge-v1` を **squash**~~ → ✅ 2026-09-07。モジュール単位の 4 コミット
+   （`311f86f1` pathfinder / `424f471b` propagation test / `1feee706` emission ASJ /
+   `c10deb8c` scripts）。ツリーは squash 前と byte 一致（退避タグ `backup/feat-bridge-v1-presquash`）。
+2. ~~**v1 draft PR 本文** を作成~~ → ✅ [bridge_v1_pr_body.md](bridge_v1_pr_body.md)。
 3. **v0 draft PR を投稿**（本人）。`git fetch upstream` で base を確認（現状 `04793d59` から不動）→
    必要なら rebase。`compare/main...jtagusari:feat/bridge` から Draft。
-4. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
-5. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
-6. v0 のレビューを見て **v1 draft PR** を stacked 投稿。
-7. v0+v1 のレビューを見て **v2 の A/B を決定**し着手。
+4. **`feat/bridge-v1` を `origin` に push**（本人）。
+5. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
+6. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
+7. v0 のレビューを見て **v1 draft PR** を stacked 投稿（base = `feat/bridge`）。
+8. v0+v1 のレビューを見て **v2 の A/B を決定**し着手。
+
+> ⚠️ **環境注意（2026-09-07）:** この session 中、`Documents\...\NoiseModelling` の作業ツリーが
+> 繰り返し破壊された（~1294 ファイルの phantom staging、`Docs-dev/` 削除 + upstream ツリー上書き、
+> `git checkout` の "unable to update HEAD"）。同期停止後も再発。OneDrive の既知フォルダ移動
+> （`Documents\` が対象）かバックアップツールが疑わしい。**リポジトリを同期対象外へ移動**するか
+> 原因を特定するまで、フルビルド検証は不安定。squash 済ツリーは検証済み状態と byte 一致
+> （emission 66 / pathfinder 252 / propagation 56 / jdbc 59 は個別クリーン実行で緑確認済）。
 
 ### 作業ツリーの注意
 
