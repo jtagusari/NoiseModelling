@@ -214,3 +214,24 @@ goal 1（デッキ幾何）+ goal 2（構造物音）は加算で出荷可能。
 - JMH（`bridgeCount==0` でガード分岐コストゼロ）
 - `AttenuationCnossos` 本体には触れない（BT を入れないので）→ v1 は propagation 側の改修が
   `CutProfile` 標高のみ。TC01–TC28 golden は自動的に保全。
+
+## 7. v2 実施結果（2026-09-08）— 方針 A は実現できた
+
+§6 の「~150 行では済まない」は BT を `fix` の F3 パス層（`CnossosPathExt`/`AttenuationCnossosExt`/
+`AcousticPathConfiguration` 再入ビルド）ごと持ち込む前提での見積り。**F3 を持ち込まず upstream の
+`CnossosPathBuilder.computeCnossosPathFromCutProfile` / `AttenuationCnossos.aBoundary` に対して
+BT をゼロから再実装する（方針 A）** と、実際の加算は：
+
+- `CnossosPathBuilder`: `spliceBridgeBottomEdge`（DIFB 検出・hull 差し込み）＋
+  `computeBridgeBottomTopRoutes`（`deltaB` vs `deltaH` で split、`newCutProfile{WithoutBottomEdge,
+  OnlyWithBottomEdge, AfterBottomEdge, BeforeTopEdge}` の 4 helper、`computeCnossosPathFromCutProfile`
+  再入）＝ **~200 行**（javadoc 込み）。
+- `AttenuationCnossos`: `aBoundary` の BT 和分岐 ＋ `aDif` の `DIFB`＝`DIFV` 扱い ＝ **~28 行**。
+- `DistanceDifferenceCalculator`: `fix` から verbatim（`Coordinate`/`LineSegment` のみ依存）191 行。
+- pathfinder: `SourcePointInfo.bridgeRelationship` ＋ `getProfile` 5 引数 ＋ ミラー音源生成 ＋
+  コピーコンストラクタ ＋ JSON アクセサ。
+
+= §3 の「既約の新規物理 ~150 行」に概ね収まった。§6 の悲観は「F3 ごと」の話であって
+「BT の物理を upstream API で書き直す」なら成立する、が結論。検証は `fix` の TBC fixture
+（TBC12/13 の合成 BT 含む）を `BridgeAttenuationGoldenTest` で 0.2 dB 以内（TBC12 は bit 一致）。
+残タスクは [merge_project.md](merge_project.md) §4.x 末尾「fix の機能を完全再現するために残っているステップ」。

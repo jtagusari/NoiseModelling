@@ -104,6 +104,13 @@ replays those fixtures plus two synthetic BT cases added to the fork:
 - **Structural noise as `IMAGINARY_SOURCE_UNDER_BRIDGE`** — the fork's
   `EMISSION_TYPE` + emission-type acceptance gate, so the structural spectrum
   is auto-placed at the deck soffit instead of a separate table.
+- **Stacked decks** — `spliceBridgeBottomEdge` handles one downward edge; the
+  fork re-hulls recursively for two or more (3+ level viaducts with a source
+  below all of them). No `TBC*` covers this; two-deck cases (TBC20/21) have a
+  single edge and work today.
+- **Favourable-condition BT** — the favourable sub-routes are reproduced within
+  ~0.05 dB, not bit-for-bit; `deltaF` (curved-path difference) for the BT
+  sub-routes is not tightened.
 
 ## Notes
 
