@@ -617,9 +617,9 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
   - **TBC31（複合実 DEM）— 全 4 経路 golden 一致**（2026-09-08、3 バグ修正）:
     ① `210c44b1` デッキ端がプロファイル最高点で hull に自然に乗ると DIFB 誤認 → 偽 BT。橋壁を hull から除去。
     ② `9548c63f` splice 後の後半（edge→受音点）を再 hull していなかった → mirror 経路が単独 DIFB。`upperHullAfter` 追加。
-    ③ `7d17821b` `computePtsGround` が DOWNWARD 橋壁のスパイク前に地形点を1つ余分に挿入 → S→O 平均面が寝て
-    等価音源高がずれ imaginary 経路に ~0.5 dB。`fix`（橋壁を素の `CutPointWall` 分岐で処理）に合わせ、
-    地形点をスパイク前は entering/thin のみ・スパイク後は exiting/thin のみ挿入。→ imaginary 0.51 → 0.000。
+    ③ DOWNWARD 橋壁（デッキ下面エッジ）を地盤標高プロファイルに入れる扱いの是正（§4.z）。imaginary 経路の
+    S→O 平均面のずれ ~0.5 dB を解消。**`7d17821b`（fix の `(天端, 地形)` に寄せる中間版）は物理的に不適切と
+    判明したため撤回**、`fix`・v2 とも「DOWNWARD 橋壁は地形点のみ、天端を地盤に入れない」に統一。
   - **assert 済: TBC01, TBC02(imaginary), TBC03, TBC07, TBC11, TBC12, TBC13, TBC20, TBC31（全 4 経路）。**
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（`DIFB` 点なし／`bridge{Bottom,Top}Route` 非 null／
@@ -718,6 +718,37 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 内で ROAD/BRIDGE を同時生成）、(c) `IMAGINARY_SOURCE_TO_UPPER_RECEIVER` 等の場合分けと配線を
 共通化したい。option 2 でこれらのどれかが effectively 損なわれるなら v2.2 で emission-type 分離
 （option 1）に切り替える。その判断材料として本節を残す。
+
+---
+
+### 4.z DOWNWARD 橋壁と地盤標高プロファイル（2026-09-08 決定・`fix` も是正）
+
+**問題:** `computePtsGround` / `expandCutPointsToElevationProfile`（S→R セグメントの平均地盤面を
+フィットするための地盤標高点列を作る処理）が、`CutPointBridgeWall` の **DOWNWARD**（デッキ下面エッジ）に
+対してその **天端 z（デッキ下面高さ）を地盤標高点として挿入**していた。
+
+- **旧 v2**（v1 ②改修の専用 `CutPointBridgeWall` 分岐）: `(zGround, z, zGround)` の 3 点
+  ＝ デッキ端を「地形上に立つ薄い衝立」として扱う。
+- **fix**（`CutPointBridgeWall extends CutPointWall` なので素の `CutPointWall` 分岐に落ちる。
+  専用分岐＋`ascendBridge`/`discendBridge` は分岐順で**到達不能な死にコード**）: `BUILDING_EXIT` に対し
+  `(z, zGround)` の 2 点 ＝ `BUILDING_EXIT`＝「屋根の上を通ってきて出口で地面に落ちる」の意味論。
+
+**どちらも物理的に不適切。** DOWNWARD エッジはデッキ**下面**、すなわちその点で ray より**上**にある。
+地盤標高（ray より下の反射面）ではない。imaginary/mirror 音源はデッキ下を進むので、その区間の地盤は
+**実地形のみ**であるべき。天端 z を入れると平均面フィットが歪み、等価音源高・音源鏡像がずれて
+`aDif` の `deltaGroundSO` に ~0.5 dB のアーティファクトが出る（TBC31 imaginary で顕在化。CNOSSOS は
+under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響が出ないため見逃されていた）。
+
+**採用（`fix`・v2 共通）:** `CutPointBridgeWall.getWallDirection() == DOWNWARD` のとき、地盤標高点列には
+**`(x, y, zGround)` の地形点 1 点のみ**を追加し、天端 z は入れない。UPWARD（高欄など ray が上越えする縁）は
+従来どおり `(zGround, z, zGround)` の薄スクリーン形。`OTHER` も従来どおり。
+
+- `fix`: `expandCutPointsToElevationProfile` の `CutPointWall` 分岐先頭に
+  `pnt instanceof CutPointBridgeWall && DOWNWARD` ガード → 地形点のみ。`TBC*_attenuation_output.json` golden 再生成。
+- v2: `computePtsGround` の「音源が乗っていないデッキ」`else` 分岐を DOWNWARD／それ以外で分ける。
+  `7d17821b`（fix 中間版への追随）は撤回。
+- 影響 golden: DOWNWARD 橋壁を含む cut profile を投入する全 TBC（imaginary / mirror 系）。
+  絶対値がわずかに動くが、`fix` の再生成 golden と v2 が一致。TC01–TC28（非橋）は不変。
 
 ---
 
