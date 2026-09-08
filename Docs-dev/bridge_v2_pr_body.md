@@ -2,10 +2,13 @@
      head: jtagusari/NoiseModelling : feat/bridge-v2
      Title: feat: bridge v2 — deck-underside reflection + bottom+top diffraction
      Open as: Draft, stacked on the v1 PR.
-     3 commits:
+     Commits (the three fix() below fold into the feat() they correct before opening):
        feat(pathfinder): bridge source-relationship plumbing + mirror source
        feat(propagation): bridge bottom+top (BT) diffraction
-       test(propagation): TBC bridge attenuation golden harness -->
+       test(propagation): TBC bridge attenuation golden harness
+       fix(propagation): only mark a spliced deck edge as DIFB   [-> BT commit]
+       fix(propagation): re-hull the after-portion when splicing   [-> BT commit]
+       fix(pathfinder): match fix's deck-edge ground-profile point order   [-> pathfinder commit] -->
 
 ## Context
 
@@ -84,27 +87,23 @@ replays those fixtures plus two synthetic BT cases added to the fork:
 - **TBC13** — the same for a `MIRROR_SOURCE` (mirror image above the deck,
   obstructing downward edge, downstream wall). Golden within 0.2 dB.
 - **TBC01 / 02(imaginary) / 03 / 07 / 11 / 20** — reproduced within 0.2 dB.
-- **TBC31** — the compound real-DEM scene; actual, mirror (a BT path with a
-  deck-edge DIFB and a wall DIFH found by re-hulling the after-portion) and
-  not-related paths within 0.2 dB (imaginary path ~0.5 dB, a mean-plane detail).
+- **TBC31** — the compound real-DEM scene (TutoBridge topography + a 4 m wall);
+  all four paths within 0.2 dB, including the mirror BT path (deck-edge DIFB +
+  wall DIFH found by re-hulling the after-portion).
 
 ## Existing results are unchanged
 
 - the TC01–TC28 CNOSSOS reference cases pass with unchanged per-band goldens;
 - `AttenuationCnossos.aBoundary` / `aDif` gain a branch entered only when a
   `DIFB` point is present;
-- pathfinder 252, propagation 63, emission 66, jdbc 59, scripts 100 (4
+- pathfinder 252, propagation 61, emission 66, jdbc 59, scripts 100 (4
   pre-existing skips). No regression.
 
 ## Still to come (v2.2)
 
 - **`TBC02` path 1** (ACTUAL over the deck's outer edge) — ~3 dB: the fork's
   `aDif` uses the deck geometry where upstream treats the cut point as a plain
-  thin screen.
-- **`TBC31` imaginary path** — ~0.5 dB on the single wall diffraction over
-  TutoBridge topography (a real-DEM mean-plane detail, not a BT issue). The
-  actual, mirror (a BT path) and not-related paths of TBC31 are reproduced
-  within 0.2 dB and asserted.
+  thin screen. The imaginary path (the main under-deck contribution) matches.
 - **Structural noise as `IMAGINARY_SOURCE_UNDER_BRIDGE`** — the fork's
   `EMISSION_TYPE` + emission-type acceptance gate, so the structural spectrum
   is auto-placed at the deck soffit instead of a separate table.
