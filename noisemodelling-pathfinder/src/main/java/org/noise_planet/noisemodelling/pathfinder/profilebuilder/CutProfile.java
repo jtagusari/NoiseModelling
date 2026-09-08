@@ -331,6 +331,20 @@ public class CutProfile {
                 lastZ = pnt.getCoordinate().z;
                 lastGroundZ = Double.NaN;
 
+            } else if (pnt instanceof CutPointBridgeWall
+                    && ((CutPointBridgeWall) pnt).getWallDirection() == CutPointBridgeWall.WallDirection.OTHER) {
+                // Deck outer edge for a source sitting on that deck (ACTUAL source, receiver below
+                // and beside): the source-side ground reference is the deck surface, not the
+                // terrain far below. This diffracting edge is treated like a BUILDING_EXIT - edge
+                // elevation then drop to terrain - with no leading terrain point, which the plain
+                // thin-wall path would otherwise insert (the cut point carries the default
+                // THIN_WALL_ENTER_EXIT type) and tilt the source-side mean-plane fit.
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                overArea = false;
+                lastZ = pnt.getCoordinate().z;
+                lastGroundZ = Double.NaN;
+
             } else if (pnt instanceof CutPointWall) {
                 // Z ground profile must add intermediate ground points before adding the top level of building/wall/bridge
                 CutPointWall wallPoint = (CutPointWall) pnt;

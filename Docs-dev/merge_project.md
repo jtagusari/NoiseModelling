@@ -660,9 +660,12 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    - **これが無い間**: 構造物音は v1 の `Structural_noise_from_bridge` → `BRIDGE_STRUCT_LW` 別テーブルで代替可能
      （デッキ中心線・デッキ高に置かれる。`fix` は soffit）。機能としては動く。
 
-2. **TBC02 golden path 1（ACTUAL、~3 dB）** — デッキ外縁を薄壁として回折する ACTUAL 経路。
-   `fix` の `aDif` はデッキ幾何（`CutPointBridgeWall`）で δ を計算、upstream は cut point を素の薄スクリーン扱い。
-   BT とは別問題（DIFB 不関与）。imaginary path（デッキ下寄与の主成分）は完全一致。
+2. **TBC02 golden path 1（ACTUAL、~3 dB）** — デッキ外縁を薄壁として回折する ACTUAL 経路
+   （`OTHER` 橋壁）。`fix` の `aDif` はデッキ幾何（`CutPointBridgeWall`）で δ を計算、upstream は
+   cut point を素の薄スクリーン扱い。BT とは別問題（DIFB 不関与）。imaginary path（デッキ下寄与の
+   主成分）は完全一致。`fix` 側の地盤プロファイルの先頭地形点は §4.z「OTHER」で除去済み（`fix` 0.2 dB
+   低下）だが、v2 の `computePtsGround` は `OTHER` エッジ自体を落としているため 3 dB 差は未解消。
+   v2 の `OTHER` 経路是正（`computePtsGround` ＋ `aDif` のデッキ幾何）がここの本体。
 
 3. **多段スタックの DOWNWARD エッジ** — `spliceBridgeBottomEdge` は複数エッジを position 1 に差し込んで
    ソートするだけ。`fix` の `PivotPointCalculator.extractPivotPointsUsingConvexHull` は
@@ -722,7 +725,13 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 ---
 
-### 4.z DOWNWARD 橋壁と地盤標高プロファイル（2026-09-08 決定・`fix` も是正）
+### 4.z 橋壁の向きと地盤標高プロファイル（2026-09-08 決定・`fix` も是正）
+
+対象は `CutPointBridgeWall` の 3 向き（`WallDirection`）のうち **DOWNWARD**（音源が橋の下）と
+**OTHER**（音源が橋の上・受音点が下方）。いずれも「音源側の地盤基準がデッキ（下面 or 上面）なのに
+実地形点が余分に差し込まれ、S 側平均地盤面フィットが傾く」という同一クラスの不具合。
+
+#### DOWNWARD（音源が橋の下）
 
 **問題:** `computePtsGround` / `expandCutPointsToElevationProfile`（S→R セグメントの平均地盤面を
 フィットするための地盤標高点列を作る処理）が、`CutPointBridgeWall` の **DOWNWARD**（デッキ下面エッジ）に
@@ -742,7 +751,7 @@ under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響
 
 **採用（`fix`・v2 共通）:** `CutPointBridgeWall.getWallDirection() == DOWNWARD` のとき、地盤標高点列には
 **`(x, y, zGround)` の地形点 1 点のみ**を追加し、天端 z は入れない。UPWARD（高欄など ray が上越えする縁）は
-従来どおり `(zGround, z, zGround)` の薄スクリーン形。`OTHER` も従来どおり。
+従来どおり `(zGround, z, zGround)` の薄スクリーン形。
 
 - `fix`: `expandCutPointsToElevationProfile` の `CutPointWall` 分岐の**直前**に専用 `else if`
   （`pnt instanceof CutPointBridgeWall && getWallDirection()==DOWNWARD && getBridgePk()!=bridgePkOn`）→
@@ -757,6 +766,28 @@ under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響
   （IMAGINARY 音源）の +0.5 dB**＝本件で問題にしていた残差そのもの（全帯域で解消側に動く）。
   TBC12/TBC31 は `verticesSoundLevel` の並び順が変わるが同フィールドは非アサート。
   `PathFinderBridgeTest`（cut 点のみ格納・不変）、TC01–TC28（非橋）は不変。
+
+#### OTHER（音源が橋の上・受音点が下方＝`ACTUAL_SOURCE_TO_LOWER_RECEIVER`）
+
+**問題:** `OTHER` エッジは `BridgeService.calculateFirstBridgeCutpoint` が生成し、`intersectionType` を
+**設定しない**（＝既定の `THIN_WALL_ENTER_EXIT` のまま）。すると `fix` の `CutPointWall` 分岐で
+`isWall` 経路に入り `(zGround, z, zGround)` の 3 点＝**先頭に地形点**が入る。音源はデッキ上なので
+音源〜外縁エッジ間の地盤基準はデッキ面であるべきで、この先頭地形点は DOWNWARD と同種の偽点。
+（UPWARD/`ACTUAL_SOURCE_ON_BRIDGE` は `intersectionType` が本当に `BUILDING_EXIT` なので
+既に `(z, zGround)` ＝先頭地形点なし。fixture 上 UPWARD・OTHER とも relation は必ず
+`ACTUAL_SOURCE_ON_BRIDGE`。）
+
+**採用（`fix` 先行、2026-09-08）:** `getWallDirection() == OTHER` のとき UPWARD の `BUILDING_EXIT` と
+同じく `(z), (zGround)` を出し、`overArea=false`。外縁エッジは実回折ピボットなので `(z)` スパイクは残す
+（消すのは先頭地形点だけ）。
+
+- `fix`: `expandCutPointsToElevationProfile` に `getWallDirection()==OTHER` の専用 `else if` を追加。
+- 影響 golden: `TBC02_attenuation_output.json` の path1（ACTUAL 経路）のみ。`cfH` −0.38、
+  `aGlobalH`/`L` が全帯域で約 **−0.2 dB**（band0: L 61.26→61.06）。他 TBC・非橋は不変。
+- **v2 未対応**: v2 の `computePtsGround` は `OTHER` エッジを `cutPointBridgePk == bridgePkOn` 分岐で
+  受け `exiting` 以外は何もしない＝**外縁エッジが地盤プロファイルから丸ごと落ちている**。
+  TBC02 path1 の v2↔`fix` ~3 dB 差（§4.x v2.2 #2、`aDif` がデッキ幾何 vs 素の薄スクリーン）とは
+  別問題で、この `fix` 側 0.2 dB 是正では埋まらない。v2 の `OTHER` 経路是正は v2.2 で別途。
 
 ---
 
