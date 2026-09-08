@@ -727,11 +727,16 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 ---
 
-### 4.aa option 1（emission-type 分離）の v2 移植計画（2026-09-08 着手）
+### 4.aa option 1（emission-type 分離）の v2 移植（2026-09-08 実装完了）
 
-§4.y の「未解明の懸念」を踏まえ v2.2 として option 1 を移植する。**emission 物理は v1 で移植済み**
-（`RoadAsj.evaluateBridgeVirtualSource` / `calculateBridgeVirtualSourceLevelForFrequency`、ASJ 構造物音）。
-足りないのは**振り分け配線**のみ。
+§4.y の「未解明の懸念」を踏まえ v2.2 として option 1 を移植した。**emission 物理は v1 で移植済み**
+（`RoadAsj.evaluateBridgeVirtualSource` / `calculateBridgeVirtualSourceLevelForFrequency`、ASJ 構造物音）
+なので、足りない**振り分け配線**のみを実装。
+
+**コミット（`feat/bridge-v2`）:**
+- `986d8ad6` fix(pathfinder): 共有橋壁セグメントのコピー（下記「発見したバグ」）
+- `e9e4f01e` feat: EMISSION_TYPE 分離（①②③ ＋ `BridgeStructuralNoiseTest`）
+- `b16ee1cd` feat(scripts): `Structural_noise_from_bridge` emission-type 出力モード（④、案 B）
 
 #### v2 に既にあるもの（`8099944b` 足場・維持済み）
 
@@ -743,65 +748,71 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 #### 移植する 4 点
 
-**① jdbc — emission 行に種別を持たせる**
-- `SceneWithEmission.PeriodEmission` に `EmissionType`（enum: `ROAD` / `BRIDGE` / `NULL`。`fix` の
-  `SourceEmission.EmissionType` を最小移植、`input/` に置く）フィールドを追加。既存の
-  `addSourceEmission(pk, period, wj)` 呼び出しは全て `ROAD`（or `NULL`）既定 → **非橋は不変**。
-- `INPUT_MODE_LW` / `processEmission` で任意列 `EMISSION_TYPE` を読む（`rs.getString`、無ければ `ROAD`）。
-  traffic-flow モードは常に `ROAD`。新規必須列はどこにも無い。
+**① jdbc — emission 行に種別を持たせる**（`e9e4f01e`）
+- `input/EmissionType.java` 新規（enum `ROAD` / `BRIDGE` のみ。`fix` の rail 種別は不要）。
+  `SceneWithEmission.PeriodEmission` に `emissionType` フィールド追加。旧 2 引数 ctor と
+  `addSourceEmission(pk, period, wj)` は `ROAD` 委譲で残す → **既存呼び出し全て `ROAD`、非橋不変**。
+- `processEmission` / `processEmissionDEN`（`INPUT_MODE_LW` / `_LW_DEN`）で任意列 `EMISSION_TYPE` を
+  `readEmissionType()` で読む（列なし or 空 → `ROAD`）。traffic-flow モードは常に `ROAD`。必須列なし。
+- **`fix` との相違（意図的）:** `fix` は列なし → `NULL`（全 relation で通す）。v2 は列なし → `ROAD`。
+  `fix` 方式だと「`EMISSION_TYPE` 列の無い生 LW 表 ＋ 橋」で裏面 IMAGINARY 点が `NULL` 行を放射し
+  二重計上する潜在バグがある。`ROAD` 既定なら IMAGINARY が拒否するので二重計上しない。enum から
+  `NULL` を落とした。
 
-**② jdbc — ゲート**
-- `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable(CutPointSource, PeriodEmission)` を
-  `fix` と同じ表で追加:
+**② jdbc — ゲート**（`e9e4f01e`）
+- `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable(CutPointSource, PeriodEmission)`:
 
-  | relation | 拒否する emissionType |
+  | relation | 受理する emissionType |
   |---|---|
-  | `ACTUAL_SOURCE_ON_BRIDGE` | `BRIDGE` |
-  | `IMAGINARY_SOURCE_UNDER_BRIDGE` | `ROAD` |
-  | `MIRROR_SOURCE` | `BRIDGE` |
-  | `SOURCE_NOT_RELATED_TO_BRIDGE` | `BRIDGE` |
+  | `ACTUAL_SOURCE_ON_BRIDGE` / `MIRROR_SOURCE` / `SOURCE_NOT_RELATED_TO_BRIDGE` | `BRIDGE` 以外 |
+  | `IMAGINARY_SOURCE_UNDER_BRIDGE` | `BRIDGE` のみ |
 
-  `NULL`（＝列なし）は全 relation で通す（`fix` と同じ）。emission ループ 3 箇所（`~178`/`~271`/`~314`）で
-  `continue`。橋関係なし かつ `BRIDGE` 行なし の scene では完全な no-op。
+  `onNewCutPlane` の emission ループ（`~271`）先頭で `continue`。max-error 枝刈り（`~178`/`~314`、
+  既定 OFF）は非ゲート＝予算をわずかに過大評価するだけ（保守的・出力不変）。
+  橋関係なし かつ `BRIDGE` 行なしの scene では no-op（`ROAD`≠`BRIDGE` で常に受理）。
 
-**③ pathfinder — デッキ裏面 IMAGINARY 点を復活**
-- `PathFinder.addBridgeVirtualSources`: `ACTUAL_SOURCE_ON_BRIDGE` の実音源点ごとに、同じ
-  `sourcePk`/`li`/`orientation`・`IMAGINARY_SOURCE_UNDER_BRIDGE` 関係・z=`ElevationConverter`（裏面−0.05）の
-  `SourcePointInfo` を追加。`fix` は `SourceCollector.addLineSource` でサンプル点ごとに生成しているのに対し
-  v2 は `addBridgeVirtualSources` で `sourceList` を後段走査するので、そこで ACTUAL を検出する
-  （`src.bridgeRelationship` が付いているか、付いていなければ footprint 判定）。javadoc 更新。
-- **`8099944b` が壊した `BridgeNoiseMapTest.bridgeDeckLowersTheLevelAtAShieldedReceiver` を再確認**。
-  今回はゲート②で二重計上が止まる（`BRIDGE` 行が無ければ裏面点は無音）ので緑のはず。
+**③ pathfinder — デッキ裏面 IMAGINARY 点を復活**（`e9e4f01e`）
+- `PathFinder.addBridgeVirtualSources`: `sourceList` を走査し、`isPointWithinBridgeFootprint`
+  ＆ `isPointOnBridge`（`classifySourceAgainstBridges` と同じ位置判定）を満たす実音源点ごとに、
+  同 `sourcePk`/`li`/`orientation`・`IMAGINARY_SOURCE_UNDER_BRIDGE` 関係・z=`(deckH − deckThk) − 0.05` の
+  `SourcePointInfo` を追加。javadoc 更新（「作らない」→「作る、ゲートで無音」）。
+- `SourcePointInfo.bridgeRelationship` → `directPath` → `getProfile` 5 引数 → `CutPointSource` に
+  override 適用済（既存配線、MIRROR 用に整備されていたものを再利用）。
 
-**④ scripts — `EMISSION_TYPE='BRIDGE'` 行を LW 表に入れる**
-- 3 案:
-  - **A（フル）**: `Road_Emission_from_Traffic.groovy` に ROAD/BRIDGE 同時生成を組み込む（`fix` 相当）。
-  - **B（最小）**: v1 の `Structural_noise_from_bridge` を、`BRIDGE_STRUCT_LW` 別表ではなく
-    **本体 LW 表に `EMISSION_TYPE='BRIDGE'` ＋ 道路 `IDSOURCE` 一致**で追記するオプションを足す。
-    ASJ 物理は既にこのブロックにある。
-  - **C（エンジンのみ）**: ①〜③ ＋ jdbc 結合テスト（`EMISSION_TYPE='BRIDGE'` 行を直接投入）だけ実装、
-    WPS 配線は後回し。
-- **推奨 B**（物理はそのまま、出力先だけ変える。ユーザーは「別表方式（v1）」か「同表方式（option 1）」を選ぶ）。
+**発見したバグ（`986d8ad6`、`fix` にも存在）:** `BridgeService.createBridgeCutPoint` が処理済み橋壁の
+`LineSegment` を**コピーせず** `CutPointBridgeWall` に渡していた。`CutPointBridgeWall.modifyIntersectionHeight`
+は `wall.p0/p1.z` を**その場で書き換える**。処理済み橋壁は全 `getProfile` 呼び出しで共有される長命
+オブジェクトなので、ある profile が書いた z（例: imaginary/mirror 音源用の DOWNWARD デッキ下端エッジ
+`deckH − thk`）が、同じ壁を再利用する次の profile（例: ACTUAL 橋上音源用の UPWARD 高欄エッジ
+`deckH + barrier`）に漏れ、**高欄の遮蔽が無効化**されていた。③で IMAGINARY 点（受音点に近く先に処理
+される）を足したことで顕在化。`new LineSegment(wall.getLineSegment())` でコピー。
+
+**④ scripts — `EMISSION_TYPE='BRIDGE'` 行を LW 表に入れる（案 B）**（`b16ee1cd`）
+- `Structural_noise_from_bridge.groovy`: 既定は従来どおり `BRIDGE_STRUCT_LW` 別表。
+  新オプション `emissionTable` ＋ `tableSources`（`BRIDGE_PK` 列を持つ道路音源表）を渡すと、
+  ASJ スペクトルを既存 emission 表に **`EMISSION_TYPE='BRIDGE'` ＋ 各 on-deck 道路音源の `IDSOURCE`**
+  で追記。exec() を「(deck, period) ごとのスペクトルを 1 回計算」→「別表 or 追記に分岐」に整理。
 
 #### v1 との共存
 
-`BRIDGE_STRUCT_LW` 別表方式は残す（ただの `SOURCE_NOT_RELATED_TO_BRIDGE` 表）。option 1 と併用しない
-（構造物音を二重に足すことになる）。ドキュメントで排他を明記。
+`BRIDGE_STRUCT_LW` 別表方式は残る（ただの `SOURCE_NOT_RELATED_TO_BRIDGE` 表）。option 1 と併用不可
+（構造物音の二重計上）。スクリプト説明文・javadoc に排他を明記済。
 
-#### テスト
+#### テスト（全緑）
 
-- 新規 jdbc テスト `BridgeStructuralNoiseTest`: デッキ上の道路音源 ＋ `EMISSION_TYPE='BRIDGE'` 行 →
-  裏面 IMAGINARY 点が BRIDGE スペクトルのみ、デッキ上点が ROAD のみ（二重計上なし）を assert。
-  `fix` の `BridgeTrafficTest` を範に。
-- 回帰: `BridgeNoiseMapTest` 全 / jdbc 全 / `NoiseMapByReceiverMakerTest` / TC01–TC28。
+- 新規 `BridgeStructuralNoiseTest`（jdbc）: `BOTH` == `ROAD`-only run ＋ `BRIDGE`-only run のエネルギー和
+  （±0.3 dB。二重計上・クロスルーティングなし）／ デッキ無しの `BRIDGE` 行は drop（≒無音）。
+- 新規 `TestStructuralNoiseFromBridge#emissionTypeModeAppendsBridgeRowsKeyedOnOnDeckRoadSources`（scripts）:
+  on-deck 2 音源にのみ `BRIDGE` 行、off-deck 音源には無し、既存 `ROAD` 行不変、スペクトルは低域優勢。
+- 回帰: pathfinder 252 / propagation 61 / jdbc 61（+2）緑。`BridgeNoiseMapTest`（`8099944b` で赤だった
+  もの）緑。scripts `TestStructuralNoiseFromBridge` 5 緑。
 
-#### リスク
+#### 残（v2.3）
 
-- ②のゲートは全音源の emission ループに入る。`BRIDGE` 行なし・橋関係なしで厳密 no-op であること
-  （`NULL` 既定 → 素通し）。
-- ③の IMAGINARY 復活は `8099944b` と同じ操作。差はゲート②で二重計上が止まる点のみ。要再検証。
-
-**未決（ユーザー判断）:** scripts の scope（A / B / C）。他は上記で確定。
+- `Road_Emission_from_Traffic.groovy` 内での ROAD/BRIDGE 同時生成（案 A、`fix` 相当の完全自動）。
+- `INPUT_MODE_TRAFFIC_FLOW*` からの `EMISSION_TYPE` 生成（現状 LW 表経由のみ）。
+- `fix` 側にも `986d8ad6` の共有壁コピーを入れる（`fix` も同じ潜在バグ持ち。TBC は直列化 cut profile
+  投入なので顕在化していない）。
 
 ---
 
