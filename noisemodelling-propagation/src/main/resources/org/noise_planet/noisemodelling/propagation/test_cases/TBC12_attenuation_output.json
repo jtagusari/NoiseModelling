@@ -46,38 +46,6 @@
       "position" : {
         "x" : 12.0,
         "y" : 10.0,
-        "z" : 5.5
-      },
-      "orientation" : {
-        "yaw" : 0.0,
-        "pitch" : 0.0,
-        "roll" : 0.0
-      },
-      "bridgeRelationship" : {
-        "relationType" : "ACTUAL_SOURCE_ON_BRIDGE",
-        "bridgePkOn" : 101,
-        "bridgePkAbove" : -1
-      }
-    },
-    "receiver" : {
-      "receiverIndex" : -1,
-      "receiverPk" : 1,
-      "position" : {
-        "x" : 70.0,
-        "y" : 10.0,
-        "z" : 4.0
-      }
-    },
-    "period" : "",
-    "levels" : [ -38.28637791055846, -39.91824252837836, -42.011884021752635, -44.476425397375024, -47.24313880901, -50.41528803481006, -54.668626389502165, -62.4047100425107 ]
-  }, {
-    "source" : {
-      "li" : 10.0,
-      "sourceIndex" : -1,
-      "sourcePk" : 1,
-      "position" : {
-        "x" : 12.0,
-        "y" : 10.0,
         "z" : 4.45
       },
       "orientation" : {
@@ -102,5 +70,37 @@
     },
     "period" : "",
     "levels" : [ -44.13638645031392, -47.49607600380379, -51.74169026437755, -56.69118647080326, -62.1718504626574, -68.19584144182012, -75.37707366133462, -84.49445564944924 ]
+  }, {
+    "source" : {
+      "li" : 10.0,
+      "sourceIndex" : -1,
+      "sourcePk" : 1,
+      "position" : {
+        "x" : 12.0,
+        "y" : 10.0,
+        "z" : 5.5
+      },
+      "orientation" : {
+        "yaw" : 0.0,
+        "pitch" : 0.0,
+        "roll" : 0.0
+      },
+      "bridgeRelationship" : {
+        "relationType" : "ACTUAL_SOURCE_ON_BRIDGE",
+        "bridgePkOn" : 101,
+        "bridgePkAbove" : -1
+      }
+    },
+    "receiver" : {
+      "receiverIndex" : -1,
+      "receiverPk" : 1,
+      "position" : {
+        "x" : 70.0,
+        "y" : 10.0,
+        "z" : 4.0
+      }
+    },
+    "period" : "",
+    "levels" : [ -38.28637791055846, -39.91824252837836, -42.011884021752635, -44.476425397375024, -47.24313880901, -50.41528803481006, -54.668626389502165, -62.4047100425107 ]
   } ]
 }

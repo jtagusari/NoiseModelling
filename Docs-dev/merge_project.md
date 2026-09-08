@@ -743,12 +743,17 @@ under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響
 **`(x, y, zGround)` の地形点 1 点のみ**を追加し、天端 z は入れない。UPWARD（高欄など ray が上越えする縁）は
 従来どおり `(zGround, z, zGround)` の薄スクリーン形。`OTHER` も従来どおり。
 
-- `fix`: `expandCutPointsToElevationProfile` の `CutPointWall` 分岐先頭に
-  `pnt instanceof CutPointBridgeWall && DOWNWARD` ガード → 地形点のみ。`TBC*_attenuation_output.json` golden 再生成。
+- `fix`: `expandCutPointsToElevationProfile` の `CutPointWall` 分岐の**直前**に専用 `else if`
+  （`pnt instanceof CutPointBridgeWall && getWallDirection()==DOWNWARD && getBridgePk()!=bridgePkOn`）→
+  `(x, y, zGround)` 地形点のみ、`lastZ` は更新、`lastGroundZ=NaN`。音源が乗っているデッキ
+  （`getBridgePk()==bridgePkOn`）は従来どおり素の `CutPointWall` 分岐へ落とす。
 - v2: `computePtsGround` の「音源が乗っていないデッキ」`else` 分岐を DOWNWARD／それ以外で分ける。
   `7d17821b`（fix 中間版への追随）は撤回。
-- 影響 golden: DOWNWARD 橋壁を含む cut profile を投入する全 TBC（imaginary / mirror 系）。
-  絶対値がわずかに動くが、`fix` の再生成 golden と v2 が一致。TC01–TC28（非橋）は不変。
+- 影響 golden（`fix`、2026-09-08 再生成）: `TBC01/04/07/09/10/11/12/20/21/30/31_attenuation_output.json`。
+  大半は `cfH`/`cfF` が 0.02–1.1 動くのみで最終 `L` は不変。実レベルが動くのは **TBC31 path0
+  （IMAGINARY 音源）の +0.5 dB**＝本件で問題にしていた残差そのもの（全帯域で解消側に動く）。
+  TBC12/TBC31 は `verticesSoundLevel` の並び順が変わるが同フィールドは非アサート。
+  `PathFinderBridgeTest`（cut 点のみ格納・不変）、TC01–TC28（非橋）は不変。
 
 ---
 

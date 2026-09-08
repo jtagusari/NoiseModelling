@@ -321,17 +321,27 @@ public class CutProfile {
                     bridgePkOn = property.getBridgePkOn();
                 }
 
+            } else if (pnt instanceof CutPointBridgeWall
+                    && ((CutPointBridgeWall) pnt).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD
+                    && ((CutPointBridgeWall) pnt).getBridgePk() != bridgePkOn) {
+                // Deck underside edge of a deck the source is not on: at this point the deck is
+                // above the ray, so its top elevation is not part of the ground-surface profile.
+                // Contribute only the terrain point (no deck-edge spike).
+                elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
+                lastZ = pnt.getCoordinate().z;
+                lastGroundZ = Double.NaN;
+
             } else if (pnt instanceof CutPointWall) {
                 // Z ground profile must add intermediate ground points before adding the top level of building/wall/bridge
                 CutPointWall wallPoint = (CutPointWall) pnt;
-                
+
                 if (isEnteringPoint(wallPoint) || isWall(wallPoint)) {
                     elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = true;
                 }
 
                 elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getCoordinate().z));
-                
+
                 if (isExitingPoint(wallPoint) || isWall(wallPoint)) {
                     elevationProfileCoordinates.add(new Coordinate(pnt.getCoordinate().x, pnt.getCoordinate().y, pnt.getzGround()));
                     overArea = false;
