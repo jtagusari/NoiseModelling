@@ -496,7 +496,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
 | **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20 を 0.2 dB 以内再現、TBC12 は bit 一致。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ TBC31（複合実 DEM ~13dB）／ TBC02 path 1（ACTUAL 薄壁 ~3dB）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可） |
+| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ TBC31 imaginary path 残 ~0.5dB（実 DEM mean-plane）／ TBC02 path 1（ACTUAL 薄壁 ~3dB）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可）。TBC31 の actual/mirror/not_related は 2026-09-08 に解消 |
 
 ### 直近のタスク（v1 完了後）
 
@@ -614,10 +614,16 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
   - TBC12 homogeneous golden **bit 一致**、favourable 0.04 dB 以内。
   - TBC13（mirror BT）golden 0.2 dB 以内。
   - TBC03 は BT 実装で解消 → asserted CASES に昇格。TBC02 は golden path 0（imaginary）のみ assert。
-  - **assert 済: TBC01, TBC02(imaginary), TBC03, TBC07, TBC11, TBC12, TBC13, TBC20。**
+  - **TBC31（複合実 DEM）** — 2026-09-08 に 2 バグ修正（`210c44b1` `9548c63f`）: ①デッキ端が
+    プロファイル最高点で hull に自然に乗ると DIFB 誤認 → 偽 BT。`fix` に合わせ橋壁を hull から除去。
+    ②splice 後の後半（edge→受音点）を再 hull していなかった → mirror 経路が単独 DIFB。`upperHullAfter` 追加。
+    結果: actual / mirror(BT) / not_related は golden 0.2 dB 以内で **assert**、imaginary のみ ~0.5 dB
+    （単独壁回折の実 DEM mean-plane 差、BT 非依存）。
+  - **assert 済: TBC01, TBC02(imaginary), TBC03, TBC07, TBC11, TBC12, TBC13, TBC20,
+    TBC31(actual/mirror/not_related)。**
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（`DIFB` 点なし／`bridge{Bottom,Top}Route` 非 null／
-`IMAGINARY`・`MIRROR` 関係／`hasBridges()`）。emission 66 / pathfinder 252 / propagation 60 / jdbc 59 /
+`IMAGINARY`・`MIRROR` 関係／`hasBridges()`）。emission 66 / pathfinder 252 / propagation 63 / jdbc 59 /
 scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`aDif` に加算分岐（`DIFB` 条件下のみ）。
 
 #### `fix` の機能を完全再現するために残っているステップ（2026-09-08 棚卸し）
@@ -652,11 +658,10 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    - **これが無い間**: 構造物音は v1 の `Structural_noise_from_bridge` → `BRIDGE_STRUCT_LW` 別テーブルで代替可能
      （デッキ中心線・デッキ高に置かれる。`fix` は soffit）。機能としては動く。
 
-2. **TBC31（複合実 DEM）** — imaginary ~13 dB / mirror ~6 dB / not-related ~3 dB 乖離。
-   TutoBridge の DEM 地面プロファイルが BT サブ経路 split（`computeBridgeBottomTopRoutes` の
-   `deltaB` vs `deltaH` 判定・`newCutProfile*` の傾斜地面切り出し）と干渉。合成 TBC12/13 では平坦地面なので踏まない。
-   要調査: 傾斜 DEM 上で `newCutProfileAfterBottomEdge` の「エッジを音源に差し替え」後の
-   `computePts2DGround` が `fix` と一致するか。
+2. **TBC31 imaginary path（~0.5 dB）** — 単独壁回折（`[SRCE DIFH RECV]`、BT 非依存）。
+   実 DEM の傾斜地面上で `computePts2DGround` の mean-plane が `fix` とわずかに異なる。
+   63 Hz で 0.5 dB、8 kHz で 0.18 dB。actual / mirror(BT) / not_related は 2026-09-08 の
+   `210c44b1`（DIFB 誤マーク）＋ `9548c63f`（後半 re-hull）で golden 一致。
 
 3. **TBC02 golden path 1（ACTUAL、~3 dB）** — デッキ外縁を薄壁として回折する ACTUAL 経路。
    `fix` の `aDif` はデッキ幾何（`CutPointBridgeWall`）で δ を計算、upstream は cut point を素の薄スクリーン扱い。
