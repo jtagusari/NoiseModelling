@@ -1,6 +1,6 @@
 <!-- DRAFT PR (v2) — base: the v1 bridge PR branch (jtagusari:feat/bridge-v1), NOT main.
      head: jtagusari/NoiseModelling : feat/bridge-v2
-     Title: feat: bridge v2 — deck-underside reflection + bottom+top diffraction
+     Title: feat: bridge v2 — deck-underside reflection, bottom+top diffraction, structural-noise split
      Open as: Draft, stacked on the v1 PR.
      Commits (the fix()/test() below fold into the feat() they correct before opening):
        feat(pathfinder): bridge source-relationship plumbing + mirror source
@@ -9,22 +9,29 @@
        fix(propagation): only mark a spliced deck edge as DIFB   [-> BT commit]
        fix(propagation): re-hull the after-portion when splicing   [-> BT commit]
        fix(pathfinder): keep the deck underside edge out of the ground profile   [-> pathfinder commit]
-       test(propagation): resync TBC02 bridge golden fixture from the fork   [-> pathfinder commit] -->
+       test(propagation): resync TBC02 bridge golden fixture from the fork   [-> pathfinder commit]
+       fix(pathfinder): copy the processed bridge wall segment before mutating its Z
+       feat: bridge structural noise via an EMISSION_TYPE split
+       feat(scripts): Structural_noise_from_bridge emission-type output mode -->
 
 ## Context
 
 **Step 3 of the bridge feature**, stacked on the v1 PR (`feat/bridge-v1`).
 
 v0 treats the deck as a passive over-the-top screen; v1 adds on-deck source
-elevation and ASJ structural noise. Both leave receivers *below or beside* the
-structure unmodelled. v2 adds those paths:
+elevation and the ASJ structural spectrum (as a separate table). Both leave
+receivers *below or beside* the structure unmodelled, and the structural
+spectrum is not yet placed at the deck. v2 adds:
 
 1. a source below a deck gets a **mirror image across the deck underside** —
    the deck soffit reflecting road noise;
 2. an imaginary/mirror source whose straight line to the receiver is blocked
    by a deck edge diffracts **around the deck body** — under the lower edge
    (a new `DIFB` point type) and back over the next obstacle's upper edge —
-   the *bottom+top* (BT) route.
+   the *bottom+top* (BT) route;
+3. an **`EMISSION_TYPE` split** — a source on a deck is emitted twice, traffic
+   noise at deck level and structural noise at the deck underside, keyed on the
+   same source pk, with a gate routing each spectrum to its point.
 
 `AttenuationCnossos` builds diffraction from the **upper** convex hull only, so
 an under-then-over route has no representation there today. v2 adds it as
@@ -66,16 +73,42 @@ branch is guarded by `hasBridges()` / a non-null `bridgeRelationship`.
 through upstream's pipeline and asserts the fork's stored global attenuation
 (`aGlobalH`) is reproduced within 0.2 dB.
 
-## Scope decision: structural noise stays a separate source
+### `fix(pathfinder): copy the processed bridge wall segment before mutating its Z`
 
-The fork models bridge structural noise as an `IMAGINARY_SOURCE_UNDER_BRIDGE`
-placed at the deck soffit, selected through an `EMISSION_TYPE` column and an
-emission-type acceptance gate. v2 **does not port that split** — bridge
-structural noise remains v1's opt-in `Structural_noise_from_bridge` /
-`BRIDGE_STRUCT_LW` separate source table. v2's `IMAGINARY_SOURCE_UNDER_BRIDGE`
-handling is therefore the **propagation geometry only** (the BT route); it
-activates when a cut profile genuinely carries such a source. Wiring the
-emission-type split is deferred (see "Still to come").
+`createBridgeCutPoint` passed the processed bridge wall's own `LineSegment` into
+`CutPointBridgeWall`, whose `modifyIntersectionHeight` rewrites `p0`/`p1` Z in
+place. The processed walls are shared across every `getProfile` call, so a Z one
+profile wrote (a DOWNWARD deck-underside edge at `deck − thickness`, for an
+imaginary/mirror source) leaked into the next profile reusing that wall (an
+UPWARD parapet edge at `deck + barrier`, for an actual on-deck source), turning
+the shielding parapet into a non-obstructing edge. Fix: pass a fresh
+`LineSegment` copy. Latent in the fork too; surfaces once a scene has both an
+imaginary/below-deck and an actual on-deck source over one deck.
+
+### `feat: bridge structural noise via an EMISSION_TYPE split`
+
+A source on a deck radiates traffic noise at deck level **and** structural
+(deck/girder) noise at the deck underside. This wires the fork's split onto the
+upstream structure — the ASJ structural spectrum itself is unchanged (v1's
+`RoadAsj`):
+
+| change | detail |
+|---|---|
+| `SceneWithEmission.PeriodEmission` + new `input/EmissionType.java` | each emission row carries a `ROAD` / `BRIDGE` kind. An optional `EMISSION_TYPE` column on an LW emission table sets it; an absent column means `ROAD`, so existing scenes are unchanged. (The fork maps absent → a permissive `NULL`; `ROAD` avoids a latent double count on a raw LW table over a bridge.) |
+| `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable` | routes `ROAD` rows to the `ACTUAL_SOURCE_ON_BRIDGE` / `MIRROR_SOURCE` point and `BRIDGE` rows to the `IMAGINARY_SOURCE_UNDER_BRIDGE` point; a `BRIDGE` row on a source not on a deck is dropped. `ROAD ≠ BRIDGE`, so it is a no-op unless a deck source and a `BRIDGE` row both exist. |
+| `PathFinder.addBridgeVirtualSources` | appends the deck-underside imaginary point for each on-deck source (same `sourcePk`, z at `soffit − 0.05`). With no `BRIDGE` row the gate keeps it silent — the reason the earlier auto-gen was removed, now safe. |
+
+`BridgeStructuralNoiseTest`: `BOTH` equals the energy sum of the `ROAD`-only and
+`BRIDGE`-only runs (no double count, no cross-routing); a `BRIDGE` row with no
+deck is dropped. `BridgeNoiseMapTest` (red under the earlier auto-gen) is green.
+
+### `feat(scripts): Structural_noise_from_bridge emission-type output mode`
+
+Default is unchanged — the ASJ deck spectrum goes to a separate
+`BRIDGE_STRUCT_LW` line-source table. New: set `emissionTable` + `tableSources`
+(road sources with a `BRIDGE_PK` column) and the spectrum is appended to that
+existing emission table as `EMISSION_TYPE='BRIDGE'` rows, one per (on-deck road
+source, period). The two modes are mutually exclusive.
 
 ## Validation
 
@@ -97,7 +130,7 @@ replays those fixtures plus two synthetic BT cases added to the fork:
 - the TC01–TC28 CNOSSOS reference cases pass with unchanged per-band goldens;
 - `AttenuationCnossos.aBoundary` / `aDif` gain a branch entered only when a
   `DIFB` point is present;
-- pathfinder 252, propagation 61, emission 66, jdbc 59, scripts 100 (4
+- pathfinder 252, propagation 61, emission 66, jdbc 61, scripts 100 (4
   pre-existing skips). No regression.
 
 **`TBC02` path 1** (ACTUAL, source on the deck, receiver below and beside) sits
@@ -108,11 +141,12 @@ below the O→R mean plane, where upstream's `aDif` applies the CNOSSOS-EU
 Upstream is the more CNOSSOS-correct value — nothing to port. The imaginary path
 (the main under-deck contribution) matches exactly.
 
-## Still to come (v2.2)
+## Still to come
 
-- **Structural noise as `IMAGINARY_SOURCE_UNDER_BRIDGE`** — the fork's
-  `EMISSION_TYPE` + emission-type acceptance gate, so the structural spectrum
-  is auto-placed at the deck soffit instead of a separate table.
+- **ROAD/BRIDGE in one pass** — `Road_Emission_from_Traffic` could emit both
+  spectra at once (the fork does); today the `BRIDGE` spectrum comes from
+  `Structural_noise_from_bridge` appending to the LW emission table. Traffic-flow
+  input modes do not yet produce an `EMISSION_TYPE`.
 - **Stacked decks** — `spliceBridgeBottomEdge` handles one downward edge; the
   fork re-hulls recursively for two or more (3+ level viaducts with a source
   below all of them). No `TBC*` covers this; two-deck cases (TBC20/21) have a

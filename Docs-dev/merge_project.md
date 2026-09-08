@@ -10,7 +10,7 @@
 > v0（デッキ=上越え衝立、propagation 無改修）= `feat/bridge`、`origin` push 済。
 > v1（on-deck 標高 ＋ ASJ 構造物音・別テーブル）= `feat/bridge-v1`、未 push。
 > v2（ミラー音源 ＋ BT 回折、方式 A ＝ ガード付き splice、`*Ext` フォーク無し）= `feat/bridge-v2`、未 push。
-> 残: v2.2（構造物音の soffit 自動配置 = `fix` の emission-type 分離、§4.y）。詳細 → §4.x 末尾の棚卸し。
+> v2.2（構造物音の soffit 配置 = option 1）まで完了（§4.aa、2026-09-08）。詳細 → §4.x 末尾の棚卸し。
 
 ---
 
@@ -496,7 +496,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
 | **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可）。TBC31 は全 4 経路 2026-09-08 に解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2） |
+| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。残: 多段スタック・favourable BT（動作に影響せず、単段では現状可）、v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
 
 ### 直近のタスク（v1 完了後）
 
@@ -513,7 +513,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
    さらに **v2 draft PR**（base = `feat/bridge-v1`、本文 = [bridge_v2_pr_body.md](bridge_v2_pr_body.md)）を stacked 投稿。
 7. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
 8. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
-9. ✅ **v2 の BT 実装**（2026-09-08 完了、§4.x）。次は必要なら **v2.2**（構造物音 soffit 配置 = option 1）。
+9. ✅ **v2 の BT 実装**（2026-09-08、§4.x）＋ **v2.2 option 1**（構造物音 soffit 配置、§4.aa）。
 
 > 環境: この session 中、作業ツリーが繰り返し破壊された（phantom staging・`git checkout` の
 > "unable to update HEAD"）。原因 = **pCloud**（2026-09-07 に本人が修正）。修正後のフルクリーン回帰は
@@ -645,20 +645,14 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 - 検証: TBC01 / 02(imaginary) / 03 / 07 / 11 / 12 / 13 / 20 / **31（全 4 経路）** を golden 0.2 dB 以内
   （TBC12 は bit 一致）。実 DEM の複合シーン TBC31 も含め、BT・単独回折とも `fix` と一致。
 
-**❌ 未再現 — v2.2 の残タスク（大きい順）:**
+**残タスク:**
 
-1. **構造物音を `IMAGINARY_SOURCE_UNDER_BRIDGE` として自動配置（option 1、§4.y）** — `fix` の中核。
-   - `SourceEmission.EmissionType`（ROAD / BRIDGE）enum を追加。
-   - `SceneWithAttenuation.doAddSourceDb`: SOURCE 行の `EMISSION_TYPE` 列で `ROAD`→`ACTUAL_SOURCE_ON_BRIDGE` /
-     `BRIDGE`→`IMAGINARY_SOURCE_UNDER_BRIDGE` を割り当て。
-   - `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable`: `IMAGINARY_SOURCE_UNDER_BRIDGE` は
-     `EmissionType.ROAD` を拒否し `BRIDGE` のみ受ける（`ACTUAL_SOURCE_ON_BRIDGE` は逆）。
-   - `PathFinder.addBridgeVirtualSources` に `IMAGINARY_SOURCE_UNDER_BRIDGE` の soffit 点自動生成を復活
-     （`3b7c3ffd` で撤去した分。今度は emission gate 付きなので道路 LW にはならない）。
-   - `Road_Emission_from_Traffic.groovy` / `RoadAsj.evaluateBridgeVirtualSource` で BRIDGE スペクトルの
-     emission 行を生成する経路。
-   - **これが無い間**: 構造物音は v1 の `Structural_noise_from_bridge` → `BRIDGE_STRUCT_LW` 別テーブルで代替可能
-     （デッキ中心線・デッキ高に置かれる。`fix` は soffit）。機能としては動く。
+1. ✅ **構造物音を `IMAGINARY_SOURCE_UNDER_BRIDGE` として自動配置（option 1）** — 2026-09-08 実装完了。
+   `input/EmissionType` ＋ `PeriodEmission.emissionType` ＋ 任意列 `EMISSION_TYPE`、
+   `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable` ゲート、`PathFinder.addBridgeVirtualSources`
+   の裏面 IMAGINARY 点復活、`Structural_noise_from_bridge` の emission-type 出力モード（§4.aa）。
+   残（v2.3）: `Road_Emission_from_Traffic` での ROAD/BRIDGE 同時生成、traffic-flow 入力モードからの
+   `EMISSION_TYPE` 生成。
 
 2. ~~**TBC02 golden path 1（ACTUAL、~3 dB）**~~ → **対応不要（v2 が正しい、2026-09-08 計装で判明）。**
    TBC02 path 1（音源がデッキ上、受音点がデッキ下方＝`OTHER` 橋壁を回折）の ~2.6 dB 差は、
