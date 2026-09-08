@@ -8,7 +8,7 @@
        test(propagation): TBC bridge attenuation golden harness
        fix(propagation): only mark a spliced deck edge as DIFB   [-> BT commit]
        fix(propagation): re-hull the after-portion when splicing   [-> BT commit]
-       fix(pathfinder): match fix's deck-edge ground-profile point order   [-> pathfinder commit] -->
+       fix(pathfinder): keep the deck underside edge out of the ground profile   [-> pathfinder commit] -->
 
 ## Context
 

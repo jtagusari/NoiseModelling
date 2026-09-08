@@ -495,8 +495,8 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 |---|---|---|---|
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
-| **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20 を 0.2 dB 以内再現、TBC12 は bit 一致。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ TBC02 path 1（ACTUAL 薄壁 ~3dB）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可）。TBC31 は全 4 経路 2026-09-08 に解消 |
+| **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
+| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ TBC02 path 1（ACTUAL 薄壁 ~3dB）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可）。TBC31 は全 4 経路 2026-09-08 に解消（§4.z） |
 
 ### 直近のタスク（v1 完了後）
 
@@ -618,8 +618,9 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
     ① `210c44b1` デッキ端がプロファイル最高点で hull に自然に乗ると DIFB 誤認 → 偽 BT。橋壁を hull から除去。
     ② `9548c63f` splice 後の後半（edge→受音点）を再 hull していなかった → mirror 経路が単独 DIFB。`upperHullAfter` 追加。
     ③ DOWNWARD 橋壁（デッキ下面エッジ）を地盤標高プロファイルに入れる扱いの是正（§4.z）。imaginary 経路の
-    S→O 平均面のずれ ~0.5 dB を解消。**`7d17821b`（fix の `(天端, 地形)` に寄せる中間版）は物理的に不適切と
-    判明したため撤回**、`fix`・v2 とも「DOWNWARD 橋壁は地形点のみ、天端を地盤に入れない」に統一。
+    S→O 平均面のずれ ~0.5 dB を解消。`fix`・v2 とも「DOWNWARD 橋壁は地形点のみ、天端を地盤に入れない」に統一
+    （v2 `84ced451` ＝ 旧 `7d17821b` を amend、`fix` `e4300320`）。旧 `7d17821b`（fix の `(天端, 地形)`
+    2 点順に寄せる中間版）は「天端が地盤に入る」点で同じく不適切だったため置換。
   - **assert 済: TBC01, TBC02(imaginary), TBC03, TBC07, TBC11, TBC12, TBC13, TBC20, TBC31（全 4 経路）。**
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（`DIFB` 点なし／`bridge{Bottom,Top}Route` 非 null／
@@ -747,8 +748,10 @@ under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響
   （`pnt instanceof CutPointBridgeWall && getWallDirection()==DOWNWARD && getBridgePk()!=bridgePkOn`）→
   `(x, y, zGround)` 地形点のみ、`lastZ` は更新、`lastGroundZ=NaN`。音源が乗っているデッキ
   （`getBridgePk()==bridgePkOn`）は従来どおり素の `CutPointWall` 分岐へ落とす。
-- v2: `computePtsGround` の「音源が乗っていないデッキ」`else` 分岐を DOWNWARD／それ以外で分ける。
-  `7d17821b`（fix 中間版への追随）は撤回。
+- v2: `computePtsGround` の「音源が乗っていないデッキ」`else` 分岐を `getWallDirection()` で分ける
+  — DOWNWARD → 地形点 1 点のみ、UPWARD/OTHER → `(zGround, z, zGround)`。
+  旧 `7d17821b`（fix の 2 点順に寄せる中間版）を amend して `84ced451` に置換
+  （TBC31 全 4 経路 assert の test 変更はそのまま保持）。
 - 影響 golden（`fix`、2026-09-08 再生成）: `TBC01/04/07/09/10/11/12/20/21/30/31_attenuation_output.json`。
   大半は `cfH`/`cfF` が 0.02–1.1 動くのみで最終 `L` は不変。実レベルが動くのは **TBC31 path0
   （IMAGINARY 音源）の +0.5 dB**＝本件で問題にしていた残差そのもの（全帯域で解消側に動く）。
