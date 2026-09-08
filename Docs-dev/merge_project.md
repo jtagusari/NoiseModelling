@@ -496,7 +496,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
 | **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ TBC02 path 1（ACTUAL 薄壁 ~3dB）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可）。TBC31 は全 4 経路 2026-09-08 に解消（§4.z） |
+| **v2.2** | 未着手 | 構造物音の soffit 自動配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`、§4.y）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | §4.x「fix の機能を完全再現するために残っているステップ」参照。1 が最大。他は動作に影響せず（別テーブル・単段では現状可）。TBC31 は全 4 経路 2026-09-08 に解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2） |
 
 ### 直近のタスク（v1 完了後）
 
@@ -660,12 +660,14 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    - **これが無い間**: 構造物音は v1 の `Structural_noise_from_bridge` → `BRIDGE_STRUCT_LW` 別テーブルで代替可能
      （デッキ中心線・デッキ高に置かれる。`fix` は soffit）。機能としては動く。
 
-2. **TBC02 golden path 1（ACTUAL、~3 dB）** — デッキ外縁を薄壁として回折する ACTUAL 経路
-   （`OTHER` 橋壁）。`fix` の `aDif` はデッキ幾何（`CutPointBridgeWall`）で δ を計算、upstream は
-   cut point を素の薄スクリーン扱い。BT とは別問題（DIFB 不関与）。imaginary path（デッキ下寄与の
-   主成分）は完全一致。`fix` 側の地盤プロファイルの先頭地形点は §4.z「OTHER」で除去済み（`fix` 0.2 dB
-   低下）だが、v2 の `computePtsGround` は `OTHER` エッジ自体を落としているため 3 dB 差は未解消。
-   v2 の `OTHER` 経路是正（`computePtsGround` ＋ `aDif` のデッキ幾何）がここの本体。
+2. ~~**TBC02 golden path 1（ACTUAL、~3 dB）**~~ → **対応不要（v2 が正しい、2026-09-08 計装で判明）。**
+   TBC02 path 1（音源がデッキ上、受音点がデッキ下方＝`OTHER` 橋壁を回折）の ~2.6 dB 差は、
+   両者で**回折ピボットもスカラー δ（=1.0633）も一致**。全差分は `aDif` 内。**受音点が O→R 平均地盤面より
+   下**にあるため、upstream `aDif` は CNOSSOS-EU 2.5.31/2.5.33 の「音源／受音点が平均面より下」分岐
+   （`deltaDiffSR := deltaDiffSRPrime`、`deltaGroundOR := aGroundOR`）に入る。`fix` の旧 `aDif` にはこの
+   分岐が無く常に平均面上の式を使う。**upstream の方が CNOSSOS 準拠として正しい**ので移植すべきものは無い
+   （移植は退行）。`computePtsGround` に `OTHER` エッジを足しても δ・平均面はほぼ動かず差は残る（試行済み・撤回）。
+   `fix` 側の先頭地形点除去（§4.z「OTHER」、`4ea9ed6e`）は `fix` 内の 0.2 dB アーティファクト是正として別途有効。
 
 3. **多段スタックの DOWNWARD エッジ** — `spliceBridgeBottomEdge` は複数エッジを position 1 に差し込んで
    ソートするだけ。`fix` の `PivotPointCalculator.extractPivotPointsUsingConvexHull` は
@@ -784,10 +786,12 @@ under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響
 - `fix`: `expandCutPointsToElevationProfile` に `getWallDirection()==OTHER` の専用 `else if` を追加。
 - 影響 golden: `TBC02_attenuation_output.json` の path1（ACTUAL 経路）のみ。`cfH` −0.38、
   `aGlobalH`/`L` が全帯域で約 **−0.2 dB**（band0: L 61.26→61.06）。他 TBC・非橋は不変。
-- **v2 未対応**: v2 の `computePtsGround` は `OTHER` エッジを `cutPointBridgePk == bridgePkOn` 分岐で
-  受け `exiting` 以外は何もしない＝**外縁エッジが地盤プロファイルから丸ごと落ちている**。
-  TBC02 path1 の v2↔`fix` ~3 dB 差（§4.x v2.2 #2、`aDif` がデッキ幾何 vs 素の薄スクリーン）とは
-  別問題で、この `fix` 側 0.2 dB 是正では埋まらない。v2 の `OTHER` 経路是正は v2.2 で別途。
+- **v2**: v2 の `computePtsGround` は `OTHER` エッジを `cutPointBridgePk == bridgePkOn` 分岐で
+  受け `exiting` 以外は何もしない＝外縁エッジが地盤プロファイルから落ちている。`fix` に合わせて
+  `(z),(zGround)` を足す試行をしたが、δ も O→R 平均面もほぼ動かず TBC02 path1 の差は残った（撤回）。
+  その ~2.6 dB は `aDif` の実装差（upstream は CNOSSOS 2.5.31/2.5.33 の「受音点が平均面より下」分岐、
+  `fix` の旧 `aDif` は非対応）で、**upstream が正しい**＝移植不要（§4.x #2）。
+  v2 の `BridgeAttenuationGoldenTest` クラス javadoc に計装結果を記録（`b953226c`）。
 
 ---
 

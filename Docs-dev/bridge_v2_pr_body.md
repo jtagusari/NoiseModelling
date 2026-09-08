@@ -100,11 +100,16 @@ replays those fixtures plus two synthetic BT cases added to the fork:
 - pathfinder 252, propagation 61, emission 66, jdbc 59, scripts 100 (4
   pre-existing skips). No regression.
 
+**`TBC02` path 1** (ACTUAL, source on the deck, receiver below and beside) sits
+~2.6 dB below the fork's golden. Instrumentation shows an identical diffraction
+pivot and identical scalar `delta`; the whole difference is that the receiver is
+below the O→R mean plane, where upstream's `aDif` applies the CNOSSOS-EU
+2.5.31/2.5.33 below-mean-plane branch and the fork's older `aDif` does not.
+Upstream is the more CNOSSOS-correct value — nothing to port. The imaginary path
+(the main under-deck contribution) matches exactly.
+
 ## Still to come (v2.2)
 
-- **`TBC02` path 1** (ACTUAL over the deck's outer edge) — ~3 dB: the fork's
-  `aDif` uses the deck geometry where upstream treats the cut point as a plain
-  thin screen. The imaginary path (the main under-deck contribution) matches.
 - **Structural noise as `IMAGINARY_SOURCE_UNDER_BRIDGE`** — the fork's
   `EMISSION_TYPE` + emission-type acceptance gate, so the structural spectrum
   is auto-placed at the deck soffit instead of a separate table.
