@@ -2,13 +2,14 @@
      head: jtagusari/NoiseModelling : feat/bridge-v2
      Title: feat: bridge v2 — deck-underside reflection + bottom+top diffraction
      Open as: Draft, stacked on the v1 PR.
-     Commits (the three fix() below fold into the feat() they correct before opening):
+     Commits (the fix()/test() below fold into the feat() they correct before opening):
        feat(pathfinder): bridge source-relationship plumbing + mirror source
        feat(propagation): bridge bottom+top (BT) diffraction
        test(propagation): TBC bridge attenuation golden harness
        fix(propagation): only mark a spliced deck edge as DIFB   [-> BT commit]
        fix(propagation): re-hull the after-portion when splicing   [-> BT commit]
-       fix(pathfinder): keep the deck underside edge out of the ground profile   [-> pathfinder commit] -->
+       fix(pathfinder): keep the deck underside edge out of the ground profile   [-> pathfinder commit]
+       test(propagation): resync TBC02 bridge golden fixture from the fork   [-> pathfinder commit] -->
 
 ## Context
 
