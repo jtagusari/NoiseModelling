@@ -622,9 +622,17 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
     （v2 `84ced451` ＝ 旧 `7d17821b` を amend、`fix` `e4300320`）。旧 `7d17821b`（fix の `(天端, 地形)`
     2 点順に寄せる中間版）は「天端が地盤に入る」点で同じく不適切だったため置換。
   - **assert 済: TBC01, TBC02(imaginary), TBC03, TBC07, TBC11, TBC12, TBC13, TBC20, TBC31（全 4 経路）。**
+- ✅ **`fix` 本来の（非合成）mirror golden も配線**（2026-09-09、`feat/bridge-v2` `41970376`）。
+  それまで TBC04/05/06/09/10/21 の `_mirror`/`_not_related` fixture は golden test 未配線のまま
+  リポジトリに存在しているだけだった（TBC13 が唯一の mirror BT 検証）。`fix` の
+  `AttenuationComputeOutputCnossosBridgeTest` から fixture を追加コピーして判明:
+  TBC05/06 は DOWNWARD 壁が非遮蔽（直達＋地面、`CASES` 配列で assert）。
+  TBC04/09/10/21 は壁が遮蔽だが下流に障害物が無いため **DIFB 単独**（上端越えを伴わない片側回折）に
+  なる — 新設 `assertDifbGoldenReproduced` で検証、golden と bit 一致。真の下端くぐり→上端越え
+  （BT）の反射版は引き続き TBC13（合成ケース）のみが担保。propagation 61→65 テスト。
 
 **非橋不変:** 全分岐が「橋がなければ偽」の条件でガード（`DIFB` 点なし／`bridge{Bottom,Top}Route` 非 null／
-`IMAGINARY`・`MIRROR` 関係／`hasBridges()`）。emission 66 / pathfinder 252 / propagation 61 / jdbc 59 /
+`IMAGINARY`・`MIRROR` 関係／`hasBridges()`）。emission 66 / pathfinder 252 / propagation 65 / jdbc 59 /
 scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`aDif` に加算分岐（`DIFB` 条件下のみ）。
 
 #### `fix` の機能を完全再現するために残っているステップ（2026-09-08 棚卸し）
@@ -642,8 +650,9 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 - v0: デッキ = 上越え厚スクリーン。v1: デッキ上音源の `CutProfile` 標高、per-point デッキ高、ASJ 構造物音（別テーブル）。
 - v2: BT 回折（imaginary / mirror 音源 → デッキ下端くぐり `DIFB` ＋ 下流障害物上越え `DIFH`）。
   `BridgeService.mirrorRelax` 幾何は `BridgeService` に含まれるので replay 済。
-- 検証: TBC01 / 02(imaginary) / 03 / 07 / 11 / 12 / 13 / 20 / **31（全 4 経路）** を golden 0.2 dB 以内
-  （TBC12 は bit 一致）。実 DEM の複合シーン TBC31 も含め、BT・単独回折とも `fix` と一致。
+- 検証: TBC01 / 02(imaginary) / 03 / 04 / 05 / 06 / 07 / 09 / 10 / 11 / 12 / 13 / 20 / 21 /
+  **31（全 4 経路）** を golden 0.2 dB 以内（TBC12・TBC04/09/10/21 は bit 一致）。実 DEM の複合シーン
+  TBC31 も含め、BT・単独回折・非合成 mirror 回折とも `fix` と一致。
 
 **残タスク:**
 
