@@ -877,6 +877,37 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 - `fix` 側にも `986d8ad6` の共有壁コピーを入れる（`fix` も同じ潜在バグ持ち。TBC は直列化 cut profile
   投入なので顕在化していない）。
 
+#### BRIDGE_PK による音源→デッキ高さの引き継ぎ（2026-09-09 実装・`feat/bridge-v2` `848ba0a2`）
+
+`Road_Emission_from_Traffic` → `Noise_level_from_source` の実運用パイプラインを調査したところ、
+デッキ上の音源が正しく `ACTUAL_SOURCE_ON_BRIDGE` に分類されない**実運用上の穴**が見つかった:
+
+- `Road_Emission_from_Traffic` は音源の Z を無条件に `ST_UpdateZ(geom, 0.05d)` で 0.05m に強制上書き
+  （CNOSSOS道路音源の慣習）。元のROADSテーブルでデッキ高さをZに入れていても消える。
+- `Noise_level_from_source` 側の相対→絶対Z変換（`confSourcesZIsAltitude=false`、既定）は
+  `ProfileBuilder.offsetCoordinateToAltitudeUsingDigitalElevationModel` = `z + getZGround(coord)`で
+  **DEM地表面のみ**。橋を一切考慮しないため、デッキ上の音源のつもりが地表付近に配置される。
+- 橋を考慮した絶対高さ変換 `ElevationConverter.calculateAbsoluteElevation` は既に実装済みだったが、
+  **本番コードのどこからも呼ばれていなかった**（死んだコード、`grep`で呼び出しゼロを確認）。
+
+**採用方針:** `fix` の `HEIGHT_TYPE`（相対/絶対の行単位フラグ）はそのまま持ち込まない
+（upstreamの`confSourcesZIsAltitude`というシーン全体のグローバルフラグは既存のまま維持、
+コアクラスへの変更を最小限にする方針に合わせる）。代わりに、v1 の `Structural_noise_from_bridge`
+の `tableSources` が既に使っている **`BRIDGE_PK` 列という規約**を本流にも拡張。列は任意・追加的
+（無ければ従来通りDEM基準、非橋シーンに回帰なし）:
+
+- `Road_Emission_from_Traffic`: 入力ROADSテーブルに`BRIDGE_PK`列があれば`LW_ROADS`にコピー
+  （既存の`IDSOURCE`と同じ扱い）。
+- `ProfileBuilder.makeGeometryRelativeZToAbsoluteOnBridge`（新規）: 該当橋のデッキ高さを基準に
+  相対Zを解決。`DefaultTableLoader.fetchCellSource`が音源行の`BRIDGE_PK`（非NULL）を見て
+  DEM版の代わりにこちらを呼ぶ。
+- 新規テスト `TestNoiseLevelFromBridge#bridgePkCarriesTheDeckHeightThroughRoadEmissionFromTraffic`:
+  同じ交通量ROADSテーブルを`BRIDGE_PK`ありなしで`Road_Emission_from_Traffic`→`Noise_level_from_source`
+  にフル投入し、LEQが11.5dB以上変わることを確認（`BRIDGE_PK`なしだと音源がデッキ footprint 内の
+  地表面＝`IMAGINARY_SOURCE_UNDER_BRIDGE`扱いになり低周波寄りの地面効果減衰を受け、`BRIDGE_PK`ありだと
+  デッキ高さ＝`ACTUAL_SOURCE_ON_BRIDGE`でその減衰を免れる方が値が大きくなる、という向き）。
+  scripts 101→102、他モジュール回帰ゼロ。
+
 ---
 
 ### 4.z 橋壁の向きと地盤標高プロファイル（2026-09-08 決定・`fix` も是正）
