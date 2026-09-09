@@ -496,7 +496,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
 | **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.x #3）。✅ **テストカバレッジ監査完了**（2026-09-09）: TBC04-31 の残り全て移植（propagation 65）＋ BT×構造物音の統合テスト追加（jdbc 62）。残: favourable BT 曲線経路の精度向上（次に着手）、v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
+| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.x #3）。✅ **テストカバレッジ監査完了**（2026-09-09）: TBC04-31 の残り全て移植（propagation 65）＋ BT×構造物音の統合テスト追加（jdbc 62）。✅ **favourable BT 曲線経路の~0.04-0.05dBずれは対応不要と結論**（2026-09-09、upstream/fix の一般的な favourable 実装方針の違いに起因、TBC02 と同種）。**v2.2 は実質完了**。残: v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
 
 ### 直近のタスク（v1 完了後）
 
@@ -695,10 +695,28 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    出るまでは着手せず、**既知の制限として本ドキュメントに記録するに留める**。2層（TBC20/21 相当）は
    音源自身の橋の1エッジのみで完結するため現状で問題なし。
 
-4. **favourable 条件の BT 曲線経路** — TBC12/13 の favourable が golden と ~0.04–0.05 dB ずれる
-   （`topRoute.delta` が 0.498 vs 0.493 等）。`deltaF`（曲線経路差）を BT サブ経路で厳密化していない。
-   EPS 0.2 dB 内なので assert は通るが bit 一致ではない。**次に着手する項目**（2026-09-09、多段スタックより
-   優先。既存 golden があり fix 側の追加作業が不要なため）。
+4. **favourable 条件の BT 曲線経路 — 対応不要と結論（2026-09-09 調査）**
+
+   TBC12/13 の favourable が golden と ~0.04–0.05 dB ずれる（`topRoute.delta` が 0.498 vs 0.493 等）。
+   EPS 0.2 dB 内なので assert は通るが bit 一致ではない。原因を調査した結果:
+
+   - **SR セグメントレベルの `zsF`/`zrF` 補正式（`ALPHA0`/`deltaZT`/`deltaZS`/`deltaZR`）は
+     `feat/bridge-v2`（`CnossosPathBuilder.computeSegment`）と `fix`（`CnossosSegmentComputer`）で
+     完全に同一** ── 変数名まで一致。
+   - **`DistanceDifferenceCalculator.java`（delta 計算の核）は `fix` から verbatim 移植済み**で同一。
+   - 差の出どころは別: `feat/bridge-v2`（= upstream 由来）は favourable 時に `CurvedProfileGenerator`
+     でプロファイル上の**全カット点の座標そのものを幾何学的に曲げて**（Harmonoise/CNOSSOS
+     Eq.2.5.24-25 の円弧近似、曲率半径 `max(1000, 8*d)` の `d` は**処理中の経路自身の距離**）から
+     凸包・回折点判定を行う。`fix` には対応するクラスが無く、曲率補正は経路長への解析的補正として
+     のみ適用されているとみられ、プロファイル座標自体は曲げていない。
+   - つまり BT 固有のバグではなく、**favourable 条件をどう表現するかという upstream と `fix` の
+     一般的な（橋に限らない）実装方針の違い**が、距離の短い BT サブ経路で相対的に顕在化しているだけ。
+     TBC02（`aDif` の実装差、upstream の方が CNOSSOS 準拠として正しいと結論・対応不要とした件、
+     §4.x #2）と同じ性質。合わせにいくには橋に関係ない一般の favourable 経路計算そのものに
+     手を入れる必要があり、「upstream の既存クラスへの変更は最小限に」という本プロジェクトの
+     方針に反する。
+
+   **結論: bit 一致を目指さない。現状（EPS 0.2 dB 内で assert 済み）で対応完了とする。**
 
 #### テストカバレッジ監査（2026-09-09）
 
