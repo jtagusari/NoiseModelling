@@ -496,7 +496,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
 | **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。残: 多段スタック・favourable BT（動作に影響せず、単段では現状可）、v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
+| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.x #3）。残: favourable BT 曲線経路の精度向上、v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
 
 ### 直近のタスク（v1 完了後）
 
@@ -672,10 +672,28 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    （移植は退行）。`computePtsGround` に `OTHER` エッジを足しても δ・平均面はほぼ動かず差は残る（試行済み・撤回）。
    `fix` 側の先頭地形点除去（§4.z「OTHER」、`4ea9ed6e`）は `fix` 内の 0.2 dB アーティファクト是正として別途有効。
 
-3. **多段スタックの DOWNWARD エッジ** — `spliceBridgeBottomEdge` は複数エッジを position 1 に差し込んで
-   ソートするだけ。`fix` の `PivotPointCalculator.extractPivotPointsUsingConvexHull` は
-   `downwardBridgeEdges.size() > 1` で再帰的に re-hull する。TBC に 3 層以上の高架＋下部音源のケースが無く未検証。
-   2 層（TBC20/21 相当）は 1 エッジなので現状で可。
+3. **多段スタックの DOWNWARD エッジ — 既知の制限（v2.3 以降に先送り、2026-09-09 調査）**
+
+   当初の見立て（「`PivotPointCalculator` の再帰分岐が未検証なだけ」）は誤りと判明。実際に2本目の橋
+   （Bridge3, centerline x=30, deck z=17）を追加した合成シーンを `fix` 上で組んで検証したところ、
+   **`PivotPointCalculator` に処理が到達する以前の段階**、`BridgeService.setEffectiveBridgeCutPoint()`
+   （橋 cut point のポスト処理）で2本目の橋のエッジが CutProfile から消えることが判明:
+
+   - 音源自身が乗っている／くぐっている橋（`bridgeRelationship` の PK と一致 = `mirrorRelax` 点）だけを
+     **無条件に保持**し、それ以外の「よその橋」は `isPointUnderPath`（音源→受音点の直線に対し上か下か）の
+     簡易判定を通らないと **問答無用で捨てられる**。今回の Bridge3 のエッジはこの判定で「直線より上」と
+     扱われ、`bridgeHeightOn` が更新されないまま次段の `Double.isNaN(bridgeHeightOn)` チェックでも弾かれ、
+     CutProfile に一切現れなかった（`getCutPoints()` で確認）。
+   - つまり「音源が関係する橋は1本だけ」という前提が `BridgeService` に埋め込まれており、
+     `spliceBridgeBottomEdge`／`PivotPointCalculator` の再帰ロジックは事実上デッドコード
+     （生成される CutProfile が複数 DOWNWARD エッジを含むケースが無い）。
+   - `feat/bridge-v2` はこの `BridgeService` を `fix` からバイト一致で replay しているため、同じ制限を
+     そのまま引き継ぐ。
+
+   **対応方針:** `BridgeService.setEffectiveBridgeCutPoint` の「1橋だけ保持」という設計自体の見直しが
+   必要で、当初想定より大きい `fix` コア設計への手戻りを伴う。実務上の必要性（3層以上の高架の実例）が
+   出るまでは着手せず、**既知の制限として本ドキュメントに記録するに留める**。2層（TBC20/21 相当）は
+   音源自身の橋の1エッジのみで完結するため現状で問題なし。
 
 4. **favourable 条件の BT 曲線経路** — TBC12/13 の favourable が golden と ~0.04–0.05 dB ずれる
    （`topRoute.delta` が 0.498 vs 0.493 等）。`deltaF`（曲線経路差）を BT サブ経路で厳密化していない。
