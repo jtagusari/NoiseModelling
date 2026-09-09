@@ -496,7 +496,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 | **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
 | **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
 | **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.x #3）。残: favourable BT 曲線経路の精度向上、v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
+| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.x #3）。✅ **テストカバレッジ監査完了**（2026-09-09）: TBC04-31 の残り全て移植（propagation 65）＋ BT×構造物音の統合テスト追加（jdbc 62）。残: favourable BT 曲線経路の精度向上（次に着手）、v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
 
 ### 直近のタスク（v1 完了後）
 
@@ -697,7 +697,31 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 4. **favourable 条件の BT 曲線経路** — TBC12/13 の favourable が golden と ~0.04–0.05 dB ずれる
    （`topRoute.delta` が 0.498 vs 0.493 等）。`deltaF`（曲線経路差）を BT サブ経路で厳密化していない。
-   EPS 0.2 dB 内なので assert は通るが bit 一致ではない。
+   EPS 0.2 dB 内なので assert は通るが bit 一致ではない。**次に着手する項目**（2026-09-09、多段スタックより
+   優先。既存 golden があり fix 側の追加作業が不要なため）。
+
+#### テストカバレッジ監査（2026-09-09）
+
+`fix` の TBC01〜31 と `feat/bridge-v2` の `BridgeAttenuationGoldenTest` を突き合わせ、
+「`fix`に実装がある機能のうち`feat/bridge-v2`側で golden 未検証のもの」を洗い出した。
+
+- ✅ **TBC08 / TBC30 を移植**（`feat/bridge-v2` `f5fde046`）。`fix` の TBC01〜31 は全て
+  `feat/bridge-v2` の `CASES` 配列 or 専用テストで golden 検証済みになった
+  （TBC08 = `SOURCE_NOT_RELATED_TO_BRIDGE` footprint 外、TBC30 = 実 DEM の壁無し基本シーン、
+  TBC31 はこれに壁と2音源を足したもの）。
+- ✅ **「BT回折 × 実 ASJ 構造物音スペクトル」の統合テストを新規追加**（`feat/bridge-v2` `72d8a6bb`）。
+  従来は `BridgeAttenuationGoldenTest`（幾何・伝搬の正しさ、フラット93dB音源）と
+  `BridgeStructuralNoiseTest`（`EMISSION_TYPE` 振り分けの正しさ、障害物なしシーン）が別々に
+  検証されており、「構造物音源がBT回折を要する障害物越しに正しいASJスペクトルで伝搬するか」の
+  組み合わせが未検証だった。`BridgeStructuralNoiseTest.structuralNoiseDiffractsUnderTheDeckAndOverADownstreamBuilding`
+  を追加: デッキ先の建物の有無で `EMISSION_TYPE='BRIDGE'` のレベルが 66.26→59.72 dB
+  （~6.5 dB の挿入損失）、受音点でなお有意なレベルが残ることを確認 — 2つ目の障害物が
+  実際にモデルへ反映されていること（BT が機能していること）の証拠。jdbc 61→62。
+- **残る非対称性（低優先度、未対応）:** `MIRROR_SOURCE` には近傍受音点ケース（TBC05/06、デッキ上/下）が
+  あるが `IMAGINARY_SOURCE_UNDER_BRIDGE` には無い（TBC07 遠方のみ + TBC12 BT）。BTスプライスの発火条件は
+  両者共通と確認済みなので致命的な穴ではないが、対称性のために追加する価値はある。
+  2橋シーン（TBC20/21相当）の `IMAGINARY`/`NOT_RELATED` 版も同様に無いが、
+  「2橋シーンでも音源自身の橋1本しか効かない」制限（上記§4.x #3）により新しい発見は乏しいため見送り。
 
 ---
 
