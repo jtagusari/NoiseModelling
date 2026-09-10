@@ -184,4 +184,45 @@ class TestStructuralNoiseFromBridge extends JdbcTestCase {
         assertTrue(highGain < 0.5,
                 "structural noise should barely touch 4 kHz: veh=${veh[4000]} tot=${tot[4000]} (gain ${highGain})")
     }
+
+    @Test
+    void emissionTypeModeAppendsBridgeRowsKeyedOnOnDeckRoadSources() {
+        Sql sql = new Sql(connection)
+        buildScene(sql, 300.0, 200.0)
+
+        // two road sources on the deck (BRIDGE_PK = 1), one off it (BRIDGE_PK = NULL)
+        sql.execute("DROP TABLE IF EXISTS ROAD_SOURCES")
+        sql.execute("CREATE TABLE ROAD_SOURCES(PK INT PRIMARY KEY, BRIDGE_PK INT, THE_GEOM GEOMETRY(LINESTRINGZ, 2154))")
+        sql.execute("INSERT INTO ROAD_SOURCES VALUES(10, 1, ST_SetSRID('LINESTRING Z(0 20 8, 50 20 8)'::geometry, 2154))")
+        sql.execute("INSERT INTO ROAD_SOURCES VALUES(11, 1, ST_SetSRID('LINESTRING Z(50 20 8, 100 20 8)'::geometry, 2154))")
+        sql.execute("INSERT INTO ROAD_SOURCES VALUES(12, NULL, ST_SetSRID('LINESTRING Z(0 200 0, 50 200 0)'::geometry, 2154))")
+
+        // an existing emission table with a road row per source and period
+        String freqCols = BANDS.collect { "HZ" + it + " DOUBLE" }.join(", ")
+        String freqNames = BANDS.collect { "HZ" + it }.join(", ")
+        sql.execute("DROP TABLE IF EXISTS SRC_EMISSION")
+        sql.execute("CREATE TABLE SRC_EMISSION(PERIOD VARCHAR, IDSOURCE INT, EMISSION_TYPE VARCHAR, " + freqCols + ")")
+        String zeros = BANDS.collect { "80.0" }.join(", ")
+        [10, 11, 12].each { s -> ["D", "E", "N"].each { p ->
+            sql.execute(("INSERT INTO SRC_EMISSION VALUES('" + p + "', " + s + ", 'ROAD', " + zeros + ")").toString())
+        } }
+
+        def result = new Structural_noise_from_bridge().exec(connection,
+                ["tableBridgePoints": "BRIDGE_POINTS", "tableRoads": "BRIDGE_TRAFFIC",
+                 "emissionTable": "SRC_EMISSION", "tableSources": "ROAD_SOURCES"])
+        assertEquals("SRC_EMISSION", result["result"])
+
+        // ROAD rows untouched: 3 sources x 3 periods
+        assertEquals(9, sql.firstRow("SELECT COUNT(*) c FROM SRC_EMISSION WHERE EMISSION_TYPE = 'ROAD'")["c"] as int)
+        // BRIDGE rows: only the 2 on-deck sources x 3 periods
+        assertEquals(6, sql.firstRow("SELECT COUNT(*) c FROM SRC_EMISSION WHERE EMISSION_TYPE = 'BRIDGE'")["c"] as int)
+        assertEquals(0, sql.firstRow("SELECT COUNT(*) c FROM SRC_EMISSION WHERE EMISSION_TYPE = 'BRIDGE' AND IDSOURCE = 12")["c"] as int)
+
+        // the appended spectrum is the ASJ structural one: low-frequency dominant, finite
+        def r = sql.firstRow("SELECT " + freqNames + " FROM SRC_EMISSION WHERE EMISSION_TYPE = 'BRIDGE' AND IDSOURCE = 10 AND PERIOD = 'D'")
+        double lo = r["HZ63"] as double
+        double hi = r["HZ4000"] as double
+        assertTrue(Double.isFinite(lo) && lo > -100.0 && lo < 130.0, "63 Hz structural level out of range: ${lo}")
+        assertTrue(lo > hi, "structural noise should be louder at 63 Hz (${lo}) than 4 kHz (${hi})")
+    }
 }

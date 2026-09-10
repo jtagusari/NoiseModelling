@@ -93,12 +93,25 @@ public class SceneWithEmission extends SceneWithAttenuation {
             }
             lw[i] = AcousticIndicatorsFunctions.dBToW(rs.getDouble(fieldIndex));
         }
+        EmissionType emissionType = readEmissionType(rs, sourceFieldNames);
         // Check if period field exists use empty string otherwise
         if(!sourceFieldNames.containsKey("PERIOD")) {
-            addSourceEmission(pk, "", lw);
+            addSourceEmission(pk, "", lw, emissionType);
         } else {
-            addSourceEmission(pk, Objects.toString(rs.getString("PERIOD"), ""), lw);
+            addSourceEmission(pk, Objects.toString(rs.getString("PERIOD"), ""), lw, emissionType);
         }
+    }
+
+    /**
+     * Read the optional {@code EMISSION_TYPE} column; absent column or empty value gives
+     * {@link EmissionType#ROAD}. Only meaningful for bridge-deck source splitting.
+     */
+    private static EmissionType readEmissionType(ResultSet rs, Map<String, Integer> sourceFieldNames)
+            throws SQLException {
+        if(!sourceFieldNames.containsKey("EMISSION_TYPE")) {
+            return EmissionType.ROAD;
+        }
+        return EmissionType.fromString(rs.getString("EMISSION_TYPE"));
     }
 
     @Override
@@ -135,7 +148,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
                 }
             }
             if(!missingField) {
-                addSourceEmission(pk, periodFieldName, lw);
+                addSourceEmission(pk, periodFieldName, lw, readEmissionType(rs, sourceFieldNames));
             }
         }
     }
@@ -160,6 +173,14 @@ public class SceneWithEmission extends SceneWithAttenuation {
      * @param wj
      */
     public void addSourceEmission(Long sourcePrimaryKey, String period, double[] wj) {
+        addSourceEmission(sourcePrimaryKey, period, wj, EmissionType.ROAD);
+    }
+
+    /**
+     * Link a source with a period, a spectrum and a kind of noise (only used to route emission to
+     * the right source point for a bridge deck - see {@link EmissionType}).
+     */
+    public void addSourceEmission(Long sourcePrimaryKey, String period, double[] wj, EmissionType emissionType) {
         ArrayList<PeriodEmission> sourceEmissions;
         if(wjSources.containsKey(sourcePrimaryKey)) {
             sourceEmissions = wjSources.get(sourcePrimaryKey);
@@ -167,7 +188,7 @@ public class SceneWithEmission extends SceneWithAttenuation {
             sourceEmissions = new ArrayList<>();
             wjSources.put(sourcePrimaryKey, sourceEmissions);
         }
-        sourceEmissions.add(new PeriodEmission(period, wj));
+        sourceEmissions.add(new PeriodEmission(period, wj, emissionType));
         if(!period.isEmpty()) {
             periodSet.add(period);
         }
@@ -182,10 +203,18 @@ public class SceneWithEmission extends SceneWithAttenuation {
     public static class PeriodEmission {
         public final String period;
         public final double[] emission;
+        /** Kind of noise this row carries; {@link EmissionType#ROAD} unless an {@code EMISSION_TYPE}
+         * column said otherwise. Only consulted for bridge-deck source splitting. */
+        public final EmissionType emissionType;
 
         public PeriodEmission(String period, double[] emission) {
+            this(period, emission, EmissionType.ROAD);
+        }
+
+        public PeriodEmission(String period, double[] emission, EmissionType emissionType) {
             this.period = period;
             this.emission = emission;
+            this.emissionType = emissionType;
         }
     }
 

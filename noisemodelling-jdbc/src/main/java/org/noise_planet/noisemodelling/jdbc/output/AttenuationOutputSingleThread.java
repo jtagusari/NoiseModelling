@@ -12,10 +12,12 @@ package org.noise_planet.noisemodelling.jdbc.output;
 import org.h2gis.api.ProgressVisitor;
 import org.noise_planet.noisemodelling.jdbc.EmissionTableGenerator;
 import org.noise_planet.noisemodelling.jdbc.NoiseMapDatabaseParameters;
+import org.noise_planet.noisemodelling.jdbc.input.EmissionType;
 import org.noise_planet.noisemodelling.jdbc.input.SceneDatabaseInputSettings;
 import org.noise_planet.noisemodelling.jdbc.input.SceneWithEmission;
 import org.noise_planet.noisemodelling.pathfinder.CutPlaneVisitor;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
@@ -283,6 +285,9 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
                 ArrayList<SceneWithEmission.PeriodEmission> emissions = scene.wjSources.get(sourcePk);
                 List<AttenuationOutput>  defaultAttenuation = new ArrayList<>();
                 for (SceneWithEmission.PeriodEmission periodEmission : emissions) {
+                    if (!checkIfEmissionIsAcceptable(source, periodEmission)) {
+                        continue;
+                    }
                     String period = periodEmission.period;
                     // look for specific atmospheric settings for this period
                     if(scene.cnossosParametersPerPeriod.containsKey(period)) {
@@ -328,6 +333,38 @@ public class AttenuationOutputSingleThread implements CutPlaneVisitor {
      */
     private static double getdBGainFreeFied(double distance) {
         return Math.clamp(GAIN_ESTIMATED_FREE_FIELD_PATH_A * Math.log10(distance) + GAIN_ESTIMATED_FREE_FIELD_PATH_B, 3, 10);
+    }
+
+    /**
+     * Bridge-deck source split: a source point sitting on a deck is emitted twice - once as
+     * {@code ACTUAL_SOURCE_ON_BRIDGE} (traffic noise, deck level) and once as
+     * {@code IMAGINARY_SOURCE_UNDER_BRIDGE} (structural noise, deck underside), both keyed on the
+     * same source pk. This routes each emission row to the matching point: {@code ROAD} rows only
+     * to the actual point, {@code BRIDGE} rows only to the imaginary point. A mirror image of a
+     * below-deck source ({@code MIRROR_SOURCE}) is a reflection of the road source, so it takes
+     * {@code ROAD}; a {@code BRIDGE} row on a source not related to any deck is dropped.
+     *
+     * <p>Returns {@code true} for every row when the scene has no bridges (the common case), so
+     * this is a no-op unless a deck source and a {@code BRIDGE} emission row both exist.
+     *
+     * @return {@code true} if this emission row should be emitted for this source point
+     */
+    private static boolean checkIfEmissionIsAcceptable(CutPointSource source, SceneWithEmission.PeriodEmission periodEmission) {
+        BridgeRelationship relationship = source.getBridgeRelationship();
+        if (relationship == null) {
+            return true;
+        }
+        EmissionType emissionType = periodEmission.emissionType;
+        switch (relationship.getRelationType()) {
+            case ACTUAL_SOURCE_ON_BRIDGE:
+            case MIRROR_SOURCE:
+            case SOURCE_NOT_RELATED_TO_BRIDGE:
+                return emissionType != EmissionType.BRIDGE;
+            case IMAGINARY_SOURCE_UNDER_BRIDGE:
+                return emissionType == EmissionType.BRIDGE;
+            default:
+                return true;
+        }
     }
 
     @Override

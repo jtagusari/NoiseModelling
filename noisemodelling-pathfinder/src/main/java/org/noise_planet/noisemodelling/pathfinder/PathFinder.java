@@ -947,13 +947,15 @@ public class PathFinder {
      * LW as the real under-deck source (the fork's emission-type gate also lets {@code MIRROR_SOURCE}
      * take the ROAD spectrum).
      *
-     * <p><b>Not generated here:</b> the {@code IMAGINARY_SOURCE_UNDER_BRIDGE} point under a deck the
-     * source sits on. In the fork that point carries the <em>structural</em> (deck/girder radiated)
-     * noise spectrum, selected via an {@code EMISSION_TYPE} column + {@code checkIfEmissionIsAcceptable}
-     * gate that this branch does not port. Auto-generating it here with the road {@code sourcePk}
-     * would emit a full second copy of the road noise under the deck (see merge_project.md §4.y).
-     * Bridge structural noise is instead supplied as a separate source table via v1's
-     * {@code Structural_noise_from_bridge} / {@code BRIDGE_STRUCT_LW}.
+     * <p><b>Imaginary source</b> — for a source sitting on a deck, a point at the deck underside
+     * (soffit minus {@link ElevationConverter#DEFAULT_SOURCE_HEIGHT_BELOW_BRIDGE}), classified
+     * {@code IMAGINARY_SOURCE_UNDER_BRIDGE}, so a receiver below or beside the deck gets the
+     * diffracted-under-the-deck path. It carries the same {@code sourcePk} as the road source; the
+     * jdbc emission-type gate ({@code AttenuationOutputSingleThread.checkIfEmissionIsAcceptable})
+     * feeds it only {@code EMISSION_TYPE='BRIDGE'} rows (structural / deck-radiated noise), so with
+     * no such row it stays silent and does not duplicate the road noise (see merge_project.md
+     * §4.aa). A separate {@code BRIDGE_STRUCT_LW} source table (v1) remains an alternative and must
+     * not be combined with the {@code EMISSION_TYPE} column.
      *
      * Only called when the scene has bridges.
      */
@@ -962,6 +964,25 @@ public class PathFinder {
         for (SourcePointInfo src : sourceList) {
             if (src.bridgeRelationship != null) {
                 continue; // already a virtual source
+            }
+            // Imaginary source at the underside of the deck a source sits on
+            for (Bridge bridge : data.profileBuilder.getBridges()) {
+                if (!bridge.isPointWithinBridgeFootprint(src.position) || !bridge.isPointOnBridge(src.position)) {
+                    continue;
+                }
+                double deckHeight = bridge.getDeckHeightAtPoint(src.position);
+                double deckThickness = bridge.getDeckThicknessAtPoint(src.position);
+                if (Double.isNaN(deckHeight) || Double.isNaN(deckThickness)) {
+                    continue;
+                }
+                Coordinate soffit = new Coordinate(src.position.x, src.position.y,
+                        (deckHeight - deckThickness) + ElevationConverter.DEFAULT_SOURCE_HEIGHT_BELOW_BRIDGE);
+                SourcePointInfo img = new SourcePointInfo(src.sourceIndex, src.sourcePk, soffit, src.li, src.orientation);
+                img.bridgeRelationship = new org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship(
+                        org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE,
+                        -1L, bridge.getPrimaryKey());
+                virtual.add(img);
+                break;
             }
             // Mirror source across the underside of the lowest deck above a below-deck source
             Bridge mirrorBridge = null;

@@ -32,10 +32,14 @@ import java.sql.Connection
 title = 'Structure-radiated (ASJ) noise emission for bridge decks'
 description = '&#10145;&#65039; Compute the noise radiated by a bridge deck / girders under traffic, using the ' +
         'ASJ RTN-Model 2023 coefficients (by girder + slab type). </br>' +
-        'The deck centre line of each bridge becomes a line source at deck height, carrying a per-period ' +
-        'octave-band emission spectrum. Feed the output as <b>tableSources</b> to <b>Noise_level_from_source</b>, ' +
-        'alongside (or instead of) the vehicles\' own CNOSSOS emission.<hr>' +
-        '&#x2705; The output table is called: <b>BRIDGE_STRUCT_LW</b>'
+        '<b>Separate-table mode (default):</b> the deck centre line of each bridge becomes a line source at deck ' +
+        'height, carrying a per-period octave-band emission spectrum in <b>BRIDGE_STRUCT_LW</b>. Feed that as an ' +
+        'extra <b>tableSources</b> to <b>Noise_level_from_source</b>.</br>' +
+        '<b>Emission-type mode:</b> set <b>emissionTable</b> and <b>tableSources</b> (road sources carrying a ' +
+        '<b>BRIDGE_PK</b> column). The spectrum is appended to the emission table as ' +
+        '<b>EMISSION_TYPE=\'BRIDGE\'</b> rows keyed on each on-deck road source, and the engine places it at the ' +
+        'deck underside automatically. Do not combine the two modes.<hr>' +
+        '&#x2705; The output table is called: <b>BRIDGE_STRUCT_LW</b> (separate-table mode)'
 
 inputs = [
         tableBridgePoints: [
@@ -69,8 +73,35 @@ inputs = [
         outputTable      : [
                 name       : 'Output table name',
                 title      : 'Output table name',
-                description: '&#128736; Output table, dropped and recreated. Default: <b>BRIDGE_STRUCT_LW</b>.',
+                description: '&#128736; Separate-table mode: output table, dropped and recreated. Default: <b>BRIDGE_STRUCT_LW</b>.',
                 default    : 'BRIDGE_STRUCT_LW',
+                type       : String.class
+        ],
+        emissionTable    : [
+                name       : 'Emission table to append to',
+                title      : 'Emission table to append to (emission-type mode)',
+                description: 'Optional. When set, switches to emission-type mode: the spectrum is <b>appended</b> to ' +
+                        'this existing emission table as <b>EMISSION_TYPE=\'BRIDGE\'</b> rows (columns PERIOD, ' +
+                        'IDSOURCE, EMISSION_TYPE, &lt;prefix&gt;63..&lt;prefix&gt;8000) keyed on each road source ' +
+                        'whose BRIDGE_PK matches a deck. Requires <b>tableSources</b>.',
+                min        : 0, max: 1,
+                type       : String.class
+        ],
+        tableSources     : [
+                name       : 'Road sources table',
+                title      : 'Road sources table (emission-type mode)',
+                description: 'Optional. Road sources table with a <b>PK</b> and a <b>BRIDGE_PK</b> column; every row ' +
+                        'whose BRIDGE_PK matches a deck gets an EMISSION_TYPE=\'BRIDGE\' row appended to ' +
+                        '<b>emissionTable</b>.',
+                min        : 0, max: 1,
+                type       : String.class
+        ],
+        frequencyFieldPrepend : [
+                name       : 'Frequency field prefix',
+                title      : 'Frequency field prefix (emission-type mode)',
+                description: 'Prefix of the octave-band columns in <b>emissionTable</b>. Default: <b>HZ</b>.',
+                default    : 'HZ',
+                min        : 0, max: 1,
                 type       : String.class
         ]
 ]
@@ -100,6 +131,17 @@ def exec(Connection connection, Map input, ProgressVisitor progress) {
     String outputTable = TableLocation.capsIdentifier(
             (input['outputTable'] ?: 'BRIDGE_STRUCT_LW') as String, dbType)
 
+    // Emission-type mode: append EMISSION_TYPE='BRIDGE' rows to an existing emission table instead
+    // of writing a separate BRIDGE_STRUCT_LW source table.
+    String emissionTable = input['emissionTable'] ?
+            TableLocation.capsIdentifier(input['emissionTable'] as String, dbType) : null
+    String sourcesTable = input['tableSources'] ?
+            TableLocation.capsIdentifier(input['tableSources'] as String, dbType) : null
+    String freqPrepend = (input['frequencyFieldPrepend'] ?: 'HZ') as String
+    if (emissionTable != null && sourcesTable == null) {
+        throw new IllegalArgumentException("emissionTable requires tableSources (road sources with a BRIDGE_PK column)")
+    }
+
     int srid = GeometryTableUtilities.getSRID(connection, TableLocation.parse(bridgePointsTable, dbType))
     if (srid == 0) {
         throw new IllegalArgumentException("Please use a metric projection for " + bridgePointsTable)
@@ -126,7 +168,61 @@ def exec(Connection connection, Map input, ProgressVisitor progress) {
         throw new IllegalArgumentException(bridgePointsTable + " holds no bridge points")
     }
 
-    // ---- 2. output table --------------------------------------------------------------------------
+    // ---- 2. ASJ structural spectrum per (deck, period) ------------------------------------------
+    // spectrum[bpk][period] = double[BANDS.size()] of dB
+    Map<Integer, Map<String, double[]>> spectrum = new LinkedHashMap<>()
+    deckLine.keySet().each { Integer bpk ->
+        String g = girder.get(bpk)
+        String s = slab.get(bpk)
+        sql.eachRow("SELECT * FROM " + roadsTable + " WHERE BRIDGE_PK = " + bpk) { tr ->
+            String period = tr.getString('PERIOD')
+            double mv = safeDouble(tr, 'MV')
+            double hgv = safeDouble(tr, 'HGV')
+            double mvSpd = safeDouble(tr, 'MV_SPD')
+            double hgvSpd = safeDouble(tr, 'HGV_SPD')
+            double[] lw = new double[BANDS.size()]
+            BANDS.eachWithIndex { int f, int i ->
+                RoadAsjParameters p = new RoadAsjParameters(
+                        0.0, mvSpd, hgvSpd, 0.0, 0.0,   // speeds lv/mv/hgv/wav/wbv
+                        0.0, mv, hgv, 0.0, 0.0,          // flows  lv/mv/hgv/wav/wbv
+                        f, 20.0, "DEF")
+                p.setHasBridge(true)
+                p.setBridgeGirderType(g)
+                p.setBridgeSlabType(s)
+                double v = RoadAsj.evaluateBridgeVirtualSource(p)
+                lw[i] = Double.isFinite(v) ? v : -99.0
+            }
+            spectrum.computeIfAbsent(bpk, { new LinkedHashMap<>() }).put(period, lw)
+        }
+    }
+
+    // ---- 3a. emission-type mode: append EMISSION_TYPE='BRIDGE' rows keyed on on-deck road sources
+    if (emissionTable != null) {
+        String freqCols = BANDS.collect { freqPrepend + it }.join(", ")
+        String placeholders = (["?"] * (3 + BANDS.size())).join(", ")
+        int rows = 0
+        ProgressVisitor sub = progress.subProcess(spectrum.size())
+        spectrum.each { Integer bpk, Map<String, double[]> perPeriod ->
+            List<Long> sourcePks = []
+            sql.eachRow("SELECT PK FROM " + sourcesTable + " WHERE BRIDGE_PK = " + bpk) { r ->
+                sourcePks.add(r.getLong('PK'))
+            }
+            perPeriod.each { String period, double[] lw ->
+                sourcePks.each { Long spk ->
+                    List<Object> params = [period, spk, 'BRIDGE']
+                    lw.each { params.add(it) }
+                    sql.executeInsert("INSERT INTO " + emissionTable +
+                            " (PERIOD, IDSOURCE, EMISSION_TYPE, " + freqCols + ") VALUES (" + placeholders + ")", params)
+                    rows++
+                }
+            }
+            sub.endStep()
+        }
+        logger.info("Structural_noise_from_bridge: {} EMISSION_TYPE='BRIDGE' rows appended to {}", rows, emissionTable)
+        return [result: emissionTable]
+    }
+
+    // ---- 3b. separate-table mode: one line source per deck and period --------------------------
     sql.execute("DROP TABLE IF EXISTS " + outputTable)
     StringBuilder cols = new StringBuilder("PK INT PRIMARY KEY, BRIDGE_PK INT, THE_GEOM GEOMETRY(LINESTRINGZ, "
             + srid + "), PERIOD VARCHAR")
@@ -135,34 +231,14 @@ def exec(Connection connection, Map input, ProgressVisitor progress) {
 
     String placeholders = (["?"] * (4 + BANDS.size())).join(", ")
     int pk = 0
-
-    // ---- 3. one line source per deck and period --------------------------------------------------
-    ProgressVisitor sub = progress.subProcess(deckLine.size())
-    deckLine.each { Integer bpk, List<Coordinate> pts ->
+    ProgressVisitor sub = progress.subProcess(spectrum.size())
+    spectrum.each { Integer bpk, Map<String, double[]> perPeriod ->
+        List<Coordinate> pts = deckLine.get(bpk)
         if (pts.size() < 2) { sub.endStep(); return }
         LineString line = factory.createLineString(pts as Coordinate[])
-        String g = girder.get(bpk)
-        String s = slab.get(bpk)
-
-        sql.eachRow("SELECT * FROM " + roadsTable + " WHERE BRIDGE_PK = " + bpk) { tr ->
-            String period = tr.getString('PERIOD')
-            double mv = safeDouble(tr, 'MV')
-            double hgv = safeDouble(tr, 'HGV')
-            double mvSpd = safeDouble(tr, 'MV_SPD')
-            double hgvSpd = safeDouble(tr, 'HGV_SPD')
-
+        perPeriod.each { String period, double[] lw ->
             List<Object> params = [++pk, bpk, line, period]
-            BANDS.each { int f ->
-                RoadAsjParameters p = new RoadAsjParameters(
-                        0.0, mvSpd, hgvSpd, 0.0, 0.0,   // speeds lv/mv/hgv/wav/wbv
-                        0.0, mv, hgv, 0.0, 0.0,          // flows  lv/mv/hgv/wav/wbv
-                        f, 20.0, "DEF")
-                p.setHasBridge(true)
-                p.setBridgeGirderType(g)
-                p.setBridgeSlabType(s)
-                double lw = RoadAsj.evaluateBridgeVirtualSource(p)
-                params.add(Double.isFinite(lw) ? lw : -99.0)
-            }
+            lw.each { params.add(it) }
             sql.executeInsert("INSERT INTO " + outputTable + " VALUES (" + placeholders + ")", params)
         }
         sub.endStep()
