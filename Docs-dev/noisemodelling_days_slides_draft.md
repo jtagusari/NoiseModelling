@@ -50,20 +50,27 @@ Working title: **"Modelling Bridge and Elevated-Road Noise in NoiseModelling: CN
 
 ---
 
-## Slide 4 — Propagation: the deck as an obstacle
+## Slide 4 — Propagation: sound can now pass *under* an obstacle
 
 - Bridge deck: explicit geometry input (deck line + width + thickness + barrier height per point),
   triangulated between points — not approximated by raising Z
 - A source **on** the deck uses the deck surface as its ground reference (not the terrain far below)
-- A source **under/beside** the deck gets:
-  - a **mirror image** across the deck underside (the soffit reflecting road noise back down)
-  - **bottom+top (BT) diffraction**: duck under the deck's lower edge, then back over the next
-    obstacle's upper edge — a new diffraction path type CNOSSOS's upper-convex-hull construction
-    doesn't produce on its own
+- **The core physical novelty**: in CNOSSOS-EU / NoiseModelling today, a sound ray only ever
+  diffracts *over* an obstacle (built from the *upper* convex hull). A bridge is the first
+  obstacle a ray can also pass **under** — a source below the deck (or its mirror image) can
+  reach the receiver by going under the deck's lower edge
+- That opens the possibility of **double diffraction on one path**: under the deck's lower edge,
+  then back over the next obstacle's upper edge — both diffractions on the same ray
+- To attenuate that, a **`CnossosPath` now holds two child `CnossosPath`s** — a "bottom" sub-route
+  and a "top" sub-route — so the double diffraction is two ordinary single diffractions combined,
+  each computed the normal way
+- Combining the two contributions follows the **same multiple-diffraction approach the ASJ
+  RTN-Model uses** — not a new ad hoc rule
 
-> If you have a diagram of the BT path (source → under deck edge → over downstream wall →
-> receiver) this is the slide to show it. It's the single hardest piece of physics in the whole
-> contribution and worth a beat.
+> This is the single hardest piece of physics in the whole contribution and worth a full beat.
+> If you have a diagram of the path (source under the deck → up over a downstream wall →
+> receiver), and ideally a small sketch of `CnossosPath` containing `bottomRoute` /
+> `topRoute` as child `CnossosPath`s, this is the slide to show them.
 
 ---
 
@@ -86,22 +93,7 @@ Working title: **"Modelling Bridge and Elevated-Road Noise in NoiseModelling: CN
 
 ---
 
-## Slide 6 — Engineering constraint: minimal upstream footprint
-
-- Built against current `main`, not a rewrite: every existing class keeps its structure
-  (`ProfileBuilder`, `CutProfile`, `CnossosPathBuilder`, `AttenuationCnossos`, …)
-- New behaviour is added as **guarded branches**, entered only when bridge data is present:
-  - no bridge input → identical code path, byte-identical output, to today's `main`
-  - every new branch triggers only on a bridge relation / a `DIFB` point / `hasBridges()`
-- No forked/duplicated "Ext" versions of core classes — same classes, same call sites
-
-> This is the slide that answers "will this be a nightmare to review and maintain" before anyone
-> asks it. Emphasize: reviewers can read the diff as "here is the bridge-only branch" everywhere,
-> not "here is a parallel implementation to reconcile."
-
----
-
-## Slide 7 — Validation
+## Slide 6 — Validation
 
 - Regression-tested against a **from-scratch NoiseModelling fork** that already had a full
   (differently-architected) bridge implementation running in production
@@ -112,8 +104,32 @@ Working title: **"Modelling Bridge and Elevated-Road Noise in NoiseModelling: CN
 - Full existing test suite stays green throughout: **emission 66 / pathfinder 252 / propagation
   65 / jdbc 62 / scripts 103**, zero regressions to any pre-existing test
 
-> Have this slide ready to defend in Q&A — it's the evidence that "guarded branches" in slide 6
-> actually held up, not just a design intention.
+> Have this slide ready to defend in Q&A — it's the evidence that the engineering approach on the
+> next slide actually held up, not just a design intention.
+
+---
+
+## Slide 7 — How this was built
+
+- The reference implementation (the `fix` fork) was developed over a long period on
+  **NoiseModelling 5.x** as its base — a full, working bridge feature, but on an increasingly old
+  `main` and, in places, a different internal architecture
+- Porting that design onto **current `main`** was the remaining step — and this is where it gets
+  interesting for this room: that port was carried out **with Claude, an AI coding agent**, in a
+  single concentrated effort, rather than a manual multi-month rewrite
+- The result, engineered against current `main`, keeps a hard constraint: every existing class
+  keeps its structure (`ProfileBuilder`, `CutProfile`, `CnossosPathBuilder`, `AttenuationCnossos`, …)
+  — new behaviour is added as **guarded branches**, entered only when bridge data is present:
+  - no bridge input → identical code path, byte-identical output, to today's `main`
+  - every new branch triggers only on a bridge relation / a `DIFB` point / `hasBridges()`
+- No forked/duplicated "Ext" versions of core classes — same classes, same call sites; the
+  original fork served only as the physics reference and the source of the golden test fixtures
+
+> Frame this as a process point, not a gimmick: the design and physics validation took the long
+> route (the original fork); reproducing that design cleanly against a moving upstream target,
+> with full regression discipline, is what AI-assisted porting was good at. Reviewers can read
+> the diff as "here is the bridge-only branch" everywhere, not "here is a parallel implementation
+> to reconcile."
 
 ---
 
@@ -135,17 +151,20 @@ Working title: **"Modelling Bridge and Elevated-Road Noise in NoiseModelling: CN
 
 ## Slide 9 — What's still open
 
-- `Road_Emission_from_Traffic` doesn't yet emit both `ROAD` and `BRIDGE` rows in one pass from raw
-  traffic-flow input (works today via a companion script + an optional `BRIDGE_PK` column)
-- Multi-deck stacks (3+ levels, a source under all of them) — the single-edge case works, the
-  general recursive case is an identified, documented limitation
-- Favourable-condition (curved-path) diffraction for the new BT route is within ~0.05 dB of
-  reference, not bit-exact — traced to a general upstream/fork difference in how curved
-  propagation is modelled, not a bug in this feature
-- Feedback wanted: is the guarded-branch approach (vs. a bigger core refactor) the right shape for
-  this kind of feature going forward?
+- **Multi-deck stacks**: a source under two or more stacked decks (3+ level viaducts) needs the
+  bottom/top splice to recurse over several lower edges, not just one. Today's implementation
+  handles a single edge (covers every case seen so far); the general recursive case is an
+  identified, documented limitation, not yet built
+- **Refactoring toward more maintainable code**: this feature's own code would benefit from the
+  same kind of cleanup discussed next — clearer seams between the bridge-specific logic and the
+  core CNOSSOS path building, so the next contributor doesn't have to read guard conditions to
+  find where "bridge" begins and ends
+- Smaller, non-blocking items: `Road_Emission_from_Traffic` doesn't yet emit `ROAD` and `BRIDGE`
+  rows in one pass from raw traffic-flow input (works today via a companion script); favourable
+  (curved-path) diffraction for the new route is within ~0.05 dB of reference, not bit-exact
 
-> Keep this short and confident — "known, documented, not blocking" — rather than apologetic.
+> Keep this short and confident — "known, documented, not blocking" — rather than apologetic. The
+> maintainability point is a deliberate bridge into the next slide.
 
 ---
 
@@ -153,16 +172,21 @@ Working title: **"Modelling Bridge and Elevated-Road Noise in NoiseModelling: CN
 
 - The fork this was validated against also carries **broader pathfinder refactoring** —
   service-decomposed `ProfileBuilder`, a redesigned `CutProfile`, a decomposed `PathFinder`, a
-  restructured `Scene` — done independently, for different reasons, over ~13 months of divergence
+  restructured `Scene` — done independently, for different reasons, over ~13 months of divergence,
+  plus a substantial set of developer-facing documentation
+- **Why it was done**: the code as it stood was hard to read, and there was no developer-facing
+  documentation to orient a new contributor — the refactoring and the docs were written to fix
+  that, not to change behaviour
 - Not proposed as a patch here — the scope is too large for one review, and upstream has been
   moving `ProfileBuilder`/`PathFinder`/`Scene` in its own direction (perf-focused, incremental)
 - Raising it because **today's pathfinder core has no seam for a new obstacle type** — bridges
   needed guarded branches in four different classes; a future obstacle type will hit the same wall
-- Open question for the room: is there appetite for a focused, behaviour-preserving extraction
-  (services / a plugin point for obstacle types), independent of this bridge feature?
+- Open question for the room: is there appetite for incremental, behaviour-preserving readability
+  work and developer documentation — independent of, but motivated by, this bridge feature?
 
 > This is the "plant a seed" slide, not a proposal — you're not asking for a decision today, just
-> naming the friction so it's on the maintainers' radar next time someone hits it.
+> naming the friction (readability, missing docs, no seam for new obstacle types) so it's on the
+> maintainers' radar next time someone hits it.
 
 ---
 
@@ -192,4 +216,4 @@ Keep these ready but off the main deck, in case of specific questions:
   2.5.31/2.5.33 branch is the *more* correct value — good material if someone asks "did everything
   match exactly?".
 - **A4 — Full test/regression table**: per-module before/after counts across v0/v1/v2, if someone
-  wants the detail behind slide 7's headline numbers.
+  wants the detail behind slide 6's headline numbers.
