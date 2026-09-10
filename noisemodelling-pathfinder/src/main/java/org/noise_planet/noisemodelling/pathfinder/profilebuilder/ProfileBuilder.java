@@ -1054,8 +1054,21 @@ public class ProfileBuilder {
      * @return Cutting profile.
      */
     public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation, boolean stopAtObstacleOverSourceReceiver) {
+        return getProfile(sourceCoordinate, receiverCoordinate, defaultGroundAttenuation, stopAtObstacleOverSourceReceiver, null);
+    }
+
+    /**
+     * As {@link #getProfile(Coordinate, Coordinate, double, boolean)}, but with an explicit
+     * source-to-bridge relationship. Used for virtual (imaginary / mirror) bridge sources whose
+     * relationship cannot be inferred from position alone; {@code null} means classify as usual.
+     */
+    public CutProfile getProfile(Coordinate sourceCoordinate, Coordinate receiverCoordinate, double defaultGroundAttenuation,
+                                 boolean stopAtObstacleOverSourceReceiver,
+                                 org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship sourceBridgeOverride) {
         CutPointSource sourcePoint  = new CutPointSource(sourceCoordinate);
-        if (bridgeService.getBridgeCount() > 0) {
+        if (sourceBridgeOverride != null) {
+            sourcePoint.setBridgeRelationship(sourceBridgeOverride);
+        } else if (bridgeService.getBridgeCount() > 0) {
             classifySourceAgainstBridges(sourcePoint);
         }
         CutPointReceiver receiverPoint = new CutPointReceiver(receiverCoordinate);

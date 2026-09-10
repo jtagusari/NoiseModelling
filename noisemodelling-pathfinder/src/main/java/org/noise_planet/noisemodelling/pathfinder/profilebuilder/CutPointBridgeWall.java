@@ -17,7 +17,7 @@ import org.locationtech.jts.geom.LineSegment;
 
 import java.util.List;
 
-@JsonTypeName("CutPointBridgeWall")
+@JsonTypeName("BridgeWall")
 public class CutPointBridgeWall  extends CutPointWall {
     
     public enum WallDirection {

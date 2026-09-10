@@ -54,6 +54,20 @@ public class CnossosPath {
     public double deltaSRPrime= Double.MAX_VALUE;
     public double e=0;
 
+    /**
+     * Bridge bottom+top (BT) diffraction: when the ray passes a bridge deck body it is split into a
+     * route diffracting under the deck's lower edge and a route diffracting over its upper edge.
+     * These hold the two sub-paths (themselves ordinary {@link CnossosPath} instances). Both stay
+     * {@code null} for every path that does not diffract around a deck body.
+     */
+    private CnossosPath bridgeBottomRoute = null;
+    private CnossosPath bridgeTopRoute = null;
+
+    public CnossosPath getBridgeBottomRoute() { return bridgeBottomRoute; }
+    public void setBridgeBottomRoute(CnossosPath bridgeBottomRoute) { this.bridgeBottomRoute = bridgeBottomRoute; }
+    public CnossosPath getBridgeTopRoute() { return bridgeTopRoute; }
+    public void setBridgeTopRoute(CnossosPath bridgeTopRoute) { this.bridgeTopRoute = bridgeTopRoute; }
+
     public CnossosPath() {
     }
 
@@ -68,6 +82,8 @@ public class CnossosPath {
         this.segmentList = other.segmentList;
         this.favourable = other.favourable;
         this.gs = other.gs;
+        this.bridgeBottomRoute = other.bridgeBottomRoute;
+        this.bridgeTopRoute = other.bridgeTopRoute;
     }
 
     /**

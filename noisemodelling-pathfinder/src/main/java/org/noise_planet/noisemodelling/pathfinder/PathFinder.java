@@ -255,6 +255,12 @@ public class PathFinder {
                 }
             }
         }
+        // Bridge decks: for a source on a deck, add an imaginary source just under the deck so a
+        // receiver below the deck plane gets the diffracted-under-the-deck path. No-op without bridges.
+        if (data.profileBuilder.hasBridges() && !sourceList.isEmpty()) {
+            addBridgeVirtualSources(sourceList);
+        }
+
         // Sort sources by power contribution descending
         sourceList.sort(Comparator.comparingDouble(o -> receiverPointInfo.position.distance3D(o.position)));
 
@@ -340,7 +346,8 @@ public class PathFinder {
 
         CutPlaneVisitor.PathSearchStrategy strategy = CutPlaneVisitor.PathSearchStrategy.CONTINUE;
 
-        CutProfile cutProfile = data.profileBuilder.getProfile(src.position, rcv.position, data.defaultGroundAttenuation, !verticalDiffraction);
+        CutProfile cutProfile = data.profileBuilder.getProfile(src.position, rcv.position, data.defaultGroundAttenuation,
+                !verticalDiffraction, src.bridgeRelationship);
         if(cutProfile.getSource() != null) {
             cutProfile.getSource().id = src.getSourceIndex();
             cutProfile.getSource().li = src.li;
@@ -929,6 +936,64 @@ public class PathFinder {
         }
     }
 
+    /**
+     * Bridge decks: append the mirror source points a below-deck source needs so receivers on the
+     * far side get the deck-underside reflection.
+     *
+     * <p><b>Mirror source</b> — for a source below a deck (inside its footprint), its image
+     * reflected across the deck underside ({@link Bridge#generateMirrorImageSourcesByBridge}),
+     * classified {@code MIRROR_SOURCE}. Only the lowest deck above the source is used, matching the
+     * fork's {@code BridgeAnalyzer.selectBridgeForMirrorSource}. The mirror carries the same road
+     * LW as the real under-deck source (the fork's emission-type gate also lets {@code MIRROR_SOURCE}
+     * take the ROAD spectrum).
+     *
+     * <p><b>Not generated here:</b> the {@code IMAGINARY_SOURCE_UNDER_BRIDGE} point under a deck the
+     * source sits on. In the fork that point carries the <em>structural</em> (deck/girder radiated)
+     * noise spectrum, selected via an {@code EMISSION_TYPE} column + {@code checkIfEmissionIsAcceptable}
+     * gate that this branch does not port. Auto-generating it here with the road {@code sourcePk}
+     * would emit a full second copy of the road noise under the deck (see merge_project.md §4.y).
+     * Bridge structural noise is instead supplied as a separate source table via v1's
+     * {@code Structural_noise_from_bridge} / {@code BRIDGE_STRUCT_LW}.
+     *
+     * Only called when the scene has bridges.
+     */
+    private void addBridgeVirtualSources(List<SourcePointInfo> sourceList) {
+        List<SourcePointInfo> virtual = new ArrayList<>();
+        for (SourcePointInfo src : sourceList) {
+            if (src.bridgeRelationship != null) {
+                continue; // already a virtual source
+            }
+            // Mirror source across the underside of the lowest deck above a below-deck source
+            Bridge mirrorBridge = null;
+            double minBridgeBottom = Double.POSITIVE_INFINITY;
+            for (Bridge bridge : data.profileBuilder.getBridges()) {
+                if (!bridge.isPointBelowBridge(src.position) || !bridge.isPointWithinBridgeFootprint(src.position)) {
+                    continue;
+                }
+                double deckHeight = bridge.getDeckHeightAtPoint(src.position);
+                double deckThickness = bridge.getDeckThicknessAtPoint(src.position);
+                if (Double.isNaN(deckHeight) || Double.isNaN(deckThickness)) {
+                    continue;
+                }
+                double bridgeBottom = deckHeight - deckThickness;
+                if (bridgeBottom > src.position.z && bridgeBottom < minBridgeBottom) {
+                    minBridgeBottom = bridgeBottom;
+                    mirrorBridge = bridge;
+                }
+            }
+            if (mirrorBridge != null) {
+                for (Coordinate above : mirrorBridge.generateMirrorImageSourcesByBridge(src.position)) {
+                    SourcePointInfo mir = new SourcePointInfo(src.sourceIndex, src.sourcePk, above, src.li, src.orientation);
+                    mir.bridgeRelationship = new org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship(
+                            org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship.RelationType.MIRROR_SOURCE,
+                            -1L, mirrorBridge.getPrimaryKey());
+                    virtual.add(mir);
+                }
+            }
+        }
+        sourceList.addAll(virtual);
+    }
+
     public enum ComputationSide {LEFT, RIGHT}
 
 
@@ -980,6 +1045,8 @@ public class PathFinder {
         public long sourcePk = -1;
         public Coordinate position = new Coordinate();
         public Orientation orientation = new Orientation();
+        /** Non-null only for virtual bridge sources (imaginary / mirror); forces the source-to-bridge relationship. */
+        public org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship bridgeRelationship = null;
 
         public SourcePointInfo() {
         }

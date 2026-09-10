@@ -1,0 +1,38 @@
+{
+  "cutPoints" : [ {
+    "type" : "Source",
+    "coordinate" : {
+      "x" : 10.0,
+      "y" : 6.666666666666667,
+      "z" : 9.45
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "sourcePk" : 1,
+    "orientation" : {
+      "yaw" : 0.0,
+      "pitch" : 0.0,
+      "roll" : 0.0
+    },
+    "bridgeHeight" : "NaN",
+    "li" : 3.3333333333333335,
+    "bridgePkOn" : -1,
+    "bridgePkAbove" : 100,
+    "bridgeRelationType" : "IMAGINARY_SOURCE_UNDER_BRIDGE"
+  }, {
+    "type" : "Receiver",
+    "coordinate" : {
+      "x" : 12.0,
+      "y" : 10.0,
+      "z" : 4.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "receiverPk" : 1
+  } ],
+  "hasBuildingIntersection" : false,
+  "hasBridgeIntersection" : false,
+  "hasTopographyIntersection" : false
+}

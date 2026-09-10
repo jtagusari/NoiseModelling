@@ -255,11 +255,26 @@ public class AttenuationCnossos {
      */
     public static double[] aBoundary(CnossosPath path, CnossosAttenuationOutput attenuationOutput,
                                      AttenuationParameters data) {
+        // Bridge bottom+top (BT) diffraction: when the path diffracts both under a deck edge
+        // (DIFB) and over a downstream obstacle (DIFH), the boundary attenuation is the sum of
+        // the two sub-routes' boundary attenuations (CNOSSOS-EU multiple-diffraction split).
+        boolean hasDifB = path.getPointList().stream().anyMatch(pp -> pp.type.equals(DIFB));
+        boolean hasDifT = path.getPointList().stream()
+                .anyMatch(pp -> pp.type.equals(DIFH) || pp.type.equals(DIFH_RCRIT));
+        if (hasDifB && hasDifT && path.getBridgeBottomRoute() != null && path.getBridgeTopRoute() != null) {
+            double[] aBoundaryTop = aBoundary(path.getBridgeTopRoute(), attenuationOutput, data);
+            double[] aBoundaryBottom = aBoundary(path.getBridgeBottomRoute(), attenuationOutput, data);
+            double[] sum = new double[aBoundaryTop.length];
+            for (int i = 0; i < sum.length; i++) {
+                sum[i] = aBoundaryTop[i] + aBoundaryBottom[i];
+            }
+            return sum;
+        }
         double[] aGround = new double[data.getFrequencies().size()];
         double[] aDif = new double[data.getFrequencies().size()];
         List<PointPath> diffPts = path.getPointList().stream().
                 filter(pointPath -> pointPath.type.equals(DIFH_RCRIT) || pointPath.type.equals(DIFH)
-                        || pointPath.type.equals(DIFV)).collect(Collectors.toList());
+                        || pointPath.type.equals(DIFV) || pointPath.type.equals(DIFB)).collect(Collectors.toList());
         attenuationOutput.aBoundary.init(data.getFrequencies().size());
         // Without diff
         for(int i=0; i<data.getFrequencies().size(); i++) {
@@ -267,6 +282,7 @@ public class AttenuationCnossos {
             boolean isValidRCriterion = isValidRcrit(path, data.getFrequencies().get(finalI));
             PointPath first = diffPts.stream()
                     .filter(pp -> pp.type.equals(PointPath.POINT_TYPE.DIFH) || pp.type.equals(DIFV) ||
+                            pp.type.equals(DIFB) ||
                             (pp.type.equals(DIFH_RCRIT) && isValidRCriterion ))
                     .findFirst()
                     .orElse(null);
@@ -278,7 +294,7 @@ public class AttenuationCnossos {
             }
             if (first != null) {
                 aDif[i] = aDif(path, attenuationOutput, data, i, first.type);
-                if(!first.type.equals(DIFV) && isValidRCriterion) {
+                if(!first.type.equals(DIFV) && !first.type.equals(DIFB) && isValidRCriterion) {
                     aGround[i] = 0.;
                 }
             } else {
@@ -390,7 +406,9 @@ public class AttenuationCnossos {
         double lambda = 340.0 / data.getFrequencies().get(frequencyIndex);
         long difHCount = cnossosPath.getPointList().stream().filter(pointPath -> pointPath.type.equals(DIFH)).count();
         long difVCount = cnossosPath.getPointList().stream().filter(pointPath -> pointPath.type.equals(DIFV)).count();
-        double cSecond = (type.equals(PointPath.POINT_TYPE.DIFH) && difHCount <= 1) || (type.equals(DIFV) && difVCount <= 1) || cnossosPath.e <= 0.3 ? 1. :
+        long difBCount = cnossosPath.getPointList().stream().filter(pointPath -> pointPath.type.equals(DIFB)).count();
+        double cSecond = (type.equals(PointPath.POINT_TYPE.DIFH) && difHCount <= 1) || (type.equals(DIFV) && difVCount <= 1)
+                || (type.equals(DIFB) && difBCount <= 1) || cnossosPath.e <= 0.3 ? 1. :
                 (1+pow(5*lambda/ cnossosPath.e, 2))/(1./3+pow(5*lambda/ cnossosPath.e, 2));
 
         double _delta = cnossosPath.delta;
@@ -404,7 +422,9 @@ public class AttenuationCnossos {
             return 0;
         }
 
-        if(type.equals(DIFV)) {
+        // Vertical edge (DIFV) and bridge bottom edge (DIFB): pure knife-edge diffraction,
+        // no ground effect on the two sides.
+        if(type.equals(DIFV) || type.equals(DIFB)) {
             if(attenuationOutput.keepAbsorption) {
                 attenuationOutput.aBoundary.deltaDiffSR[frequencyIndex] = deltaDiffSR;
             }

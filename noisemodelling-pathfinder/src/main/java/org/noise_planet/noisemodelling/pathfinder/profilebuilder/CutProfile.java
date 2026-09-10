@@ -69,6 +69,22 @@ public class CutProfile {
     }
 
     /**
+     * Shallow copy constructor: a new cut-point list holding the same {@link CutPoint}
+     * instances, with the scalar profile attributes copied. Used to derive filtered
+     * sub-profiles (e.g. bridge bottom/top diffraction routes).
+     * @param other profile to copy
+     */
+    public CutProfile(CutProfile other) {
+        this.cutPoints = new ArrayList<>(other.cutPoints);
+        this.hasBuildingIntersection = other.hasBuildingIntersection;
+        this.hasTopographyIntersection = other.hasTopographyIntersection;
+        this.hasBridgeIntersection = other.hasBridgeIntersection;
+        this.curvedPath = other.curvedPath;
+        this.profileType = other.profileType;
+        this.raySourceReceiverDirectivity = other.raySourceReceiverDirectivity;
+    }
+
+    /**
      * @return Cut Profile type
      */
     public PROFILE_TYPE getProfileType() {
@@ -486,8 +502,16 @@ public class CutProfile {
                         bridgePkOn = bridgePoint.getNextBridgePk();
                         lastGroundZ = bridgePoint.getNextBridgePk() >= 0 ? bridgePoint.getNextBridgeHeight() : Double.NaN;
                     }
+                } else if (bridgePoint.getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
+                    // Deck underside edge of a deck the source is not on: at this point the deck is
+                    // above the ray (the imaginary/mirror source runs under it), so its top
+                    // elevation is not part of the ground-surface profile. Contribute only the
+                    // terrain point - no deck-edge spike, which would otherwise tilt the
+                    // least-squares mean-plane fit and leak ~0.5 dB into aDif's deltaGroundSO.
+                    pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
                 } else {
-                    // deck the source is not on: treat its near edge as a raised screen sitting on terrain
+                    // deck the source is not on, UPWARD/OTHER edge: treat its near edge as a raised
+                    // thin screen sitting on terrain (terrain - edge - terrain).
                     pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));
                     pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getCoordinate().z));
                     pts2D.add(new Coordinate(cut.getCoordinate().x, cut.getCoordinate().y, cut.getzGround()));

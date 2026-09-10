@@ -5,10 +5,14 @@ import org.locationtech.jts.geom.*;
 import org.locationtech.jts.math.Vector2D;
 import org.locationtech.jts.math.Vector3D;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
+import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
 import org.noise_planet.noisemodelling.pathfinder.path.Scene;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPoint;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointBridgeWall;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReceiver;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointReflection;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointSource;
+import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointTopography;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointVEdgeDiffraction;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutPointWall;
 import org.noise_planet.noisemodelling.pathfinder.profilebuilder.CutProfile;
@@ -304,6 +308,13 @@ public class CnossosPathBuilder {
         // Compute convex hull of the profile
         List<Integer> hullPointsIndices = cutProfile.getConvexHullIndices(hullPts2D, ignoreBuildingsInConvexHull);
 
+        // Bridge bottom+top (BT) diffraction: when the source sits under a deck (imaginary /
+        // mirror source), the downward deck edge is below the source-receiver line and is
+        // therefore never picked up by the upper convex hull. Splice it in as an explicit
+        // bottom pivot so the path carries both a DIFB (under the deck) and a DIFH (over the
+        // downstream obstacle) point.
+        spliceBridgeBottomEdge(cutProfile, pts2D, hullPointsIndices);
+
         // Src if perceived source position from the receiver point of view
         Coordinate src = cutProfile.getSource().getCoordinate();
 
@@ -451,7 +462,14 @@ public class CnossosPathBuilder {
             segments.add(path);
             if (i != hullPointsIndices.size() - 1) {
                 PointPath pt = points.getLast();
-                pt.type = DIFH;
+                // A downward bridge edge spliced by spliceBridgeBottomEdge() is an
+                // under-the-deck (bottom) diffraction, not an over-the-top one.
+                if (cutPt1 instanceof CutPointBridgeWall
+                        && ((CutPointBridgeWall) cutPt1).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
+                    pt.type = DIFB;
+                } else {
+                    pt.type = DIFH;
+                }
                 pt.bodyBarrier = bodyBarrier;
                 if(cutPt1 instanceof CutPointWall) {
                     pt.alphaWall = ((CutPointWall) cutPt1).wallAlpha;
@@ -590,6 +608,12 @@ public class CnossosPathBuilder {
                 cnossosPath.deltaPrime =2*toCurve(srcPrime.distance(pA), srPath.dPrime) + 2*toCurve(pA.distance(rcvPrime), srPath.dPrime) - toCurve(seg1.dPrime, srPath.dPrime) - toCurve(cnossosPath.e, srPath.dPrime) - toCurve(seg2.dPrime, srPath.dPrime) - toCurve(srPath.dPrime, srPath.dPrime);
             }
         }
+
+        // Bridge BT diffraction: if the point list carries both an under-the-deck (DIFB) and an
+        // over-the-obstacle (DIFH) pivot, split the path into a bottom route and a top route.
+        // AttenuationCnossos.aBoundary() sums the two sub-routes for this path.
+        computeBridgeBottomTopRoutes(cutProfile, cnossosPath, bodyBarrier, exactFrequencyArray, gS, favourable);
+
         return cnossosPath;
     }
 
@@ -609,5 +633,266 @@ public class CnossosPathBuilder {
                 next.y - src.y,
                 next.z - src.z)).normalize();
         return Orientation.fromVector(Orientation.rotate(sourceOrientation, outgoingRay, true), 0);
+    }
+
+    // ------------------------------------------------------------------------
+    // Bridge bottom+top (BT) diffraction
+    // ------------------------------------------------------------------------
+
+    /**
+     * When the source is an imaginary / mirror source under a bridge deck, the downward deck
+     * edge lies below the source-receiver line and is missed by the upper convex hull. Locate
+     * such an edge inside the first hull segment and splice its cut-point index into
+     * {@code hullPointsIndices} so it becomes an explicit bottom pivot.
+     *
+     * @param cutProfile        the vertical cut profile
+     * @param pts2D             cut points projected onto the 2D source-receiver plane
+     * @param hullPointsIndices upper-hull indices (mutated in place, kept ascending)
+     */
+    private static void spliceBridgeBottomEdge(CutProfile cutProfile, List<Coordinate> pts2D,
+                                               List<Integer> hullPointsIndices) {
+        BridgeRelationship rel = cutProfile.getSource().getBridgeRelationship();
+        if (rel == null) {
+            return;
+        }
+        BridgeRelationship.RelationType type = rel.getRelationType();
+        if (type != BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE
+                && type != BridgeRelationship.RelationType.MIRROR_SOURCE) {
+            return;
+        }
+        if (hullPointsIndices.size() < 2) {
+            return;
+        }
+        List<Integer> downwardEdges = new ArrayList<>();
+        for (int i = 1; i < cutProfile.cutPoints.size() - 1; i++) {
+            CutPoint cp = cutProfile.cutPoints.get(i);
+            if (cp instanceof CutPointBridgeWall
+                    && ((CutPointBridgeWall) cp).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
+                downwardEdges.add(i);
+            }
+        }
+        if (downwardEdges.isEmpty()) {
+            return;
+        }
+        // For an imaginary / mirror source, a bridge wall is never an over-the-top pivot
+        // (the fork's PivotPointCalculator skips bridge walls as hull candidates). Drop any the
+        // upper convex hull picked up - e.g. a deck edge that happens to be the profile's highest
+        // point - so it is not mistaken for a DIFH; genuine under-the-deck edges are spliced back
+        // below as DIFB.
+        hullPointsIndices.removeIf(idx -> cutProfile.cutPoints.get(idx) instanceof CutPointBridgeWall);
+        if (hullPointsIndices.size() < 2) {
+            return;
+        }
+        int lastSplicedEdge = -1;
+        for (int edgeIndex : downwardEdges) {
+            if (hullPointsIndices.contains(edgeIndex)) {
+                continue;
+            }
+            int i0 = hullPointsIndices.get(0);
+            int i1 = hullPointsIndices.get(1);
+            Coordinate p0 = pts2D.get(i0);
+            Coordinate p1 = pts2D.get(i1);
+            Coordinate edge = pts2D.get(edgeIndex);
+            if (edge.x <= Math.min(p0.x, p1.x) || edge.x >= Math.max(p0.x, p1.x)) {
+                continue;
+            }
+            double ratio = (edge.x - p0.x) / (p1.x - p0.x);
+            double interpY = p0.y + ratio * (p1.y - p0.y);
+            if (edge.y > interpY) {
+                continue; // edge above the hull line -> not an under-the-deck diffraction
+            }
+            hullPointsIndices.add(1, edgeIndex);
+            lastSplicedEdge = Math.max(lastSplicedEdge, edgeIndex);
+        }
+        if (lastSplicedEdge < 0) {
+            return;
+        }
+        // Re-hull the portion after the (last) spliced bottom edge so an over-the-top obstacle
+        // that the source-receiver hull missed - because it sits below the direct line but above
+        // the edge-to-receiver line - still becomes a DIFH (the fork re-hulls the after-portion).
+        for (int idx : upperHullAfter(cutProfile, pts2D, lastSplicedEdge)) {
+            if (idx != lastSplicedEdge && idx != pts2D.size() - 1 && !hullPointsIndices.contains(idx)) {
+                hullPointsIndices.add(idx);
+            }
+        }
+        java.util.Collections.sort(hullPointsIndices);
+    }
+
+    /**
+     * Upper convex hull of the profile portion {@code [fromIdx .. receiver]}, over the same
+     * candidate set the main hull uses (topography and non-ground walls; bridge walls excluded).
+     * Returns the indices - into {@code pts2D} - that lie on that hull, {@code fromIdx} and the
+     * receiver included.
+     */
+    private static List<Integer> upperHullAfter(CutProfile cutProfile, List<Coordinate> pts2D, int fromIdx) {
+        int last = pts2D.size() - 1;
+        List<Integer> candidates = new ArrayList<>();
+        candidates.add(fromIdx);
+        for (int i = fromIdx + 1; i < last; i++) {
+            CutPoint cp = cutProfile.cutPoints.get(i);
+            boolean obstacle = cp instanceof CutPointTopography
+                    || (cp instanceof CutPointWall && !(cp instanceof CutPointBridgeWall)
+                        && Double.compare(cp.getCoordinate().z, cp.getzGround()) != 0);
+            if (obstacle) {
+                candidates.add(i);
+            }
+        }
+        candidates.add(last);
+        // Monotone chain, upper hull only (candidates are already ordered by x).
+        List<Integer> hull = new ArrayList<>();
+        for (int idx : candidates) {
+            Coordinate p = pts2D.get(idx);
+            while (hull.size() >= 2) {
+                Coordinate a = pts2D.get(hull.get(hull.size() - 2));
+                Coordinate b = pts2D.get(hull.get(hull.size() - 1));
+                double cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+                if (cross >= 0) {
+                    hull.remove(hull.size() - 1); // b is on/under the line a->p -> not on the upper hull
+                } else {
+                    break;
+                }
+            }
+            hull.add(idx);
+        }
+        return hull;
+    }
+
+    /**
+     * Split a path that carries both an under-the-deck (DIFB) and an over-the-obstacle (DIFH)
+     * pivot into a bottom route and a top route, following the CNOSSOS-EU multiple-diffraction
+     * decomposition. The two sub-routes are stored on {@code parent};
+     * {@link AttenuationCnossos#aBoundary} sums them for this path.
+     */
+    private static void computeBridgeBottomTopRoutes(CutProfile cutProfile, CnossosPath parent,
+            boolean bodyBarrier, List<Double> exactFrequencyArray, double gS, boolean favourable) {
+        if (parent == null || parent.getPointList() == null) {
+            return;
+        }
+        PointPath diffB = parent.getPointList().stream().filter(p -> p.type.equals(DIFB)).findFirst().orElse(null);
+        PointPath diffT = parent.getPointList().stream().filter(p -> p.type.equals(DIFH)).findFirst().orElse(null);
+        if (diffB == null || diffT == null) {
+            return;
+        }
+        Coordinate s2D = parent.getPointList().get(0).coordinate;
+        Coordinate r2D = parent.getPointList().get(parent.getPointList().size() - 1).coordinate;
+
+        // deltaB: path-length difference of the S -> B -> R route (positive = detour).
+        double deltaB = -1.0 * DistanceDifferenceCalculator.computeDeltaH(s2D, diffB.coordinate, r2D);
+
+        // Top-only reference: rebuild with the bottom edge removed to obtain deltaH.
+        CutProfile withoutBottom = newCutProfileWithoutBottomEdge(cutProfile);
+        CnossosPath topOnly = computeCnossosPathFromCutProfile(withoutBottom, bodyBarrier, exactFrequencyArray, gS, favourable);
+        double deltaH = (topOnly != null && topOnly.delta != Double.MAX_VALUE)
+                ? topOnly.delta : Double.NEGATIVE_INFINITY;
+
+        CnossosPath bottomRoute;
+        CnossosPath topRoute;
+        if (deltaB >= deltaH) {
+            // Bottom edge dominates: bottom = S -> B, top = B -> R.
+            bottomRoute = computeCnossosPathFromCutProfile(
+                    newCutProfileOnlyWithBottomEdge(cutProfile), bodyBarrier, exactFrequencyArray, gS, favourable);
+            topRoute = computeCnossosPathFromCutProfile(
+                    newCutProfileAfterBottomEdge(cutProfile), bodyBarrier, exactFrequencyArray, gS, favourable);
+        } else {
+            // Top edge dominates: bottom = S -> T, top = the without-bottom-edge path.
+            List<Coordinate> cp2D = cutProfile.computePts2D();
+            bottomRoute = computeCnossosPathFromCutProfile(
+                    newCutProfileBeforeTopEdge(cutProfile, cp2D, diffT.coordinate),
+                    bodyBarrier, exactFrequencyArray, gS, favourable);
+            topRoute = topOnly;
+        }
+        if (bottomRoute != null && topRoute != null) {
+            parent.setBridgeBottomRoute(bottomRoute);
+            parent.setBridgeTopRoute(topRoute);
+        }
+    }
+
+    /** Sub-profile with every downward (non-{@code UPWARD}) bridge wall removed — the top route reference. */
+    private static CutProfile newCutProfileWithoutBottomEdge(CutProfile cutProfile) {
+        CutProfile out = new CutProfile(cutProfile);
+        ArrayList<CutPoint> kept = new ArrayList<>();
+        for (CutPoint cp : cutProfile.getCutPoints()) {
+            if (cp instanceof CutPointBridgeWall
+                    && ((CutPointBridgeWall) cp).getWallDirection() != CutPointBridgeWall.WallDirection.UPWARD) {
+                continue;
+            }
+            kept.add(cp);
+        }
+        out.setCutPoints(kept);
+        return out;
+    }
+
+    /**
+     * Sub-profile with all walls removed (source -&gt; receiver, keeping only ground/topography).
+     * Matches the fork's {@code newCutProfileOnlyWithBottomEdge}: since {@code CutPointBridgeWall}
+     * extends {@code CutPointWall}, the {@code instanceof CutPointWall} test drops the bridge edge
+     * as well, so the S-&gt;B leg of the "bottom edge dominates" split degenerates to a plain
+     * source-&gt;receiver (ground-only) contribution.
+     */
+    private static CutProfile newCutProfileOnlyWithBottomEdge(CutProfile cutProfile) {
+        CutProfile out = new CutProfile(cutProfile);
+        ArrayList<CutPoint> kept = new ArrayList<>();
+        for (CutPoint cp : cutProfile.getCutPoints()) {
+            if (cp instanceof CutPointWall) {
+                continue;
+            }
+            kept.add(cp);
+        }
+        out.setCutPoints(kept);
+        return out;
+    }
+
+    /** Sub-profile starting at the downward bridge edge (edge becomes the source) — the B -> R top route. */
+    private static CutProfile newCutProfileAfterBottomEdge(CutProfile cutProfile) {
+        CutProfile out = new CutProfile(cutProfile);
+        ArrayList<CutPoint> existing = cutProfile.getCutPoints();
+        ArrayList<CutPoint> kept = new ArrayList<>();
+        boolean beforeEdge = true;
+        for (int i = 1; i < existing.size(); i++) {
+            CutPoint cp = existing.get(i);
+            if (beforeEdge) {
+                if (cp instanceof CutPointBridgeWall
+                        && ((CutPointBridgeWall) cp).getWallDirection() == CutPointBridgeWall.WallDirection.DOWNWARD) {
+                    CutPointSource newSource = new CutPointSource(cutProfile.getSource());
+                    newSource.setCoordinate(cp.getCoordinate());
+                    newSource.setZGround(cp.getzGround());
+                    kept.add(newSource);
+                    beforeEdge = false;
+                }
+            } else {
+                kept.add(cp);
+            }
+        }
+        out.setCutPoints(kept);
+        if (kept.size() >= existing.size()) {
+            throw new IllegalArgumentException("Failed to build the after-bottom-edge cut profile: no downward bridge edge found");
+        }
+        return out;
+    }
+
+    /** Sub-profile ending at the over-the-obstacle pivot (that pivot becomes the receiver) — the S -> T bottom route. */
+    private static CutProfile newCutProfileBeforeTopEdge(CutProfile cutProfile, List<Coordinate> cutPointCoordinates2D,
+                                                        Coordinate topEdgeCoordinate) {
+        CutProfile out = new CutProfile(cutProfile);
+        ArrayList<CutPoint> existing = cutProfile.getCutPoints();
+        ArrayList<CutPoint> kept = new ArrayList<>();
+        boolean beforeTop = true;
+        for (int i = 0; i < existing.size() && beforeTop; i++) {
+            CutPoint cp = existing.get(i);
+            if (!cutPointCoordinates2D.get(i).equals2D(topEdgeCoordinate, 1e-3)) {
+                kept.add(cp);
+            } else {
+                CutPointReceiver newReceiver = new CutPointReceiver(cutProfile.getReceiver());
+                newReceiver.setCoordinate(cp.getCoordinate());
+                newReceiver.setZGround(cp.getzGround());
+                kept.add(newReceiver);
+                beforeTop = false;
+            }
+        }
+        out.setCutPoints(kept);
+        if (kept.size() >= existing.size()) {
+            throw new IllegalArgumentException("Failed to build the before-top-edge cut profile: top pivot not found");
+        }
+        return out;
     }
 }

@@ -9,6 +9,8 @@
 package org.noise_planet.noisemodelling.pathfinder.profilebuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import org.locationtech.jts.geom.Coordinate;
 import org.noise_planet.noisemodelling.pathfinder.PathFinder;
 import org.noise_planet.noisemodelling.pathfinder.path.BridgeRelationship;
@@ -49,6 +51,17 @@ public class CutPointSource  extends CutPoint {
         super(src);
     }
 
+    /** Copy constructor preserving source-specific attributes. */
+    public CutPointSource(CutPointSource other) {
+        super(other);
+        this.sourcePk = other.sourcePk;
+        this.li = other.li;
+        this.orientation = other.orientation;
+        this.id = other.id;
+        this.bridgeRelationship = other.bridgeRelationship;
+        this.bridgeHeight = other.bridgeHeight;
+    }
+
     /** Source line subdivision length (1.0 means a point is representing 1 meter of line sound source) */
     public double li = 1.0;
 
@@ -78,6 +91,41 @@ public class CutPointSource  extends CutPoint {
     /** @param bridgeRelationship the source-to-bridge relationship. */
     public void setBridgeRelationship(BridgeRelationship bridgeRelationship) {
         this.bridgeRelationship = bridgeRelationship;
+    }
+
+    // --- flattened JSON view of the (immutable) BridgeRelationship, for test-fixture round-tripping ---
+
+    @JsonProperty("bridgeRelationType")
+    public BridgeRelationship.RelationType getBridgeRelationType() {
+        return bridgeRelationship != null ? bridgeRelationship.getRelationType() : null;
+    }
+
+    @JsonSetter("bridgeRelationType")
+    public void setBridgeRelationType(BridgeRelationship.RelationType type) {
+        this.bridgeRelationship = new BridgeRelationship(type,
+                bridgeRelationship.getBridgePkOn(), bridgeRelationship.getBridgePkAbove());
+    }
+
+    @JsonProperty("bridgePkOn")
+    public long getBridgePkOn() {
+        return bridgeRelationship != null ? bridgeRelationship.getBridgePkOn() : -1L;
+    }
+
+    @JsonSetter("bridgePkOn")
+    public void setBridgePkOnJson(long pkOn) {
+        this.bridgeRelationship = new BridgeRelationship(bridgeRelationship.getRelationType(),
+                pkOn, bridgeRelationship.getBridgePkAbove());
+    }
+
+    @JsonProperty("bridgePkAbove")
+    public long getBridgePkAbove() {
+        return bridgeRelationship != null ? bridgeRelationship.getBridgePkAbove() : -1L;
+    }
+
+    @JsonSetter("bridgePkAbove")
+    public void setBridgePkAboveJson(long pkAbove) {
+        this.bridgeRelationship = new BridgeRelationship(bridgeRelationship.getRelationType(),
+                bridgeRelationship.getBridgePkOn(), pkAbove);
     }
 
     /** @return the bridge deck absolute Z at this source, or NaN. */

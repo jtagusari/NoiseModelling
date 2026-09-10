@@ -51,6 +51,11 @@ public class PointPath {
          */
         DIFH,
         /**
+         * Diffraction on the lower (bottom) edge of a bridge deck body, in the vertical plane.
+         * Only produced when the ray passes a bridge deck and diffracts under it.
+         */
+        DIFB,
+        /**
          * Receiver point
          */
         RECV,

@@ -1,0 +1,93 @@
+{
+  "cutPoints" : [ {
+    "type" : "Source",
+    "coordinate" : {
+      "x" : 12.0,
+      "y" : 10.0,
+      "z" : 5.5
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "sourcePk" : 1,
+    "orientation" : {
+      "yaw" : 0.0,
+      "pitch" : 0.0,
+      "roll" : 0.0
+    },
+    "bridgeHeight" : 5.0,
+    "li" : 10.0,
+    "bridgePkOn" : 101,
+    "bridgePkAbove" : -1,
+    "bridgeRelationType" : "ACTUAL_SOURCE_ON_BRIDGE"
+  }, {
+    "type" : "BridgeWall",
+    "coordinate" : {
+      "x" : 22.0,
+      "y" : 10.0,
+      "z" : 6.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : true,
+    "groundCoefficient" : 0.0,
+    "wall" : {
+      "p0" : {
+        "x" : 22.0,
+        "y" : 10.0,
+        "z" : 6.0
+      },
+      "p1" : {
+        "x" : 22.0,
+        "y" : 0.0,
+        "z" : 6.0
+      }
+    },
+    "wallDirection" : "UPWARD",
+    "mirrorRelax" : false,
+    "bridgeHeight" : 5.0,
+    "intersectionType" : "BUILDING_EXIT",
+    "wallAlpha" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "wallPk" : 101,
+    "nextBridgePk" : -1,
+    "nextBridgeHeight" : "NaN",
+    "bridgePk" : 101
+  }, {
+    "type" : "Wall",
+    "coordinate" : {
+      "x" : 35.0,
+      "y" : 10.0,
+      "z" : 8.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : true,
+    "groundCoefficient" : 0.0,
+    "wall" : {
+      "p0" : {
+        "x" : 35.0,
+        "y" : 0.0,
+        "z" : 8.0
+      },
+      "p1" : {
+        "x" : 35.0,
+        "y" : 20.0,
+        "z" : 8.0
+      }
+    },
+    "intersectionType" : "THIN_WALL_ENTER_EXIT",
+    "wallAlpha" : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]
+  }, {
+    "type" : "Receiver",
+    "coordinate" : {
+      "x" : 70.0,
+      "y" : 10.0,
+      "z" : 4.0
+    },
+    "zGround" : 0.0,
+    "obstructingAcousticRay" : false,
+    "groundCoefficient" : 0.0,
+    "receiverPk" : 1
+  } ],
+  "hasBuildingIntersection" : true,
+  "hasBridgeIntersection" : true,
+  "hasTopographyIntersection" : false
+}
