@@ -49,6 +49,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>TBC03 (imaginary + actual, receiver above the deck), TBC13 (synthetic MIRROR_SOURCE BT) and
  * TBC31 (compound real-DEM scene, all four paths) are also reproduced within {@value #EPS} dB.
  *
+ * <p>TBC04/09/10/21 are the fork's non-synthetic {@code MIRROR_SOURCE} cases with an obstructing
+ * DOWNWARD deck edge and no downstream obstacle beyond it, so {@code spliceBridgeBottomEdge}
+ * produces a single under-the-deck diffraction (DIFB only, no DIFH/top route) - reproduced
+ * bit-for-bit. This is the real-world analogue of TBC12/13's synthetic bottom+top case, minus the
+ * "top" half, since these fixtures have nothing downstream for the ray to diffract over - checked
+ * by {@link #assertDifbGoldenReproduced}. TBC05/06 are {@code MIRROR_SOURCE} cases whose deck wall
+ * is non-obstructing (direct + ground, no diffraction at all), so they are checked by the plain
+ * {@link #CASES} loop instead.
+ *
+ * <p>TBC08 ({@code SOURCE_NOT_RELATED_TO_BRIDGE}, source entirely outside the bridge footprint) and
+ * TBC30 (real TutoBridge DEM/bridge geometry, {@code ACTUAL_SOURCE_ON_BRIDGE} +
+ * {@code IMAGINARY_SOURCE_UNDER_BRIDGE}, no wall - the base scene TBC31 extends) are also checked by
+ * the plain {@link #CASES} loop.
+ *
  * <p><b>TBC02</b> golden path 1 - the ACTUAL path (source on the deck, receiver below and beside,
  * diffracting over the deck's outer edge) - diverges by ~2.6 dB, and this is <em>not</em> a v2
  * defect: the receiver lies below the O&rarr;R mean plane, so upstream's {@code aDif} applies the
@@ -71,6 +85,10 @@ public class BridgeAttenuationGoldenTest {
             {"TBC07", "TBC07_imaginary"},
             {"TBC11", "TBC11_imaginary"},
             {"TBC20", "TBC20_imaginary", "TBC20_actual"},
+            {"TBC05", "TBC05_mirror"},
+            {"TBC06", "TBC06_mirror"},
+            {"TBC08", "TBC08_not_related"},
+            {"TBC30", "TBC30_imaginary", "TBC30_actual"},
     };
 
     private static CutProfile load(String name) throws IOException {
@@ -159,6 +177,40 @@ public class BridgeAttenuationGoldenTest {
     }
 
     /**
+     * Feed the given fixtures, assert an upstream path diffracts under the deck edge (DIFB, no
+     * downstream DIFH - i.e. {@code spliceBridgeBottomEdge} fired but there was nothing beyond the
+     * deck to force a "top" sub-route), and that every stored golden {@code aGlobalH} path is
+     * reproduced within {@link #EPS}.
+     */
+    private void assertDifbGoldenReproduced(String tbc, String... fixtures) throws IOException {
+        List<double[]> golden = goldenAGlobalH(tbc);
+        AttenuationComputeOutput out = run(fixtures);
+
+        List<double[]> got = new ArrayList<>();
+        boolean sawDifbPath = false;
+        for (Object o : out.getAttenuationOutputs()) {
+            CnossosAttenuationOutput cao = (CnossosAttenuationOutput) o;
+            got.add(cao.aGlobalRaw);
+            CnossosPath p = cao.propagationPath;
+            if (p != null && p.getPointList() != null
+                    && p.getPointList().stream().anyMatch(pp -> pp.type == PointPath.POINT_TYPE.DIFB)) {
+                sawDifbPath = true;
+            }
+        }
+        assertTrue(sawDifbPath, tbc + ": expected an upstream path diffracting under the deck edge (DIFB)");
+
+        for (int g = 0; g < golden.size(); g++) {
+            double best = Double.MAX_VALUE;
+            for (double[] a : got) {
+                best = Math.min(best, maxAbsDiff(a, golden.get(g)));
+            }
+            assertTrue(best < EPS,
+                    tbc + " golden path " + g + " aGlobalH not reproduced (closest maxAbsDiff="
+                            + String.format("%.3f", best) + ")");
+        }
+    }
+
+    /**
      * TBC12 - the synthetic bottom+top (BT) case: imaginary source under a wide deck plus an
      * 8 m downstream wall. Exercises the v2 BT decomposition
      * ({@code CnossosPathBuilder.spliceBridgeBottomEdge} + {@code computeBridgeBottomTopRoutes},
@@ -177,6 +229,42 @@ public class BridgeAttenuationGoldenTest {
     @Test
     public void tbc13MirrorBottomTopDiffractionMatchesTheForkGolden() throws IOException {
         assertBtGoldenReproduced("TBC13", "TBC13_mirror");
+    }
+
+    /**
+     * TBC04 - non-synthetic {@code MIRROR_SOURCE} case: a real below-deck source mirrored across
+     * the deck underside, receiver far beyond the deck, obstructing DOWNWARD deck edge and nothing
+     * downstream - a single DIFB diffraction, reproduced bit-for-bit.
+     */
+    @Test
+    public void tbc04MirrorDiffractsUnderTheDeckMatchingTheForkGolden() throws IOException {
+        assertDifbGoldenReproduced("TBC04", "TBC04_mirror");
+    }
+
+    /**
+     * TBC09 - unrelated source under the bridge footprint (direct path, golden path 0) plus its
+     * deck-underside mirror image (DIFB, golden path 1), both reaching the same far receiver.
+     */
+    @Test
+    public void tbc09MirrorDiffractsUnderTheDeckMatchingTheForkGolden() throws IOException {
+        assertDifbGoldenReproduced("TBC09", "TBC09_not_related", "TBC09_mirror");
+    }
+
+    /**
+     * TBC10 - same below-deck source as TBC09, receiver elevated at (50, 50, 20) still outside the
+     * footprint.
+     */
+    @Test
+    public void tbc10MirrorDiffractsUnderTheDeckMatchingTheForkGolden() throws IOException {
+        assertDifbGoldenReproduced("TBC10", "TBC10_mirror", "TBC10_not_related");
+    }
+
+    /**
+     * TBC21 - {@code MIRROR_SOURCE} on one of two bridges present in the scene, far receiver.
+     */
+    @Test
+    public void tbc21MirrorDiffractsUnderTheDeckMatchingTheForkGolden() throws IOException {
+        assertDifbGoldenReproduced("TBC21", "TBC21_mirror");
     }
 
     /**
