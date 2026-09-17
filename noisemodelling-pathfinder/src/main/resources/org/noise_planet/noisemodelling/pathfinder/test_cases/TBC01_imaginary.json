@@ -34,12 +34,12 @@
       "p0" : {
         "x" : 15.0,
         "y" : 20.0,
-        "z" : 11.0
+        "z" : 9.5
       },
       "p1" : {
         "x" : 15.0,
         "y" : 10.0,
-        "z" : 11.0
+        "z" : 9.5
       }
     },
     "wallDirection" : "DOWNWARD",
@@ -64,6 +64,6 @@
     "receiverPk" : 1
   } ],
   "hasBuildingIntersection" : false,
-  "hasBridgeIntersection" : true,
+  "hasBridgeIntersection" : false,
   "hasTopographyIntersection" : false
 }

@@ -95,6 +95,6 @@
     "receiverPk" : 1
   } ],
   "hasBuildingIntersection" : false,
-  "hasBridgeIntersection" : true,
+  "hasBridgeIntersection" : false,
   "hasTopographyIntersection" : false
 }

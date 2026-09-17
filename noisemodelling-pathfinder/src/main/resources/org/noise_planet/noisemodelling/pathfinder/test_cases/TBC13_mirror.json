@@ -17,8 +17,8 @@
     },
     "bridgeHeight" : "NaN",
     "li" : 10.0,
-    "bridgePkAbove" : 100,
     "bridgePkOn" : -1,
+    "bridgePkAbove" : 100,
     "bridgeRelationType" : "MIRROR_SOURCE"
   }, {
     "type" : "BridgeWall",

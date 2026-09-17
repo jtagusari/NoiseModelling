@@ -34,12 +34,12 @@
       "p0" : {
         "x" : -13914.58216676156,
         "y" : -113555.87922651015,
-        "z" : 39.920081199452696
+        "z" : 36.920081199452696
       },
       "p1" : {
         "x" : -13918.425271423921,
         "y" : -113565.1112656432,
-        "z" : 39.920081199452696
+        "z" : 36.920081199452696
       }
     },
     "wallDirection" : "DOWNWARD",
@@ -74,6 +74,6 @@
     "receiverPk" : 1
   } ],
   "hasBuildingIntersection" : false,
-  "hasBridgeIntersection" : true,
+  "hasBridgeIntersection" : false,
   "hasTopographyIntersection" : false
 }
