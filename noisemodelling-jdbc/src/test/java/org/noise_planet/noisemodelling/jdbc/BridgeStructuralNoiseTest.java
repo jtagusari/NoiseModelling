@@ -51,9 +51,20 @@ public class BridgeStructuralNoiseTest {
     /** ROAD only, BRIDGE only, or both structural + road rows in the emission table. */
     private enum Emit { ROAD_ONLY, BRIDGE_ONLY, BOTH }
 
-    private void createScene(Statement st, Emit emit) throws Exception {
+    /**
+     * @param downstreamBuilding when true, adds a building beyond the deck's far edge (y=25) so
+     *                           a source under the deck must diffract both under the deck edge
+     *                           and over the building - the bottom+top (BT) case - rather than
+     *                           the single under-the-deck diffraction the base scene exercises.
+     * @param receiverY          y-coordinate of the single receiver, POINTZ(50 receiverY 2).
+     */
+    private void createScene(Statement st, Emit emit, boolean downstreamBuilding, int receiverY) throws Exception {
         st.execute("DROP TABLE IF EXISTS BUILDINGS");
         st.execute("CREATE TABLE BUILDINGS(PK SERIAL PRIMARY KEY, THE_GEOM GEOMETRY(POLYGON), HEIGHT DOUBLE)");
+        if (downstreamBuilding) {
+            st.execute("INSERT INTO BUILDINGS(THE_GEOM, HEIGHT) VALUES " +
+                    "('POLYGON((30 55, 70 55, 70 60, 30 60, 30 55))', 6.0)");
+        }
 
         st.execute("DROP TABLE IF EXISTS DEM");
         st.execute("CREATE TABLE DEM(THE_GEOM GEOMETRY(POINTZ))");
@@ -84,10 +95,10 @@ public class BridgeStructuralNoiseTest {
             }
         }
 
-        // receiver on the ground, just beyond the deck edge and below deck level
+        // receiver on the ground, beyond the deck edge and below deck level
         st.execute("DROP TABLE IF EXISTS RECEIVERS");
         st.execute("CREATE TABLE RECEIVERS(PK SERIAL PRIMARY KEY, THE_GEOM GEOMETRY(POINTZ))");
-        st.execute("INSERT INTO RECEIVERS(THE_GEOM) VALUES ('POINTZ(50 30 2)')");
+        st.execute("INSERT INTO RECEIVERS(THE_GEOM) VALUES ('POINTZ(50 " + receiverY + " 2)')");
 
         // a straight deck at absolute altitude 10 m over the strip y in [15, 25]
         st.execute("DROP TABLE IF EXISTS BRIDGE_POINTS");
@@ -102,8 +113,12 @@ public class BridgeStructuralNoiseTest {
     }
 
     private double runAndGetLevel(Emit emit, boolean withBridge) throws Exception {
+        return runAndGetLevel(emit, withBridge, false, 30);
+    }
+
+    private double runAndGetLevel(Emit emit, boolean withBridge, boolean downstreamBuilding, int receiverY) throws Exception {
         try (Statement st = connection.createStatement()) {
-            createScene(st, emit);
+            createScene(st, emit, downstreamBuilding, receiverY);
 
             NoiseMapByReceiverMaker maker = new NoiseMapByReceiverMaker("BUILDINGS", "SOURCES_GEOM", "RECEIVERS");
             maker.sceneDatabaseInputSettings.setInputMode(SceneDatabaseInputSettings.INPUT_MODE.INPUT_MODE_LW);
@@ -159,5 +174,33 @@ public class BridgeStructuralNoiseTest {
         assertTrue(bridgeNoDeck < roadWithDeck - 40,
                 String.format("a BRIDGE row with no deck should be dropped: bridgeNoDeck=%.2f roadWithDeck=%.2f",
                         bridgeNoDeck, roadWithDeck));
+    }
+
+    /**
+     * The BT (bottom+top) diffraction geometry ({@code CnossosPathBuilder.spliceBridgeBottomEdge} +
+     * {@code computeBridgeBottomTopRoutes}, merge_project.md §4.x) and the {@code EMISSION_TYPE}
+     * structural-noise routing (§4.aa) are each covered separately elsewhere - the geometry-only
+     * {@code BridgeAttenuationGoldenTest} always uses a flat 93 dB source, and this class's other
+     * tests never place an obstacle beyond the deck. Neither exercises a structural-noise
+     * ({@code EMISSION_TYPE='BRIDGE'}) source that must actually diffract both under the deck edge
+     * and over a separate downstream obstacle to reach the receiver - this test closes that gap.
+     *
+     * <p>Receiver fixed at (50, 90, 2), well beyond a 6 m building spanning y=[55,60]; only the
+     * building's presence differs between the two runs.
+     */
+    @Test
+    public void structuralNoiseDiffractsUnderTheDeckAndOverADownstreamBuilding() throws Exception {
+        double withoutBuilding = runAndGetLevel(Emit.BRIDGE_ONLY, true, false, 90);
+        double withBuilding = runAndGetLevel(Emit.BRIDGE_ONLY, true, true, 90);
+
+        // The structural-noise path still reaches the receiver (BT found a path, not silence).
+        assertTrue(withBuilding > -100,
+                String.format("structural noise should still reach the receiver despite the extra " +
+                        "obstacle (BT path expected): withBuilding=%.2f", withBuilding));
+        // The added building measurably attenuates the level further, proving the second obstacle
+        // - not just the deck edge - is genuinely accounted for by the propagation path.
+        assertTrue(withBuilding < withoutBuilding - 1.0,
+                String.format("a downstream building should add measurable attenuation over the " +
+                        "deck-only case: withoutBuilding=%.2f withBuilding=%.2f", withoutBuilding, withBuilding));
     }
 }
