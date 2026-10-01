@@ -474,27 +474,50 @@ public class CnossosPathProcessor {
 
         boolean hasVirticalEdgeDiffraction = cnossosPath.getPointList().stream()
                 .anyMatch(pointPath -> pointPath.type.equals(DIFV));
-        
+
+        // A bridge's OTHER-direction deck edge (source on the deck, receiver below/beside) is
+        // located by a shortest-path search along the deck edge, like a vertical-edge pivot, so
+        // it is not guaranteed to lie on the straight source-receiver line. sourceCoordinate /
+        // receiverCoordinate here are 2D-unfolded cut-profile coordinates (cumulative distance
+        // through every cut point), valid only when all points are collinear with source and
+        // receiver; for this edge that assumption can be violated even though the point is typed
+        // DIFH, not DIFV, so the check above does not catch it and computeDeltaH's internally
+        // derived source-receiver length is wrong. Route it through the same dc (true 3D
+        // source-receiver distance) fallback the DIFV branch already uses.
+        boolean hasOffAxisBridgeEdge = configuration.getCutProfilePoints().stream()
+                .anyMatch(cutPoint -> cutPoint instanceof CutPointBridgeWall
+                        && ((CutPointBridgeWall) cutPoint).getWallDirection() == CutPointBridgeWall.WallDirection.OTHER);
+
         if (hasVirticalEdgeDiffraction) {
             PointPath firstVDiffractionPoint = cnossosPath.getPointList().stream()
                 .filter(p -> p.type.equals(DIFV)).findFirst().orElse(null);
             double directDistance = cnossosPath.getSRSegment().dc;
 
             cnossosPath.deltaH = DistanceDifferenceCalculator.computeVpathDeltaH(
-                sourceCoordinate, 
-                firstVDiffractionPoint.coordinate, 
-                cnossosPath.e, 
-                lastDiffractionPointCoordinate, 
+                sourceCoordinate,
+                firstVDiffractionPoint.coordinate,
+                cnossosPath.e,
+                lastDiffractionPointCoordinate,
                 receiverCoordinate,
                 firstDiffractionPointCoordinate,
                 directDistance
             );
+        } else if (hasOffAxisBridgeEdge) {
+            cnossosPath.deltaH = DistanceDifferenceCalculator.computeVpathDeltaH(
+                sourceCoordinate,
+                firstDiffractionPointCoordinate,
+                cnossosPath.e,
+                lastDiffractionPointCoordinate,
+                receiverCoordinate,
+                firstDiffractionPointCoordinate,
+                cnossosPath.getSRSegment().dc
+            );
         } else {
             cnossosPath.deltaH = DistanceDifferenceCalculator.computeDeltaH(
-                sourceCoordinate, 
-                firstDiffractionPointCoordinate, 
-                cnossosPath.e, 
-                lastDiffractionPointCoordinate, 
+                sourceCoordinate,
+                firstDiffractionPointCoordinate,
+                cnossosPath.e,
+                lastDiffractionPointCoordinate,
                 receiverCoordinate
             );
         }
