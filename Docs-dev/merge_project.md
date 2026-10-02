@@ -1,16 +1,24 @@
 # fix ブランチを upstream/main へ取り込む方策
 
-> 更新日: 2026-09-08 / 対象: `fix` (= `origin/fix`) → `upstream/main`
+> 更新日: 2026-09-17 / 対象: `fix` (= `origin/fix`) → `upstream/main`
 > upstream = `https://github.com/Universite-Gustave-Eiffel/NoiseModelling.git`
 > ファイル単位の仕分け表 → [fix_diff_inventory.md](fix_diff_inventory.md)
-> PR 本文 → [bridge_pr_body.md](bridge_pr_body.md)（v0）／ [bridge_v1_pr_body.md](bridge_v1_pr_body.md)（v1）／
-> [bridge_v2_pr_body.md](bridge_v2_pr_body.md)（v2）／ v1 core 分析 → [bridge_v1_core_analysis.md](bridge_v1_core_analysis.md)
+> PR 本文 → [bridge_pr_body.md](bridge_pr_body.md)（v0）／ [bridge_v1_pr_body.md](bridge_v1_pr_body.md)（旧 v1、要更新）／
+> [bridge_v2_pr_body.md](bridge_v2_pr_body.md)（旧 v2、要更新）／ v1 core 分析 → [bridge_v1_core_analysis.md](bridge_v1_core_analysis.md)
 >
-> **現況（2026-09-08）:** Bridge を v0 / v1 / v2 に 3 分割（→ §4 ロードマップ）。3 段とも squash 済・PR 本文作成済・未投稿。
-> v0（デッキ=上越え衝立、propagation 無改修）= `feat/bridge`、`origin` push 済。
-> v1（on-deck 標高 ＋ ASJ 構造物音・別テーブル）= `feat/bridge-v1`、未 push。
-> v2（ミラー音源 ＋ BT 回折、方式 A ＝ ガード付き splice、`*Ext` フォーク無し）= `feat/bridge-v2`、未 push。
-> v2.2（構造物音の soffit 配置 = option 1）まで完了（§4.aa、2026-09-08）。詳細 → §4.x 末尾の棚卸し。
+> **現況（2026-09-17）:** Bridge を v0 / v1 / v2 の 3 段スタック PR に分割（→ §4 ロードマップ表）。
+> 全段フルクリーン回帰・全緑、いずれも `origin` **未 push**（ローカル専用、force-push の心配なし）。
+> - **v0**（`feat/bridge`）: デッキ = 上越え衝立。propagation 無改修。＋ デッキ上音源の地盤基準化・
+>   `BRIDGE_PK` 相対 Z 解決（§4.14 で v1/v2 から降格）＋ ユニットテスト整理 4 コミット（§4.16）。
+> - **v1**（`feat/bridge-v1`）: **BT 回折のみ**（デッキ下をくぐる／上を越える二重回折）。
+>   ASJ 構造物音は元 v1 の内容だったが §4.15 で v2 へ移動し、BT を先に置く順序に入れ替え済み。
+> - **v2**（`feat/bridge-v2`）: **ASJ 構造物音源の追加**（`emission.road.asj`＋`EMISSION_TYPE`振り分け）。
+>   BT 回折は v1 から継承。
+> - **未着手:** v0/v1/v2 いずれの draft PR も未投稿。`bridge_v1_pr_body.md`/`bridge_v2_pr_body.md` は
+>   入れ替え前の内容のまま（v1/v2 のスコープ入れ替えを反映して要更新、§4.15）。
+> - 各章の位置づけ: §1-§3 は upstream 統合方針の調査・決定の経緯（決定済み、変更なし）。
+>   §4 はロードマップ表 + v0/v1/v2 それぞれの実装ログ（§4.10-§4.16、日付順）。§5-§6 は運用ルールと
+>   参考コマンド。
 
 ---
 
@@ -326,8 +334,6 @@ v0 のデッキ音源は通常の CNOSSOS。
   = fork の `AttenuationCnossosExt`（1108）/ `CnossosPathExt` の必要部分の移植。
 
 **D. F7/F8（B の後）**: `jdbc/BridgePointMappingTest` `BridgeTrafficTest` + `TutoBridge/*.geojson`、
-
-**D. F7/F8（B の後）**: `jdbc/BridgePointMappingTest` `BridgeTrafficTest` + `TutoBridge/*.geojson`、
 `noisemodelling-scripts` の Bridge チュートリアル / `Noise_level_from_bridge_traffic`。
 
 ### 3.7 直近の進め方
@@ -426,9 +432,17 @@ v0 のデッキ音源は通常の CNOSSOS。
 - **`AttenuationCnossosExt` / `CnossosPathExt` の移植は不要**（v0 では）。fork のあれらは
   下部開放・ミラー音源・構造物音などの高度なケースを扱うもので、v1 で必要になったら移植する。
 - 回帰確認: pathfinder 249 / propagation 55（TC01–TC28 の 47 本含む）/ scripts bridge 2 — 全緑。
-- 別件（upstream の既存バグ）: `Noise_level_from_source` が `setComputeHorizontalDiffraction` と
-  `setComputeVerticalDiffraction` の引数を取り違えている（`confDiffHorizontal` が実際には鉛直回折を有効化する）。
-  Bridge PR とは別に報告候補。
+- **訂正（当初「バグ」と誤認）:** `Noise_level_from_source` の
+  `.setComputeHorizontalDiffraction(compute_vertical_diffraction)` /
+  `.setComputeVerticalDiffraction(compute_horizontal_diffraction)` は引数の取り違えではない。
+  WPS 入力名 `confDiffVertical`/`confDiffHorizontal` は「エッジの向き」（垂直エッジ＝建物の角、
+  水平エッジ＝デッキ縁やバリア上端）を指す一方、`Scene` の setter 名は「回折で経路が曲がる平面」
+  （horizontal＝水平面内＝垂直エッジ回折、vertical＝垂直面内＝水平エッジ回折）を指す。`Scene.java` の
+  フィールド javadoc（"Compute horizontal diffraction rays over vertical edges" /
+  "vertical diffraction over horizontal edges"）と `DirectAndDiffractionEvaluator` の実装
+  （`horizontalDiffraction` → `DiffractionPathBuilder.computeVEdgeDiffraction`、`verticalDiffraction`
+  → 通常の上端越え経路）がこれを裏付ける。2 つの命名規則（エッジの向き ↔ 経路が曲がる平面）が逆なだけで、
+  対応付け自体は正しい。
 
 **v0 到達点まとめ（`feat/bridge`, squash 後 4 コミット, base `04793d59`）:** pathfinder（幾何＋断面, 249）→
 propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` ローダ, 59）→ scripts（`tableBridgePoints`
@@ -489,37 +503,39 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 
 ### ロードマップ（v0 / v1 / v2）
 
-3 段階に分割。各段は前段の上に積む。**v0 と v1 は別 PR**（v1 は emission に ASJ を足すため）。
+3 段階に分割、各段は前段の上に積む stacked PR。v0 = CNOSSOS-EU 準拠のジオメトリ・位置補正、
+v1 = BT 回折（伝搬物理）、v2 = ASJ 構造物音（新しい音源モデル）— §4.15 で v1/v2 の順序を入れ替え済み。
 
 | | ブランチ | スコープ | 状態 |
 |---|---|---|---|
-| **v0** | `feat/bridge`（`04793d59` + 4 コミット）| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット | ✅ squash 済 / `origin/feat/bridge` push 済 / [bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿** |
-| **v1（方針 C）** | `feat/bridge-v1`（`feat/bridge` + ~11 コミット）| ＋ デッキ上音源の `CutProfile` 標高（②）＋ per-point デッキ高さ（③、v0 で既に可）＋ **ASJ 構造物音源**（④、`emission.road.asj` ＋ 専用スクリプト `Structural_noise_from_bridge`）＋ TBC 相当の回帰テスト（⑤）＋ ASJ end-to-end テスト | ✅ feature + test 完了。§3.7 step 7 の進捗表参照 |
-| **v2** | `feat/bridge-v2`（`feat/bridge-v1` + 3 コミット）| デッキ下受音点：ミラー音源（デッキ裏面反射）＋ BT 回折（デッキ下端くぐり→下流障害物上越え） | ✅ **BT 実装完了**（2026-09-08）。#1〜#6 ＋ ミラー音源生成 ＋ golden ハーネス。squash 済（pathfinder plumbing / propagation BT / test harness）。TBC01/02(img)/03/07/11/12/13/20/**31（全 4 経路）** を 0.2 dB 以内再現、TBC12 は bit 一致。§4.z の DOWNWARD 地盤プロファイル是正（`84ced451`、`fix` `e4300320` と対）で TBC31 imaginary の 0.5 dB 残差を解消。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) 作成済。詳細 → §4.x |
-| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.aa、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.x #3）。✅ **テストカバレッジ監査完了**（2026-09-09）: TBC04-31 の残り全て移植（propagation 65）＋ BT×構造物音の統合テスト追加（jdbc 62）。✅ **favourable BT 曲線経路の~0.04-0.05dBずれは対応不要と結論**（2026-09-09、upstream/fix の一般的な favourable 実装方針の違いに起因、TBC02 と同種）。**v2.2 は実質完了**。残: v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.z）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.x #2）|
+| **v0** | `feat/bridge`（`04793d59` + 9 コミット、tip `4c84fd36`（§4.18 で再較正））| デッキ = 上越えの厚い衝立。既存 CNOSSOS 凸包回折を通す。propagation **無改修**。jdbc に `BRIDGE_POINTS` ローダ、scripts に `tableBridgePoints` 入力、TutoBridge データセット。＋ **デッキ上音源の地盤基準化**（①、§4.14 で降格）＋ **BRIDGE_PK 相対 Z 解決**（②、§4.14 で降格）＋ ユニットテスト冗長性整理 4 コミット（§4.16、95→57 件） | ✅ フルクリーン回帰 全緑。[bridge_pr_body.md](bridge_pr_body.md) 作成済 / **未投稿**。⚠️ `origin/feat/bridge` は旧版のまま — 再 push 必要 |
+| **v1（回折パス）** | `feat/bridge-v1`（新 `feat/bridge` + 3 コミット、**§4.15 で v2 と入れ替え済**、tip `299a4857`（§4.18 で再較正））| **BT 回折のみ**（ミラー音源技法＋下面/上面二重回折の合成、`DIFB` 点）＋ TBC04-30 系の回折ゴールデンテスト。ASJ 構造物音は v2 へ移動、代わりに §4.15 で見つかった v0/v1 の「橋の下の音源が正しく回折されない」ギャップがここで解消される | ✅ フルクリーン回帰 全緑（emission 28 / pathfinder 200 / propagation 64 / jdbc 59 / scripts 98 skip4） |
+| **v2** | `feat/bridge-v2`（新 `feat/bridge-v1` + 5 コミット、**§4.15 で v1 と入れ替え済**、tip `4672285f`（§4.18 で再較正））| **ASJ 構造物音源の追加**（`emission.road.asj` ＋ `Structural_noise_from_bridge` script）＋ `EMISSION_TYPE` 分離（構造物音をデッキ裏面に正しく配置）＋ デッキ下受音点のミラー音源／BT 回折は v1 から継承。「構造物音が BT 経路を正しく見つける」統合テスト | ✅ フルクリーン回帰 全緑（emission 66 / pathfinder 200 / propagation 65 / jdbc 62 / scripts 103 skip4）。[bridge_v2_pr_body.md](bridge_v2_pr_body.md) は旧順序時点の内容のまま — **v1/v2 入れ替えを反映して要更新**。詳細 → §4.10（BT）・§4.15（入れ替え）・§4.16（テスト整理） |
+| **v2.2** | （v2 に内包）| 構造物音の soffit 配置（option 1: `EMISSION_TYPE` ＋ `checkIfEmissionIsAcceptable`）／ 多段スタック DOWNWARD エッジ／ favourable BT 曲線経路 | ✅ **option 1 完了**（§4.12、2026-09-08）。**多段スタックは `BridgeService` のコア設計に起因する既知の制限と判明・対応見送り**（2026-09-09、§4.10 #3）。✅ **テストカバレッジ監査完了**（2026-09-09）: TBC04-31 の残り全て移植（propagation 65）＋ BT×構造物音の統合テスト追加（jdbc 62）。✅ **favourable BT 曲線経路の~0.04-0.05dBずれは対応不要と結論**（2026-09-09、upstream/fix の一般的な favourable 実装方針の違いに起因、TBC02 と同種）。**v2.2 は実質完了**。残: v2.3（`Road_Emission_from_Traffic` の ROAD/BRIDGE 同時生成）。TBC31 全 4 経路 解消（§4.13）。**TBC02 path 1 の ~2.6 dB は `aDif` の CNOSSOS 2.5.31/2.5.33 対応差で upstream が正しい＝対応不要**（§4.10 #2）|
 
-### 直近のタスク（v1 完了後）
+### 直近のタスク（2026-09-17 時点で残っているもの）
 
-1. ~~`feat/bridge-v1` を **squash**~~ → ✅ 2026-09-07。モジュール単位の 4 コミット
-   （`311f86f1` pathfinder / `424f471b` propagation test / `1feee706` emission ASJ /
-   `c10deb8c` scripts）。ツリーは squash 前と byte 一致（退避タグ `backup/feat-bridge-v1-presquash`）。
-2. ~~**v1 draft PR 本文** を作成~~ → ✅ [bridge_v1_pr_body.md](bridge_v1_pr_body.md)。
-3. ~~**フルクリーン回帰**~~ → ✅ 2026-09-07 `BUILD SUCCESS`: emission 66 / pathfinder 252 /
-   propagation 56 / jdbc 59 / scripts 100（skip 4）、回帰ゼロ。**v1(C) 検証完了。**
-4. **v0 draft PR を投稿**（本人）。base = `04793d59`（= `upstream/main`、2026-08-14 以降不動、rebase 不要）。
-   `compare/main...jtagusari:feat/bridge` から Draft。本文 = [bridge_pr_body.md](bridge_pr_body.md)。
-5. **`feat/bridge-v1` / `feat/bridge-v2` を `origin` に push**（本人）。
-6. v0 のレビューを見て **v1 draft PR**（base = `feat/bridge`、本文 = [bridge_v1_pr_body.md](bridge_v1_pr_body.md)）、
-   さらに **v2 draft PR**（base = `feat/bridge-v1`、本文 = [bridge_v2_pr_body.md](bridge_v2_pr_body.md)）を stacked 投稿。
-7. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
-8. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
-9. ✅ **v2 の BT 実装**（2026-09-08、§4.x）＋ **v2.2 option 1**（構造物音 soffit 配置、§4.aa）。
+v0/v1/v2 の実装・テスト整理・v1↔v2 入れ替えは全て完了・全緑（§4.14/§4.15/§4.16）。
+残っているのは投稿系の作業のみ:
 
-> 環境: この session 中、作業ツリーが繰り返し破壊された（phantom staging・`git checkout` の
-> "unable to update HEAD"）。原因 = **pCloud**（2026-09-07 に本人が修正）。修正後のフルクリーン回帰は
-> BUILD SUCCESS。
+1. **v0 draft PR を投稿**（本人）。base = `04793d59`（= `upstream/main`、2026-08-14 以降不動、rebase 不要）。
+   `compare/main...jtagusari:feat/bridge` から Draft。本文 = [bridge_pr_body.md](bridge_pr_body.md)（現行版で流用可）。
+2. **`feat/bridge` / `feat/bridge-v1` / `feat/bridge-v2` を `origin` に push**（本人）。
+   `feat/bridge` は §4.14/§4.16 で再編済みのため `origin/feat/bridge`（旧版）への push は force-push 相当になる。
+3. **`bridge_v1_pr_body.md` / `bridge_v2_pr_body.md` を更新**（§4.15 の入れ替えを反映）—
+   現行の内容は入れ替え前（旧 v1=ASJ、旧 v2=BT）のまま。**新 v1 = BT 回折、新 v2 = ASJ 構造物音**に
+   合わせて本文を書き直してから投稿する。
+4. v0 のレビューを見て **v1 draft PR**（base = `feat/bridge`）、さらに **v2 draft PR**（base = `feat/bridge-v1`）
+   を stacked 投稿。
+5. （任意・低優先）JMH `getProfile()` 簡易ベンチ。
+6. （任意）TutoBridge から before/after ノイズマップ画像 1〜2 枚（PR 添付用）。
+7. （任意・低優先）`BridgeFactoryTest`/`RoadAsjTest` 等、§4.16 で手つかずのまま残した小規模テストファイルの整理。
 
-### 4.x v2 実装計画（方式 A、2026-09-07 着手）
+> 環境メモ: 2026-09-07 セッション中、作業ツリーが繰り返し破壊される事象があった（phantom staging・
+> `git checkout` の "unable to update HEAD"）。原因は **pCloud**（本人が修正済み）。以後のフルクリーン
+> 回帰はすべて `BUILD SUCCESS`。
+
+### 4.10 v2 実装計画（方式 A、2026-09-07 着手）
 
 ブランチ `feat/bridge-v2`（`feat/bridge-v1` 起点）。**方式 A** = upstream の
 `CnossosPathBuilder` / `CnossosPath` / `AttenuationCnossos` にガード付きで splice、`fix` の
@@ -606,7 +622,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
 - ✅ **#6 aBoundary 和** — `AttenuationCnossos.aBoundary` に `hasDifB && hasDifT && 両 route 非 null` の分岐、
   `aBoundary(top) + aBoundary(bottom)` をバンドごと和で返す。`aDif` は `DIFB` を `DIFV` 同様の純ナイフエッジ
   （地面効果なし）として扱う。
-- ✅ **虚音源の自動生成は撤去（option 2、§4.y）** — `PathFinder.addBridgeVirtualSources` は
+- ✅ **虚音源の自動生成は撤去（option 2、§4.11）** — `PathFinder.addBridgeVirtualSources` は
   `MIRROR_SOURCE` 生成のみ残し、`IMAGINARY_SOURCE_UNDER_BRIDGE`（構造物音になるべき）の自動生成は削除。
   `BridgeNoiseMapTest` 回復。
 - ✅ **合成 BT テスト** — `fix` に `TBC12`（imaginary BT）`abae3180` / `TBC13`（mirror BT）`d90e8cf4` を追加、
@@ -617,7 +633,7 @@ propagation（デッキ縁バリア, 無改修, 55）→ jdbc（`BRIDGE_POINTS` 
   - **TBC31（複合実 DEM）— 全 4 経路 golden 一致**（2026-09-08、3 バグ修正）:
     ① `210c44b1` デッキ端がプロファイル最高点で hull に自然に乗ると DIFB 誤認 → 偽 BT。橋壁を hull から除去。
     ② `9548c63f` splice 後の後半（edge→受音点）を再 hull していなかった → mirror 経路が単独 DIFB。`upperHullAfter` 追加。
-    ③ DOWNWARD 橋壁（デッキ下面エッジ）を地盤標高プロファイルに入れる扱いの是正（§4.z）。imaginary 経路の
+    ③ DOWNWARD 橋壁（デッキ下面エッジ）を地盤標高プロファイルに入れる扱いの是正（§4.13）。imaginary 経路の
     S→O 平均面のずれ ~0.5 dB を解消。`fix`・v2 とも「DOWNWARD 橋壁は地形点のみ、天端を地盤に入れない」に統一
     （v2 `84ced451` ＝ 旧 `7d17821b` を amend、`fix` `e4300320`）。旧 `7d17821b`（fix の `(天端, 地形)`
     2 点順に寄せる中間版）は「天端が地盤に入る」点で同じく不適切だったため置換。
@@ -659,7 +675,7 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 1. ✅ **構造物音を `IMAGINARY_SOURCE_UNDER_BRIDGE` として自動配置（option 1）** — 2026-09-08 実装完了。
    `input/EmissionType` ＋ `PeriodEmission.emissionType` ＋ 任意列 `EMISSION_TYPE`、
    `AttenuationOutputSingleThread.checkIfEmissionIsAcceptable` ゲート、`PathFinder.addBridgeVirtualSources`
-   の裏面 IMAGINARY 点復活、`Structural_noise_from_bridge` の emission-type 出力モード（§4.aa）。
+   の裏面 IMAGINARY 点復活、`Structural_noise_from_bridge` の emission-type 出力モード（§4.12）。
    残（v2.3）: `Road_Emission_from_Traffic` での ROAD/BRIDGE 同時生成、traffic-flow 入力モードからの
    `EMISSION_TYPE` 生成。
 
@@ -670,7 +686,7 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    （`deltaDiffSR := deltaDiffSRPrime`、`deltaGroundOR := aGroundOR`）に入る。`fix` の旧 `aDif` にはこの
    分岐が無く常に平均面上の式を使う。**upstream の方が CNOSSOS 準拠として正しい**ので移植すべきものは無い
    （移植は退行）。`computePtsGround` に `OTHER` エッジを足しても δ・平均面はほぼ動かず差は残る（試行済み・撤回）。
-   `fix` 側の先頭地形点除去（§4.z「OTHER」、`4ea9ed6e`）は `fix` 内の 0.2 dB アーティファクト是正として別途有効。
+   `fix` 側の先頭地形点除去（§4.13「OTHER」、`4ea9ed6e`）は `fix` 内の 0.2 dB アーティファクト是正として別途有効。
 
 3. **多段スタックの DOWNWARD エッジ — 既知の制限（v2.3 以降に先送り、2026-09-09 調査）**
 
@@ -712,7 +728,7 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
    - つまり BT 固有のバグではなく、**favourable 条件をどう表現するかという upstream と `fix` の
      一般的な（橋に限らない）実装方針の違い**が、距離の短い BT サブ経路で相対的に顕在化しているだけ。
      TBC02（`aDif` の実装差、upstream の方が CNOSSOS 準拠として正しいと結論・対応不要とした件、
-     §4.x #2）と同じ性質。合わせにいくには橋に関係ない一般の favourable 経路計算そのものに
+     §4.10 #2）と同じ性質。合わせにいくには橋に関係ない一般の favourable 経路計算そのものに
      手を入れる必要があり、「upstream の既存クラスへの変更は最小限に」という本プロジェクトの
      方針に反する。
 
@@ -739,11 +755,11 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
   あるが `IMAGINARY_SOURCE_UNDER_BRIDGE` には無い（TBC07 遠方のみ + TBC12 BT）。BTスプライスの発火条件は
   両者共通と確認済みなので致命的な穴ではないが、対称性のために追加する価値はある。
   2橋シーン（TBC20/21相当）の `IMAGINARY`/`NOT_RELATED` 版も同様に無いが、
-  「2橋シーンでも音源自身の橋1本しか効かない」制限（上記§4.x #3）により新しい発見は乏しいため見送り。
+  「2橋シーンでも音源自身の橋1本しか効かない」制限（上記§4.10 #3）により新しい発見は乏しいため見送り。
 
 ---
 
-### 4.y `IMAGINARY_SOURCE_UNDER_BRIDGE` の扱い（2026-09-08 決定）
+### 4.11 `IMAGINARY_SOURCE_UNDER_BRIDGE` の扱い（2026-09-08 決定）
 
 **判明した `fix` の実際の設計:** `IMAGINARY_SOURCE_UNDER_BRIDGE` は
 **「道路音源をデッキ裏面に位置移動したコピー」ではなく、構造物音（デッキ・桁の放射音）の音源**。
@@ -790,9 +806,9 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 ---
 
-### 4.aa option 1（emission-type 分離）の v2 移植（2026-09-08 実装完了）
+### 4.12 option 1（emission-type 分離）の v2 移植（2026-09-08 実装完了）
 
-§4.y の「未解明の懸念」を踏まえ v2.2 として option 1 を移植した。**emission 物理は v1 で移植済み**
+§4.11 の「未解明の懸念」を踏まえ v2.2 として option 1 を移植した。**emission 物理は v1 で移植済み**
 （`RoadAsj.evaluateBridgeVirtualSource` / `calculateBridgeVirtualSourceLevelForFrequency`、ASJ 構造物音）
 なので、足りない**振り分け配線**のみを実装。
 
@@ -806,7 +822,7 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 - `BridgeRelationship.RelationType.IMAGINARY_SOURCE_UNDER_BRIDGE`
 - `ElevationConverter`: `IMAGINARY_SOURCE_UNDER_BRIDGE` case ＋ `DEFAULT_SOURCE_HEIGHT_BELOW_BRIDGE = -0.05`
 - `PathFinder.addBridgeVirtualSources`（現状 `MIRROR_SOURCE` のみ生成、javadoc に「IMAGINARY はここでは作らない」）
-- IMAGINARY 経路の BT 回折（§4.x）
+- IMAGINARY 経路の BT 回折（§4.10）
 - v1 の `Structural_noise_from_bridge.groovy`（現状 `BRIDGE_STRUCT_LW` 別テーブルに出力、geom=デッキ中心線・z=デッキ高）
 
 #### 移植する 4 点
@@ -874,8 +890,7 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 - `Road_Emission_from_Traffic.groovy` 内での ROAD/BRIDGE 同時生成（案 A、`fix` 相当の完全自動）。
 - `INPUT_MODE_TRAFFIC_FLOW*` からの `EMISSION_TYPE` 生成（現状 LW 表経由のみ）。
-- `fix` 側にも `986d8ad6` の共有壁コピーを入れる（`fix` も同じ潜在バグ持ち。TBC は直列化 cut profile
-  投入なので顕在化していない）。
+- ~~`fix` 側にも `986d8ad6` の共有壁コピーを入れる~~ → ✅ **2026-09-17 実施**（§4.17 参照）。
 
 #### BRIDGE_PK による音源→デッキ高さの引き継ぎ（2026-09-09 実装・`feat/bridge-v2` `848ba0a2`）
 
@@ -910,7 +925,7 @@ scripts 100 緑、TC01–TC28 期待値不変。`AttenuationCnossos.aBoundary`/`
 
 ---
 
-### 4.z 橋壁の向きと地盤標高プロファイル（2026-09-08 決定・`fix` も是正）
+### 4.13 橋壁の向きと地盤標高プロファイル（2026-09-08 決定・`fix` も是正）
 
 対象は `CutPointBridgeWall` の 3 向き（`WallDirection`）のうち **DOWNWARD**（音源が橋の下）と
 **OTHER**（音源が橋の上・受音点が下方）。いずれも「音源側の地盤基準がデッキ（下面 or 上面）なのに
@@ -973,8 +988,328 @@ under-deck 伝搬を規定しておらず、TBC12/13 の平坦地面では影響
   受け `exiting` 以外は何もしない＝外縁エッジが地盤プロファイルから落ちている。`fix` に合わせて
   `(z),(zGround)` を足す試行をしたが、δ も O→R 平均面もほぼ動かず TBC02 path1 の差は残った（撤回）。
   その ~2.6 dB は `aDif` の実装差（upstream は CNOSSOS 2.5.31/2.5.33 の「受音点が平均面より下」分岐、
-  `fix` の旧 `aDif` は非対応）で、**upstream が正しい**＝移植不要（§4.x #2）。
+  `fix` の旧 `aDif` は非対応）で、**upstream が正しい**＝移植不要（§4.10 #2）。
   v2 の `BridgeAttenuationGoldenTest` クラス javadoc に計装結果を記録（`b953226c`）。
+
+---
+
+### 4.14 v0/v1 スコープ再編 — デッキ地盤基準 と BRIDGE_PK を v0 へ降格（方針決定・実施完了、2026-09-11）
+
+**きっかけ:** §4.12 末尾の BRIDGE_PK 対応（`848ba0a2`）と、v1 squash コミット `311f86f1d`
+（`CutProfile.computePtsGround` のデッキ上音源地盤基準化）を並べて見直したところ、どちらも
+**ASJ 構造物音とは無関係な、CNOSSOS-EU 準拠の位置・地盤基準の正しさの問題**であり、
+「v0 = CNOSSOS-EU 準拠の変更のみ」という v0 の方針に照らせば **v1/v2 ではなく v0 に属する**と判断した。
+
+**対象 2 点（どちらも v0 に既存の依存だけで実装可能。`git grep` で確認済み — `Bridge.getDeckHeightAtPoint`
+/ `BridgeService.getBridgeByPk` / scripts の `tableBridgePoints` 入力は v0 の時点で揃っている）:**
+
+1. **デッキ上音源の地盤基準化**（現状 v1 squash `311f86f1d` = `CutProfile.computePtsGround`
+   の `CutPointSource` 分岐、§本ファイル前段の該当箇所参照）。
+   `ACTUAL_SOURCE_ON_BRIDGE` に分類された音源の地盤（S側平均地盤面フィットの基準点）を、
+   実地形ではなく**デッキ面**にする。ASJ 構造物音を一切使わない場合でも、デッキ上の音源を
+   素の CNOSSOS-EU で扱うだけでこの補正がなければ高さ・地面効果・回折ジオメトリが誤る。
+2. **BRIDGE_PK による相対→絶対 Z 解決**（現状 v2 `848ba0a2` =
+   `ProfileBuilder.makeGeometryRelativeZToAbsoluteOnBridge` / `offsetCoordinateToBridgeDeck`、
+   `DefaultTableLoader.fetchCellSource` の `hasBridgePk` 分岐、`Road_Emission_from_Traffic.groovy`
+   の `BRIDGE_PK` 列パススルー）。
+   `Road_Emission_from_Traffic` → `Noise_level_from_source` の実運用パイプラインで、相対高さの
+   音源を DEM 地表面ではなくデッキ高さ基準で絶対 Z に変換する。これも ASJ 構造物音の有無に関係なく、
+   「デッキ上に音源を置く」という v0 の主張そのものを実運用データで成立させるために必要。
+
+**新しいスコープ境界:**
+
+| | 新スコープ |
+|---|---|
+| **v0** | デッキ＝上越え衝立（既存）＋ **デッキ上音源の地盤基準をデッキ面にする**（①、降格）＋
+  **BRIDGE_PK による相対 Z 解決**（②、降格）。「CNOSSOS-EU 準拠の橋梁ジオメトリ・位置補正」全般が
+  v0 の役割になる。propagation 本体（`AttenuationCnossos`/`CnossosPathBuilder`）は引き続き無改修。 |
+| **v1** | **ASJ 構造物音源の追加のみ**に純化（`emission.road.asj` パッケージ、
+  `Structural_noise_from_bridge` script、構造物音固有のテスト）。①②は前提として v0 から継承し、
+  v1 側の差分からは消える。 |
+| **v2** | 変更なし（デッキ下受音点・ミラー音源・BT 回折・`EMISSION_TYPE` 統合、§4.10/§4.11/§4.12/§4.13）。 |
+
+**実施内容（2026-09-11、隔離 worktree `git cherry-pick` で実施。全ブランチ未 push のローカル専用なので
+history 書き換えは安全）:**
+
+1. `feat/bridge`（v0、旧 tip `3fd9f597`）に `311f86f1d`（デッキ地盤基準、①）→
+   `8a76235e`（BRIDGE_PK、②）を順に cherry-pick。**無コンフリクト**。新 tip `fd3e1847`。
+2. `feat/bridge-v1` を 新 v0 tip の上に**再構築**：①（`311f86f1d`）は v0 に移ったため落とし、
+   残る ASJ 関連 3 コミット（`424f471b`/`1feee706`/`c10deb8c`）のみ cherry-pick。**無コンフリクト**。
+   新 tip `7d9f3452`。
+3. `feat/bridge-v2` を 新 v1 tip の上に**再構築**：②（`8a76235e`）は v0 に移ったため落とし、
+   残る BT/`EMISSION_TYPE`/カバレッジ監査 3 コミット（`f33ace0a`/`126a1d4c`/`1293231b`）のみ
+   cherry-pick。**無コンフリクト**。新 tip `64cb9a81`。
+   **`git diff <旧 feat/bridge-v2> <新 tip> --` は空、tree hash も完全一致**
+   （`339e42ef...`）— 再編は純粋な履歴の並べ替えで、最終内容は 1 バイトも変わっていないことを確認済み。
+4. 新スタック上でフルクリーン回帰: **emission 66 / pathfinder 252 / propagation 65 / jdbc 62 /
+   scripts 103（skip 4）、全緑・旧スタックと同数、回帰ゼロ**。
+5. 3 ブランチのポインタ（`feat/bridge` / `feat/bridge-v1` / `feat/bridge-v2`）を新 tip へ移動
+   （`git branch -f`）。隔離 worktree・作業用ブランチ（`bridge-v1-new`/`bridge-v2-new`）は削除済み。
+6. 上記「ロードマップ（v0 / v1 / v2）」表を新境界に合わせて更新済み（v0 に降格注記、
+   v1/v2 の該当行に「再編後は…」の注記）。
+
+> 旧スタックの内容は git reflog（各ブランチの旧 tip: v0 `3fd9f597`、v1 `c10deb8c`、
+> v2 `8a76235e`）からいつでも参照可能。
+
+#### 補足調査: 音源高さがデッキ高さより高い場合の地盤基準（2026-09-11）
+
+①のデッキ地盤基準化は「音源の実際の高さ」ではなく「**デッキそのものの計算高さ**」
+（`bridge.getDeckHeightAtPoint(c)`）を地盤基準点として使う。そのため音源が
+デッキ面よりわずかに高い（車体・排気管など）場合でも、地盤基準からの高さ差として
+正しく効いてくる ── これは狙いどおりの挙動。
+
+ただし分類（`classifySourceAgainstBridges` → `Bridge/BridgeQueryHelper.isPointOnBridge`）には
+**既定 2.0m の Z 許容差**があり（`Math.abs(point.z - deckAbsoluteHeight) <= tolerance`）、
+音源高さがデッキ面から **2.0m を超えて上**にあると `ACTUAL_SOURCE_ON_BRIDGE` に分類されず
+（`isPointOnBridge` も `isPointBelowBridge` も false）、`BridgeRelationship` は既定値
+`SOURCE_NOT_RELATED_TO_BRIDGE` のまま・`bridgeHeight` は `NaN` のままになる。結果として
+`computePtsGround` は①のデッキ地盤基準分岐に入らず、通常の地形地盤基準
+（`cut.getzGround()`、＝デッキ下の実地形）にフォールバックする。
+
+**つまり境界の 2.0m を境に地盤基準が「デッキ面」から「実地形」へ不連続にジャンプする**
+（デッキ厚が数 m ある橋では、実地形はデッキ面よりさらに数 m 〜 十数 m 下）。実データで
+音源がデッキ footprint 内にありながらデッキ面から 2m 超浮いているケースは通常ないため
+実害は薄いが、境界条件として認識しておく価値はある。対応要否は未検討（現時点では
+「既知の挙動」として記録するのみ、修正の要否は今後の課題）。
+
+---
+
+### 4.15 v1（構造物音）↔ v2（回折パス）の順序入れ替え（実施完了、2026-09-17）
+
+#### 発見: v0/v1 には「橋の下を通る音源」の正しい回折がない
+
+現行 v0/v1（BT 回折より前）を調査したところ、**橋の下を走る道路の音源が、本来ブロック/迂回されるべき
+箇所で正しく扱われていない**ことを確認した。
+
+- `BridgeService.createBridgeCutPoint` は DOWNWARD（デッキ下端）交点についても
+  `isObstructingAcousticRay` を方向別に正しく判定している（直線経路がデッキ下面より上に出る＝
+  本来ブロックされるべき、という判定自体は v0 の時点で実装済み）。
+- しかし `WallDirection` / `bottomRoute` / `topRoute` / `spliceBridgeBottomEdge` は
+  `noisemodelling-pathfinder`/`noisemodelling-propagation` の実際の経路構築コード
+  （`CnossosPathBuilder`/`CnossosPath`/`AttenuationCnossos`）のどこにも参照されていない
+  （v0/v1 で `git grep` して確認）。`CutPointBridgeWall` は `CutPointWall` を継承しているため、
+  DOWNWARD 側でブロックと判定された点も、通常の建物・壁と同じ「障害物の上を回折する」標準
+  CNOSSOS 凸包アルゴリズムにそのまま投入される。
+- つまり v0/v1 では、「デッキの下をくぐる」正しい回折（ミラー音源による BT 二重回折）が存在せず、
+  本来ブロック/迂回すべき経路が建物と同じ上越え回折式で（物理的に不適切に）計算されてしまう。
+  この機構は v2 の BT 回折（§4.10）で初めて導入されている。
+
+#### 提案: v1 と v2 の入れ替え
+
+現行の実装順（v0 → v1: ASJ構造物音 → v2: BT回折/EMISSION_TYPE分離）は**実装のしやすさによる順序**
+であり、機能の見通しとしては「まず橋の下/上の音を正しく伝搬させる（回折パス）→ その上にデッキ自体が
+音を出す音源モデル（構造物音）を足す」の順の方が自然、という指摘を受けて調査した。
+
+**依存関係の調査結果:** BT 回折関連ファイル
+（`CnossosPathBuilder`/`CnossosPath`/`AttenuationCnossos`/`DistanceDifferenceCalculator`/`PointPath`/
+`BridgeAttenuationGoldenTest`）と ASJ 構造物音関連ファイル
+（`emission.road.asj` パッケージ・`Structural_noise_from_bridge.groovy`）は**完全に素集合**
+（コメント 1 箇所を除き相互参照ゼロ）。「構造物音の `EMISSION_TYPE` 分離」コミットのみ両方に依存するが、
+これは元の順序でも BT 回折の**後**に来ていたため、入れ替えても BT→EMISSION_TYPE分離の相対順序は不変。
+→ **入れ替えは技術的に可能**と判断。
+
+**新しい順序（隔離 worktree で実施・検証済み。ブランチポインタは未移動）:**
+
+| | 新スコープ |
+|---|---|
+| **新 v1**（回折パス、v0 の直上） | BT 回折（ミラー音源技法＋下面/上面二重回折の合成、`DIFB` 点）＋ TBC04/05/06/08/09/10/21/30 の回折ゴールデンテスト（元「v2.2 カバレッジ監査」コミットから構造物音に無関係な部分を分離）。**上記の v0/v1 ギャップがここで解消される** |
+| **新 v2**（構造物音、新 v1 の直上） | ASJ RTN-Model 2023（`emission.road.asj`）＋ `Structural_noise_from_bridge` script（旧 v1 の 3 コミットそのまま）＋ `EMISSION_TYPE` 分離（構造物音をデッキ裏面に配置）＋「構造物音が BT 経路を正しく見つける」統合テスト（元「v2.2 カバレッジ監査」コミットの残り半分） |
+
+**検証:**
+- 全コミット cherry-pick で**無コンフリクト**（ファイル集合が素なので当然の結果）。
+- 「v2.2 カバレッジ監査」コミット（`BridgeAttenuationGoldenTest` 加筆 ＋ `BridgeStructuralNoiseTest` 加筆
+  の 2 種類が混在していた）はテスト対象で機械的に分割：前者は新 v1、後者は新 v2 へ。
+- 再編直後（§4.16 のテスト整理コミットを含む前）の新 v2 tip の tree hash は、当時の
+  `feat/bridge-v2` と**完全一致**（`339e42ef...`）— 内容は 1 バイトも変わっていない、
+  純粋な履歴の並べ替えであることを確認済み（その後 §4.16 のテスト整理を新 v0 に追加したため、
+  現在の新 v2 tip はこの時点から更に進んでいる）。
+
+#### 発見: 新 v1 単体では較正済みでない箇所が 1 件あった
+
+新 v1（BT のみ、ASJ 抜き）を単体でフルクリーン回帰したところ、
+`TestNoiseLevelFromBridge.bridgeDeckShieldsAGroundReceiver` の 63 Hz 帯で
+`loss 3.82 dB outside [3.82, 10.32]`（境界ぎりぎりで strict `>` に抵触）が 1 件失敗した。
+
+原因: この許容範囲の下限（`predicted - 1.5`）は元々、旧 v1 の `c10deb8c`（ASJ script コミット）で
+`-1.5 → -2.0` に緩められていた（コミットの注釈は「①デッキ地盤基準化の影響」）。**「各 vN ブランチは
+単体で常に全緑であるべき」という前提を守るため**、この較正緩和（`-1.5 → -2.0`）を新 v1 の直後の
+コミットとして前倒しした。
+
+> **訂正（2026-09-18、§4.18）:** 当時は「BT が同梱する DOWNWARD エッジ地盤プロファイル是正（§4.13）が
+> ズレの原因」と誤って結論したが、後日 v0 単体を改めてフルクリーン回帰したところ **v0 単体でも
+> 同じ箇所が同じ量だけ失敗する**ことが判明（v0 には BT は無い）。真の原因は①（デッキ上音源の
+> 地盤基準化、§4.14 で v0 へ降格）そのものであり、旧 `c10deb8c` の元々の注釈「①の影響」が最初から
+> 正しかった。較正緩和は v0 まで前倒しし直し、詳細は §4.18 を参照。
+
+**最終確認（2026-09-17、§4.16 のテスト整理 4 コミット適用後）:**
+- 新 v1 単体: emission 28 / pathfinder 200 / propagation 64 / jdbc 59 / scripts 98（skip 4）、**全緑**。
+- 新 v2（最終形）: emission 66 / pathfinder 200 / propagation 65 / jdbc 62 / scripts 103（skip 4）、**全緑**。
+- 両者とも隔離 worktree（`/tmp/wt-v1-check` = 新 v1、`/tmp/wt-v1v2-swap` = 新 v2）で
+  独立にフルクリーン回帰済み。並列実行時に `NoiseModellingServerHttpTest` がポート 8000 衝突で
+  1 件だけ見かけ上失敗したことがあったが、単体再実行で無関係（環境要因）と確認済み。
+
+**実施済み（2026-09-17）:** `feat/bridge-v1` を新 v1 tip へ、`feat/bridge-v2` を新 v2 tip へ
+`git branch -f` で移動。`feat/bridge`（v0）は §4.14/§4.16 の時点で既に更新済み。隔離 worktree・
+作業用ブランチ（`v1-new-diffraction`/`v2-new-structural`）は削除済み。3 ブランチとも未 push の
+ローカル専用のため、外部への影響なし。**この時点の tip はいずれも §4.18 で更に置き換わっている
+（旧 v1 tip `5abb1346` → `299a4857`、旧 v2 tip `32417724` → `4672285f`）。**
+
+---
+
+### 4.16 Bridge 系ユニットテストの冗長性整理（4 ファイル完了、2026-09-17）
+
+#### 方針
+
+橋梁機能の実装を進めながら都度追加してきた `noisemodelling-pathfinder` の低レベルユニットテスト
+（`Bridge*Test.java`）に、「同じメソッドを境界値違いで何度も検証する」自明な重複が多数見つかった。
+**「1テスト1シナリオ（1つの物理的・論理的主張）」を基準に、真に重複しているテストのみ統合する**方針
+で整理。個別のアサーションを寄せ集めて1テストの守備範囲を広げるのとは異なり、**異なる主張を1テストに
+混ぜない**ことを徹底（失敗時の原因特定・レビュー時の可読性を落とさないため）。
+
+判断基準:
+- 同じメソッド・同じ観点を、境界値だけ変えて複数テストに分けているだけ → 統合
+- 異なる観点・異なる不変条件を検証している → 分離を維持
+- 恒真式（`assertTrue(true, ...)` を全分岐で通す、`list.size() >= 0` など、失敗し得ないアサーション）
+  → 統合ではなく**削除**
+
+作業は隔離 worktree で実施し、各ファイル単体でのテスト実行で全緑を確認してから
+v0（`feat/bridge`）に個別コミットとして追加、その都度 new-v1/new-v2（§4.15 の再編ブランチ）を
+再構築して回帰確認、という手順を反復した。
+
+#### 実施結果（4ファイル、95+42 → 57+28 = 137 → 85 件、-52 件）
+
+| ファイル | 件数 | 主な統合内容 |
+|---|---|---|
+| `BridgeQueryHelperTest` | 32→16 | `isPointOnBridge`許容差系4件→1、`isPointAboveBridge`/`isPointBelowBridge`系（NaN・可変値違い）各3件→各1、footprint系5件→2、`isRelevantForReflection`系4件→1（**恒真の null 入力テスト1件を削除**）、`getEnvelope2D`+高精度版→1、`updateGeometry`2件→1。**C字型の凹形状テストを削除**（L字型テストと同じ主張の重複） |
+| `BridgeTriangulationTest` | 33→26 | 空入力系3件→1（既存のより網羅的なテストに統合）、有効入力系2件→1、`Triangle.contains()`/重み計算の重複区間をより厳密な専用テストへ集約、**恒真の「robustness」テスト1件・`size()>=0`という恒真式のテスト1件を削除**、位置バランス不正の重複1件を削除 |
+| `BridgeGeometryBuilderTest` | 30→15 | 幅バリエーション4件→1（パラメータ化）、edge数チェック3形状→1、コンストラクタ/getter/setter3件→1（最も網羅的な1件に統合）、単一点での例外4件→1、Right/Left方向のposition確認2件を、より厳密なオフセット検証テストに統合。**単一橋梁点での例外テストの文字通りの重複1件を削除** |
+| `BridgePointManagerTest` | 42→28 | null/空入力ガード3件→1、not-found系3件→1、`interpolateDeckHeight`の「有効な隣接点が足りない」例外系3件→1、`updateGroundHeight`/`getGroundHeightAtPoint`のNaN返却ガード各2件→各1。**既存のfound/not-foundテストに包含される重複2件、より網羅的なテストの部分集合1件、コンストラクタの自明なスモークテスト1件を削除** |
+
+全ファイル、整理後も**アサーションの内容は1つも失っていない**（恒真式・純粋な重複のみ削除）ことを
+各ファイル単体実行の全緑で確認済み。v0（`feat/bridge`）に4コミットとして追加し、
+§4.15 の new-v1/new-v2 を都度再構築、フルクリーン回帰で全緑を再確認済み。
+
+#### 残作業（未着手）
+
+- `noisemodelling-pathfinder` の残りの小さいファイル: `BridgeFactoryTest`(6)・`BridgePointTest`(4)・
+  `BridgeServiceTest`(2)・`BridgeBehaviorTest`(3)・`BridgeProfileBuilderTest`(7) — 件数が少なく
+  今回の4ファイルほどの重複密度は見込みにくいが未調査。
+- `noisemodelling-emission` の ASJ 系: `RoadAsjParametersTest`(20)・`RoadAsjTest`(15) — 中規模で
+  同様のパターンがある可能性あり。物理モデルの数式検証なので、統合するにしても内容を個別に読んで
+  から判断する必要がある（優先度は低め）。
+- `noisemodelling-propagation`/`noisemodelling-jdbc`/scripts groovy系のテスト（golden test・
+  結合テスト）は元々シナリオごとに明確に分かれており、今回のような重複パターンは見込みにくい。
+
+---
+
+### 4.17 `fix` への逆輸入 — 共有橋壁セグメントのコピー漏れ（2026-09-17 実施）
+
+§4.12（`986d8ad6`）で見つけた「`BridgeService.createBridgeCutPoint` が処理済み橋壁の `LineSegment` を
+コピーせず渡し、`CutPointBridgeWall.modifyIntersectionHeight` がそれを in-place で書き換える」バグは
+`fix` 側の `BridgeService.java` にも**同じ形で存在**することを確認済みだった（§4.12「残（v2.3）」に
+「`fix` にも同じ潜在バグ持ち」と記録）。ポート作業がひと段落したので、この既知の未対応項目を解消。
+
+**適用:** `fix` の `createBridgeCutPoint`（v2 と同じ行）を `new LineSegment(wall.getLineSegment())` に
+変更（v2 の修正と同一パッチ）。
+
+**副作用（想定通り）:** `fix` 自身の `PathFinderBridgeTest`（golden JSON 方式）で **7 件が失敗**。
+原因を確認したところ、**旧ゴールデン値自体がこのバグの影響を受けた誤った値**だった
+（例: TBC01 の `_imaginary`（デッキ下面エッジ）は正しくは高さ 9.5m だが、旧フィクスチャは
+同じ処理済み壁を再利用する別プロファイル（デッキ上面 11.0m）の書き込みが漏れて焼き込まれた
+11.0m を期待していた）。`PathFinderBridgeTest.overwriteTestCase` を一時的に `true` にして
+該当 11 ファイルを再生成、目視で「デッキ下面/裏面エッジは薄く・上面/高欄エッジは高く」という
+物理的な妥当性を確認してから `false` に戻し、コミット。
+
+**再生成した golden JSON（11 件）:** `TBC01_imaginary` / `TBC07_imaginary` / `TBC10_mirror` /
+`TBC11_imaginary` / `TBC12_imaginary` / `TBC13_mirror` / `TBC20_actual` / `TBC20_imaginary` /
+`TBC21_mirror` / `TBC30_imaginary` / `TBC31_actual`。
+
+**検証:** `PathFinderBridgeTest` 18/18、`AttenuationComputeOutputCnossosBridgeTest`（propagation の
+attenuation 出力 golden）17/17、`fix` フルクリーン回帰 emission 67 / pathfinder 499 /
+propagation 98 / jdbc 79 / scripts 103（skip 4）— 全緑、他への回帰なし。
+
+**まだ確認していないこと:** `fix` 側でこのバグが実際の計算結果（ノイズマップ等、単体テスト以外の
+出力）にどの程度影響していたかは未調査。今回は単体テストのgolden値のみ是正した。
+
+---
+
+### 4.18 v0 単体の較正漏れ — `bridgeDeckShieldsAGroundReceiver` を v0 でも修正（2026-09-18）
+
+「v0/v1/v2 それぞれで何件テストが増えたか」を正確に数え直す過程で、**v0（`feat/bridge`）を単体で
+フルクリーン回帰すると1件失敗する**ことが判明した。`TestNoiseLevelFromBridge.bridgeDeckShieldsAGroundReceiver`
+の63Hz帯で、§4.15で見つけたのと同じ境界（`predicted - 1.5`）にわずかに抵触。
+
+**原因の再整理:** §4.15では「新v1単体の較正漏れはBT起因」と記録したが、今回v0単体でも同じ失敗が
+再現したことで、**真の原因は§4.14でv0へ降格した①（デッキ上音源の地盤基準化）そのもの**であり、
+BTは無関係（v0にBTはまだ無い）と判明。§4.15の当時の記述は誤りだったので訂正する。
+（旧v1の`c10deb8c`が元々このマージンを`-1.5→-2.0`に緩めていた際の注釈「デッキ地盤基準化の影響」は、
+実は最初から正しかった。）
+
+**対応:** v0（`feat/bridge`）に較正緩和コミットを追加（`4c84fd36`、旧`5abb1346`と同じ`-1.5→-2.0`）。
+v1・v2 は旧`5abb1346`が今や重複になるため cherry-pick から外して再構築。ASJ script コミットの
+cherry-pick が同じ行でマージされた際に残った重複コメント（旧v1由来の説明文）も削除して統合。
+
+**新しい tip（旧 tip から置き換え）:**
+
+| ブランチ | 旧 tip | 新 tip |
+|---|---|---|
+| `feat/bridge`（v0） | `0e62e7d0` | `4c84fd36` |
+| `feat/bridge-v1` | `5abb1346` | `299a4857` |
+| `feat/bridge-v2` | `32417724` | `4672285f` |
+
+**検証:** v0 単体 emission28/pathfinder200/propagation55/jdbc59/scripts98（skip4）=440 全緑。
+v1 単体 emission28/pathfinder200/propagation64/jdbc59/scripts98（skip4）=449 全緑（BT追加分のみ、
+新たな較正は不要だった＝BT自体はこのマージンに影響しないことも確認）。v2（最終形）
+emission66/pathfinder200/propagation65/jdbc62/scripts103（skip4）=496 全緑、§4.16時点と同数
+（テストの増減ではなく、既存1件が常に緑になっただけ）。
+
+---
+
+### 4.19 デッキ上音源→デッキ下受音点の直達距離バグ — `fix` と v0/v1/v2 全部に是正（2026-10-01/02）
+
+ユーザーからの指摘「音源がデッキ上、受音点がデッキ下のとき、直達距離は垂直エッジ回折と同じように
+cutprofile からは計算できないはず」を発端に調査し、実在のバグを確認した。
+
+**問題:** CNOSSOS の δ = SO + e + OR − distance という式の `distance`（直達距離）は、本来
+source-receiver 間の真の3D距離（`dc`）であるべきだが、`CutProfile` を2D展開した座標列から導出される
+`d`（`JTSUtility.getNewCoordinateSystem` 由来、全点が source/receiver と同一平面上＝水平共線である
+ことが前提）が使われる箇所があった。垂直エッジ回折（DIFV）は非共線になり得るため既に `dc` 使用に
+補正済みだったが、**橋デッキの「OTHER」方向エッジ（音源がデッキ上、受音点がデッキ下/脇）のピボットも
+DIFV と同じく Fermat 探索（直線交差ではない）で求まるにもかかわらず、点種別が DIFH のまま生成される
+ため、この補正から漏れていた**。
+
+実測（`fix` の `TBC02` 実在フィクスチャ）: `d=10.833m`（誤り）に対し `dc=7.574m`（正しい）、
+帯域によって最終予測レベルが約0.9〜2.2dB変動。v0 側の新規テスト用ジオメトリでも
+`d=41.689m` vs `dc=40.963m` を確認（軽微だが非ゼロの乖離）。
+
+**対応:** 両系列とも、既存の「DIFV なら `dc` を使う」判定に「橋デッキの OTHER 方向エッジが含まれるか」
+を OR で追加する最小修正。
+
+- `fix`: `CnossosPathProcessor.setDiffractionPathParametersT` に `hasOffAxisBridgeEdge` 判定を追加。
+- v0/v1/v2: `CnossosPathBuilder.computeCnossosPathFromCutProfile` の該当 `difVPointCount` 判定に
+  同様の `hasOffAxisBridgeEdge` 判定を追加（`CutPointBridgeWall.getWallDirection() == OTHER` で検出）。
+
+`fix` では `AttenuationComputeOutputCnossosBridgeTest.TBC02` の golden（`TBC02_attenuation_output.json`）
+を再生成。v0/v1/v2 では既存の golden フィクスチャはこの非共線シナリオを実際には踏んでおらず、
+再生成は不要だった（全緑）。v0 には本バグを固定する新規テスト
+（`BridgePropagationTest.sourceOnDeckToReceiverBelowAndBesideUsesTrueDirectDistance`）を追加し、
+v1・v2 はそのまま cherry-pick で引き継いだ。
+
+**新しい tip（旧 tip から置き換え）:**
+
+| ブランチ | 旧 tip | 新 tip |
+|---|---|---|
+| `fix` | `0fb3a6e7` | `399083da` |
+| `feat/bridge`（v0） | `4c84fd36` | `2aec58ae` |
+| `feat/bridge-v1` | `299a4857` | `ad46b769` |
+| `feat/bridge-v2` | `4672285f` | `d3c95f02` |
+
+**検証:** `fix` フルクリーン回帰 emission67/pathfinder499/propagation98/jdbc79/scripts103（skip4）
+= 846、他への回帰なし。v0 単体 emission28/pathfinder200/propagation56/jdbc59/scripts98（skip4）
+=441（§4.18比+1、新規テスト分）。v1 単体 emission28/pathfinder200/propagation65/jdbc59/scripts98
+（skip4）=450（+1）。v2（最終形）emission66/pathfinder200/propagation66/jdbc62/scripts103（skip4）
+=497（+1）。いずれも cherry-pick 時のコンフリクトは import 行や隣接テストメソッドの追加位置など
+自明なもののみで、ロジック面の衝突はなし。
 
 ---
 
